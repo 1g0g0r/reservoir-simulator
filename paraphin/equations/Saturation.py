@@ -1,7 +1,10 @@
+from numpy import log, sqrt, pi
 from taichi import field, ndrange, kernel, static
 
 from paraphin.utils import up_kw, mid
-from paraphin.constants import default_type, Nx, Ny, hx, hy, dt, qw, volume, area
+from paraphin.constants import default_type, Nx, Ny, hx, hy, dt, Pw, rw, volume, area
+
+well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy)))
 
 
 def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> field(dtype=default_type, shape=(Nx, Ny)):
@@ -26,7 +29,9 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> field(dtype=default_type, sh
                 S[i, j] += -S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] - temp_val / m[i, j] / volume
 
     calc_saturation_loop()
-    # TODO учет скважины такой?
+
+    # учет скважины
+    qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
     S[0, 0] += dt * qw / m[0, 0]
 
     return S

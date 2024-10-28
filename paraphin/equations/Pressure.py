@@ -1,9 +1,12 @@
+from numpy import log, sqrt, pi
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 from taichi import i32, field, ndrange, kernel, static
 
-from paraphin.constants import default_type, Nx, Ny, area, hx, hy, dt, volume, qw, qo
-from paraphin.utils import mid
+from paraphin.constants import default_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw
+from paraphin.utils import mid, show_plot
+
+well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy))) * volume
 
 
 def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_type, shape=(Nx, Ny)):
@@ -17,11 +20,11 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_
     Wo: taichi.field
         Объемная доля масляного компонента в нефти, [-]
     Wo_0: taichi.field
-        Объемная доля масляного компонента в нефти в прошлый момент времени, [-]
+        Объемная доля масляного компонента в нефти на прошлом временном слое, [-]
     m: taichi.field
         Пористость, [-]
     m_0: taichi.field
-        Пористость в прошлый момент времени, [-]
+        Пористость на прошлом временном слое, [-]
     k: taichi.field
         Проницаемость, [м^2]
     S: taichi.field
@@ -72,13 +75,11 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_
                 b[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) *
                           m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
 
-        # Добавили скважины в точки (0,0) (nx, ny)
-        # b[0] += Wo[0, 0] * qw * volume
-        # b[N-1] += qo * volume
-        b[0] += p[0, 0] + qw * mu_w[0, 0] / k[0, 0]
-        # data[0]
-        b[N-1] += p[Nx-1, Ny-1] + qo * mu_o[Nx-1, Ny-1] / k[Nx-1, Ny-1]
-        # data[NN-1]
+        # Добавили скважины в точки (0,0) (nx-1, ny-1)
+        b[0] += well_mult * k[0, 0] * Pw / mu_o[0, 0]
+        data[0] += well_mult * k[0, 0] / mu_o[0, 0]
+        b[N-1] -= well_mult * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
+        data[NN-1] -= well_mult * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
@@ -91,45 +92,3 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_
     show_plot(x, 'plotly')
     p.from_numpy(x.reshape((Nx, Ny)))
     return p
-
-
-def show_plot(x, type):
-    data = x.reshape((Nx, Ny))
-    if type == 'mpl':
-        import matplotlib.pyplot as plt
-        # Отображаем массив с помощью imshow
-        plt.imshow(data, cmap='viridis')
-
-        # Добавляем цветовую шкалу с дополнительными параметрами
-        cbar = plt.colorbar(orientation='horizontal', shrink=0.8)
-        cbar.set_label('Значения данных')
-
-        # Отображаем график
-        plt.show()
-    elif type == 'plotly':
-        from numpy import linspace
-        import plotly.graph_objects as go
-        from paraphin.constants import X_min, X_max, Y_max, Y_min
-
-        x = linspace(X_min, X_max, Nx)
-        y = linspace(Y_min, Y_max, Ny)
-
-        # Создаем тепловую карту
-        fig = go.Figure(data=go.Heatmap(
-            x=x,
-            y=y,
-            z=data,
-            colorscale='Viridis'
-        ))
-
-        # Настраиваем отображение графика
-        fig.update_layout(
-            title='Поле давления',
-            xaxis_title='X',
-            yaxis_title='Y',
-            width=800,
-            height=600
-        )
-
-        # Отображаем график
-        fig.show()

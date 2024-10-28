@@ -1,72 +1,136 @@
-from pickle import load
+from matplotlib.pyplot import imshow, show, colorbar
+from numpy import linspace, ones, meshgrid, array, diag, cos, sin, random
+from plotly.graph_objects import Heatmap, Figure
 
-from numpy import min, max, zeros, ones_like
-from taichi import GUI, tools
-
-from paraphin.constants import output_file_name, Time_end, sol_time_step
-
-x_pixels = 600
-y_pixels = 600
+from paraphin.constants import Nx, Ny, X_min, X_max, Y_max, Y_min
 
 
-def visualize_solution() -> None:
-    with open(output_file_name, 'rb') as f:
-        pres, sat, temp = load(f)
+def visualize_solution(input_data):
+    x = linspace(X_min, X_max, Nx)
+    y = linspace(Y_min, Y_max, Ny)
 
-    # Визуализируем решение
-    gui = GUI("Поля данных", res=(x_pixels, y_pixels))
-    time_slider = gui.slider("Время", 0, Time_end)
+    time = input_data['time']
+    n_times = len(time)
+    del input_data['time']
 
-    # Максимальные/минимальные значения полей данных
-    min_pres = min([min(q) for q in pres])
-    max_pres = max([max(q) for q in pres])
-    min_sat = min([min(q) for q in sat])
-    max_sat = max([max(q) for q in sat])
-    min_temp = min([min(q) for q in temp])
-    max_temp = max([max(q) for q in temp])
+    # Создаем графики
+    traces = []
+    for name, field in input_data.items():
+        trace = Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,
+                           hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
+        traces.append(trace)
 
-    # Начальная инициализация GUI
-    data = pres[0]
-    min_val = min_pres
-    max_val = max_pres
+    # Создаем фигуру
+    fig = Figure(data=traces)
 
-    while gui.running:
-        # Получаем индекс времени
-        time_index = int(time_slider.value / sol_time_step)
+    # Создаем массив отображаемых данных
+    visibility = []
+    for i, val in enumerate(input_data):
+        temp = [False] * len(input_data)
+        temp[i] = True
+        visibility.append(temp)
 
-        # Выбор поля данных
-        for e in gui.get_events(GUI.PRESS):
-            if e.key == GUI.SPACE:
-                gui.running = False
-            elif e.key == 'p':
-                data = pres[time_index]
-                min_val = min_pres
-                max_val = max_pres
-            elif e.key == 's':
-                data = sat[time_index]
-                min_val = min_sat
-                max_val = max_sat
-            elif e.key == 't':
-                data = temp[time_index]
-                min_val = min_temp
-                max_val = max_temp
+    # Добавляем слайдеры для изменения данных
+    steps = []
+    for i in range(n_times):
+        step = dict(
+            method="update",
+            args=[{"z": [j.z[i] for j in traces]}],
+            label=round(time[i], 5)
+        )
+        steps.append(step)
 
-        # Нормализуем данные для преобразования в цвет
-        normalized_data = (data - min_val) / (max_val - min_val)  # Нормализация
-        color_data = zeros((len(data), len(data), 3))  # Создаем массив для цвета
+    sliders = [dict(
+        active=0,
+        currentvalue={"prefix": "Время: "},
+        steps=steps
+    )]
 
-        # Преобразуем нормализованные данные в цвет (RGB) # Пример: градиент от красного к синему
-        color_data[:, :, 0] = normalized_data
-        color_data[:, :, 1] = ones_like(normalized_data) * 0.5
-        color_data[:, :, 2] = 1.0 - normalized_data
+    # Добавляем кнопки для выбора разных наборов данных
+    fig.update_layout(
+        updatemenus=[
+            dict(
+                type="buttons",
+                direction="down",
+                buttons=[dict(args=[{"visible": visibility[i]}],
+                              label = val.name,
+                              method = "update") for i, val in enumerate(traces)],
+                pad={"r": 10, "t": 10},
+                showactive=True,
+                x=1.15,  # Положение по горизонтали (справа от графика)
+                xanchor="left",  # Привязка по горизонтали
+                y=0.85,  # Положение по вертикали (сверху)
+                yanchor="middle"  # Привязка по вертикали
+            ),
+        ],
+        sliders=sliders,
+        width = 1000,  # Устанавливаем ширину фигуры
+        height = 800  # Устанавливаем высоту фигуры
+    )
 
-        #img = cm.jet(img) - цветовую карту Matplotlib ()
+    # По умолчанию показываем первое поле
+    fig.update_traces(visible=False)
+    fig.data[0].visible = True
 
-        # Масштабируем изображение под размер GUI
-        resized_image = tools.imresize(color_data, x_pixels, y_pixels)
+    # Отображаем график
+    fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
 
-        # Устанавливаем цветное изображение
-        gui.set_image(resized_image)
 
-        # Отображаем GUI
-        gui.show()
+def show_plot(x, type):
+    if x.ndim == 1:
+        data = x.reshape((Nx, Ny))
+    else:
+        data = x
+
+    if type == 'mpl':
+        # Отображаем массив с помощью imshow
+        imshow(data, cmap='viridis')
+
+        # Добавляем цветовую шкалу с дополнительными параметрами
+        cbar = colorbar(orientation='horizontal', shrink=0.8)
+        cbar.set_label('Значения данных')
+
+        # Отображаем график
+        show()
+
+    elif type == 'plotly':
+        x = linspace(X_min, X_max, Nx)
+        y = linspace(Y_min, Y_max, Ny)
+
+        # Создаем тепловую карту
+        fig = Figure(data=Heatmap(
+            x=x,
+            y=y,
+            z=data,
+            colorscale='Jet'
+        ))
+
+        # Настраиваем отображение графика
+        fig.update_layout(
+            title='Поле данных',
+            xaxis_title='X',
+            yaxis_title='Y',
+            width=800,
+            height=600
+        )
+
+        # Отображаем график
+        fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
+
+
+if __name__ == '__main__':
+    ones = ones((Nx, Ny))
+    n_times = 50
+
+    x = linspace(X_min, X_max, Nx)
+    y = linspace(Y_min, Y_max, Ny)
+    X, Y = meshgrid(x, y)
+
+    data = {
+        'time': linspace(0, 50, n_times),
+        'pressure': array([cos(X ** 2 + Y ** 2) + i * 0.01 * random.randn(Nx, Ny) for i in range(n_times)]),
+        'temperature': array([sin(X ** 2 + Y ** 2) + i * 0.01 * random.randn(Nx, Ny) for i in range(n_times)]),
+        'saturation': array([ones + diag(ones.diagonal()) * i * 10 for i in range(n_times)]),
+    }
+
+    visualize_solution(data)

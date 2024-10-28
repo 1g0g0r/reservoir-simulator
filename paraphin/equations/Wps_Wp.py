@@ -9,7 +9,7 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T) -> (fiel
     """
     Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме
     """
-    # TODO узнать что такое alpha
+    # TODO alpha = delta(Hp) = Cp * delta (T)
     alpha = 1  # молярные фракции парафина, растворенные в нефти, в зависимости от температуры
     R = 8.31446261815324  # газовая постоянная [J⋅K^−1⋅mol^−1]
     temp = 1.0 / (1.8 * Tm + 32.0)
@@ -31,6 +31,7 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T) -> (fiel
                             (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j] * volume)
 
                 Wp[i, j] = Wps[i, j] * exp(alpha / R * (1.0 / (1.8 * T[i, j] + 32.0) + temp))
+
 
     calc_wps_loop()
 
