@@ -1,7 +1,7 @@
 from numpy import log, sqrt, pi
 from taichi import field, ndrange, kernel, static
 
-from paraphin.utils import up_kw, mid
+from paraphin.utils import up_kw, mid, show_plot
 from paraphin.constants import default_type, Nx, Ny, hx, hy, dt, Pw, rw, volume, area
 
 well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy)))
@@ -11,6 +11,10 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> field(dtype=default_type, sh
     """
     Вычисление водонасыщенности по явной схеме.
     """
+
+    # учет скважины
+    qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
+    S[0, 0] += dt * qw / m[0, 0]
 
     @kernel
     def calc_saturation_loop():
@@ -30,8 +34,5 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> field(dtype=default_type, sh
 
     calc_saturation_loop()
 
-    # учет скважины
-    qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
-    S[0, 0] += dt * qw / m[0, 0]
-
+    # show_plot(S.to_numpy(), 'plotly')
     return S

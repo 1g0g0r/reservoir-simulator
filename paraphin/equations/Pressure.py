@@ -89,6 +89,6 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_
     # ml = pyamg.ruge_stuben_solver(A_csr)  # construct the multigrid hierarchy
     # xx = ml.solve(b.to_numpy(), tol=1e-10)
 
-    show_plot(x, 'plotly')
+    # show_plot(x, 'plotly')
     p.from_numpy(x.reshape((Nx, Ny)))
     return p

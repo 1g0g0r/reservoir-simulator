@@ -1,12 +1,12 @@
 from pickle import dump
 
-from numpy import empty, ceil, isclose
-from taichi import f32, f64, field, ndrange, data_oriented, kernel, types
+from numpy import isclose, array
+from taichi import field, ndrange, data_oriented, kernel, types
 
+from paraphin.constants import (default_type, Nx, Ny, Nr, Time_end, output_file_name, init_T, r, fi_0, init_k,
+                                init_S, init_m, init_Wp, init_Wps, init_Wo, init_p, init_qp, init_h_sloy)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
-from paraphin.constants import (default_type, Nx, Ny, Nr, Time_end, sol_time_step, output_file_name, init_T, r, fi_0,
-                                init_k, init_S, init_m, init_Wp, init_Wps, init_Wo, init_p, init_qp, init_h_sloy)
 
 
 @data_oriented
@@ -45,9 +45,10 @@ class Solver:
         self.qp = field(dtype=d_type, shape=(Nx, Ny))  # скорость отложения парафина в общем объеме
 
         # Массив результатов
-        self.pres_arr = empty(ceil(Time_end / sol_time_step + 1).astype(int), dtype=object)
-        self.sat_arr = empty(ceil(Time_end / sol_time_step + 1).astype(int), dtype=object)
-        self.temp_arr = empty(ceil(Time_end / sol_time_step + 1).astype(int), dtype=object)
+        self.time =  array([])
+        self.pres_arr = array([])
+        self.sat_arr = array([])
+        self.temp_arr = array([])
 
 
     def initialize(self):
@@ -153,19 +154,6 @@ class Solver:
         new_t = self._update_t()                        # Обновление температуры
         new_qp, m_mult, k_mult = self._update_qp_m_k()  # Обновление объема выделяемого парафина, пористости, проницаемости
 
-        # with ProcessPoolExecutor() as executor:
-        #     # Запускаем задачи параллельно
-        #     sat    = executor.submit(self._update_s)       # Обновление насыщенности
-        #     wps_wp = executor.submit(self._update_wps_wp)  # Обновление концентрации взвешенного парафина
-        #     temp   = executor.submit(self._update_t)       # Обновление температуры
-        #     qp_m_k = executor.submit(self._update_qp_m_k)  # Обновление объема выделяемого парафина, пористости, проницаемости
-        #
-        #     # Получаем результаты вычислений
-        #     new_s = sat.result()
-        #     new_wps, new_wp = wps_wp.result()
-        #     new_t = temp.result()
-        #     new_qp, m_mult, k_mult = qp_m_k.result()
-
         # self._update_mu_and_c_temp()  # Обновление свойств веществ ввиду изменения температуры
         self._swap_time_steps(new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult)
 
@@ -184,12 +172,19 @@ class Solver:
         self.qp = new_qp
 
 
-    def save_results(self, idx) -> None:
+    def save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
-        self.pres_arr[idx] = self.p.to_numpy()
-        self.sat_arr[idx] = self.S.to_numpy()
-        self.temp_arr[idx] = self.T.to_numpy()
+        self.time.append(t)
+        self.pres_arr.append(self.p.to_numpy())
+        self.sat_arr.append(self.S.to_numpy())
+        self.temp_arr.append(self.T.to_numpy())
 
-        if isclose(idx, len(self.pres_arr) - 1):
+        if isclose(t, Time_end):
+            output_data = {
+                'Time': self.time,
+                'Pressure': self.pres_arr,
+                'Saturation': self.sat_arr,
+                'Temperature': self.temp_arr
+            }
             with open(output_file_name, 'wb') as f:
-                dump([self.pres_arr, self.sat_arr, self.temp_arr], f)
+                dump(output_data, f)

@@ -25,13 +25,13 @@ def solve():
         sol.upd_time_step()
 
         if t >= iter * sol_time_step or isclose(t, Time_end):
-            sol.save_results(iter)
+            sol.save_results(t)
             iter += 1
-
-    visualize_solution()
 
 
 if __name__ == '__main__':
     solve()
+
+    visualize_solution()
 
 # Идея использовать либу taichi пришла благодаря репозиторию: https://github.com/hejob/taichi-fvm2d-fluid-ns
