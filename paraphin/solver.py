@@ -35,6 +35,7 @@ class Solver:
         self.m = field(dtype=d_type, shape=(Nx, Ny))  # пористость
         self.m_0 = field(dtype=d_type, shape=(Nx, Ny))
         self.T = field(dtype=d_type, shape=(Nx, Ny))  # температура [C]
+        self.T_0 = field(dtype=d_type, shape=(Nx, Ny))
 
         # динамика образования парафина (кольматация\суффозия)
         self.integr_r2_fi0 = field(dtype=d_type, shape=())
@@ -85,6 +86,7 @@ class Solver:
                     self.m[i, j] = init_m
                     self.m_0[i, j] = init_m
                     self.T[i, j] = init_T
+                    self.T_0[i, j] = init_T
                     self.qp[i, j] = init_qp
 
                     # свойства флюидов
@@ -129,8 +131,8 @@ class Solver:
     def _update_wps_wp(self) -> (field(dtype=default_type, shape=(Nx, Ny)),
                                  field(dtype=default_type, shape=(Nx, Ny))):
         """Обновлнние концентрации взвешенного и растворенного парафина."""
-        return calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0,
-                           self.Wps, self.p, self.k, self.mu_o, self.mu_w, self.T)
+        return calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
+                           self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
 
 
     def _update_t(self) -> field(dtype=default_type, shape=(Nx, Ny)):
@@ -147,13 +149,14 @@ class Solver:
 
 
     def upd_time_step(self) -> None:
-        """Метод IMPES: явный по насыщенности неявный по давлению"""
+        """Метод IMPES: явный по насыщенности неявный по давлению."""
+        # Ввиду параллельного выполнения циклов распараллеливание задач снижает производительность
+
         self._update_p()
         new_s = self._update_s()                        # Обновление насыщенности
         new_wps, new_wp = self._update_wps_wp()         # Обновление концентрации взвешенного парафина
         new_t = self._update_t()                        # Обновление температуры
         new_qp, m_mult, k_mult = self._update_qp_m_k()  # Обновление объема выделяемого парафина, пористости, проницаемости
-
         # self._update_mu_and_c_temp()  # Обновление свойств веществ ввиду изменения температуры
         self._swap_time_steps(new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult)
 
@@ -168,6 +171,7 @@ class Solver:
         self.k.from_numpy(self.k.to_array() * k_mult)
         self.m_0 = self.m
         self.m.from_numpy(self.m.to_array() * m_mult)
+        self.T_0 = self.T
         self.T = new_t
         self.qp = new_qp
 

@@ -1,24 +1,27 @@
+from __future__ import annotations
+
 from pickle import load
 
 from matplotlib.pyplot import imshow, show, colorbar
-from numpy import linspace, ones, meshgrid, array, diag, cos, sin, random
+from numpy import linspace, ones, eye, ndarray, meshgrid, array, diag, cos, sin, random
 from plotly.graph_objects import Heatmap, Figure
 
 from paraphin.constants import Nx, Ny, X_min, X_max, Y_max, Y_min, output_file_name
 
 
-def visualize_solution():
-    with open(output_file_name, 'rb') as f:
-        """
-        Pickle файл имеет следующую структуру:
-        input_data = {
-            'time': массив точек времени,
-            'pressure': массив двумерных полей данных давления,
-            'temperature': массив двумерных полей данных температуры,
-            'saturation': массив двумерных полей данных насыщенности
-        }
-        """
-        input_data = load(f)
+def visualize_solution(input_data: dict[str, ndarray]|None = None):
+    if input_data is None:
+        with open(output_file_name, 'rb') as f:
+            """
+            Pickle файл имеет следующую структуру:
+            input_data = {
+                'time': массив точек времени,
+                'pressure': массив двумерных полей данных давления,
+                'temperature': массив двумерных полей данных температуры,
+                'saturation': массив двумерных полей данных насыщенности
+            }
+            """
+            input_data = load(f)
 
     x = linspace(X_min, X_max, Nx)
     y = linspace(Y_min, Y_max, Ny)
@@ -30,19 +33,15 @@ def visualize_solution():
     # Создаем графики
     traces = []
     for name, field in input_data.items():
-        trace = Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,
+        trace = Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,  # colorscale='Cividis'
                         hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
         traces.append(trace)
 
     # Создаем фигуру
     fig = Figure(data=traces)
 
-    # Создаем массив отображаемых данных
-    visibility = []
-    for i, val in enumerate(input_data):
-        temp = [False] * len(input_data)
-        temp[i] = True
-        visibility.append(temp)
+    # Создаем массив отображаемых данных (все False, а на диагонали True)
+    visibility = eye(len(input_data), dtype=bool)
 
     # Добавляем слайдеры для изменения данных
     steps = []
@@ -87,7 +86,10 @@ def visualize_solution():
     fig.data[0].visible = True
 
     # Отображаем график
-    fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
+    if __name__ == '__main__':
+        fig.write_html('results.html', include_plotlyjs='plotly_script.js')
+    else:
+        fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
 
 
 def show_plot(x, type):
@@ -129,10 +131,14 @@ def show_plot(x, type):
         )
 
         # Отображаем график
-        fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
+        if __name__ == '__main__':
+            fig.write_html('results.html', include_plotlyjs='plotly_script.js')
+        else:
+            fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
 
 
 if __name__ == '__main__':
+    Nx, Ny = 128, 128
     ones = ones((Nx, Ny))
     n_times = 50
 
