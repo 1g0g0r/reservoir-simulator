@@ -30,9 +30,8 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, Cp)
                             ((m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt - temp_val) - ro_o * Wp[i, j] *
                             (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j] * volume)
 
-                delta_Hp = Cp[i, j] * (T[i, j] - T_0[i, j])
-                Wp[i, j] = Wps[i, j] * exp(delta_Hp / R * (1.0 / (1.8 * T[i, j] + 32.0) + temp))
-
+                delta_Hp = Cp[i, j] * (T[i, j] - T_0[i, j]) * 1.8   # перевод в фаренгейты
+                Wp[i, j] = Wps[i, j] * exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
 
     calc_wp_wps_loop()
 

@@ -1,9 +1,10 @@
 from pickle import dump
 
-from numpy import isclose, array
+from numpy import isclose, array, gradient
+from numpy.linalg import norm
 from taichi import field, ndrange, data_oriented, kernel, types
 
-from paraphin.constants import (default_type, Nx, Ny, Nr, Time_end, output_file_name, init_T, r, fi_0, init_k,
+from paraphin.constants import (default_type, Nx, Ny, Nr, Time_end, output_file_name, init_T, r, fi_0, init_k, eta,
                                 init_S, init_m, init_Wp, init_Wps, init_Wo, init_p, init_qp, init_h_sloy)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
@@ -141,22 +142,24 @@ class Solver:
                                 self.Wp, self.Wps, self.p, self.k, self.mu_o, self.mu_w)
 
 
-    def _update_qp_m_k(self) -> (field(dtype=default_type, shape=(Nx, Ny)), field(dtype=default_type, shape=(Nx, Ny)),
-                                 field(dtype=default_type, shape=(Nx, Ny))):
+    def _update_qp_m_k(self, Um_r2) -> (field(dtype=default_type, shape=(Nx, Ny)),
+                                        field(dtype=default_type, shape=(Nx, Ny)),
+                                        field(dtype=default_type, shape=(Nx, Ny))):
         """Обновление объема выделяемого парафина, пористости и проницаемости."""
-        return calc_qp(self.p, self.Wps, self.mu_o, self.m, self.qp, self.fi, self.h_sloy,
-                       self.r, self.integr_r2_fi0, self.integr_r4_fi0)
+        return calc_qp(self.Wps, self.mu_o, self.m, self.qp, self.fi, self.h_sloy,
+                       self.r, self.integr_r2_fi0, self.integr_r4_fi0, Um_r2)
 
 
     def upd_time_step(self) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов распараллеливание задач снижает производительность
+        Um_r2 = norm(gradient(self.p.to_numpy()), axis=0) * 0.125 / eta / self.mu_o.to_numpy()
 
         self._update_p()
         new_s = self._update_s()                        # Обновление насыщенности
         new_wps, new_wp = self._update_wps_wp()         # Обновление концентрации взвешенного парафина
         new_t = self._update_t()                        # Обновление температуры
-        new_qp, m_mult, k_mult = self._update_qp_m_k()  # Обновление объема выделяемого парафина, пористости, проницаемости
+        new_qp, m_mult, k_mult = self._update_qp_m_k(Um_r2)  # Обновление объема выделяемого парафина, пористости, проницаемости
         # self._update_mu_and_c_temp()  # Обновление свойств веществ ввиду изменения температуры
         self._swap_time_steps(new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult)
 

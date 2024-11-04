@@ -1,21 +1,17 @@
-from numpy import gradient
-from numpy.linalg import norm
 from taichi import field, ndrange, func, kernel
 
-from paraphin.constants import default_type, Nx, Ny, Nr, dt, ro_o, eta, D, gamma
+from paraphin.constants import default_type, Nx, Ny, Nr, dt, ro_o, D, gamma
 from .Velocitys import u_c, u_b, u_r
 
 
-def calc_qp(p, Wps, mu_o, m, qp, fi, h_sloy, r, integr_r2_fi0, integr_r4_fi0) -> (field(dtype=default_type, shape=(Nx, Ny)),
-                                                                                  field(dtype=default_type, shape=(Nx, Ny)),
-                                                                                  field(dtype=default_type, shape=(Nx, Ny))):
+def calc_qp(Wps, mu_o, m, qp, fi, h_sloy, r, integr_r2_fi0, integr_r4_fi0, Um_r2) -> (field(dtype=default_type, shape=(Nx, Ny)),
+                                                                                         field(dtype=default_type, shape=(Nx, Ny)),
+                                                                                         field(dtype=default_type, shape=(Nx, Ny))):
     """
     Вычисление концентрации взвешенных частиц парафина по явной схеме
 
     Parameters
     ----------
-    p: taichi.field(Nx, Ny)
-        Давление
     Wps: taichi.field(Nx, Ny)
         Концентрации взвешенных частиц парафина
     m: taichi.field(Nx, Ny)
@@ -32,6 +28,8 @@ def calc_qp(p, Wps, mu_o, m, qp, fi, h_sloy, r, integr_r2_fi0, integr_r4_fi0) ->
         Интеграл r^2 * fi_o(r)
     integr_r4_fi0: float
         Интеграл r^4 * fi_o(r)
+    Um_r2: numpy.ndarray
+        Средняя скорость в канале разделенная на r^2
 
     Returns
     -------
@@ -48,8 +46,6 @@ def calc_qp(p, Wps, mu_o, m, qp, fi, h_sloy, r, integr_r2_fi0, integr_r4_fi0) ->
     r4 = r3 * r
     r5 = r4 * r
     r6 = r5 * r
-
-    Um_r2 = norm(gradient(p.to_numpy()), axis=0) * 0.125 / eta / mu_o.to_numpy()
 
     @kernel
     def calc_qp_loop():
@@ -69,6 +65,8 @@ def calc_qp(p, Wps, mu_o, m, qp, fi, h_sloy, r, integr_r2_fi0, integr_r4_fi0) ->
                 h_sloy[i, j, 0] = sed_h(h_sloy[i, j, 0], ur, r[0])
 
                 for ij in ndrange(1, Nr):
+                    # Проверить вычисление скоростей.
+                    # Вынести расчет средней скорости до обновления давления.
                     um_new = Um_r2[i, j] * r2[ij]
                     ur_new = u_r(Wps[i, j], um_new, r[ij], h_sloy[i, j, ij])
                     ub_new = u_b(um_new, Wps[i, j], fi[i, j, ij], r[ij])

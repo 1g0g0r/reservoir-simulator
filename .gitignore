@@ -1,9 +1,9 @@
 .idea
 .vscode
 .env
+.venv
 .pip
 .run
-.devcontainer
 
 **/__pycache__/
 TempFiles/
