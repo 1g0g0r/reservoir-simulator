@@ -26,9 +26,9 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
     x = linspace(X_min, X_max, Nx)
     y = linspace(Y_min, Y_max, Ny)
 
-    time = input_data['time']
+    time = input_data['Time']
     n_times = len(time)
-    del input_data['time']
+    del input_data['Time']
 
     # Создаем графики
     traces = []

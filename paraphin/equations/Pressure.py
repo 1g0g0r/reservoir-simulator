@@ -6,7 +6,10 @@ from taichi import i32, field, ndrange, kernel, static
 from paraphin.constants import default_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw
 from paraphin.utils import mid, show_plot
 
+# Операции с константными величинами (вычисляются один раз только при импорте модуля)
 well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy))) * volume
+N = Nx * Ny  # размер матрицы
+NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 
 
 def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_type, shape=(Nx, Ny)):
@@ -15,32 +18,30 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_
 
     Parameters
     ----------
-    p: taichi.field
+    p: taichi.field(Nx, Ny)
         Давление, [Па]
-    Wo: taichi.field
+    Wo: taichi.field(Nx, Ny)
         Объемная доля масляного компонента в нефти, [-]
-    Wo_0: taichi.field
+    Wo_0: taichi.field(Nx, Ny)
         Объемная доля масляного компонента в нефти на прошлом временном слое, [-]
-    m: taichi.field
+    m: taichi.field(Nx, Ny)
         Пористость, [-]
-    m_0: taichi.field
+    m_0: taichi.field(Nx, Ny)
         Пористость на прошлом временном слое, [-]
-    k: taichi.field
+    k: taichi.field(Nx, Ny)
         Проницаемость, [м^2]
-    S: taichi.field
+    S: taichi.field(Nx, Ny)
         Водоносыщенность, [-]
-    mu_o: taichi.field
+    mu_o: taichi.field(Nx, Ny)
         Вязкость нефти, [Па*с]
-    mu_w: taichi.field
+    mu_w: taichi.field(Nx, Ny)
         Вязкость воды, [Па*с]
 
     Returns
     -------
-    p: taichi.field
-        Давление, [Па]
+    p: taichi.field(Nx, Ny)
+        Давление на новом временном слое, [Па]
     """
-    N = Nx * Ny  # размер матрицы
-    NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
     data = field(default_type, shape=NN)
     row_indices = field(i32, shape=NN)
     col_indices = field(i32, shape=NN)

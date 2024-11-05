@@ -1,13 +1,14 @@
-from pickle import dump
+from pickle import dump, load
 
-from numpy import isclose, array, gradient
-from numpy.linalg import norm
+from numpy import isclose, append
 from taichi import field, ndrange, data_oriented, kernel, types
 
-from paraphin.constants import (default_type, Nx, Ny, Nr, Time_end, output_file_name, init_T, r, fi_0, init_k, eta,
+from paraphin.constants import (default_type, Nx, Ny, Nr, Time_end, output_file_name, init_T, r, fi_0, init_k,
                                 init_S, init_m, init_Wp, init_Wps, init_Wo, init_p, init_qp, init_h_sloy)
-from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp
+from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
+
+flug_debug = False
 
 
 @data_oriented
@@ -42,15 +43,11 @@ class Solver:
         self.integr_r2_fi0 = field(dtype=d_type, shape=())
         self.integr_r4_fi0 = field(dtype=d_type, shape=())
         self.r = field(dtype=d_type, shape=Nr)
+        self.qp = field(dtype=d_type, shape=(Nx, Ny))  # скорость отложения парафина в общем объеме
         self.fi = field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.h_sloy = field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.qp = field(dtype=d_type, shape=(Nx, Ny))  # скорость отложения парафина в общем объеме
-
-        # Массив результатов
-        self.time =  array([])
-        self.pres_arr = array([])
-        self.sat_arr = array([])
-        self.temp_arr = array([])
+        self.Ur = field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.Ub = field(dtype=d_type, shape=(Nx, Ny, Nr))
 
 
     def initialize(self):
@@ -101,6 +98,8 @@ class Solver:
                     for ij in ndrange(fi_o.shape[0]):
                         self.fi[i, j, ij] = fi_o[ij]
                         self.h_sloy[i, j, ij] = init_h_sloy
+                        self.Ur[i, j, ij] = 0.0
+                        self.Ub[i, j, ij] = 0.0
 
         self.r.from_numpy(r)
         calc_integrals(rr=r, fi_o=fi_0)
@@ -142,49 +141,65 @@ class Solver:
                                 self.Wp, self.Wps, self.p, self.k, self.mu_o, self.mu_w)
 
 
-    def _update_qp_m_k(self, Um_r2) -> (field(dtype=default_type, shape=(Nx, Ny)),
-                                        field(dtype=default_type, shape=(Nx, Ny)),
-                                        field(dtype=default_type, shape=(Nx, Ny))):
+    def _update_qp_m_k(self) -> (field(dtype=default_type, shape=(Nx, Ny)),
+                                 field(dtype=default_type, shape=(Nx, Ny)),
+                                 field(dtype=default_type, shape=(Nx, Ny))):
         """Обновление объема выделяемого парафина, пористости и проницаемости."""
-        return calc_qp(self.Wps, self.mu_o, self.m, self.qp, self.fi, self.h_sloy,
-                       self.r, self.integr_r2_fi0, self.integr_r4_fi0, Um_r2)
+        return calc_qp(self.Wps, self.m, self.qp, self.fi, self.Ur, self.Ub,
+                       self.r, self.integr_r2_fi0[None], self.integr_r4_fi0[None])
+
+
+    def _update_h_ur_ub(self) -> (field(dtype=default_type, shape=(Nx, Ny)),
+                                  field(dtype=default_type, shape=(Nx, Ny)),
+                                  field(dtype=default_type, shape=(Nx, Ny))):
+        """Обновление объема выделяемого парафина, пористости и проницаемости."""
+        return calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi, self.r, self.h_sloy, self.Ur, self.Ub)
 
 
     def upd_time_step(self) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов распараллеливание задач снижает производительность
-        Um_r2 = norm(gradient(self.p.to_numpy()), axis=0) * 0.125 / eta / self.mu_o.to_numpy()
+        flug_debug and print()
+        # --- решение гидродинамики ---
+        self._update_p()                         # Обновление давления
+        new_s = self._update_s()                 # Обновление насыщенности
+        new_wps, new_wp = self._update_wps_wp()  # Обновление концентраций парафина
+        new_t = self._update_t()                 # Обновление температуры
+        flug_debug and print('---Обновлена гидродинамика---')
 
-        self._update_p()
-        new_s = self._update_s()                        # Обновление насыщенности
-        new_wps, new_wp = self._update_wps_wp()         # Обновление концентрации взвешенного парафина
-        new_t = self._update_t()                        # Обновление температуры
-        new_qp, m_mult, k_mult = self._update_qp_m_k(Um_r2)  # Обновление объема выделяемого парафина, пористости, проницаемости
+        # --- решение задачи кольматации\суффозии ---
+        new_h, new_Ur, new_Ub = self._update_h_ur_ub()  # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
+        new_qp, m_mult, k_mult = self._update_qp_m_k()  # Обновление объема выделяемого парафина, пористости, проницаемости А ТАК ЖЕ ФУНКЦИИ ПОР ПО РАЗМЕРАМ
+        flug_debug and print('---Обновлена кольматация/суффозия---')
+
         # self._update_mu_and_c_temp()  # Обновление свойств веществ ввиду изменения температуры
-        self._swap_time_steps(new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult)
+        self._swap_time_steps(new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult, new_h, new_Ur, new_Ub)
 
 
-    def _swap_time_steps(self, new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult):
+    def _swap_time_steps(self, new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult, new_h, new_Ur, new_Ub):
         """Обновление полей данных на новом временном слое."""
         self.S_0, self.S = self.S, new_s
         self.Wo_0 = self.Wo
-        self.Wo.from_numpy(1.0 - self.Wp.to_array() - self.Wps.to_array())
+        self.Wo.from_numpy(1.0 - self.Wp.to_numpy() - self.Wps.to_numpy())
         self.Wp_0, self.Wp = self.Wp, new_wp
         self.Wps = new_wps
-        self.k.from_numpy(self.k.to_array() * k_mult)
+        self.k.from_numpy(self.k.to_numpy() * k_mult.to_numpy())
         self.m_0 = self.m
-        self.m.from_numpy(self.m.to_array() * m_mult)
+        self.m.from_numpy(self.m.to_numpy() * m_mult.to_numpy())
         self.T_0 = self.T
         self.T = new_t
         self.qp = new_qp
+        self.h_sloy = new_h
+        self.Ur = new_Ur
+        self.Ub = new_Ub
 
 
     def save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
-        self.time.append(t)
-        self.pres_arr.append(self.p.to_numpy())
-        self.sat_arr.append(self.S.to_numpy())
-        self.temp_arr.append(self.T.to_numpy())
+        self.time = append(self.time, t)
+        self.pres_arr = append(self.pres_arr, self.p.to_numpy())
+        self.sat_arr = append(self.sat_arr, self.S.to_numpy())
+        self.temp_arr = append(self.temp_arr, self.T.to_numpy())
 
         if isclose(t, Time_end):
             output_data = {
@@ -195,3 +210,25 @@ class Solver:
             }
             with open(output_file_name, 'wb') as f:
                 dump(output_data, f)
+
+
+    def save_results2(self, t) -> None:
+        """Сохранение полей данных в файл формата pkl."""
+        current_data = {
+            'Time': t,
+            'Pressure': self.p.to_numpy(),
+            'Saturation': self.S.to_numpy(),
+            'Temperature': self.T.to_numpy()
+        }
+
+        try:
+            with open(output_file_name, 'rb') as f:  # Пробуем открыть существующий файл
+                data = load(f)
+        except (FileNotFoundError, EOFError):  # Если файл не существует или пустой
+            data = []
+
+        data.append(current_data)  # Добавляем новые данные
+
+        # Записываем обновленные данные
+        with open(output_file_name, 'wb') as f:
+            dump(data, f)

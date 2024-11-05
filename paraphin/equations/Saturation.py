@@ -8,8 +8,29 @@ well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy)))
 
 
 def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> field(dtype=default_type, shape=(Nx, Ny)):
-    """
-    Вычисление водонасыщенности по явной схеме.
+    """Вычисление водонасыщенности по явной схеме.
+
+    Parameters
+    ----------
+    S: taichi.field(Nx, Ny)
+        Водоносыщенность, [-]
+    p: taichi.field(Nx, Ny)
+        Давление, [Па]
+    k: taichi.field(Nx, Ny)
+        Проницаемость, [м^2]
+    m: taichi.field(Nx, Ny)
+        Пористость, [-]
+    m_0: taichi.field(Nx, Ny)
+        Пористость на прошлом временном слое, [-]
+    mu_o: taichi.field(Nx, Ny)
+        Вязкость нефти, [Па*с]
+    mu_w: taichi.field(Nx, Ny)
+        Вязкость воды, [Па*с]
+
+    Returns
+    -------
+    S: taichi.field(Nx, Ny)
+        Водоносыщенность на новом временном слое, [-]
     """
 
     # учет скважины

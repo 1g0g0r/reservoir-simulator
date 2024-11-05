@@ -6,8 +6,41 @@ from paraphin.constants import (default_type, Nx, Ny, hx, hy, dt, volume, area, 
 
 
 def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> field(dtype=default_type, shape=(Nx, Ny)):
-    """
-    Вычисление температуры по явной схеме
+    """Вычисление температуры по явной схеме.
+
+    Parameters
+    ----------
+    T: taichi.field(Nx, Ny)
+        Температура, [С]
+    m: taichi.field(Nx, Ny)
+        Пористость, [-]
+    S: taichi.field(Nx, Ny)
+        Водоносыщенность, [-]
+    C_o: taichi.field(Nx, Ny)
+        Теплоемкость нефти, [Дж/C]
+    C_w: taichi.field(Nx, Ny)
+        Теплоемкость воды, [Дж/C]
+    C_f: taichi.field(Nx, Ny)
+        Теплоемкость пласта, [Дж/C]
+    C_p: taichi.field(Nx, Ny)
+        Теплоемкость парафина, [Дж/C]
+    Wp: taichi.field(Nx, Ny)
+        Концентрация растворенного парафина, [-]
+    Wps: taichi.field(Nx, Ny)
+        Концентрация взвешенных частиц парафина, [-]
+    p: taichi.field(Nx, Ny)
+        Давление, [Па]
+    k: taichi.field(Nx, Ny)
+        Проницаемость, [м^2]
+    mu_o: taichi.field(Nx, Ny)
+        Вязкость нефти, [Па*с]
+    mu_w: taichi.field(Nx, Ny)
+        Вязкость воды, [Па*с]
+
+    Returns
+    -------
+    T: taichi.field(Nx, Ny)
+        Температура на новом временном слое, [С]
     """
     @kernel
     def calc_temperature_loop():
