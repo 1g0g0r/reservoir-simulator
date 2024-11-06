@@ -33,10 +33,6 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> field(dtype=default_type, sh
         Водоносыщенность на новом временном слое, [-]
     """
 
-    # учет скважины
-    qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
-    S[0, 0] += dt * qw / m[0, 0]
-
     @kernel
     def calc_saturation_loop():
         for i in ndrange((1, Nx - 1)):
@@ -55,5 +51,9 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> field(dtype=default_type, sh
 
     calc_saturation_loop()
 
-    # show_plot(S.to_numpy(), 'plotly')
+    # учет скважины
+    qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
+    S[0, 0] += dt * qw / m[0, 0]
+
+    show_plot(S.to_numpy(), 'plotly')
     return S

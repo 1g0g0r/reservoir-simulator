@@ -1,9 +1,9 @@
 from pickle import dump, load
 
-from numpy import isclose, append
+from numpy import concatenate, array
 from taichi import field, ndrange, data_oriented, kernel, types
 
-from paraphin.constants import (default_type, Nx, Ny, Nr, Time_end, output_file_name, init_T, r, fi_0, init_k,
+from paraphin.constants import (default_type, Nx, Ny, Nr, output_file_name, init_T, r, fi_0, init_k,
                                 init_S, init_m, init_Wp, init_Wps, init_Wo, init_p, init_qp, init_h_sloy)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
@@ -169,7 +169,7 @@ class Solver:
 
         # --- решение задачи кольматации\суффозии ---
         new_h, new_Ur, new_Ub = self._update_h_ur_ub()  # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-        new_qp, m_mult, k_mult = self._update_qp_m_k()  # Обновление объема выделяемого парафина, пористости, проницаемости А ТАК ЖЕ ФУНКЦИИ ПОР ПО РАЗМЕРАМ
+        new_qp, m_mult, k_mult = self._update_qp_m_k()  # Обновление ФУНКЦИИ ПОР ПО РАЗМЕРАМ, объема выделяемого парафина, пористости, проницаемости
         flug_debug and print('---Обновлена кольматация/суффозия---')
 
         # self._update_mu_and_c_temp()  # Обновление свойств веществ ввиду изменения температуры
@@ -196,38 +196,24 @@ class Solver:
 
     def save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
-        self.time = append(self.time, t)
-        self.pres_arr = append(self.pres_arr, self.p.to_numpy())
-        self.sat_arr = append(self.sat_arr, self.S.to_numpy())
-        self.temp_arr = append(self.temp_arr, self.T.to_numpy())
-
-        if isclose(t, Time_end):
-            output_data = {
-                'Time': self.time,
-                'Pressure': self.pres_arr,
-                'Saturation': self.sat_arr,
-                'Temperature': self.temp_arr
-            }
-            with open(output_file_name, 'wb') as f:
-                dump(output_data, f)
-
-
-    def save_results2(self, t) -> None:
-        """Сохранение полей данных в файл формата pkl."""
-        current_data = {
-            'Time': t,
-            'Pressure': self.p.to_numpy(),
-            'Saturation': self.S.to_numpy(),
-            'Temperature': self.T.to_numpy()
-        }
-
+        # Пробуем открыть существующий файл
         try:
-            with open(output_file_name, 'rb') as f:  # Пробуем открыть существующий файл
+            with open(output_file_name, 'rb') as f:
                 data = load(f)
-        except (FileNotFoundError, EOFError):  # Если файл не существует или пустой
-            data = []
+            # Добавляем новые данные
+            data['Time'] = concatenate((data['Time'], [t]), axis=0)
+            data['Pressure'] = concatenate((data['Pressure'], [self.p.to_numpy()]), axis=0)
+            data['Saturation'] = concatenate((data['Saturation'], [self.S.to_numpy()]), axis=0)
+            data['Temperature'] = concatenate((data['Temperature'], [self.T.to_numpy()]), axis=0)
 
-        data.append(current_data)  # Добавляем новые данные
+        # Если файл не существует или пустой
+        except (FileNotFoundError, EOFError):
+            data = {
+                'Time': array([t]),
+                'Pressure': array([self.p.to_numpy()]),
+                'Saturation': array([self.S.to_numpy()]),
+                'Temperature': array([self.T.to_numpy()])
+            }
 
         # Записываем обновленные данные
         with open(output_file_name, 'wb') as f:
