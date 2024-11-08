@@ -34,20 +34,18 @@
 
 ## 🏗️ Структура проекта
 paraphin/  
-├── `main.py` - основной модуль для запуска расчета  
-├── `paraphin/` - пакет с модулями для решения задачи  
-│ &nbsp;&nbsp;├── `constants.py` - модуль с константами  
-│ &nbsp;&nbsp;├── `solver.py` - модуль с основными методами и полями данных  
-│ &nbsp;&nbsp;├── `equations` - папка с реализацией решений уравнений  
-│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├── `Pressure.py` - неявное решение уравнения для давления  
-│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├── `Qp.py` - вычисление скорости отложения парафина, множителей проистости и проницаеммости  
-│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├── `Saturation.py` - явное решение уравнения для насыщенности  
-│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├── `Temperature.py` - явное решение уравнения для температуры  
-│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├── `Velocity_h.py` -  вычисление толщины осадочного слоя, скоростей блокирования и изменения радиуса капилляра  
-│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;└── `Wps_Wp.py` - решение уравнений для концентрация взвешенных частиц и растворенного парафина  
-│ &nbsp;&nbsp;└──  `utils/` - папка с дополнительными модулями  
-│ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├──  `fluids_correlations.py` - зависимости свойств потока от температуры (пока что не используется)  
-│ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├──  `phase_f.py` - функции ОФП  
-│ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├──  `vizualization.py` - модуль с функцией для визуализации результатов  
-
-
+┌─── `main.py` - основной модуль для запуска расчета  
+├─── `paraphin/` - пакет с модулями для решения задачи  
+│ &nbsp;&nbsp;├─── `constants.py` - модуль с константами  
+│ &nbsp;&nbsp;├─── `solver.py` - модуль с основными методами и полями данных  
+│ &nbsp;&nbsp;├─── `equations` - папка с реализацией решений уравнений  
+│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├─── `Pressure.py` - неявное решение уравнения для давления  
+│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├─── `Qp.py` - вычисление скорости отложения парафина, множителей проистости и проницаеммости  
+│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├─── `Saturation.py` - явное решение уравнения для насыщенности  
+│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├─── `Temperature.py` - явное решение уравнения для температуры  
+│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;├─── `Velocity_h.py` -  вычисление толщины осадочного слоя, скоростей блокирования и изменения радиуса капилляра  
+│ &nbsp;&nbsp;│ &nbsp;&nbsp;&nbsp;└─── `Wps_Wp.py` - решение уравнений для концентрация взвешенных частиц и растворенного парафина  
+│ &nbsp;&nbsp;└───  `utils/` - папка с дополнительными модулями  
+│ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├───  `fluids_correlations.py` - зависимости свойств потока от температуры (пока что не используется)  
+│ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├───  `phase_f.py` - функции ОФП  
+│ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └───  `vizualization.py` - модуль с функцией для визуализации результатов  
