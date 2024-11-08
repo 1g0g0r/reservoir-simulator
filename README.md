@@ -4,7 +4,6 @@
 [![Python](https://img.shields.io/badge/python-100%25-brightgreen.svg)](https://github.com/1g0g0r/paraphin)
 
 ## 📝 Описание
-
 - 📊 Моделирование двухфазной фильтрации нефти
 - 🌡️ Учет неизотермических процессов
 - 🔄 Расчет процессов кольматации (оседание парафиновых частиц в капяллярах)
@@ -27,7 +26,6 @@
   - Model-Assisted Analysis of Simultaneous Paraffin and Asphaltene Deposition in Laboratory Core Tests - исследование кольматации парафиновых отложений
 
 ## 📋 Требования
-
 Проект использует:
 - Python 3.12  
 - Необходимые библиотеки указаны в requirements.txt
