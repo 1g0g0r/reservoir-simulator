@@ -1,8 +1,11 @@
+from numpy import log, sqrt, pi
 from taichi import field, ndrange, kernel, static
 
 from paraphin.utils import up_kw, up_ko, mid
 from paraphin.constants import (default_type, Nx, Ny, hx, hy, dt, volume, area, ro_w, ro_f,
-                                ro_o, ro_p, K_o, K_f, K_w, K_p)
+                                ro_o, ro_p, K_o, K_f, K_w, K_p, Pw, Po, rw,)
+
+well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy)))
 
 
 def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> field(dtype=default_type, shape=(Nx, Ny)):
@@ -42,34 +45,43 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
     T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
     """
+
     @kernel
     def calc_temperature_loop():
-        for i in ndrange((1, Nx - 1)):
-            for j in ndrange((1, Ny - 1)):
-                multiplier = dt / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
-                                   (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] + (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j]) / volume
+        for i in ndrange(Nx):
+            for j in ndrange(Ny):
+                # учет скважины
+                # qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
+                # S[0, 0] += dt * qw / m[0, 0]
+                #
+                # qo = (Po - p[Nx - 1, Ny - 1]) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
+                # S[Nx - 1, Ny - 1] += dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
+
+                multiplier = dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
+                                   (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] + (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])
                 t1, t2, t3 = 0.0, 0.0, 0.0
 
                 # цикл по граням
                 arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
                 for idx in static(ndrange(4)):
                     i1, j1, hij = arr[idx]
-                    temp_val = mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                   k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * (p[i, j] - p[i1, j1]) / hij
+                    if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                        temp_val = mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                       k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * (p[i, j] - p[i1, j1]) / hij * area
 
-                    t1 += (T[i, j] - T[i1, j1]) / hij
-                    t2 += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
+                        t1 += (T[i, j] - T[i1, j1]) / hij
+                        t2 += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
 
-                    t3 += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
+                        t3 += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
 
                 t1 *= area * (m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * K_o) +
-                              (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * K_p + (1.0 - m[i, j] - Wp[i, j]) * K_f)
+                             (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * K_p + (1.0 - m[i, j] - Wp[i, j]) * K_f)
 
-                t2 *= area * T[i, j] * ro_w * C_w[i, j]
+                t2 *= T[i, j] * ro_w * C_w[i, j]
 
-                t3 *= area * T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j])
+                t3 *= T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j])
 
                 T[i, j] += multiplier * (t1 + t2 + t3)
 

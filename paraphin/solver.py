@@ -1,3 +1,4 @@
+import logging
 from pickle import dump, load
 
 from numpy import concatenate, array
@@ -8,7 +9,15 @@ from paraphin.constants import (default_type, Nx, Ny, Nr, output_file_name, init
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
-flug_debug = False
+logging.basicConfig(
+    filename='app.log',
+    filemode='w',  # 'w' для перезаписи, 'a' для добавления
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',  # - %(name)s - %(levelname)s
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+logger = logging.getLogger(__name__)
 
 
 @data_oriented
@@ -119,58 +128,76 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        self.p = calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
+        p_new =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
                                self.k, self.S, self.mu_o, self.mu_w)
+
+        # todo проверить изменение давления
+        logger.info("Обновлено давление.")
+        self.p = p_new
 
 
     def _update_s(self) -> field(dtype=default_type, shape=(Nx, Ny)):
         """Обновление насыщенности."""
-        return calc_saturation(self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w)
+        new_S =  calc_saturation(self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w)
+
+        logger.info("Обновлена насыщенность.")
+        return new_S
 
 
     def _update_wps_wp(self) -> (field(dtype=default_type, shape=(Nx, Ny)),
                                  field(dtype=default_type, shape=(Nx, Ny))):
         """Обновлнние концентрации взвешенного и растворенного парафина."""
-        return calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
-                           self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
+        new_wps, new_wp = calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
+                                      self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
+
+        logger.info("Обновлены доли взвешенного и растворенного парафина.")
+        return new_wps, new_wp
 
 
     def _update_t(self) -> field(dtype=default_type, shape=(Nx, Ny)):
         """Обновление температуры."""
-        return calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p,
-                                self.Wp, self.Wps, self.p, self.k, self.mu_o, self.mu_w)
+        new_t = calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p,
+                                 self.Wp, self.Wps, self.p, self.k, self.mu_o, self.mu_w)
+
+        logger.info("Обновлена температура.")
+        return new_t
 
 
     def _update_qp_m_k(self) -> (field(dtype=default_type, shape=(Nx, Ny)),
                                  field(dtype=default_type, shape=(Nx, Ny)),
                                  field(dtype=default_type, shape=(Nx, Ny))):
         """Обновление объема выделяемого парафина, пористости и проницаемости."""
-        return calc_qp(self.Wps, self.m, self.qp, self.fi, self.Ur, self.Ub,
-                       self.r, self.integr_r2_fi0[None], self.integr_r4_fi0[None])
+        new_qp, m_mult, k_mult = calc_qp(self.Wps, self.m, self.qp, self.fi, self.Ur, self.Ub,
+                                         self.r, self.integr_r2_fi0[None], self.integr_r4_fi0[None])
+
+        logger.info("Обновлена доля выпадающего парафина и множители для пористости/проницаемости.")
+        return new_qp, m_mult, k_mult
 
 
     def _update_h_ur_ub(self) -> (field(dtype=default_type, shape=(Nx, Ny)),
                                   field(dtype=default_type, shape=(Nx, Ny)),
                                   field(dtype=default_type, shape=(Nx, Ny))):
-        """Обновление объема выделяемого парафина, пористости и проницаемости."""
-        return calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi, self.r, self.h_sloy, self.Ur, self.Ub)
+        """Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров."""
+        new_h, new_ur, new_ub = calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi, self.r,
+                                                 self.h_sloy, self.Ur, self.Ub)
+
+        logger.info("Обновлена толщина осадочного слоя и скорости изменения радиуса капилляра.")
+        return new_h, new_ur, new_ub
 
 
     def upd_time_step(self) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов распараллеливание задач снижает производительность
-        flug_debug and print()
+    
         # --- решение гидродинамики ---
         self._update_p()                         # Обновление давления
         new_s = self._update_s()                 # Обновление насыщенности
         new_wps, new_wp = self._update_wps_wp()  # Обновление концентраций парафина
         new_t = self._update_t()                 # Обновление температуры
-        flug_debug and print('---Обновлена гидродинамика---')
 
         # --- решение задачи кольматации\суффозии ---
         new_h, new_Ur, new_Ub = self._update_h_ur_ub()  # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
         new_qp, m_mult, k_mult = self._update_qp_m_k()  # Обновление ФУНКЦИИ ПОР ПО РАЗМЕРАМ, объема выделяемого парафина, пористости, проницаемости
-        flug_debug and print('---Обновлена кольматация/суффозия---')
 
         # self._update_mu_and_c_temp()  # Обновление свойств веществ ввиду изменения температуры
         self._swap_time_steps(new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult, new_h, new_Ur, new_Ub)
@@ -192,6 +219,8 @@ class Solver:
         self.h_sloy = new_h
         self.Ur = new_Ur
         self.Ub = new_Ub
+
+        logger.info("--НОВЫЙ ВРЕМЕННОЙ СЛОЙ--")
 
 
     def save_results(self, t) -> None:
@@ -218,3 +247,4 @@ class Solver:
         # Записываем обновленные данные
         with open(output_file_name, 'wb') as f:
             dump(data, f)
+            logger.info("Данные записаны в файл.")

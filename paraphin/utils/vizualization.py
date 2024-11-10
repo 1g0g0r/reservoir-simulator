@@ -33,8 +33,12 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
     # Создаем графики
     traces = []
     for name, field in input_data.items():
-        trace = Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,  # colorscale='Cividis'
-                        hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
+        if name == 'Pressure':
+            trace = Heatmap(x=x, y=y, z=field*10**-5, colorscale='Jet', name=name,  # colorscale='Cividis'
+                            hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
+        else:
+            trace = Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,  # colorscale='Cividis'
+                            hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
         traces.append(trace)
 
     # Создаем фигуру
@@ -70,7 +74,7 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
                               method = "update") for i, val in enumerate(traces)],
                 pad={"r": 10, "t": 10},
                 showactive=True,
-                x=1.15,  # Положение по горизонтали (справа от графика)
+                x=1.35,  # Положение по горизонтали (справа от графика)
                 xanchor="left",  # Привязка по горизонтали
                 y=0.85,  # Положение по вертикали (сверху)
                 yanchor="middle"  # Привязка по вертикали
@@ -90,6 +94,8 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
         fig.write_html('results.html', include_plotlyjs='plotly_script.js')
     else:
         fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
+
+    fig.show()
 
 
 def show_plot(x, type):
@@ -135,6 +141,7 @@ def show_plot(x, type):
             fig.write_html('results.html', include_plotlyjs='plotly_script.js')
         else:
             fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
+
 
 
 if __name__ == '__main__':

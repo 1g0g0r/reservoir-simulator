@@ -1,5 +1,4 @@
 """Модуль запуска всего расчета."""
-
 from sys import stdout
 
 from numpy import linspace, isclose

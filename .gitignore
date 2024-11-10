@@ -7,8 +7,8 @@
 
 **/__pycache__/
 TempFiles/
-changelog.txt
+TODO_list.txt
 ~$*
 *.pkl
 *.html
-TODO_list.txt
+*.log
