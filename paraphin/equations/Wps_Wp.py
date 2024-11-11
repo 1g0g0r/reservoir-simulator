@@ -55,12 +55,11 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
 
     @kernel
     def calc_wp_wps_loop():
-        # учет скважины
-        # qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
-        # S[0, 0] += dt * qw / m[0, 0]
-        #
-        # qo = (Po - p[Nx - 1, Ny - 1]) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        # S[Nx - 1, Ny - 1] += dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
+        # учет скважин
+
+        qo = (Po - p[Nx - 1, Ny - 1]) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
+        Wps[Nx - 1, Ny - 1] -= (dt * qo * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
+                                (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
 
         for i in ndrange(Nx):
             for j in ndrange(Ny):

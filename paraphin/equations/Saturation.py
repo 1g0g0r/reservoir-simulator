@@ -41,7 +41,7 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> field(dtype=default_type, sh
         S[0, 0] += dt * qw / m[0, 0]
 
         qo = (Po - p[Nx - 1, Ny - 1]) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        S[Nx - 1, Ny - 1] += dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
+        S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
 
         for i in ndrange(Nx):
             for j in ndrange(Ny):

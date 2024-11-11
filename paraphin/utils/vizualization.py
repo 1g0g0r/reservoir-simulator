@@ -26,7 +26,7 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
     x = linspace(X_min, X_max, Nx)
     y = linspace(Y_min, Y_max, Ny)
 
-    time = input_data['Time']
+    time = input_data['Time'] / 86400
     n_times = len(time)
     del input_data['Time']
 
@@ -53,7 +53,7 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
         step = dict(
             method="update",
             args=[{"z": [j.z[i] for j in traces]}],
-            label=round(time[i], 5)
+            label=f'{round(time[i], 5)} день'
         )
         steps.append(step)
 

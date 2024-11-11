@@ -1,7 +1,7 @@
 import logging
 from pickle import dump, load
 
-from numpy import concatenate, array
+from numpy import concatenate, array, mean
 from taichi import field, ndrange, data_oriented, kernel, types
 
 from paraphin.constants import (default_type, Nx, Ny, Nr, output_file_name, init_T, r, fi_0, init_k,
@@ -132,7 +132,7 @@ class Solver:
                                self.k, self.S, self.mu_o, self.mu_w)
 
         # todo проверить изменение давления
-        logger.info("Обновлено давление.")
+        logger.info(f"Обновлено давление: {mean(p_new.to_numpy())}")
         self.p = p_new
 
 
@@ -140,7 +140,7 @@ class Solver:
         """Обновление насыщенности."""
         new_S =  calc_saturation(self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w)
 
-        logger.info("Обновлена насыщенность.")
+        logger.info(f"Обновлена насыщенность: {mean(new_S.to_numpy())}")
         return new_S
 
 

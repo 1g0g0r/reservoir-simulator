@@ -2,8 +2,9 @@ from numpy import log, sqrt, pi
 from taichi import field, ndrange, kernel, static
 
 from paraphin.utils import up_kw, up_ko, mid
+from paraphin.utils.phase_f import pf_w, pf_o
 from paraphin.constants import (default_type, Nx, Ny, hx, hy, dt, volume, area, ro_w, ro_f,
-                                ro_o, ro_p, K_o, K_f, K_w, K_p, Pw, Po, rw,)
+                                ro_o, ro_p, K_o, K_f, K_w, K_p, Pw, Po, rw, Twater)
 
 well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy)))
 
@@ -48,15 +49,19 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
 
     @kernel
     def calc_temperature_loop():
+        mult00 =  dt / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +
+                                   (m[0, 0] * (1.0 - S[0, 0]) * Wps[0, 0] + Wp[0, 0]) * ro_p * C_p[0, 0] + (1.0 - m[0, 0] - Wp[0, 0]) * ro_f * C_f[0, 0])
+        multNN =  dt / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
+                                   (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
+        # учет скважин
+        qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
+        T[0, 0] += qw * Twater * C_w[0, 0] * ro_w * mult00
+
+        qo = (Po - p[Nx - 1, Ny - 1]) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
+        T[Nx - 1, Ny - 1] -= qo * (C_o[Nx - 1, Ny - 1] * ro_o * pf_o(S[Nx - 1, Ny - 1]) +
+                                   C_w[Nx - 1, Ny - 1] * ro_w * pf_w(S[Nx - 1, Ny - 1])) * multNN
         for i in ndrange(Nx):
             for j in ndrange(Ny):
-                # учет скважины
-                # qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
-                # S[0, 0] += dt * qw / m[0, 0]
-                #
-                # qo = (Po - p[Nx - 1, Ny - 1]) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-                # S[Nx - 1, Ny - 1] += dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
-
                 multiplier = dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
                                    (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] + (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])
                 t1, t2, t3 = 0.0, 0.0, 0.0

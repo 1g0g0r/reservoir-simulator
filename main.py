@@ -29,7 +29,7 @@ def solve():
 
 
 if __name__ == '__main__':
-    solve()
+    # solve()
     visualize_solution()
 
 # Идея использовать либу taichi пришла благодаря репозиторию: https://github.com/hejob/taichi-fvm2d-fluid-ns
