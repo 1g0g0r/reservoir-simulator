@@ -1,14 +1,14 @@
-from taichi import field, ndrange, func, kernel
+import taichi as ti
 
 from paraphin.constants import default_type, r, Nx, Ny, Nr, dt, D, gamma
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 D_2_g = D * 0.5 / gamma
-r2 = field(dtype=default_type, shape=Nr)
-r3 = field(dtype=default_type, shape=Nr)
-r4 = field(dtype=default_type, shape=Nr)
-r5 = field(dtype=default_type, shape=Nr)
-r6 = field(dtype=default_type, shape=Nr)
+r2 = ti.field(dtype=default_type, shape=Nr)
+r3 = ti.field(dtype=default_type, shape=Nr)
+r4 = ti.field(dtype=default_type, shape=Nr)
+r5 = ti.field(dtype=default_type, shape=Nr)
+r6 = ti.field(dtype=default_type, shape=Nr)
 r2_np = r * r
 r3_np = r2_np * r
 r4_np = r3_np * r
@@ -21,9 +21,9 @@ r5.from_numpy(r5_np)
 r6.from_numpy(r6_np)
 
 
-def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (field(dtype=default_type, shape=(Nx, Ny)),
-                                                                         field(dtype=default_type, shape=(Nx, Ny)),
-                                                                         field(dtype=default_type, shape=(Nx, Ny))):
+def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype=default_type, shape=(Nx, Ny)),
+                                                                         ti.field(dtype=default_type, shape=(Nx, Ny)),
+                                                                         ti.field(dtype=default_type, shape=(Nx, Ny))):
     """
     Вычисление концентрации взвешенных частиц парафина по явной схеме
 
@@ -57,19 +57,19 @@ def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (field(d
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
     """
-    k_mult = field(dtype=default_type, shape=(Nx, Ny))
-    m_mult = field(dtype=default_type, shape=(Nx, Ny))
+    k_mult = ti.field(dtype=default_type, shape=(Nx, Ny))
+    m_mult = ti.field(dtype=default_type, shape=(Nx, Ny))
 
-    @kernel
+    @ti.kernel
     def calc_qp_loop():
-        for i in ndrange(Nx):
-            for j in ndrange(Ny):
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
                 qp1 = 0.0
                 qp2 = 0.0
                 r2fi = 0.0
                 r4fi = 0.0
 
-                for ij in ndrange((1, Nr)):
+                for ij in ti.ndrange((1, Nr)):
                     dr = r[ij] - r[ij-1]
                     A_fi = (fi[i,j,ij-1] * r[ij] - fi[i,j,ij] * r[ij-1]) / dr
                     B_fi = (fi[i,j,ij] - fi[i,j,ij-1]) / dr
@@ -98,7 +98,7 @@ def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (field(d
     return qp, m_mult, k_mult
 
 
-@func
+@ti.func
 def upd_fi(fi: float, Ur: float, fi1: float, Ur1: float, dr: float, Ub: float) -> float:
     """
     Обновление функции пор по размерам.

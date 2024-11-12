@@ -1,6 +1,5 @@
-from numpy import gradient
-from numpy.linalg import norm
-from taichi import field, func, kernel, ndrange
+import numpy as np
+import taichi as ti
 
 from paraphin.constants import default_type, Nx, Ny, Nr, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta, eta
 
@@ -29,9 +28,9 @@ cf_D2 = Cf * D * D * 9.81 / 18.0
 Diff_2 = 2.0 * Diff * Diff / Lk
 
 
-def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (field(dtype=default_type, shape=(Nx, Ny, Nr)),
-                                                              field(dtype=default_type, shape=(Nx, Ny, Nr)),
-                                                              field(dtype=default_type, shape=(Nx, Ny, Nr))):
+def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (ti.field(dtype=default_type, shape=(Nx, Ny, Nr)),
+                                                              ti.field(dtype=default_type, shape=(Nx, Ny, Nr)),
+                                                              ti.field(dtype=default_type, shape=(Nx, Ny, Nr))):
     """Вычисление скоростей и толщины осадочного слоя.
 
     Parameters
@@ -62,14 +61,14 @@ def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (field(dtype=defaul
     Ur: taichi.field(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра на новом временном слое, [м/с]
     """
-    Um_r2 = field(dtype=default_type, shape=(Nx, Ny))
-    Um_r2.from_numpy(norm(gradient(p.to_numpy()), axis=0) * 0.125 / eta / mu_o.to_numpy())
-    r2 = field(dtype=default_type, shape=Nr)
+    Um_r2 = ti.field(dtype=default_type, shape=(Nx, Ny))
+    Um_r2.from_numpy(np.linalg.norm(np.gradient(p.to_numpy()), axis=0) * 0.125 / eta / mu_o.to_numpy())
+    r2 = ti.field(dtype=default_type, shape=Nr)
     r2.from_numpy(r.to_numpy() * r.to_numpy())
 
-    @kernel
+    @ti.kernel
     def calc_velocitys_h_loop():
-        for i, j, ij in ndrange(Nx, Ny, Nr):
+        for i, j, ij in ti.ndrange(Nx, Ny, Nr):
             um = Um_r2[i, j] * r2[ij]
             uc = u_c(r[ij], mu_o[i, j], ro_p)
             Ub[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], r[ij])
@@ -81,8 +80,8 @@ def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (field(dtype=defaul
     return h_sloy, Ur, Ub
 
 
-@func
-def u_r(wps: float, um: float, uc: float, r: float, h: float) -> float:
+@ti.func
+def u_r(wps: default_type, um: default_type, uc: default_type, r: default_type, h: default_type) -> default_type:
     """Скорость изменения радиуса капилляра.
 
     Parameters
@@ -116,8 +115,8 @@ def u_r(wps: float, um: float, uc: float, r: float, h: float) -> float:
     return ur
 
 
-@func
-def u_b(um: float, wps: float, fi: float, r: float) -> float:
+@ti.func
+def u_b(um: default_type, wps: default_type, fi: default_type, r: default_type) -> default_type:
     """Скорость блокирования капилляров.
 
     Parameters
@@ -144,8 +143,8 @@ def u_b(um: float, wps: float, fi: float, r: float) -> float:
     return ub
 
 
-@func
-def u_c(r: float, mu: float, ro: float) -> float:
+@ti.func
+def u_c(r: default_type, mu: default_type, ro: default_type) -> default_type:
     """Критическая скорость.
 
     Parameters
@@ -172,8 +171,8 @@ def u_c(r: float, mu: float, ro: float) -> float:
     return uc
 
 
-@func
-def sed_h(h0, ur, r):
+@ti.func
+def sed_h(h0: default_type, ur: default_type, r: default_type) -> default_type:
     """
     Вычисление толщины осадочного слоя.
 

@@ -1,15 +1,13 @@
-from __future__ import annotations
-
 from pickle import load
 
-from matplotlib.pyplot import imshow, show, colorbar
-from numpy import linspace, ones, eye, ndarray, meshgrid, array, diag, cos, sin, random
-from plotly.graph_objects import Heatmap, Figure
+import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
 
 from paraphin.constants import Nx, Ny, X_min, X_max, Y_max, Y_min, results_path, js_path
 
 
-def visualize_solution(input_data: dict[str, ndarray]|None = None):
+def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
     if input_data is None:
         with open(results_path, 'rb') as f:
             """
@@ -23,8 +21,8 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
             """
             input_data = load(f)
 
-    x = linspace(X_min, X_max, Nx)
-    y = linspace(Y_min, Y_max, Ny)
+    x = np.linspace(X_min, X_max, Nx)
+    y = np.linspace(Y_min, Y_max, Ny)
 
     time = input_data['Time'] / 86400
     n_times = len(time)
@@ -34,18 +32,18 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
     traces = []
     for name, field in input_data.items():
         if name == 'Pressure':
-            trace = Heatmap(x=x, y=y, z=field*10**-5, colorscale='Jet', name=name,  # colorscale='Cividis'
+            trace = go.Heatmap(x=x, y=y, z=field*10**-5, colorscale='Jet', name=name,  # colorscale='Cividis'
                             hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
         else:
-            trace = Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,  # colorscale='Cividis'
+            trace = go.Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,  # colorscale='Cividis'
                             hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
         traces.append(trace)
 
     # Создаем фигуру
-    fig = Figure(data=traces)
+    fig = go.Figure(data=traces)
 
     # Создаем массив отображаемых данных (все False, а на диагонали True)
-    visibility = eye(len(input_data), dtype=bool)
+    visibility = np.eye(len(input_data), dtype=bool)
 
     # Добавляем слайдеры для изменения данных
     steps = []
@@ -106,14 +104,14 @@ def show_plot(x, type):
 
     if type == 'mpl':
         # Отображаем массив с помощью imshow
-        imshow(data, cmap='viridis')
+        plt.imshow(data, cmap='viridis')
 
         # Добавляем цветовую шкалу с дополнительными параметрами
-        cbar = colorbar(orientation='horizontal', shrink=0.8)
+        cbar = plt.colorbar(orientation='horizontal', shrink=0.8)
         cbar.set_label('Значения данных')
 
         # Отображаем график
-        show()
+        plt.show()
 
     elif type == 'plotly':
         x = linspace(X_min, X_max, Nx)

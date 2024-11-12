@@ -1,16 +1,16 @@
-from numpy import log, sqrt, pi
-from taichi import field, ndrange, kernel, static, exp
+import numpy as np
+import taichi as ti
 
 from paraphin.utils import up_ko, mid
-from paraphin.constants import default_type, Nx, Ny, hx, hy, dt, ro_p, ro_o, volume, area, Tm, R, Pw, Po, rw
+from paraphin.constants import default_type, Nx, Ny, hx, hy, dt, ro_p, ro_o, volume, area, Tm, R, Po, rw
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 temp = 1.0 / (1.8 * Tm + 32.0)
-well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy)))
+well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy)))
 
 
-def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p) -> (field(dtype=default_type, shape=(Nx, Ny)),
-                                                                                     field(dtype=default_type, shape=(Nx, Ny))):
+def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p) -> (ti.field(dtype=default_type, shape=(Nx, Ny)),
+                                                                                      ti.field(dtype=default_type, shape=(Nx, Ny))):
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -53,7 +53,7 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
 
-    @kernel
+    @ti.kernel
     def calc_wp_wps_loop():
         # учет скважин
 
@@ -61,11 +61,11 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
         Wps[Nx - 1, Ny - 1] -= (dt * qo * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
                                 (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
 
-        for i in ndrange(Nx):
-            for j in ndrange(Ny):
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
                 temp_val = 0.0
                 arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
-                for idx in static(ndrange(4)):
+                for idx in ti.static(ti.ndrange(4)):
                     i1, j1, hij = arr[idx]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
                         temp_val += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
@@ -79,7 +79,7 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
 
                 # delta_Hp = Cp * delta (T) - молярные доли парафина, растворенные в нефти
                 delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8   # * 1.8 - перевод в фаренгейты
-                Wp[i, j] = Wps[i, j] * exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
+                Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
 
     calc_wp_wps_loop()
 

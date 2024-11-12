@@ -1,20 +1,21 @@
-from taichi import func, f32
+import taichi as ti
 
 from paraphin.utils.phase_f import pf_o, pf_w
+from paraphin.constants import default_type
 
 
-@func
-def mid(k1: f32, s1: f32, mu_o1: f32, mu_w1: f32,
-        k2: f32, s2: f32, mu_o2: f32, mu_w2: f32) -> f32:
+@ti.func
+def mid(k1: default_type, s1: default_type, mu_o1: default_type, mu_w1: default_type,
+        k2: default_type, s2: default_type, mu_o2: default_type, mu_w2: default_type) -> default_type:
     """mid(Ko + Kw)_ij"""
     x = K_o(k1, s1, mu_o1) + K_w(k1, s1, mu_w1)
     y = K_o(k2, s2, mu_o2) + K_w(k2, s2, mu_w2)
     return 2.0 * x * y / (x + y)
 
 
-@func
-def up_kw(k1: f32, s1: f32, p1: f32, mu_o1: f32, mu_w1: f32,
-          k2: f32, s2: f32, p2: f32, mu_o2: f32, mu_w2: f32) -> f32:
+@ti.func
+def up_kw(k1: default_type, s1: default_type, p1: default_type, mu_o1: default_type, mu_w1: default_type,
+          k2: default_type, s2: default_type, p2: default_type, mu_o2: default_type, mu_w2: default_type) -> default_type:
     """up(kw / (ko + kw)"""
     ret = 0.0
 
@@ -26,9 +27,9 @@ def up_kw(k1: f32, s1: f32, p1: f32, mu_o1: f32, mu_w1: f32,
     return ret
 
 
-@func
-def up_ko(k1: f32, s1: f32, p1: f32, mu_o1: f32, mu_w1: f32,
-          k2: f32, s2: f32, p2: f32, mu_o2: f32, mu_w2: f32) -> f32:
+@ti.func
+def up_ko(k1: default_type, s1: default_type, p1: default_type, mu_o1: default_type, mu_w1: default_type,
+          k2: default_type, s2: default_type, p2: default_type, mu_o2: default_type, mu_w2: default_type) -> default_type:
     """up(ko / (ko + kw)"""
     ret = 0.0
 
@@ -40,11 +41,11 @@ def up_ko(k1: f32, s1: f32, p1: f32, mu_o1: f32, mu_w1: f32,
     return ret
 
 
-@func
-def K_o(k: f32, s: f32, mu_o: f32) -> f32:
+@ti.func
+def K_o(k: default_type, s: default_type, mu_o: default_type) -> default_type:
     return k * pf_o(s) / mu_o
 
 
-@func
-def K_w(k: f32, s: f32, mu_w: f32) -> f32:
+@ti.func
+def K_w(k: default_type, s: default_type, mu_w: default_type) -> default_type:
     return k * pf_w(s) / mu_w

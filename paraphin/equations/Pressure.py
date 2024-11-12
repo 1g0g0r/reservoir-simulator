@@ -1,18 +1,20 @@
-from numpy import log, sqrt, pi
+import warnings
+import numpy as np
+import taichi as ti
+
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve, bicgstab
-from taichi import i32, field, ndrange, kernel, static
 
 from paraphin.constants import default_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw
 from paraphin.utils import mid, show_plot
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
-well_mult = 2.0 * pi / log(rw / (0.14 * sqrt(hx*hx + hy*hy))) * volume
+well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * volume
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 
 
-def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (field(dtype=default_type, shape=(Nx, Ny)), bool):
+def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=default_type, shape=(Nx, Ny)), bool):
     """
     Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
@@ -44,22 +46,22 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (field(dtype=default
     mat_singularity: bool
         Matrix singularity flag, [-]
     """
-    data = field(default_type, shape=NN)
-    row_indices = field(i32, shape=NN)
-    col_indices = field(i32, shape=NN)
-    b = field(default_type, shape=N)
+    data = ti.field(default_type, shape=NN)
+    row_indices = ti.field(ti.i32, shape=NN)
+    col_indices = ti.field(ti.i32, shape=NN)
+    b = ti.field(default_type, shape=N)
     mat_singularity = False
 
-    @kernel
+    @ti.kernel
     def fill_matrix_and_rhs():
         num = 0
-        for i in ndrange(Nx):
-            for j in ndrange(Ny):
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
                 idx = i + j * Nx
                 p_sum = 0.0
                 # matrix
                 arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
-                for qq in static(ndrange(4)):
+                for qq in ti.static(ti.ndrange(4)):
                     i1, j1, hij = arr[qq]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
                         temp = Wo[i1, j1] * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
@@ -87,11 +89,12 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (field(dtype=default
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
-    try:
+
+    with warnings.catch_warnings(record=True) as w:
         x = spsolve(A_csr, b.to_numpy())
-    except Exception as e:
-        x, _ = bicgstab(A_csr, b.to_numpy())
-        mat_singularity = True
+        if w:
+            x, _ = bicgstab(A_csr, b.to_numpy())
+            mat_singularity = True
 
     # import pyamg
     # ml = pyamg.ruge_stuben_solver(A_csr)  # construct the multigrid hierarchy
