@@ -10,16 +10,6 @@ from paraphin.constants import (default_type, Nx, Ny, Nr, results_path, logs_pat
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
-basicConfig(
-    filename=logs_path,
-    filemode='w',  # 'w' для перезаписи, 'a' для добавления
-    level=INFO,
-    format='%(asctime)s - %(message)s',  # - %(name)s - %(levelname)s
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-logger = getLogger(__name__)
-
 
 @ti.data_oriented
 class Solver:
@@ -58,6 +48,16 @@ class Solver:
         self.h_sloy = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.Ur     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.Ub     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+
+        basicConfig(
+            filename=logs_path,
+            filemode='w',  # 'w' для перезаписи, 'a' для добавления
+            level=INFO,
+            format='%(asctime)s - %(message)s',  # - %(name)s - %(levelname)s
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+        self.logger = getLogger(__name__)
 
 
     def initialize(self):
@@ -132,8 +132,8 @@ class Solver:
         p_new, mat_singularity =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
                                                 self.k, self.S, self.mu_o, self.mu_w)
 
-        if mat_singularity: logger.error('Матрица сингулярна. Решение получено итерационным методом.')
-        logger.info(f"Обновлено давление: {np.mean(p_new.to_numpy())}")
+        if mat_singularity: self.logger.error('Матрица сингулярна. Решение получено итерационным методом.')
+        self.logger.info(f"Обновлено давление: {np.mean(p_new.to_numpy())}")
         self.p = p_new
 
 
@@ -141,7 +141,7 @@ class Solver:
         """Обновление насыщенности."""
         new_S =  calc_saturation(self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w)
 
-        logger.info(f"Обновлена насыщенность: {np.mean(new_S.to_numpy())}")
+        self.logger.info(f"Обновлена насыщенность: {np.mean(new_S.to_numpy())}")
         return new_S
 
 
@@ -151,8 +151,8 @@ class Solver:
         new_wps, new_wp = calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
                                       self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
 
-        logger.info(f"Обновлены доли взвешенного парафина: {np.mean(new_wps.to_numpy())}")
-        logger.info(f"Обновлены доли растворенного парафина: {np.mean(new_wps.to_numpy())}")
+        self.logger.info(f"Обновлены доли взвешенного парафина: {np.mean(new_wps.to_numpy())}")
+        self.logger.info(f"Обновлены доли растворенного парафина: {np.mean(new_wps.to_numpy())}")
         return new_wps, new_wp
 
 
@@ -161,7 +161,7 @@ class Solver:
         new_t = calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p,
                                  self.Wp, self.Wps, self.p, self.k, self.mu_o, self.mu_w)
 
-        logger.info(f"Обновлена температура: {np.mean(new_t.to_numpy())}")
+        self.logger.info(f"Обновлена температура: {np.mean(new_t.to_numpy())}")
         return new_t
 
 
@@ -172,9 +172,9 @@ class Solver:
         new_qp, m_mult, k_mult = calc_qp(self.Wps, self.m, self.qp, self.fi, self.Ur, self.Ub,
                                          self.r, self.integr_r2_fi0[None], self.integr_r4_fi0[None])
 
-        logger.info(f"Обновлена доля выпадающего парафина {np.mean(new_qp.to_numpy())}")
-        logger.info(f"Обновлен множитель пористости {np.mean(m_mult.to_numpy())}")
-        logger.info(f"Обновлен множитель проницаемости {np.mean(k_mult.to_numpy())}")
+        self.logger.info(f"Обновлена доля выпадающего парафина {np.mean(new_qp.to_numpy())}")
+        self.logger.info(f"Обновлен множитель пористости {np.mean(m_mult.to_numpy())}")
+        self.logger.info(f"Обновлен множитель проницаемости {np.mean(k_mult.to_numpy())}")
         return new_qp, m_mult, k_mult
 
 
@@ -185,17 +185,17 @@ class Solver:
         new_h, new_ur, new_ub = calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi, self.r,
                                                  self.h_sloy, self.Ur, self.Ub)
 
-        logger.info(f"Обновлена толщина осадочного слоя: {np.mean(new_h.to_numpy())}")
-        logger.info(f"Обновлена скорость изменения радиуса капилляра: {np.mean(new_ur.to_numpy())}")
-        logger.info(f"Обновлена скорость блокировки капилляров: {np.mean(new_ub.to_numpy())}")
+        self.logger.info(f"Обновлена толщина осадочного слоя: {np.mean(new_h.to_numpy())}")
+        self.logger.info(f"Обновлена скорость изменения радиуса капилляра: {np.mean(new_ur.to_numpy())}")
+        self.logger.info(f"Обновлена скорость блокировки капилляров: {np.mean(new_ub.to_numpy())}")
         return new_h, new_ur, new_ub
 
 
     def upd_time_step(self, t) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов taichi распараллеливание задач снижает производительность
-        logger.info('')
-        logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t / 86400.0} день")
+        self.logger.info('')
+        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t / 86400.0} день")
 
         # --- решение гидродинамики ---
         self._update_p()                         # Обновление давления
@@ -228,14 +228,14 @@ class Solver:
         self.Ur = new_Ur
         self.Ub = new_Ub
 
-        logger.info('Поля данных обновлены на текущем временном слое.')
+        self.logger.info('Поля данных обновлены на текущем временном слое.')
 
 
     def save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
         if os.path.exists(results_path) and np.isclose(t, 0.0):
             os.remove(results_path)
-            logger.info('Файл результатов очищен.')
+            self.logger.info('Файл результатов очищен.')
 
         # Пробуем открыть существующий файл
         try:
@@ -259,4 +259,4 @@ class Solver:
         # Записываем обновленные данные
         with open(results_path, 'wb') as f:
             dump(data, f)
-            logger.info("Данные записаны в файл.")
+            self.logger.info("Данные записаны в файл.")
