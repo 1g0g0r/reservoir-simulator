@@ -1,6 +1,6 @@
 from numpy import log, sqrt, pi
 from scipy.sparse import csr_matrix
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import spsolve, bicgstab
 from taichi import i32, field, ndrange, kernel, static
 
 from paraphin.constants import default_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw
@@ -12,7 +12,7 @@ N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 
 
-def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_type, shape=(Nx, Ny)):
+def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (field(dtype=default_type, shape=(Nx, Ny)), bool):
     """
     Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
@@ -41,11 +41,14 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_
     -------
     p: taichi.field(Nx, Ny)
         Давление на новом временном слое, [Па]
+    mat_singularity: bool
+        Matrix singularity flag, [-]
     """
     data = field(default_type, shape=NN)
     row_indices = field(i32, shape=NN)
     col_indices = field(i32, shape=NN)
     b = field(default_type, shape=N)
+    mat_singularity = False
 
     @kernel
     def fill_matrix_and_rhs():
@@ -84,7 +87,11 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
-    x = spsolve(A_csr, b.to_numpy())
+    try:
+        x = spsolve(A_csr, b.to_numpy())
+    except Exception as e:
+        x, _ = bicgstab(A_csr, b.to_numpy())
+        mat_singularity = True
 
     # import pyamg
     # ml = pyamg.ruge_stuben_solver(A_csr)  # construct the multigrid hierarchy
@@ -92,4 +99,5 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> field(dtype=default_
 
     # show_plot(x, 'plotly')
     p.from_numpy(x.reshape((Nx, Ny)))
-    return p
+
+    return p, mat_singularity

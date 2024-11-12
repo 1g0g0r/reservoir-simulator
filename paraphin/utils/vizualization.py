@@ -140,7 +140,7 @@ def show_plot(x, type):
         if __name__ == '__main__':
             fig.write_html('results.html', include_plotlyjs='plotly_script.js')
         else:
-            fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
+            fig.write_html('results.html', include_plotlyjs=js_path)
 
 
 

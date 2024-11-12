@@ -22,7 +22,7 @@ def solve():
 
     times = linspace(0, Time_end, int(Time_end / dt + 1))
     for t in tqdm(iterable=times, ncols=100, desc='Парафин считается', file=stdout):
-        sol.upd_time_step()
+        sol.upd_time_step(t)
 
         if t >= iter * sol_time_step or isclose(t, Time_end):
             sol.save_results(t)

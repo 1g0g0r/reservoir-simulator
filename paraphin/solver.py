@@ -1,11 +1,12 @@
+import os
 import logging
 from pickle import dump, load
 
-from numpy import concatenate, array, mean
+from numpy import concatenate, array, mean, isclose
 from taichi import field, ndrange, data_oriented, kernel, types
 
 from paraphin.constants import (default_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k,
-                                init_S, init_m, init_Wp, init_Wps, init_Wo, init_p, init_qp, init_h_sloy)
+                                init_S, init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
@@ -88,7 +89,7 @@ class Solver:
                     self.Wo_0[i, j] = init_Wo
                     self.Wp[i, j] = init_Wp
                     self.Wp_0[i, j] = init_Wp
-                    self.Wps[i, j] = init_Wps
+                    self.Wps[i, j] = 1.0 - init_Wo - init_Wp
                     self.k[i, j] = init_k
                     self.m[i, j] = init_m
                     self.m_0[i, j] = init_m
@@ -128,9 +129,10 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        p_new =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
-                               self.k, self.S, self.mu_o, self.mu_w)
+        p_new, mat_singularity =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
+                                                self.k, self.S, self.mu_o, self.mu_w)
 
+        if mat_singularity: logger.error('Матрица сингулярна. Решение получено итерационным методом.')
         logger.info(f"Обновлено давление: {mean(p_new.to_numpy())}")
         self.p = p_new
 
@@ -149,7 +151,8 @@ class Solver:
         new_wps, new_wp = calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
                                       self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
 
-        logger.info(f"Обновлены доли взвешенного: {mean(new_wps.to_numpy())} и растворенного: {mean(new_wps.to_numpy())} парафина.")
+        logger.info(f"Обновлены доли взвешенного парафина: {mean(new_wps.to_numpy())}")
+        logger.info(f"Обновлены доли растворенного парафина: {mean(new_wps.to_numpy())}")
         return new_wps, new_wp
 
 
@@ -169,7 +172,9 @@ class Solver:
         new_qp, m_mult, k_mult = calc_qp(self.Wps, self.m, self.qp, self.fi, self.Ur, self.Ub,
                                          self.r, self.integr_r2_fi0[None], self.integr_r4_fi0[None])
 
-        logger.info("Обновлена доля выпадающего парафина и множители для пористости/проницаемости.")
+        logger.info(f"Обновлена доля выпадающего парафина {mean(new_qp.to_numpy())}")
+        logger.info(f"Обновлен множитель пористости {mean(m_mult.to_numpy())}")
+        logger.info(f"Обновлен множитель проницаемости {mean(k_mult.to_numpy())}")
         return new_qp, m_mult, k_mult
 
 
@@ -180,14 +185,18 @@ class Solver:
         new_h, new_ur, new_ub = calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi, self.r,
                                                  self.h_sloy, self.Ur, self.Ub)
 
-        logger.info("Обновлена толщина осадочного слоя и скорости изменения радиуса капилляра.")
+        logger.info(f"Обновлена толщина осадочного слоя: {mean(new_h.to_numpy())}")
+        logger.info(f"Обновлена скорость изменения радиуса капилляра: {mean(new_ur.to_numpy())}")
+        logger.info(f"Обновлена скорость блокировки капилляров: {mean(new_ub.to_numpy())}")
         return new_h, new_ur, new_ub
 
 
-    def upd_time_step(self) -> None:
+    def upd_time_step(self, t) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов распараллеливание задач снижает производительность
-    
+        logger.info('')
+        logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t / 86400.0} день")
+
         # --- решение гидродинамики ---
         self._update_p()                         # Обновление давления
         new_s = self._update_s()                 # Обновление насыщенности
@@ -219,12 +228,15 @@ class Solver:
         self.Ur = new_Ur
         self.Ub = new_Ub
 
-        logger.info('')
-        logger.info("--НОВЫЙ ВРЕМЕННОЙ СЛОЙ--")
+        logger.info('Поля данных обновлены на текущем временном слое.')
 
 
     def save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
+        if os.path.exists(results_path) and isclose(t, 0.0):
+            os.remove(results_path)
+            logger.info('Файл результатов очищен.')
+
         # Пробуем открыть существующий файл
         try:
             with open(results_path, 'rb') as f:
