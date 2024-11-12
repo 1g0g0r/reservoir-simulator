@@ -4,16 +4,15 @@ from sys import stdout
 import numpy as np
 from tqdm import tqdm
 
-from paraphin.constants import data_type
-from paraphin.solver import Solver
 from paraphin.constants import Time_end, dt, sol_time_step
+from paraphin.solver import Solver
 from paraphin.utils.vizualization import visualize_solution
 
 
 def solve():
     """Запуск расчета."""
     iter = 0
-    sol = Solver(data_type)
+    sol = Solver()
     sol.initialize()  # Задание начальных условий
 
     times = np.linspace(0, Time_end, int(Time_end / dt + 1))
