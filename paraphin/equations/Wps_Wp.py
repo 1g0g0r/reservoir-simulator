@@ -2,15 +2,15 @@ import numpy as np
 import taichi as ti
 
 from paraphin.utils import up_ko, mid
-from paraphin.constants import default_type, Nx, Ny, hx, hy, dt, ro_p, ro_o, volume, area, Tm, R, Po, rw
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, ro_p, ro_o, volume, area, Tm, R, Po, rw
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 temp = 1.0 / (1.8 * Tm + 32.0)
 well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy)))
 
 
-def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p) -> (ti.field(dtype=default_type, shape=(Nx, Ny)),
-                                                                                      ti.field(dtype=default_type, shape=(Nx, Ny))):
+def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                                      ti.field(dtype=data_type, shape=(Nx, Ny))):
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -57,7 +57,7 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
     def calc_wp_wps_loop():
         # учет скважин
 
-        qo = (Po - p[Nx - 1, Ny - 1]) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
+        qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
         Wps[Nx - 1, Ny - 1] -= (dt * qo * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
                                 (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
 

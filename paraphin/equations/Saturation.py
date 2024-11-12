@@ -1,14 +1,14 @@
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import default_type, Nx, Ny, hx, hy, dt, Pw, Po, rw, volume, area
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, Pw, Po, rw, volume, area
 from paraphin.utils import up_kw, mid, show_plot
 from paraphin.utils.phase_f import pf_w
 
 well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy)))
 
 
-def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=default_type, shape=(Nx, Ny)):
+def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
     """Вычисление водонасыщенности по явной схеме.
 
     Parameters
@@ -37,10 +37,10 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=default_type,
     @ti.kernel
     def calc_saturation_loop():
         # учет скважины
-        qw = (Pw - p[0, 0]) * well_mult * k[0, 0] / mu_w[0, 0]
+        qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
         S[0, 0] += dt * qw / m[0, 0]
 
-        qo = (Po - p[Nx - 1, Ny - 1]) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
+        qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
         S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
 
         for i in ti.ndrange(Nx):

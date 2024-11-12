@@ -5,7 +5,7 @@ import taichi as ti
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve, bicgstab
 
-from paraphin.constants import default_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw
+from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw
 from paraphin.utils import mid, show_plot
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
@@ -14,7 +14,7 @@ N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 
 
-def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=default_type, shape=(Nx, Ny)), bool):
+def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data_type, shape=(Nx, Ny)), bool):
     """
     Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
@@ -46,10 +46,10 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=defa
     mat_singularity: bool
         Matrix singularity flag, [-]
     """
-    data = ti.field(default_type, shape=NN)
+    data = ti.field(data_type, shape=NN)
     row_indices = ti.field(ti.i32, shape=NN)
     col_indices = ti.field(ti.i32, shape=NN)
-    b = ti.field(default_type, shape=N)
+    b = ti.field(data_type, shape=N)
     mat_singularity = False
 
     @ti.kernel

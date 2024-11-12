@@ -1,14 +1,14 @@
 import taichi as ti
 
-from paraphin.constants import default_type, r, Nx, Ny, Nr, dt, D, gamma
+from paraphin.constants import data_type, r, Nx, Ny, Nr, dt, D, gamma
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 D_2_g = D * 0.5 / gamma
-r2 = ti.field(dtype=default_type, shape=Nr)
-r3 = ti.field(dtype=default_type, shape=Nr)
-r4 = ti.field(dtype=default_type, shape=Nr)
-r5 = ti.field(dtype=default_type, shape=Nr)
-r6 = ti.field(dtype=default_type, shape=Nr)
+r2 = ti.field(dtype=data_type, shape=Nr)
+r3 = ti.field(dtype=data_type, shape=Nr)
+r4 = ti.field(dtype=data_type, shape=Nr)
+r5 = ti.field(dtype=data_type, shape=Nr)
+r6 = ti.field(dtype=data_type, shape=Nr)
 r2_np = r * r
 r3_np = r2_np * r
 r4_np = r3_np * r
@@ -21,9 +21,9 @@ r5.from_numpy(r5_np)
 r6.from_numpy(r6_np)
 
 
-def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype=default_type, shape=(Nx, Ny)),
-                                                                         ti.field(dtype=default_type, shape=(Nx, Ny)),
-                                                                         ti.field(dtype=default_type, shape=(Nx, Ny))):
+def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                         ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                         ti.field(dtype=data_type, shape=(Nx, Ny))):
     """
     Вычисление концентрации взвешенных частиц парафина по явной схеме
 
@@ -57,8 +57,8 @@ def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (ti.fiel
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
     """
-    k_mult = ti.field(dtype=default_type, shape=(Nx, Ny))
-    m_mult = ti.field(dtype=default_type, shape=(Nx, Ny))
+    k_mult = ti.field(dtype=data_type, shape=(Nx, Ny))
+    m_mult = ti.field(dtype=data_type, shape=(Nx, Ny))
 
     @ti.kernel
     def calc_qp_loop():

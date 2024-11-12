@@ -5,15 +5,15 @@ from pickle import dump, load
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import (default_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k,
-                                init_S, init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy)
+from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k,
+                                init_S, init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
 
 @ti.data_oriented
 class Solver:
-    def __init__(self, d_type = default_type):
+    def __init__(self, d_type = data_type):
         self.d_type = d_type
 
         # свойства флюидов
@@ -89,7 +89,7 @@ class Solver:
                     self.Wo_0[i, j] = init_Wo
                     self.Wp[i, j] = init_Wp
                     self.Wp_0[i, j] = init_Wp
-                    self.Wps[i, j] = 1.0 - init_Wo - init_Wp
+                    self.Wps[i, j] = init_Wps
                     self.k[i, j] = init_k
                     self.m[i, j] = init_m
                     self.m_0[i, j] = init_m
@@ -137,7 +137,7 @@ class Solver:
         self.p = p_new
 
 
-    def _update_s(self) -> ti.field(dtype=default_type, shape=(Nx, Ny)):
+    def _update_s(self) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
         """Обновление насыщенности."""
         new_S =  calc_saturation(self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w)
 
@@ -145,8 +145,8 @@ class Solver:
         return new_S
 
 
-    def _update_wps_wp(self) -> (ti.field(dtype=default_type, shape=(Nx, Ny)),
-                                 ti.field(dtype=default_type, shape=(Nx, Ny))):
+    def _update_wps_wp(self) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                 ti.field(dtype=data_type, shape=(Nx, Ny))):
         """Обновлнние концентрации взвешенного и растворенного парафина."""
         new_wps, new_wp = calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
                                       self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
@@ -156,7 +156,7 @@ class Solver:
         return new_wps, new_wp
 
 
-    def _update_t(self) -> ti.field(dtype=default_type, shape=(Nx, Ny)):
+    def _update_t(self) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
         """Обновление температуры."""
         new_t = calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p,
                                  self.Wp, self.Wps, self.p, self.k, self.mu_o, self.mu_w)
@@ -165,9 +165,9 @@ class Solver:
         return new_t
 
 
-    def _update_qp_m_k(self) -> (ti.field(dtype=default_type, shape=(Nx, Ny)),
-                                 ti.field(dtype=default_type, shape=(Nx, Ny)),
-                                 ti.field(dtype=default_type, shape=(Nx, Ny))):
+    def _update_qp_m_k(self) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                 ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                 ti.field(dtype=data_type, shape=(Nx, Ny))):
         """Обновление объема выделяемого парафина, пористости и проницаемости."""
         new_qp, m_mult, k_mult = calc_qp(self.Wps, self.m, self.qp, self.fi, self.Ur, self.Ub,
                                          self.r, self.integr_r2_fi0[None], self.integr_r4_fi0[None])
@@ -178,9 +178,9 @@ class Solver:
         return new_qp, m_mult, k_mult
 
 
-    def _update_h_ur_ub(self) -> (ti.field(dtype=default_type, shape=(Nx, Ny)),
-                                  ti.field(dtype=default_type, shape=(Nx, Ny)),
-                                  ti.field(dtype=default_type, shape=(Nx, Ny))):
+    def _update_h_ur_ub(self) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                  ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                  ti.field(dtype=data_type, shape=(Nx, Ny))):
         """Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров."""
         new_h, new_ur, new_ub = calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi, self.r,
                                                  self.h_sloy, self.Ur, self.Ub)

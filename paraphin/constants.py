@@ -3,7 +3,8 @@ from pathlib import Path
 import numpy as np
 import taichi as ti
 
-default_type = ti.f64
+data_type = ti.f64
+ti.init(arch=ti.cpu, default_fp=data_type)
 
 outputs_path = Path.cwd() / 'outputs'
 outputs_path.mkdir(exist_ok=True)
@@ -12,7 +13,7 @@ logs_path = outputs_path /  'app.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 128, 128  # Число узлов сетки по x и y
+Nx, Ny = 32, 32  # Число узлов сетки по x и y
 X_min, X_max = 0., 300.
 Y_min, Y_max = 0., 300.
 hx = (X_max - X_min) / Nx
@@ -52,20 +53,20 @@ R = 8.31446261815324  # газовая постоянная [J⋅K^−1⋅mol^�
 
 # учет скважин
 rw = 0.1  # радиус скважин, [м]
-Pw = 1e6  # давление на нагнетательной скважине, [Па]
-Po = 1e6 # давление на добывающей скважине, [Па]
+Pw = 15 * 1e5  # давление на нагнетательной скважине, [Па]
+Po = 50 * 1e5 # давление на добывающей скважине, [Па]
 Twater = 10  # температура нагнетаемой воды, [С]
 # TODO добавить множитель 0.25 для скважин
 
 # данные инициализации
 init_p = 1e6  # [Па]
 init_S = 0.0
-init_Wo = 0.8
-init_Wp = 0.2
-# init_Wps = 1 - init_Wo - init_Wp
-init_k = 3e-14  # [м^2]
-init_m = 0.5
-init_T = 40  # [C]
+init_Wo = 0.95
+init_Wp = 0.05
+init_Wps = 0.0
+init_k = 3e-13  # [м^2]
+init_m = 0.2
+init_T = 70  # [C]
 init_qp = 0.0
 init_h_sloy = 0.0
 r = np.array([0, 0.000001, 0.000002, 0.000003, 0.000004, 0.000005, 0.000006, 0.000007, 0.000008,

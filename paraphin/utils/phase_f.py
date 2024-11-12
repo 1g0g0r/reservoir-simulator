@@ -1,10 +1,10 @@
 import taichi as ti
 
-from paraphin.constants import S_min, S_max, default_type
+from paraphin.constants import S_min, S_max, data_type
 
 
 @ti.func
-def pf_o(s: default_type) -> default_type:
+def pf_o(s: data_type) -> data_type:
     """
     Функция отностельной фазовой проницаемости нефти
         [(Smax-S)/(Smax-Smin)]^2
@@ -21,7 +21,7 @@ def pf_o(s: default_type) -> default_type:
 
 
 @ti.func
-def pf_w(s: default_type) -> default_type:
+def pf_w(s: data_type) -> data_type:
     """
     Функция отностельной фазовой проницаемости воды
         [(S-Smin)/(Smax-Smin)]^2

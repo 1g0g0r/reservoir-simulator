@@ -2,12 +2,9 @@
 from sys import stdout
 
 import numpy as np
-import taichi as ti
 from tqdm import tqdm
 
-data_type = ti.f64
-ti.init(arch=ti.cpu, default_fp=data_type)
-
+from paraphin.constants import data_type
 from paraphin.solver import Solver
 from paraphin.constants import Time_end, dt, sol_time_step
 from paraphin.utils.vizualization import visualize_solution

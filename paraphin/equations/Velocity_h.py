@@ -1,7 +1,7 @@
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import default_type, Nx, Ny, Nr, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta, eta
+from paraphin.constants import data_type, Nx, Ny, Nr, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta, eta
 
 """
 Lk: float
@@ -28,9 +28,9 @@ cf_D2 = Cf * D * D * 9.81 / 18.0
 Diff_2 = 2.0 * Diff * Diff / Lk
 
 
-def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (ti.field(dtype=default_type, shape=(Nx, Ny, Nr)),
-                                                              ti.field(dtype=default_type, shape=(Nx, Ny, Nr)),
-                                                              ti.field(dtype=default_type, shape=(Nx, Ny, Nr))):
+def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (ti.field(dtype=data_type, shape=(Nx, Ny, Nr)),
+                                                              ti.field(dtype=data_type, shape=(Nx, Ny, Nr)),
+                                                              ti.field(dtype=data_type, shape=(Nx, Ny, Nr))):
     """Вычисление скоростей и толщины осадочного слоя.
 
     Parameters
@@ -61,9 +61,9 @@ def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (ti.field(dtype=def
     Ur: taichi.field(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра на новом временном слое, [м/с]
     """
-    Um_r2 = ti.field(dtype=default_type, shape=(Nx, Ny))
+    Um_r2 = ti.field(dtype=data_type, shape=(Nx, Ny))
     Um_r2.from_numpy(np.linalg.norm(np.gradient(p.to_numpy()), axis=0) * 0.125 / eta / mu_o.to_numpy())
-    r2 = ti.field(dtype=default_type, shape=Nr)
+    r2 = ti.field(dtype=data_type, shape=Nr)
     r2.from_numpy(r.to_numpy() * r.to_numpy())
 
     @ti.kernel
@@ -81,7 +81,7 @@ def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (ti.field(dtype=def
 
 
 @ti.func
-def u_r(wps: default_type, um: default_type, uc: default_type, r: default_type, h: default_type) -> default_type:
+def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type) -> data_type:
     """Скорость изменения радиуса капилляра.
 
     Parameters
@@ -116,7 +116,7 @@ def u_r(wps: default_type, um: default_type, uc: default_type, r: default_type, 
 
 
 @ti.func
-def u_b(um: default_type, wps: default_type, fi: default_type, r: default_type) -> default_type:
+def u_b(um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type:
     """Скорость блокирования капилляров.
 
     Parameters
@@ -144,7 +144,7 @@ def u_b(um: default_type, wps: default_type, fi: default_type, r: default_type) 
 
 
 @ti.func
-def u_c(r: default_type, mu: default_type, ro: default_type) -> default_type:
+def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
     """Критическая скорость.
 
     Parameters
@@ -172,7 +172,7 @@ def u_c(r: default_type, mu: default_type, ro: default_type) -> default_type:
 
 
 @ti.func
-def sed_h(h0: default_type, ur: default_type, r: default_type) -> default_type:
+def sed_h(h0: data_type, ur: data_type, r: data_type) -> data_type:
     """
     Вычисление толщины осадочного слоя.
 
