@@ -1,9 +1,14 @@
 from numpy import array, float64
+from pathlib import Path
 from taichi import f64, f32
 
 default_type = f64
-output_file_name = 'data.pkl'
 
+outputs_path = Path.cwd() / 'outputs'
+outputs_path.mkdir(exist_ok=True)
+results_path = outputs_path / 'data.pkl'
+logs_path = outputs_path /  'app.log'
+js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
 Nx, Ny = 128, 128  # Число узлов сетки по x и y

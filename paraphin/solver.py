@@ -4,13 +4,13 @@ from pickle import dump, load
 from numpy import concatenate, array, mean
 from taichi import field, ndrange, data_oriented, kernel, types
 
-from paraphin.constants import (default_type, Nx, Ny, Nr, output_file_name, init_T, r, fi_0, init_k,
+from paraphin.constants import (default_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k,
                                 init_S, init_m, init_Wp, init_Wps, init_Wo, init_p, init_qp, init_h_sloy)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
 logging.basicConfig(
-    filename='app.log',
+    filename=logs_path,
     filemode='w',  # 'w' для перезаписи, 'a' для добавления
     level=logging.INFO,
     format='%(asctime)s - %(message)s',  # - %(name)s - %(levelname)s
@@ -131,7 +131,6 @@ class Solver:
         p_new =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
                                self.k, self.S, self.mu_o, self.mu_w)
 
-        # todo проверить изменение давления
         logger.info(f"Обновлено давление: {mean(p_new.to_numpy())}")
         self.p = p_new
 
@@ -150,7 +149,7 @@ class Solver:
         new_wps, new_wp = calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
                                       self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
 
-        logger.info("Обновлены доли взвешенного и растворенного парафина.")
+        logger.info(f"Обновлены доли взвешенного: {mean(new_wps.to_numpy())} и растворенного: {mean(new_wps.to_numpy())} парафина.")
         return new_wps, new_wp
 
 
@@ -159,7 +158,7 @@ class Solver:
         new_t = calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p,
                                  self.Wp, self.Wps, self.p, self.k, self.mu_o, self.mu_w)
 
-        logger.info("Обновлена температура.")
+        logger.info(f"Обновлена температура: {mean(new_t.to_numpy())}")
         return new_t
 
 
@@ -220,6 +219,7 @@ class Solver:
         self.Ur = new_Ur
         self.Ub = new_Ub
 
+        logger.info('')
         logger.info("--НОВЫЙ ВРЕМЕННОЙ СЛОЙ--")
 
 
@@ -227,7 +227,7 @@ class Solver:
         """Сохранение полей данных в файл формата pkl."""
         # Пробуем открыть существующий файл
         try:
-            with open(output_file_name, 'rb') as f:
+            with open(results_path, 'rb') as f:
                 data = load(f)
             # Добавляем новые данные
             data['Time'] = concatenate((data['Time'], [t]), axis=0)
@@ -245,6 +245,6 @@ class Solver:
             }
 
         # Записываем обновленные данные
-        with open(output_file_name, 'wb') as f:
+        with open(results_path, 'wb') as f:
             dump(data, f)
             logger.info("Данные записаны в файл.")

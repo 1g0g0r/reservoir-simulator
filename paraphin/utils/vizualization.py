@@ -6,12 +6,12 @@ from matplotlib.pyplot import imshow, show, colorbar
 from numpy import linspace, ones, eye, ndarray, meshgrid, array, diag, cos, sin, random
 from plotly.graph_objects import Heatmap, Figure
 
-from paraphin.constants import Nx, Ny, X_min, X_max, Y_max, Y_min, output_file_name
+from paraphin.constants import Nx, Ny, X_min, X_max, Y_max, Y_min, results_path, js_path
 
 
 def visualize_solution(input_data: dict[str, ndarray]|None = None):
     if input_data is None:
-        with open(output_file_name, 'rb') as f:
+        with open(results_path, 'rb') as f:
             """
             Pickle файл имеет следующую структуру:
             input_data = {
@@ -91,9 +91,9 @@ def visualize_solution(input_data: dict[str, ndarray]|None = None):
 
     # Отображаем график
     if __name__ == '__main__':
-        fig.write_html('results.html', include_plotlyjs='plotly_script.js')
+        fig.write_html(results_path.parent / 'results.html', include_plotlyjs='plotly_script.js')
     else:
-        fig.write_html('results.html', include_plotlyjs='paraphin\\utils\\plotly_script.js')
+        fig.write_html(results_path.parent / 'results.html', include_plotlyjs=js_path)
 
     fig.show()
 
