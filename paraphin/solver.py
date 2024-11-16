@@ -51,10 +51,10 @@ class Solver:
 
         basicConfig(
             filename=logs_path,
-            filemode='w',  # 'w' для перезаписи, 'a' для добавления
+            filemode='w',  # 'w'-перезапись, 'a'-добавление
             level=INFO,
             format='%(asctime)s - %(message)s',  # - %(name)s - %(levelname)s
-            datefmt='%Y-%m-%d %H:%M:%S'
+            datefmt='%H:%M:%S'  # '%Y-%m-%d %H:%M:%S'
         )
 
         self.logger = getLogger(__name__)
@@ -82,20 +82,20 @@ class Solver:
             for i in ti.ndrange(Nx):
                 for j in ti.ndrange(Ny):
                     # параметры пласта
-                    self.p[i, j] = init_p
-                    self.S[i, j] = init_S
-                    self.S_0[i, j] = init_S
-                    self.Wo[i, j] = init_Wo
+                    self.p[i, j]    = init_p
+                    self.S[i, j]    = init_S
+                    self.S_0[i, j]  = init_S
+                    self.Wo[i, j]   = init_Wo
                     self.Wo_0[i, j] = init_Wo
-                    self.Wp[i, j] = init_Wp
+                    self.Wp[i, j]   = init_Wp
                     self.Wp_0[i, j] = init_Wp
-                    self.Wps[i, j] = init_Wps
-                    self.k[i, j] = init_k
-                    self.m[i, j] = init_m
-                    self.m_0[i, j] = init_m
-                    self.T[i, j] = init_T
-                    self.T_0[i, j] = init_T
-                    self.qp[i, j] = init_qp
+                    self.Wps[i, j]  = init_Wps
+                    self.k[i, j]    = init_k
+                    self.m[i, j]    = init_m
+                    self.m_0[i, j]  = init_m
+                    self.T[i, j]    = init_T
+                    self.T_0[i, j]  = init_T
+                    self.qp[i, j]   = init_qp
 
                     # свойства флюидов
                     self.mu_o[i, j] = calc_mu_o(init_T)
@@ -106,7 +106,7 @@ class Solver:
                     self.C_p[i, j] = calc_c_p(init_T)
 
                     for ij in ti.ndrange(fi_o.shape[0]):
-                        self.fi[i, j, ij] = fi_o[ij]
+                        self.fi[i, j, ij]     = fi_o[ij]
                         self.h_sloy[i, j, ij] = init_h_sloy
                         self.Ur[i, j, ij] = 0.0
                         self.Ub[i, j, ij] = 0.0
@@ -152,7 +152,7 @@ class Solver:
                                       self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
 
         self.logger.info(f"Обновлены доли взвешенного парафина: {np.mean(new_wps.to_numpy())}")
-        self.logger.info(f"Обновлены доли растворенного парафина: {np.mean(new_wps.to_numpy())}")
+        self.logger.info(f"Обновлены доли растворенного парафина: {np.mean(new_wp.to_numpy())}")
         return new_wps, new_wp
 
 
@@ -239,7 +239,7 @@ class Solver:
 
         # Пробуем открыть существующий файл
         try:
-            with open(results_path, 'rb') as f:
+            with open(results_path, 'ab') as f:
                 data = load(f)
             # Добавляем новые данные
             data['Time']        = np.concatenate((data['Time'], [t]), axis=0)
@@ -257,6 +257,7 @@ class Solver:
             }
 
         # Записываем обновленные данные
+        # TODO рассмотреть дозапись в файл (чтобы исключить помещение всего файла в оперативу)
         with open(results_path, 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")

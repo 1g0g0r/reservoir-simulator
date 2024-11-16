@@ -114,11 +114,11 @@ def show_plot(x, type):
         plt.show()
 
     elif type == 'plotly':
-        x = linspace(X_min, X_max, Nx)
-        y = linspace(Y_min, Y_max, Ny)
+        x = np.linspace(X_min, X_max, Nx)
+        y = np.linspace(Y_min, Y_max, Ny)
 
         # Создаем тепловую карту
-        fig = Figure(data=Heatmap(
+        fig = go.Figure(data=go.Heatmap(
             x=x,
             y=y,
             z=data,
@@ -136,26 +136,26 @@ def show_plot(x, type):
 
         # Отображаем график
         if __name__ == '__main__':
-            fig.write_html('results.html', include_plotlyjs='plotly_script.js')
+            fig.write_html(results_path.parent / '2dplot.html', include_plotlyjs='plotly_script.js')
         else:
-            fig.write_html('results.html', include_plotlyjs=js_path)
+            fig.write_html(results_path.parent / '2dplot.html', include_plotlyjs=js_path)
 
 
 
 if __name__ == '__main__':
     Nx, Ny = 128, 128
-    ones = ones((Nx, Ny))
+    ones = np.ones((Nx, Ny))
     n_times = 50
 
-    x = linspace(X_min, X_max, Nx)
-    y = linspace(Y_min, Y_max, Ny)
-    X, Y = meshgrid(x, y)
+    x = np.linspace(X_min, X_max, Nx)
+    y = np.linspace(Y_min, Y_max, Ny)
+    X, Y = np.meshgrid(x, y)
 
     data = {
-        'time': linspace(0, 50, n_times),
-        'pressure': array([cos(X ** 2 + Y ** 2) + i * 0.01 * random.randn(Nx, Ny) for i in range(n_times)]),
-        'temperature': array([sin(X ** 2 + Y ** 2) + i * 0.01 * random.randn(Nx, Ny) for i in range(n_times)]),
-        'saturation': array([ones + diag(ones.diagonal()) * i * 10 for i in range(n_times)]),
+        'time':        np.linspace(0, 50, n_times),
+        'pressure':    np.array([np.cos(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
+        'temperature': np.array([np.sin(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
+        'saturation':  np.array([ones + np.diag(ones.diagonal()) * i * 10 for i in range(n_times)]),
     }
 
     visualize_solution(data)

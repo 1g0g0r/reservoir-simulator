@@ -3,13 +3,13 @@ import numpy as np
 import taichi as ti
 
 from scipy.sparse import csr_matrix
-from scipy.sparse.linalg import spsolve, bicgstab
+from scipy.sparse.linalg import spsolve, lgmres
 
 from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw
 from paraphin.utils import mid, show_plot
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
-well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * volume
+well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * volume * 0.25  # тк участвует только 0.25 дебита
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 
@@ -93,14 +93,14 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
     with warnings.catch_warnings(record=True) as w:
         x = spsolve(A_csr, b.to_numpy())
         if w:
-            x, _ = bicgstab(A_csr, b.to_numpy())
+            x, _ = lgmres(A_csr, b.to_numpy())
             mat_singularity = True
 
     # import pyamg
     # ml = pyamg.ruge_stuben_solver(A_csr)  # construct the multigrid hierarchy
     # xx = ml.solve(b.to_numpy(), tol=1e-10)
 
-    # show_plot(x, 'plotly')
     p.from_numpy(x.reshape((Nx, Ny)))
 
+    # show_plot(x, 'plotly')
     return p, mat_singularity

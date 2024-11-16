@@ -1,12 +1,13 @@
 import numpy as np
 import taichi as ti
 
-from paraphin.utils import up_ko, mid
+from paraphin.utils import up_ko, mid, show_plot
+from paraphin.utils.phase_f import pf_o
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, ro_p, ro_o, volume, area, Tm, R, Po, rw
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 temp = 1.0 / (1.8 * Tm + 32.0)
-well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy)))
+well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * 0.25  # тк участвует только 0.25 дебита
 
 
 def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
@@ -55,12 +56,6 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
 
     @ti.kernel
     def calc_wp_wps_loop():
-        # учет скважин
-
-        qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        Wps[Nx - 1, Ny - 1] -= (dt * qo * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
-                                (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
-
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
                 temp_val = 0.0
@@ -81,6 +76,12 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
                 delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8   # * 1.8 - перевод в фаренгейты
                 Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
 
+        # учет скважин
+        qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1] * pf_o(S[Nx - 1, Ny - 1])
+        Wps[Nx - 1, Ny - 1] -= (dt * qo * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
+                                (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
+
     calc_wp_wps_loop()
 
+    show_plot(Wps.to_numpy(), 'plotly')
     return Wps, Wp

@@ -5,7 +5,7 @@ from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, Pw, Po, rw, volume
 from paraphin.utils import up_kw, mid, show_plot
 from paraphin.utils.phase_f import pf_w
 
-well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy)))
+well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * 0.25  # тк участвует только 0.25 дебита
 
 
 def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
@@ -36,13 +36,6 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
 
     @ti.kernel
     def calc_saturation_loop():
-        # учет скважины
-        qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
-        S[0, 0] += dt * qw / m[0, 0]
-
-        qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
-
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
                 temp_val = 0.0
@@ -57,6 +50,13 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
                                         k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])*(p[i, j] - p[i1, j1])/hij
 
                 S[i, j] += -S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] - dt * temp_val * area / m[i, j] / volume
+
+        # учет скважины
+        qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
+        S[0, 0] += dt * qw / m[0, 0]  # * pf_w(S[0, 0]) TODO нужно ли как учесть\ограничить влияние скважины
+
+        qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
+        S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
 
     calc_saturation_loop()
 
