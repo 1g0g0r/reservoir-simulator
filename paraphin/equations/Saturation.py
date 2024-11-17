@@ -44,9 +44,9 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
                 for idx in ti.static(ti.ndrange(4)):
                     i1, j1, hij = arr[idx]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        temp_val += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                        temp_val += up_kw(k[i, j],   S[i, j],   p[i, j],   mu_o[i, j],   mu_w[i, j],
                                           k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * \
-                                    mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                    mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
                                         k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])*(p[i, j] - p[i1, j1])/hij
 
                 S[i, j] += -S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] - dt * temp_val * area / m[i, j] / volume
@@ -60,5 +60,5 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
 
     calc_saturation_loop()
 
-    # show_plot(S.to_numpy(), 'plotly')
+    # show_plot(S.to_numpy(), 'Saturation')
     return S

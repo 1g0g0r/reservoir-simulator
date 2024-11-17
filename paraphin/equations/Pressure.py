@@ -5,7 +5,7 @@ import taichi as ti
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve, lgmres
 
-from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw
+from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw, pa_to_bar
 from paraphin.utils import mid, show_plot
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
@@ -64,7 +64,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
                 for qq in ti.static(ti.ndrange(4)):
                     i1, j1, hij = arr[qq]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        temp = Wo[i1, j1] * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                        temp = Wo[i1, j1] * mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
                                                 k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * area / hij
                         row_indices[num] = idx
                         col_indices[num] = idx + (i1-i) + Nx * (j1-j)
@@ -102,5 +102,5 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
 
     p.from_numpy(x.reshape((Nx, Ny)))
 
-    # show_plot(x, 'plotly')
+    show_plot(x / pa_to_bar, 'Pressure')
     return p, mat_singularity

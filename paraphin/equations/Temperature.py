@@ -60,14 +60,14 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
                 for idx in ti.static(ti.ndrange(4)):
                     i1, j1, hij = arr[idx]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        temp_val = mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                        temp_val = mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
                                        k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * (p[i, j] - p[i1, j1]) / hij * area
 
                         t1 += (T[i, j] - T[i1, j1]) / hij
-                        t2 += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                        t2 += up_kw(k[i, j],   S[i, j],   p[i, j],   mu_o[i, j],   mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
 
-                        t3 += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                        t3 += up_ko(k[i, j],   S[i, j],   p[i, j],   mu_o[i, j],   mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
 
                 t1 *= area * (m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * K_o) +
@@ -94,5 +94,5 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
 
     calc_temperature_loop()
 
-    # show_plot(T.to_numpy(), 'plotly')
+    # show_plot(T.to_numpy(), 'Temperature')
     return T

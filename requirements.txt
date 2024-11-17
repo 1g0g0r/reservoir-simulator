@@ -1,6 +1,5 @@
 numpy
 scipy
 taichi
-matplotlib
 plotly
 tqdm

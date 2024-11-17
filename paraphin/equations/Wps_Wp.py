@@ -83,5 +83,5 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
 
     calc_wp_wps_loop()
 
-    show_plot(Wps.to_numpy(), 'plotly')
+    show_plot(Wps.to_numpy(), 'wps')
     return Wps, Wp
