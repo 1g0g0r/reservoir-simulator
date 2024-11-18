@@ -1,7 +1,7 @@
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import data_type, Nx, Ny, Nr, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta, eta
+from paraphin.constants import data_type, Nx, Ny, Nr, r, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta, eta
 
 """
 Lk: float
@@ -26,11 +26,15 @@ eta: float
 b_D_3 = 6.0 * betta / D / D / D
 cf_D2 = Cf * D * D * 9.81 / 18.0
 Diff_2 = 2.0 * Diff * Diff / Lk
+rr = ti.field(dtype=data_type, shape=Nr)
+r2 = ti.field(dtype=data_type, shape=Nr)
+rr.from_numpy(r)
+r2.from_numpy(r * r)
 
 
-def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (ti.field(dtype=data_type, shape=(Nx, Ny, Nr)),
-                                                              ti.field(dtype=data_type, shape=(Nx, Ny, Nr)),
-                                                              ti.field(dtype=data_type, shape=(Nx, Ny, Nr))):
+def calc_velocitys_h(p, Wps, mu_o, fi, h_sloy, Ur, Ub) -> (ti.field(dtype=data_type, shape=(Nx, Ny, Nr)),
+                                                           ti.field(dtype=data_type, shape=(Nx, Ny, Nr)),
+                                                           ti.field(dtype=data_type, shape=(Nx, Ny, Nr))):
     """Вычисление скоростей и толщины осадочного слоя.
 
     Parameters
@@ -63,17 +67,15 @@ def calc_velocitys_h(p, Wps, mu_o, fi, r, h_sloy, Ur, Ub) -> (ti.field(dtype=dat
     """
     Um_r2 = ti.field(dtype=data_type, shape=(Nx, Ny))
     Um_r2.from_numpy(np.linalg.norm(np.gradient(p.to_numpy()), axis=0) * 0.125 / eta / mu_o.to_numpy())
-    r2 = ti.field(dtype=data_type, shape=Nr)
-    r2.from_numpy(r.to_numpy() * r.to_numpy())
 
     @ti.kernel
     def calc_velocitys_h_loop():
         for i, j, ij in ti.ndrange(Nx, Ny, Nr):
             um = Um_r2[i, j] * r2[ij]
-            uc = u_c(r[ij], mu_o[i, j], ro_p)
-            Ub[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], r[ij])
-            Ur[i, j, ij] = u_r(Wps[i, j], um, uc, r[ij], h_sloy[i, j, ij])
-            h_sloy[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], r[ij])
+            uc = u_c(rr[ij], mu_o[i, j], ro_p)
+            Ub[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], rr[ij])
+            Ur[i, j, ij] = u_r(Wps[i, j], um, uc, rr[ij], h_sloy[i, j, ij])
+            h_sloy[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], rr[ij])
 
     calc_velocitys_h_loop()
 

@@ -6,7 +6,7 @@ import numpy as np
 import taichi as ti
 
 from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
-                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, pa_to_bar, sec_to_day)
+                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, day_to_sec)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
@@ -42,7 +42,6 @@ class Solver:
         # динамика образования парафина (кольматация\суффозия)
         self.integr_r2_fi0 = ti.field(dtype=d_type, shape=())
         self.integr_r4_fi0 = ti.field(dtype=d_type, shape=())
-        self.r      = ti.field(dtype=d_type, shape=Nr)
         self.qp     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
         self.fi     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.h_sloy = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
@@ -111,7 +110,6 @@ class Solver:
                         self.Ur[i, j, ij] = 0.0
                         self.Ub[i, j, ij] = 0.0
 
-        self.r.from_numpy(r)
         calc_integrals(rr=r, fi_o=fi_0)
         initialize_params_loop(fi_o=fi_0)
 
@@ -131,8 +129,8 @@ class Solver:
         """Обновление давления."""
         p_new, mat_singularity =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
                                                 self.k, self.S, self.mu_o, self.mu_w)
-        min_p = np.min(p_new.to_numpy()) / pa_to_bar
-        max_p = np.max(p_new.to_numpy()) / pa_to_bar
+        min_p = np.min(p_new.to_numpy()) / bar_to_pa
+        max_p = np.max(p_new.to_numpy()) / bar_to_pa
 
         if mat_singularity: self.logger.error('Матрица сингулярна. Решение получено итерационным методом.')
         self.logger.info(f"Обновлено давление (bar): min={min_p}  max={max_p}")
@@ -179,8 +177,8 @@ class Solver:
                                  ti.field(dtype=data_type, shape=(Nx, Ny)),
                                  ti.field(dtype=data_type, shape=(Nx, Ny))):
         """Обновление объема выделяемого парафина, пористости и проницаемости."""
-        new_qp, m_mult, k_mult = calc_qp(self.Wps, self.m, self.qp, self.fi, self.Ur, self.Ub,
-                                         self.r, self.integr_r2_fi0[None], self.integr_r4_fi0[None])
+        new_qp, m_mult, k_mult = calc_qp(self.Wps, self.m, self.fi, self.Ur, self.Ub,
+                                         self.integr_r2_fi0[None], self.integr_r4_fi0[None])
         min_qp = np.min(new_qp.to_numpy())
         max_qp = np.max(new_qp.to_numpy())
         min_m_mult = np.min(m_mult.to_numpy())
@@ -198,7 +196,7 @@ class Solver:
                                   ti.field(dtype=data_type, shape=(Nx, Ny)),
                                   ti.field(dtype=data_type, shape=(Nx, Ny))):
         """Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров."""
-        new_h, new_ur, new_ub = calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi, self.r,
+        new_h, new_ur, new_ub = calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi,
                                                  self.h_sloy, self.Ur, self.Ub)
         min_mew_h = np.min(new_h.to_numpy())
         max_mew_h = np.max(new_h.to_numpy())
@@ -217,7 +215,7 @@ class Solver:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов taichi распараллеливание задач снижает производительность
         self.logger.info('')
-        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t / sec_to_day} день")
+        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t / day_to_sec} день")
 
         # --- решение гидродинамики ---
         self.p = self._update_p()                # Обновление давления

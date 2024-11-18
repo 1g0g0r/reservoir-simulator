@@ -1,9 +1,11 @@
 import taichi as ti
 
 from paraphin.constants import data_type, r, Nx, Ny, Nr, dt, D, gamma
+from paraphin.utils.vizualization import show_plot
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 D_2_g = D * 0.5 / gamma
+rr = ti.field(dtype=data_type, shape=Nr)
 r2 = ti.field(dtype=data_type, shape=Nr)
 r3 = ti.field(dtype=data_type, shape=Nr)
 r4 = ti.field(dtype=data_type, shape=Nr)
@@ -14,6 +16,7 @@ r3_np = r2_np * r
 r4_np = r3_np * r
 r5_np = r4_np * r
 r6_np = r5_np * r
+rr.from_numpy(r)
 r2.from_numpy(r2_np)
 r3.from_numpy(r3_np)
 r4.from_numpy(r4_np)
@@ -21,9 +24,9 @@ r5.from_numpy(r5_np)
 r6.from_numpy(r6_np)
 
 
-def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                         ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                         ti.field(dtype=data_type, shape=(Nx, Ny))):
+def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                  ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                  ti.field(dtype=data_type, shape=(Nx, Ny))):
     """
     Вычисление концентрации взвешенных частиц парафина по явной схеме
 
@@ -41,8 +44,6 @@ def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (ti.fiel
         Скорость блокирования капилляра, [м/с]
     Ur: taichi.field(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра, [м/с]
-    r: taichi.field(Nr)
-        Радиусы пор, [m]
     integr_r2_fi0: float
         Интеграл r^2 * fi_o(r), [m^3]
     integr_r4_fi0: float
@@ -57,6 +58,7 @@ def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (ti.fiel
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
     """
+    new_qp = ti.field(dtype=data_type, shape=(Nx, Ny))
     k_mult = ti.field(dtype=data_type, shape=(Nx, Ny))
     m_mult = ti.field(dtype=data_type, shape=(Nx, Ny))
 
@@ -70,32 +72,32 @@ def calc_qp(Wps, m, qp, fi, Ur, Ub, r, integr_r2_fi0, integr_r4_fi0) -> (ti.fiel
                 r4fi = 0.0
 
                 for ij in ti.ndrange((1, Nr)):
-                    dr = r[ij] - r[ij-1]
-                    A_fi = (fi[i,j,ij-1] * r[ij] - fi[i,j,ij] * r[ij-1]) / dr
+                    dr = rr[ij] - rr[ij-1]
+                    A_fi = (fi[i,j,ij-1] * rr[ij] - fi[i,j,ij] * rr[ij-1]) / dr
                     B_fi = (fi[i,j,ij] - fi[i,j,ij-1]) / dr
-                    A_ur = (Ur[i,j,ij-1] * r[ij] - Ur[i,j,ij] * r[ij - 1]) / dr
+                    A_ur = (Ur[i,j,ij-1] * rr[ij] - Ur[i,j,ij] * rr[ij - 1]) / dr
                     B_ur = (Ur[i,j,ij] - Ur[i,j,ij-1]) / dr
 
                     qp1 += ((r2[ij] - r2[ij-1]) * B_fi * B_ur / 2 + (r4[ij] - r4[ij-1]) * A_fi * A_ur / 4 +
                             (r3[ij] - r3[ij-1]) * (A_fi * B_ur + B_fi * A_ur) / 3)
                     r2fi += (r3[ij] - r3[ij-1]) * A_fi / 3 + (r4[ij] - r4[ij-1]) * B_fi / 4
                     r4fi += (r5[ij] - r5[ij-1]) * A_fi / 5 + (r6[ij] - r6[ij-1]) * B_fi / 6
-                    if r[ij] <= D_2_g:  # D * 0.5 / gamma
-                        A_ub = (Ub[i,j,ij-1] * r[ij] - Ub[i,j,ij] * r[ij - 1]) / dr
+                    if rr[ij] <= D_2_g:  # D * 0.5 / gamma
+                        A_ub = (Ub[i,j,ij-1] * rr[ij] - Ub[i,j,ij] * rr[ij - 1]) / dr
                         B_ub = (Ub[i,j,ij] - Ub[i,j,ij-1]) / dr
                         qp2 +=  (r3[ij] - r3[ij-1]) * A_ub / 3 + (r4[ij] - r4[ij-1]) * B_ub / 4
 
                     # Обновление функции пор по размерам
                     fi[i, j, ij] = upd_fi(fi[i, j, ij], Ur[i, j, ij], fi[i, j, ij - 1], Ur[i, j, ij-1],
-                                          r[ij] - r[ij - 1], Ub[i, j, ij])
+                                          dr, Ub[i, j, ij])
 
-                qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
+                new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
                 m_mult[i, j] = r2fi / integr_r2_fi0
                 k_mult[i, j] = r4fi / integr_r4_fi0
 
     calc_qp_loop()
-
-    return qp, m_mult, k_mult
+    # show_plot(new_qp.to_numpy(), 'Qp')
+    return new_qp, m_mult, k_mult
 
 
 @ti.func

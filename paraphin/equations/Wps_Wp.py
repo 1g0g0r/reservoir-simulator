@@ -54,6 +54,9 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
 
+    new_Wp = ti.field(dtype=data_type, shape=(Nx, Ny))   # поля на новом временном слое
+    new_Wps = ti.field(dtype=data_type, shape=(Nx, Ny))  # поля на новом временном слое
+
     @ti.kernel
     def calc_wp_wps_loop():
         for i in ti.ndrange(Nx):
@@ -63,25 +66,29 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
                 for idx in ti.static(ti.ndrange(4)):
                     i1, j1, hij = arr[idx]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        temp_val += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                        temp_val += up_ko(k[i, j],   S[i, j],   p[i, j],   mu_o[i, j],   mu_w[i, j],
                                           k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * \
-                                    mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                    mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
                                         k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])*area*(p[i, j] - p[i1, j1])/hij
+                        # if (i < 3 and j < 3):
+                        #     print([i, j], [i1, j1], area*(p[i, j] - p[i1, j1])/hij)
 
-                Wps[i, j] += dt / (m[i, j] * (1.0 - S[i, j]) * ro_p) * (-(Wps[i, j] * ro_p + ro_o * Wp[i, j]) *
-                            ((m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt - temp_val * volume) -
+                new_Wps[i, j] = Wps[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_p) * ((Wps[i, j] * ro_p + ro_o * Wp[i, j]) *
+                            (-(m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt + temp_val * volume) -
                             ro_o * Wp[i, j] * (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j])
 
                 # delta_Hp = Cp * delta (T) - молярные доли парафина, растворенные в нефти
                 delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8   # * 1.8 - перевод в фаренгейты
-                Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
+                new_Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
+                # TODO использовать Wps с прошлого временного слоя
 
         # учет скважин
         qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1] * pf_o(S[Nx - 1, Ny - 1])
-        Wps[Nx - 1, Ny - 1] -= (dt * qo * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
-                                (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
+        new_Wps[Nx - 1, Ny - 1] -= (dt * qo * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
+                                    (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
 
     calc_wp_wps_loop()
 
-    show_plot(Wps.to_numpy(), 'wps')
-    return Wps, Wp
+    # TODO странное изменение Wps в точках со скважинами
+    # show_plot(new_Wps.to_numpy(), 'Wps')
+    return new_Wps, new_Wp

@@ -3,7 +3,7 @@ from pickle import load
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin.constants import Nx, Ny, X_min, X_max, Y_max, Y_min, results_path, js_path, pa_to_bar, sec_to_day
+from paraphin.constants import Nx, Ny, X_min, X_max, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec
 
 
 def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
@@ -22,7 +22,7 @@ def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
     x = np.linspace(X_min, X_max, Nx)
     y = np.linspace(Y_min, Y_max, Ny)
 
-    time = input_data['Time'] / sec_to_day
+    time = input_data['Time'] / day_to_sec
     n_times = len(time)
     del input_data['Time']
 
@@ -30,8 +30,8 @@ def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
     data_fields = []
     for name, field in input_data.items():
         if name == 'Pressure':
-            trace = go.Heatmap(x=x, y=y, z=field / pa_to_bar, colorscale='Jet', name=name,
-                            hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
+            trace = go.Heatmap(x=x, y=y, z=field / bar_to_pa, colorscale='Jet', name=name,
+                               hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
         else:
             trace = go.Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,  # colorscale='Cividis'
                             hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")

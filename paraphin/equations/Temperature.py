@@ -47,6 +47,8 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
         Температура на новом временном слое, [С]
     """
 
+    new_T = ti.field(dtype=data_type, shape=(Nx, Ny))
+
     @ti.kernel
     def calc_temperature_loop():
         for i in ti.ndrange(Nx):
@@ -77,7 +79,7 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
 
                 t3 *= T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j])
 
-                T[i, j] += multiplier * (t1 + t2 + t3)
+                new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3)
 
         # Учет скважин
         mult00 =  dt / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +
@@ -86,13 +88,13 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
                                    (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
         # учет скважин
         qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
-        T[0, 0] += qw * Twater * C_w[0, 0] * ro_w * mult00
+        new_T[0, 0] += qw * Twater * C_w[0, 0] * ro_w * mult00
 
         qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        T[Nx - 1, Ny - 1] -= qo * (C_o[Nx - 1, Ny - 1] * ro_o * pf_o(S[Nx - 1, Ny - 1]) +
-                                   C_w[Nx - 1, Ny - 1] * ro_w * pf_w(S[Nx - 1, Ny - 1])) * multNN
+        new_T[Nx - 1, Ny - 1] -= qo * (C_o[Nx - 1, Ny - 1] * ro_o * pf_o(S[Nx - 1, Ny - 1]) +
+                                       C_w[Nx - 1, Ny - 1] * ro_w * pf_w(S[Nx - 1, Ny - 1])) * multNN
 
     calc_temperature_loop()
-
-    # show_plot(T.to_numpy(), 'Temperature')
-    return T
+    # TODO учет скважин не тот (температура растет, а не падает)
+    # show_plot(new_T.to_numpy(), 'Temperature')
+    return new_T

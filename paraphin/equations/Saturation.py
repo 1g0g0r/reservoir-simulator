@@ -34,6 +34,8 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
         Водоносыщенность на новом временном слое, [-]
     """
 
+    new_S = ti.field(dtype=data_type, shape=(Nx, Ny))  # водонасыщенность на новом временном слое
+
     @ti.kernel
     def calc_saturation_loop():
         for i in ti.ndrange(Nx):
@@ -49,16 +51,16 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
                                     mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
                                         k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])*(p[i, j] - p[i1, j1])/hij
 
-                S[i, j] += -S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] - dt * temp_val * area / m[i, j] / volume
+                new_S[i, j] = S[i, j] - S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] + dt * temp_val * area / m[i, j] / volume
 
         # учет скважины
         qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
-        S[0, 0] += dt * qw / m[0, 0]  # * pf_w(S[0, 0]) TODO нужно ли как учесть\ограничить влияние скважины
+        new_S[0, 0] += dt * qw / m[0, 0] * pf_w(1.0)  # TODO нужно ли как ограничить: S <= 1.0
 
         qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
+        new_S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
 
     calc_saturation_loop()
 
-    # show_plot(S.to_numpy(), 'Saturation')
-    return S
+    # show_plot(new_S.to_numpy(), 'Saturation')
+    return new_S
