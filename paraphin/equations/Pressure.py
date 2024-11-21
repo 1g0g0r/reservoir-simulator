@@ -102,4 +102,5 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
 
     p.from_numpy(x.reshape((Nx, Ny)))
     # show_plot(x / pa_to_bar, 'Pressure')
+    # todo проверить давления
     return p, mat_singularity
