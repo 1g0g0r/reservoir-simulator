@@ -82,10 +82,10 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
                           m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
 
         # Добавили скважины в точки (0,0) (nx-1, ny-1)
-        b[0] += well_mult * k[0, 0] * Pw / mu_o[0, 0]
-        data[0] += well_mult * k[0, 0] / mu_o[0, 0]
-        b[N-1] -= well_mult * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
-        data[NN-1] -= well_mult * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
+        b[0] -= well_mult * k[0, 0] * Pw / mu_o[0, 0]
+        data[0] -= well_mult * k[0, 0] / mu_o[0, 0]
+        b[N-1] += well_mult * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
+        data[NN-1] += well_mult * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
@@ -101,6 +101,5 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
     # xx = ml.solve(b.to_numpy(), tol=1e-10)
 
     p.from_numpy(x.reshape((Nx, Ny)))
-    # show_plot(x / pa_to_bar, 'Pressure')
-    # todo проверить давления
+    # show_plot(x / bar_to_pa, 'Pressure')
     return p, mat_singularity

@@ -55,7 +55,7 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
 
         # учет скважины
         qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
-        new_S[0, 0] += dt * qw / m[0, 0] * pf_w(1.0)  # TODO нужно ли как ограничить: S <= 1.0
+        new_S[0, 0] += dt * qw / m[0, 0]  # * pf_w(1.0)
 
         qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
         new_S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])

@@ -88,13 +88,12 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
                                    (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
         # учет скважин
         qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
-        new_T[0, 0] += qw * Twater * C_w[0, 0] * ro_w * mult00
+        new_T[0, 0] -= qw * Twater * C_w[0, 0] * ro_w * mult00
 
         qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
         new_T[Nx - 1, Ny - 1] -= qo * (C_o[Nx - 1, Ny - 1] * ro_o * pf_o(S[Nx - 1, Ny - 1]) +
                                        C_w[Nx - 1, Ny - 1] * ro_w * pf_w(S[Nx - 1, Ny - 1])) * multNN
 
     calc_temperature_loop()
-    # TODO учет скважин не тот (температура растет, а не падает)
-    # show_plot(new_T.to_numpy(), 'Temperature')
+    show_plot(new_T.to_numpy(), 'Temperature')
     return new_T

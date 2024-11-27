@@ -198,8 +198,8 @@ class Solver:
         """Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров."""
         new_h, new_ur, new_ub = calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi,
                                                  self.h_sloy, self.Ur, self.Ub)
-        min_mew_h = np.min(new_h.to_numpy())
-        max_mew_h = np.max(new_h.to_numpy())
+        min_mew_h  = np.min(new_h.to_numpy())
+        max_mew_h  = np.max(new_h.to_numpy())
         min_new_ur = np.min(new_ur.to_numpy())
         max_new_ur = np.max(new_ur.to_numpy())
         min_new_ub = np.min(new_ub.to_numpy())
@@ -213,7 +213,7 @@ class Solver:
 
     def upd_time_step(self, t) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
-        # Ввиду параллельного выполнения циклов taichi распараллеливание задач снижает производительность
+        # Ввиду параллельного выполнения циклов taichi запуск задач в разных процессах снижает производительность
         self.logger.info('')
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t / day_to_sec} день")
 

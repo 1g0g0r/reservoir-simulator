@@ -70,7 +70,7 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
                                           k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * \
                                     mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
                                         k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])*area*(p[i, j] - p[i1, j1])/hij
-                        # if (i < 3 and j < 3):
+                        # if (i < 2 and j < 2):
                         #     print([i, j], [i1, j1], area*(p[i, j] - p[i1, j1])/hij)
 
                 new_Wps[i, j] = Wps[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_p) * ((Wps[i, j] * ro_p + ro_o * Wp[i, j]) *
@@ -80,7 +80,6 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
                 # delta_Hp = Cp * delta (T) - молярные доли парафина, растворенные в нефти
                 delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8   # * 1.8 - перевод в фаренгейты
                 new_Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
-                # TODO использовать Wps с прошлого временного слоя
 
         # учет скважин
         qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1] * pf_o(S[Nx - 1, Ny - 1])
