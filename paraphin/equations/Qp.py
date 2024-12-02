@@ -1,6 +1,6 @@
 import taichi as ti
 
-from paraphin.constants import data_type, r, Nx, Ny, Nr, dt, D, gamma
+from paraphin.constants import data_type, r, Nx, Ny, Nr, dt, D, gamma, DEBUGGING
 from paraphin.utils.vizualization import show_plot
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
@@ -96,7 +96,8 @@ def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype
                 k_mult[i, j] = r4fi / integr_r4_fi0
 
     calc_qp_loop()
-    # show_plot(new_qp.to_numpy(), 'Qp')
+    if DEBUGGING:
+        show_plot(new_qp.to_numpy(), 'Qp')
     return new_qp, m_mult, k_mult
 
 

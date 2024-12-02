@@ -133,7 +133,7 @@ class Solver:
         max_p = np.max(p_new.to_numpy()) / bar_to_pa
 
         if mat_singularity: self.logger.error('Матрица сингулярна. Решение получено итерационным методом.')
-        self.logger.info(f"Обновлено давление (bar): min={min_p}  max={max_p}")
+        self.logger.info(f"Обновлено давление (bar):               min={min_p}  max={max_p}")
         return p_new
 
 
@@ -143,7 +143,7 @@ class Solver:
         min_s = np.min(new_S.to_numpy())
         max_s = np.max(new_S.to_numpy())
 
-        self.logger.info(f"Обновлена насыщенность: min={min_s}  max={max_s}")
+        self.logger.info(f"Обновлена насыщенность:                 min={min_s}  max={max_s}")
         return new_S
 
 
@@ -157,7 +157,7 @@ class Solver:
         min_wp = np.min(new_wp.to_numpy())
         max_wp = np.max(new_wp.to_numpy())
 
-        self.logger.info(f"Обновлены доли взвешенного парафина:  min={min_wps}  max={max_wps}")
+        self.logger.info(f"Обновлены доли взвешенного парафина:    min={min_wps}  max={max_wps}")
         self.logger.info(f"Обновлены доли растворенного парафина:  min={min_wp}  max={max_wp}")
         return new_wps, new_wp
 
@@ -169,7 +169,7 @@ class Solver:
         min_t = np.min(new_t.to_numpy())
         max_t = np.max(new_t.to_numpy())
 
-        self.logger.info(f"Обновлена температура: min={min_t}  max={max_t}")
+        self.logger.info(f"Обновлена температура:                  min={min_t}  max={max_t}")
         return new_t
 
 
@@ -186,9 +186,9 @@ class Solver:
         min_k_mult = np.min(k_mult.to_numpy())
         max_k_mult = np.max(k_mult.to_numpy())
 
-        self.logger.info(f"Обновлена доля выпадающего парафина: min={min_qp}  max={max_qp}")
-        self.logger.info(f"Обновлен множитель пористости: min={min_m_mult}  max={max_m_mult}")
-        self.logger.info(f"Обновлен множитель проницаемости: min={min_k_mult}  max={max_k_mult}")
+        self.logger.info(f"Обновлена доля выпадающего парафина:    min={min_qp}  max={max_qp}")
+        self.logger.info(f"Обновлен множитель пористости:          min={min_m_mult}  max={max_m_mult}")
+        self.logger.info(f"Обновлен множитель проницаемости:       min={min_k_mult}  max={max_k_mult}")
         return new_qp, m_mult, k_mult
 
 
@@ -205,9 +205,9 @@ class Solver:
         min_new_ub = np.min(new_ub.to_numpy())
         max_new_ub = np.max(new_ub.to_numpy())
 
-        self.logger.info(f"Обновлена толщина осадочного слоя: min={min_mew_h}  max={max_mew_h}")
+        self.logger.info(f"Обновлена толщина осадочного слоя:              min={min_mew_h}  max={max_mew_h}")
         self.logger.info(f"Обновлена скорость изменения радиуса капилляра: min={min_new_ur}  max={max_new_ur}")
-        self.logger.info(f"Обновлена скорость блокировки капилляров: min={min_new_ub}  max={max_new_ub}")
+        self.logger.info(f"Обновлена скорость блокировки капилляров:       min={min_new_ub}  max={max_new_ub}")
         return new_h, new_ur, new_ub
 
 
@@ -233,10 +233,12 @@ class Solver:
 
     def _swap_time_steps(self, new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult, new_h, new_Ur, new_Ub):
         """Обновление полей данных на новом временном слое."""
-        self.S_0, self.S = self.S, new_s
+        self.S_0 = self.S
+        self.S = new_s
         self.Wo_0 = self.Wo
         self.Wo.from_numpy(1.0 - self.Wp.to_numpy() - self.Wps.to_numpy())
-        self.Wp_0, self.Wp = self.Wp, new_wp
+        self.Wp_0 = self.Wp
+        self.Wp = new_wp
         self.Wps = new_wps
         self.k.from_numpy(self.k.to_numpy() * k_mult.to_numpy())
         self.m_0 = self.m

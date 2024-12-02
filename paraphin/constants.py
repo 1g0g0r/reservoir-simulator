@@ -6,6 +6,7 @@ import taichi as ti
 # Инициализация ядра taichi
 data_type = ti.f64
 ti.init(arch=ti.cpu, default_fp=data_type)
+DEBUGGING = False
 
 # Перевод единиц измерения
 day_to_sec = 86400.0
@@ -29,7 +30,7 @@ volume = area * 1.0  # h = 1 m
 
 # Параметры решения
 Time_end = day_to_sec * 365  # год
-dt = day_to_sec / 50  # шаг дискретизации по времени
+dt = day_to_sec / 40  # шаг дискретизации по времени
 sol_time_step = dt  # шаг по времени для сохранения результатов
 
 # Физические параметры задачи

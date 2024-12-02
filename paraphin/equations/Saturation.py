@@ -1,7 +1,7 @@
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, Pw, Po, rw, volume, area
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, Pw, Po, rw, volume, area, DEBUGGING
 from paraphin.utils import up_kw, mid, show_plot
 from paraphin.utils.phase_f import pf_w
 
@@ -50,7 +50,8 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
                                           k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * \
                                     mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
                                         k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])*(p[i, j] - p[i1, j1])/hij
-
+                if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
+                    temp_val = 0.0
                 new_S[i, j] = S[i, j] - S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] + dt * temp_val * area / m[i, j] / volume
 
         # учет скважины
@@ -61,6 +62,6 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
         new_S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
 
     calc_saturation_loop()
-
-    # show_plot(new_S.to_numpy(), 'Saturation')
+    if DEBUGGING:
+        show_plot(new_S.to_numpy(), 'Saturation')
     return new_S

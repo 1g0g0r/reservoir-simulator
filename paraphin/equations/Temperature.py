@@ -2,7 +2,7 @@ import numpy as np
 import taichi as ti
 
 from paraphin.constants import (data_type, Nx, Ny, hx, hy, dt, volume, area, ro_w, ro_f,
-                                ro_o, ro_p, K_o, K_f, K_w, K_p, Pw, Po, rw, Twater)
+                                ro_o, ro_p, K_o, K_f, K_w, K_p, Pw, Po, rw, Twater, DEBUGGING)
 from paraphin.utils import up_kw, up_ko, mid, show_plot
 from paraphin.utils.phase_f import pf_w, pf_o
 
@@ -71,7 +71,10 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
 
                         t3 += up_ko(k[i, j],   S[i, j],   p[i, j],   mu_o[i, j],   mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
-
+                if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
+                    t1 = 0.0
+                    t2 = 0.0
+                    t3 = 0.0
                 t1 *= area * (m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * K_o) +
                              (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * K_p + (1.0 - m[i, j] - Wp[i, j]) * K_f)
 
@@ -84,16 +87,17 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
         # Учет скважин
         mult00 =  dt / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +
                                    (m[0, 0] * (1.0 - S[0, 0]) * Wps[0, 0] + Wp[0, 0]) * ro_p * C_p[0, 0] + (1.0 - m[0, 0] - Wp[0, 0]) * ro_f * C_f[0, 0])
-        multNN =  dt / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
-                                   (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
+        # multNN =  dt / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
+        #                            (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
         # учет скважин
         qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
         new_T[0, 0] -= qw * Twater * C_w[0, 0] * ro_w * mult00
 
-        qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        new_T[Nx - 1, Ny - 1] -= qo * (C_o[Nx - 1, Ny - 1] * ro_o * pf_o(S[Nx - 1, Ny - 1]) +
-                                       C_w[Nx - 1, Ny - 1] * ro_w * pf_w(S[Nx - 1, Ny - 1])) * multNN
+        # qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
+        # new_T[Nx - 1, Ny - 1] += qo * (C_o[Nx - 1, Ny - 1] * ro_o * pf_o(S[Nx - 1, Ny - 1]) +
+        #                                C_w[Nx - 1, Ny - 1] * ro_w * pf_w(S[Nx - 1, Ny - 1])) * multNN
 
     calc_temperature_loop()
-    show_plot(new_T.to_numpy(), 'Temperature')
+    if DEBUGGING:
+        show_plot(new_T.to_numpy(), 'Temperature')
     return new_T

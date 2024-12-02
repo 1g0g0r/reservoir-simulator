@@ -5,7 +5,7 @@ import taichi as ti
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve, lgmres
 
-from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw, bar_to_pa
+from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw, bar_to_pa, DEBUGGING
 from paraphin.utils import mid, show_plot
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
@@ -101,5 +101,6 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
     # xx = ml.solve(b.to_numpy(), tol=1e-10)
 
     p.from_numpy(x.reshape((Nx, Ny)))
-    # show_plot(x / bar_to_pa, 'Pressure')
+    if DEBUGGING:
+        show_plot(x / bar_to_pa, 'Pressure')
     return p, mat_singularity

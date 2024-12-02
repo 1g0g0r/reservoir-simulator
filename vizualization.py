@@ -30,10 +30,11 @@ def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
     data_fields = []
     for name, field in input_data.items():
         if name == 'Pressure':
-            trace = go.Heatmap(x=x, y=y, z=field / bar_to_pa, colorscale='Jet', name=name,
+            trace = go.Heatmap(x=x, y=y, z=field / bar_to_pa,  colorscale='Jet', name=name,
+                               zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
                                hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
         else:
-            trace = go.Heatmap(x=x, y=y, z=field, colorscale='Jet', name=name,  # colorscale='Cividis'
+            trace = go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field), colorscale='Jet', name=name,  # colorscale='Cividis'
                             hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
         data_fields.append(trace)
 
@@ -127,8 +128,7 @@ def show_plot(x, name: str):
         fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs=js_path)
 
 
-
-if __name__ == '__main__':
+def _test_visualize():
     Nx, Ny = 128, 128
     ones = np.ones((Nx, Ny))
     n_times = 50
@@ -138,10 +138,14 @@ if __name__ == '__main__':
     X, Y = np.meshgrid(x, y)
 
     data = {
-        'Time':        np.linspace(0, 50, n_times),
-        'Pressure':    np.array([np.cos(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
+        'Time': np.linspace(0, 50, n_times),
+        'Pressure': np.array([np.cos(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
         'Temperature': np.array([np.sin(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
-        'Saturation':  np.array([ones + np.diag(ones.diagonal()) * i * 10 for i in range(n_times)]),
+        'Saturation': np.array([ones + np.diag(ones.diagonal()) * i * 10 for i in range(n_times)]),
     }
 
     visualize_solution(data)
+
+
+if __name__ == '__main__':
+    visualize_solution()
