@@ -1,7 +1,6 @@
-import warnings
 import numpy as np
+import pyamg
 import taichi as ti
-
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve, lgmres
 
@@ -14,7 +13,7 @@ N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 
 
-def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data_type, shape=(Nx, Ny)), bool):
+def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data_type, shape=(Nx, Ny))):
     """
     Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
@@ -43,14 +42,11 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
     -------
     p: taichi.field(Nx, Ny)
         Давление на новом временном слое, [Па]
-    mat_singularity: bool
-        Matrix singularity flag, [-]
     """
     data = ti.field(data_type, shape=NN)
     row_indices = ti.field(ti.i32, shape=NN)
     col_indices = ti.field(ti.i32, shape=NN)
     b = ti.field(data_type, shape=N)
-    mat_singularity = False
 
     @ti.kernel
     def fill_matrix_and_rhs():
@@ -90,17 +86,14 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
 
-    with warnings.catch_warnings(record=True) as w:
-        x = spsolve(A_csr, b.to_numpy())
-        if w:
-            x, _ = lgmres(A_csr, b.to_numpy())
-            mat_singularity = True
+    x = spsolve(A_csr, b.to_numpy())
 
-    # import pyamg
+    # x = lgmres(A_csr, b.to_numpy(), rtol=1e-8)[0]
+
     # ml = pyamg.ruge_stuben_solver(A_csr)  # construct the multigrid hierarchy
-    # xx = ml.solve(b.to_numpy(), tol=1e-10)
+    # x = ml.solve(b.to_numpy(), tol=1e-8)
 
     p.from_numpy(x.reshape((Nx, Ny)))
     if DEBUGGING:
         show_plot(x / bar_to_pa, 'Pressure')
-    return p, mat_singularity
+    return p

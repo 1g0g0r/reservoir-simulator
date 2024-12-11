@@ -25,8 +25,8 @@ r6.from_numpy(r6_np)
 
 
 def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                  ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                  ti.field(dtype=data_type, shape=(Nx, Ny))):
+                                                                           ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                           ti.field(dtype=data_type, shape=(Nx, Ny))):
     """
     Вычисление концентрации взвешенных частиц парафина по явной схеме
 

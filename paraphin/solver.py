@@ -5,8 +5,8 @@ from pickle import dump, load
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
-                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, day_to_sec)
+from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S, eta,
+                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
@@ -42,6 +42,7 @@ class Solver:
         # динамика образования парафина (кольматация\суффозия)
         self.integr_r2_fi0 = ti.field(dtype=d_type, shape=())
         self.integr_r4_fi0 = ti.field(dtype=d_type, shape=())
+        self.Um_r2  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.qp     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
         self.fi     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.h_sloy = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
@@ -95,6 +96,7 @@ class Solver:
                     self.T[i, j]    = init_T
                     self.T_0[i, j]  = init_T
                     self.qp[i, j]   = init_qp
+                    self.Um_r2[i, j]= 0.0
 
                     # свойства флюидов
                     self.mu_o[i, j] = calc_mu_o(init_T)
@@ -127,12 +129,11 @@ class Solver:
 
     def _update_p(self) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
         """Обновление давления."""
-        p_new, mat_singularity =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
-                                                self.k, self.S, self.mu_o, self.mu_w)
+        p_new =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
+                               self.k, self.S, self.mu_o, self.mu_w)
         min_p = np.min(p_new.to_numpy()) / bar_to_pa
         max_p = np.max(p_new.to_numpy()) / bar_to_pa
 
-        if mat_singularity: self.logger.error('Матрица сингулярна. Решение получено итерационным методом.')
         self.logger.info(f"Обновлено давление (bar):               min={min_p}  max={max_p}")
         return p_new
 
@@ -196,8 +197,8 @@ class Solver:
                                   ti.field(dtype=data_type, shape=(Nx, Ny)),
                                   ti.field(dtype=data_type, shape=(Nx, Ny))):
         """Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров."""
-        new_h, new_ur, new_ub = calc_velocitys_h(self.p, self.Wps, self.mu_o, self.fi,
-                                                 self.h_sloy, self.Ur, self.Ub)
+        new_h, new_ur, new_ub = calc_velocitys_h(self.Um_r2, self.Wps, self.mu_o, self.fi,
+                                                 self.h_sloy, self.Ur)
         min_mew_h  = np.min(new_h.to_numpy())
         max_mew_h  = np.max(new_h.to_numpy())
         min_new_ur = np.min(new_ur.to_numpy())
@@ -211,13 +212,14 @@ class Solver:
         return new_h, new_ur, new_ub
 
 
-    def upd_time_step(self, t) -> None:
+    def upd_time_step(self, t: float, iter: float) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов taichi запуск задач в разных процессах снижает производительность
         self.logger.info('')
-        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t / day_to_sec} день")
+        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t} день  ({iter} итерация)")
 
         # --- решение гидродинамики ---
+
         self.p = self._update_p()                # Обновление давления
         new_s = self._update_s()                 # Обновление насыщенности
         new_wps, new_wp = self._update_wps_wp()  # Обновление концентраций парафина
@@ -226,6 +228,7 @@ class Solver:
         # --- решение задачи кольматации\суффозии ---
         new_h, new_Ur, new_Ub = self._update_h_ur_ub()  # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
         new_qp, m_mult, k_mult = self._update_qp_m_k()  # Обновление ФУНКЦИИ ПОР ПО РАЗМЕРАМ, объема выделяемого парафина, пористости, проницаемости
+        self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
         # self._update_mu_and_c_temp()  # Обновление свойств веществ ввиду изменения температуры
         self._swap_time_steps(new_s, new_wps, new_wp, new_t, new_qp, m_mult, k_mult, new_h, new_Ur, new_Ub)
@@ -268,6 +271,7 @@ class Solver:
             data['Pressure']    = np.concatenate((data['Pressure'], [self.p.to_numpy()]), axis=0)
             data['Saturation']  = np.concatenate((data['Saturation'], [self.S.to_numpy()]), axis=0)
             data['Temperature'] = np.concatenate((data['Temperature'], [self.T.to_numpy()]), axis=0)
+            data['Wps']         = np.concatenate((data['Wps'], [self.Wps.to_numpy()]), axis=0)
 
         # Если файл не существует или пустой
         except (FileNotFoundError, EOFError):
@@ -275,7 +279,8 @@ class Solver:
                 'Time':        np.array([t]),
                 'Pressure':    np.array([self.p.to_numpy()]),
                 'Saturation':  np.array([self.S.to_numpy()]),
-                'Temperature': np.array([self.T.to_numpy()])
+                'Temperature': np.array([self.T.to_numpy()]),
+                'Wps':         np.array([self.Wps.to_numpy()]),
             }
 
         # Записываем обновленные данные

@@ -128,7 +128,7 @@ def show_plot(x, name: str):
         fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs=js_path)
 
 
-def _test_visualize():
+if __name__ == '__main__':
     Nx, Ny = 128, 128
     ones = np.ones((Nx, Ny))
     n_times = 50
@@ -145,7 +145,3 @@ def _test_visualize():
     }
 
     visualize_solution(data)
-
-
-if __name__ == '__main__':
-    visualize_solution()
