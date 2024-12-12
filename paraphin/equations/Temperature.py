@@ -1,15 +1,12 @@
-import numpy as np
 import taichi as ti
 
 from paraphin.constants import (data_type, Nx, Ny, hx, hy, dt, volume, area, ro_w, ro_f,
-                                ro_o, ro_p, K_o, K_f, K_w, K_p, Pw, Po, rw, Twater, DEBUGGING)
+                                ro_o, ro_p, K_o, K_f, K_w, K_p, Twater, DEBUGGING)
 from paraphin.utils import up_kw, up_ko, mid, show_plot
 from paraphin.utils.phase_f import pf_w, pf_o
 
-well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy)))
 
-
-def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
+def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w, inj, prod) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -40,6 +37,10 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
         Вязкость нефти, [Па*с]
     mu_w: taichi.field(Nx, Ny)
         Вязкость воды, [Па*с]
+    inj: taichi.field(3)
+         Дебит нагнетательной скважины [oil, water, total], [м^3/c]
+    prod: taichi.field(3)
+         Дебит добывающей скважины [oil, water, total], [м^3/c]
 
     Returns
     -------
@@ -87,16 +88,15 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w) -> 
         # Учет скважин
         mult00 =  dt / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +
                                    (m[0, 0] * (1.0 - S[0, 0]) * Wps[0, 0] + Wp[0, 0]) * ro_p * C_p[0, 0] + (1.0 - m[0, 0] - Wp[0, 0]) * ro_f * C_f[0, 0])
-        # multNN =  dt / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
-        #                            (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
-        # учет скважин
-        qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
-        # new_T[0, 0] -= qw * Twater * C_w[0, 0] * ro_w * mult00
+        multNN =  dt / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
+                                   (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
+
+
+        # new_T[0, 0] -= inj[1] * Twater * C_w[0, 0] * ro_w * mult00
         new_T[0, 0] = Twater
 
-        # qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        # new_T[Nx - 1, Ny - 1] += qo * (C_o[Nx - 1, Ny - 1] * ro_o * pf_o(S[Nx - 1, Ny - 1]) +
-        #                                C_w[Nx - 1, Ny - 1] * ro_w * pf_w(S[Nx - 1, Ny - 1])) * multNN
+        new_T[Nx - 1, Ny - 1] += (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] +
+                                  C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN
 
     calc_temperature_loop()
     if DEBUGGING:

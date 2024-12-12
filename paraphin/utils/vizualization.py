@@ -33,6 +33,10 @@ def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
             trace = go.Heatmap(x=x, y=y, z=field / bar_to_pa,  colorscale='Jet', name=name,
                                zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
                                hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
+        elif name == 'Wells':
+            inj = go.Scatter(x=time, y=field['inj'] * day_to_sec, mode='lines', name='Prod rate')
+            data_fields.append(inj)
+            trace = go.Scatter(x=time, y=field['prod'] * day_to_sec, mode='lines', name='Prod rate')
         else:
             trace = go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field), colorscale='Jet', name=name,  # colorscale='Cividis'
                             hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
@@ -43,13 +47,14 @@ def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
 
     # Создаем массив отображаемых данных (все False, а на диагонали True)
     visibility = np.eye(len(data_fields), dtype=bool)
+    visibility[-2, -1] = True
 
     # Добавляем слайдеры для изменения данных
     steps = []
     for i in range(n_times):
         step = dict(
             method="update",
-            args=[{"z": [j.z[i] for j in data_fields]}],
+            args=[{"z": [j.z[i] for j in data_fields[:-2]] + [[j.y[i] for j in data_fields[-2:]]]}],
             label=f'{round(time[i], 5)} день'
         )
         steps.append(step)
@@ -67,8 +72,8 @@ def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
                 type="buttons",
                 direction="down",
                 buttons=[dict(args=[{"visible": visibility[i]}],
-                              label = val.name,
-                              method = "update") for i, val in enumerate(data_fields)],
+                              label = name,
+                              method = "update") for i, name in enumerate(input_data.keys())],
                 pad={"r": 10, "t": 10},
                 showactive=True,
                 x=1.35,  # Положение по горизонтали (справа от графика)
@@ -118,7 +123,7 @@ def show_plot(x, name: str):
         xaxis_title='X',
         yaxis_title='Y',
         width=800,
-        height=600
+        height=800
     )
 
     # Отображаем график
@@ -132,16 +137,21 @@ if __name__ == '__main__':
     Nx, Ny = 128, 128
     ones = np.ones((Nx, Ny))
     n_times = 50
+    time = np.linspace(0, 50, n_times)
 
     x = np.linspace(X_min, X_max, Nx)
     y = np.linspace(Y_min, Y_max, Ny)
     X, Y = np.meshgrid(x, y)
 
     data = {
-        'Time': np.linspace(0, 50, n_times),
+        'Time': time,
         'Pressure': np.array([np.cos(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
         'Temperature': np.array([np.sin(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
         'Saturation': np.array([ones + np.diag(ones.diagonal()) * i * 10 for i in range(n_times)]),
+        'Wells': {
+            'inj': np.array([i * i for i in time]),
+            'prod': np.array([i * 5 for i in time])
+        }
     }
 
     visualize_solution(data)

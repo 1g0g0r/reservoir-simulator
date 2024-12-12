@@ -6,15 +6,23 @@ import numpy as np
 import taichi as ti
 
 from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S, eta,
-                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa)
+                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, rw,
+                                hx, hy, Pw, Po)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
+from paraphin.utils import _pf_o, _pf_w
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
+
+well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * 0.25  # тк участвует только 0.25 дебита
 
 
 @ti.data_oriented
 class Solver:
     def __init__(self, d_type = data_type):
         self.d_type = d_type
+
+        # Дебиты скважин
+        self.inj  = ti.field(dtype=d_type, shape=3)  # расположена в точке (0, 0)
+        self.prod = ti.field(dtype=d_type, shape=3)  # расположена в точке (Lx, Ly)
 
         # свойства флюидов
         self.mu_o = ti.field(dtype=d_type, shape=(Nx, Ny))  # вязкость нефти
@@ -127,20 +135,38 @@ class Solver:
             self.C_p[i, j]  = calc_c_p(self.T[i, j])
 
 
-    def _update_p(self) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
+    def _update_p(self) -> None:
         """Обновление давления."""
         p_new =  calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0,
                                self.k, self.S, self.mu_o, self.mu_w)
+
         min_p = np.min(p_new.to_numpy()) / bar_to_pa
         max_p = np.max(p_new.to_numpy()) / bar_to_pa
-
         self.logger.info(f"Обновлено давление (bar):               min={min_p}  max={max_p}")
-        return p_new
+        self.p = p_new
+
+
+    def _update_q(self) -> None:
+        """Обновление дебитов скважин."""
+
+        inj_mult  = (self.p[0, 0]           - Pw) * well_mult * self.k[0, 0]
+        self.inj[0] = 0.0 # inj_mult / self.mu_o[0, 0] * _pf_o(self.S[0, 0])
+        self.inj[1] = inj_mult / self.mu_w[0, 0]  # * _pf_w(self.S[0, 0])
+        self.inj[2] = (self.inj[0] + self.inj[1])
+
+        prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * well_mult * self.k[Nx - 1, Ny - 1]
+        self.prod[0] = prod_mult * _pf_o(self.S[Nx - 1, Ny - 1]) / self.mu_o[Nx - 1, Ny - 1]
+        self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
+        self.prod[2] = (self.prod[0] + self.prod[1])
+
+        self.logger.info(f"Дебит нагнетательной скважины:          q_o={self.inj[0]}  q_w={self.inj[1]}")
+        self.logger.info(f"Дебит добывающей скважины:              q_o={self.prod[0]}  q_w={self.prod[1] }")
 
 
     def _update_s(self) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
         """Обновление насыщенности."""
-        new_S =  calc_saturation(self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w)
+        new_S =  calc_saturation(self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w,
+                                 self.inj, self.prod)
         min_s = np.min(new_S.to_numpy())
         max_s = np.max(new_S.to_numpy())
 
@@ -152,7 +178,7 @@ class Solver:
                                  ti.field(dtype=data_type, shape=(Nx, Ny))):
         """Обновлнние концентрации взвешенного и растворенного парафина."""
         new_wps, new_wp = calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
-                                      self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p)
+                                      self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p, self.prod)
         min_wps = np.min(new_wps.to_numpy())
         max_wps = np.max(new_wps.to_numpy())
         min_wp = np.min(new_wp.to_numpy())
@@ -165,8 +191,8 @@ class Solver:
 
     def _update_t(self) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
         """Обновление температуры."""
-        new_t = calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p,
-                                 self.Wp, self.Wps, self.p, self.k, self.mu_o, self.mu_w)
+        new_t = calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp,
+                                 self.Wps, self.p, self.k, self.mu_o, self.mu_w, self.inj, self.prod)
         min_t = np.min(new_t.to_numpy())
         max_t = np.max(new_t.to_numpy())
 
@@ -220,7 +246,8 @@ class Solver:
 
         # --- решение гидродинамики ---
 
-        self.p = self._update_p()                # Обновление давления
+        self._update_p()                         # Обновление давления
+        self._update_q()                         # Обновление дебитов скважин
         new_s = self._update_s()                 # Обновление насыщенности
         new_wps, new_wp = self._update_wps_wp()  # Обновление концентраций парафина
         new_t = self._update_t()                 # Обновление температуры
@@ -267,11 +294,13 @@ class Solver:
             with open(results_path, 'rb') as f:
                 data = load(f)
             # Добавляем новые данные
-            data['Time']        = np.concatenate((data['Time'], [t]), axis=0)
-            data['Pressure']    = np.concatenate((data['Pressure'], [self.p.to_numpy()]), axis=0)
-            data['Saturation']  = np.concatenate((data['Saturation'], [self.S.to_numpy()]), axis=0)
-            data['Temperature'] = np.concatenate((data['Temperature'], [self.T.to_numpy()]), axis=0)
-            data['Wps']         = np.concatenate((data['Wps'], [self.Wps.to_numpy()]), axis=0)
+            data['Time']          = np.concatenate((data['Time'], [t]), axis=0)
+            data['Pressure']      = np.concatenate((data['Pressure'], [self.p.to_numpy()]), axis=0)
+            data['Saturation']    = np.concatenate((data['Saturation'], [self.S.to_numpy()]), axis=0)
+            data['Temperature']   = np.concatenate((data['Temperature'], [self.T.to_numpy()]), axis=0)
+            data['Wps']           = np.concatenate((data['Wps'], [self.Wps.to_numpy()]), axis=0)
+            data['Wells']['inj']  = np.concatenate((data['Wells']['inj'], [self.inj[2]]))
+            data['Wells']['prod'] = np.concatenate((data['Wells']['prod'], [self.prod[2]]))
 
         # Если файл не существует или пустой
         except (FileNotFoundError, EOFError):
@@ -281,6 +310,8 @@ class Solver:
                 'Saturation':  np.array([self.S.to_numpy()]),
                 'Temperature': np.array([self.T.to_numpy()]),
                 'Wps':         np.array([self.Wps.to_numpy()]),
+                'Wells':       {'inj':  np.array([self.inj[2]]),
+                                'prod': np.array([self.prod[2]])}
             }
 
         # Записываем обновленные данные

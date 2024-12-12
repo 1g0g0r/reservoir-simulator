@@ -1,17 +1,15 @@
-import numpy as np
 import taichi as ti
 
 from paraphin.utils import up_ko, mid, show_plot
 from paraphin.utils.phase_f import pf_o
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, ro_p, ro_o, volume, area, Tm, R, Po, rw, DEBUGGING
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, ro_p, ro_o, volume, area, Tm, R, DEBUGGING
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 temp = 1.0 / (1.8 * Tm + 32.0)
-well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * 0.25  # тк участвует только 0.25 дебита
 
 
-def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                                      ti.field(dtype=data_type, shape=(Nx, Ny))):
+def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p, prod) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                                            ti.field(dtype=data_type, shape=(Nx, Ny))):
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -46,6 +44,9 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
         Температура на прошлом временном слое, [С]
     C_p: taichi.field(Nx, Ny)
         Теплоемкость парафина, [Дж/C]
+    prod: taichi.field(3)
+        Дебит добывающей скважины [oil, water, total], [м^3/c]
+
     Returns
     -------
     Wp: taichi.field(Nx, Ny)
@@ -84,10 +85,9 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
                 new_Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
 
         # учет скважин
-        # new_Wps[0, 0] = 0.0
-        # qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1] * pf_o(S[Nx - 1, Ny - 1])
-        # new_Wps[Nx - 1, Ny - 1] -= (dt * qo * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
-        #                             (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
+        new_Wps[0, 0] = 0.0
+        new_Wps[Nx - 1, Ny - 1] -= (dt * prod[0] * (Wp[Nx - 1, Ny - 1] * ro_o + Wps[Nx - 1, Ny - 1] * ro_p) /
+                                    (m[Nx - 1, Ny - 1] * (1.0 - S[Nx - 1, Ny - 1]) * ro_p))
 
     calc_wp_wps_loop()
     if DEBUGGING:

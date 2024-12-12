@@ -1,14 +1,11 @@
-import numpy as np
 import taichi as ti
 
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, Pw, Po, rw, volume, area, DEBUGGING, S_max
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, area, DEBUGGING, S_max
 from paraphin.utils import up_kw, mid, show_plot
 from paraphin.utils.phase_f import pf_w
 
-well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * 0.25  # тк участвует только 0.25 дебита
 
-
-def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
+def calc_saturation(S, p, k, m, m_0, mu_o, mu_w, inj, prod) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
     """Вычисление водонасыщенности по явной схеме.
 
     Parameters
@@ -27,6 +24,10 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
         Вязкость нефти, [Па*с]
     mu_w: taichi.field(Nx, Ny)
         Вязкость воды, [Па*с]
+    inj: taichi.field(3)
+        Дебит нагнетательной скважины [oil, water, total], [м^3/c]
+    prod: taichi.field(3)
+        Дебит добывающей скважины [oil, water, total], [м^3/c]
 
     Returns
     -------
@@ -52,18 +53,13 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w) -> ti.field(dtype=data_type, sh
                                         k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])*(p[i, j] - p[i1, j1])/hij
                 if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
                     temp_val = 0.0
-
-                if (i < 3 and j < 3):
-                    print([i, j], temp_val)
-                new_S[i, j] = S[i, j] - S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] + dt * temp_val * area / m[i, j] / volume
+                new_S[i, j] = S[i, j] - S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] - dt * temp_val * area / m[i, j] / volume
 
         # учет скважины
-        qw = (p[0, 0] - Pw) * well_mult * k[0, 0] / mu_w[0, 0]
-        # new_S[0, 0] += dt * qw / m[0, 0]
+        # new_S[0, 0] += dt * inj[1] / m[0, 0]
         new_S[0, 0] = S_max
 
-        # qo = (p[Nx - 1, Ny - 1] - Po) * well_mult * k[Nx - 1, Ny - 1] / mu_w[Nx - 1, Ny - 1]
-        # new_S[Nx - 1, Ny - 1] -= dt * qo / m[Nx - 1, Ny - 1] * pf_w(S[Nx - 1, Ny - 1])
+        new_S[Nx - 1, Ny - 1] -= dt * prod[1] / m[Nx - 1, Ny - 1]
 
     calc_saturation_loop()
     if DEBUGGING:

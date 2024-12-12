@@ -86,10 +86,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
 
-    x = spsolve(A_csr, b.to_numpy())
-
-    # x = lgmres(A_csr, b.to_numpy(), rtol=1e-8)[0]
-
+    x = spsolve(A_csr, b.to_numpy())  # lgmres(A_csr, b.to_numpy(), rtol=1e-8)[0]
     # ml = pyamg.ruge_stuben_solver(A_csr)  # construct the multigrid hierarchy
     # x = ml.solve(b.to_numpy(), tol=1e-8)
 

@@ -6,7 +6,7 @@ import taichi as ti
 # Инициализация ядра taichi
 data_type = ti.f64
 ti.init(arch=ti.cpu, default_fp=data_type)
-DEBUGGING = False
+DEBUGGING = True
 
 # Перевод единиц измерения
 day_to_sec = 86400.0
@@ -20,7 +20,7 @@ logs_path = outputs_path /  'app.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 512, 512  # Число узлов сетки по x и y
+Nx, Ny = 32, 32  # Число узлов сетки по x и y
 X_min, X_max = 0., 300.
 Y_min, Y_max = 0., 300.
 hx = (X_max - X_min) / Nx
@@ -30,7 +30,7 @@ volume = area * 1.0  # h = 1 m
 
 # Параметры решения
 Time_end = day_to_sec * 365  # год
-dt = day_to_sec  # шаг дискретизации по времени
+dt = day_to_sec / 2  # шаг дискретизации по времени
 sol_time_step = dt  # шаг по времени для сохранения результатов
 
 # Физические параметры задачи
@@ -60,9 +60,9 @@ R     = 8.31446261815324  # газовая постоянная [J⋅K^−1⋅mo
 
 # учет скважин
 rw = 0.1             # радиус скважин, [м]
-Pw = 15 * bar_to_pa  # давление на нагнетательной скважине, [Па]
-Po = 40 * bar_to_pa  # давление на добывающей скважине, [Па]
-Twater = 10  # температура нагнетаемой воды, [С]
+Pw = 30 * bar_to_pa  # давление на нагнетательной скважине, [Па]
+Po = 20 * bar_to_pa  # давление на добывающей скважине, [Па]
+Twater = 10          # температура нагнетаемой воды, [С]
 
 # данные инициализации
 init_p   = 1e6  # [Па]
