@@ -1,26 +1,16 @@
-from pickle import load
-
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin.constants import Nx, Ny, X_min, X_max, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec
+from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec
+from paraphin.utils import read_pkl_files
 
 
-def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
+def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]] | None = None):
     if input_data is None:
-        with open(results_path, 'rb') as f:
-            """Pickle файл имеет следующую структуру:
-            input_data = {
-                'Time': массив точек времени,
-                'Pressure': массив двумерных полей данных давления,
-                'Temperature': массив двумерных полей данных температуры,
-                'Saturation': массив двумерных полей данных насыщенности
-            }
-            """
-            input_data = load(f)
+        input_data = read_pkl_files()
 
-    x = np.linspace(X_min, X_max, Nx)
-    y = np.linspace(Y_min, Y_max, Ny)
+    x = np.linspace(X_min+hx/2, X_max-hx/2, Nx)
+    y = np.linspace(Y_min+hy/2, Y_max-hy/2, Ny)
 
     time = input_data['Time'] / day_to_sec
     n_times = len(time)
@@ -34,9 +24,12 @@ def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
                                zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
                                hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
         elif name == 'Wells':
-            inj = go.Scatter(x=time, y=field['inj'] * day_to_sec, mode='lines', name='Prod rate')
+            inj = go.Scatter(x=time, y=-field['inj'] * day_to_sec, mode='lines', name='Injector',
+                             hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")  # , xaxis = "Время, день", yaxis = "Дебит, м^3/день"
+
+            trace = go.Scatter(x=time, y=field['prod'] * day_to_sec, mode='lines', name='Producer',
+                               hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")
             data_fields.append(inj)
-            trace = go.Scatter(x=time, y=field['prod'] * day_to_sec, mode='lines', name='Prod rate')
         else:
             trace = go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field), colorscale='Jet', name=name,  # colorscale='Cividis'
                             hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
@@ -90,12 +83,13 @@ def visualize_solution(input_data: dict[str, np.ndarray]|None = None):
     # По умолчанию показываем первое поле
     fig.update_traces(visible=False)
     fig.data[0].visible = True
+    # fig.update_layout(sliders=[dict(active=0)], visible=True)
 
     # Отображаем график
     if __name__ == '__main__':
-        fig.write_html(results_path.parent / 'results.html', include_plotlyjs='plotly_script.js')
+        fig.write_html(results_path.parent / 'Results.html', include_plotlyjs='plotly_script.js')
     else:
-        fig.write_html(results_path.parent / 'results.html', include_plotlyjs=js_path)
+        fig.write_html(results_path.parent / 'Results.html', include_plotlyjs=js_path)
 
     fig.show()
 

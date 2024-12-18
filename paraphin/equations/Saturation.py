@@ -2,7 +2,6 @@ import taichi as ti
 
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, area, DEBUGGING, S_max
 from paraphin.utils import up_kw, mid, show_plot
-from paraphin.utils.phase_f import pf_w
 
 
 def calc_saturation(S, p, k, m, m_0, mu_o, mu_w, inj, prod) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
@@ -58,7 +57,6 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w, inj, prod) -> ti.field(dtype=da
         # учет скважины
         # new_S[0, 0] += dt * inj[1] / m[0, 0]
         new_S[0, 0] = S_max
-
         new_S[Nx - 1, Ny - 1] -= dt * prod[1] / m[Nx - 1, Ny - 1]
 
     calc_saturation_loop()

@@ -1,6 +1,7 @@
 numpy
+plotly
+psutil
+pyamg
 scipy
 taichi
-pyamg
-plotly
 tqdm

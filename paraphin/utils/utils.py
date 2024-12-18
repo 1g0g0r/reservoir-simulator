@@ -1,7 +1,10 @@
+from pickle import load, PickleError
+
+import numpy as np
 import taichi as ti
 
+from paraphin.constants import data_type, results_path
 from paraphin.utils.phase_f import pf_o, pf_w
-from paraphin.constants import data_type
 
 
 @ti.func
@@ -49,3 +52,37 @@ def K_o(k: data_type, s: data_type, mu_o: data_type) -> data_type:
 @ti.func
 def K_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
     return k * pf_w(s) / mu_w
+
+
+def read_pkl_files() -> dict:
+    """Считывает содержимое всех бинарных файлов (расширение .pkl)."""
+    files_paths = list(results_path.glob('*.pkl'))
+
+    with open(files_paths[0], 'rb') as f:
+        file = load(f)
+
+    data = {}
+    for name, file_data in file.items():
+        if name == 'Wells':
+            data['Wells'] = {
+				'inj': np.array([file_data['inj']]),
+				'prod': np.array([file_data['prod']]),
+			}
+
+        else:
+            data[name] = np.array([file_data])
+
+    for file_path in files_paths[1:]:
+        try:
+            with open(file_path, 'rb') as f:
+                file = load(f)
+            for name, file_data in file.items():
+                if name == 'Wells':
+                    data['Wells']['inj']  = np.concatenate((data['Wells']['inj'],  [file_data['inj']]), axis=0)
+                    data['Wells']['prod'] = np.concatenate((data['Wells']['prod'], [file_data['prod']]), axis=0)
+                else:
+                    data[name] = np.concatenate((data[name], [file_data]), axis=0)
+        except (PickleError, EOFError) as e:
+            print(f"Ошибка при чтении файла {file_path.name}: {e}")
+
+    return data

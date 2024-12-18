@@ -1,18 +1,16 @@
-import os
 from logging import basicConfig, INFO, getLogger
-from pickle import dump, load
+from pickle import dump
+import psutil
 
 import numpy as np
 import taichi as ti
 
 from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S, eta,
-                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, rw,
-                                hx, hy, Pw, Po)
+                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa,
+                                well_mult, Pw, Po, day_to_sec)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils import _pf_o, _pf_w
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
-
-well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * 0.25  # тк участвует только 0.25 дебита
 
 
 @ti.data_oriented
@@ -149,9 +147,9 @@ class Solver:
     def _update_q(self) -> None:
         """Обновление дебитов скважин."""
 
-        inj_mult  = (self.p[0, 0]           - Pw) * well_mult * self.k[0, 0]
-        self.inj[0] = 0.0 # inj_mult / self.mu_o[0, 0] * _pf_o(self.S[0, 0])
-        self.inj[1] = inj_mult / self.mu_w[0, 0]  # * _pf_w(self.S[0, 0])
+        inj_mult  = (self.p[0, 0] - Pw) * well_mult * self.k[0, 0]
+        self.inj[0] = 0.0 # inj_mult / self.mu_o[0, 0] * _pf_o(1.0)
+        self.inj[1] = inj_mult / self.mu_w[0, 0]  # * _pf_w(1.0)
         self.inj[2] = (self.inj[0] + self.inj[1])
 
         prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * well_mult * self.k[Nx - 1, Ny - 1]
@@ -159,8 +157,8 @@ class Solver:
         self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
         self.prod[2] = (self.prod[0] + self.prod[1])
 
-        self.logger.info(f"Дебит нагнетательной скважины:          q_o={self.inj[0]}  q_w={self.inj[1]}")
-        self.logger.info(f"Дебит добывающей скважины:              q_o={self.prod[0]}  q_w={self.prod[1] }")
+        self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0]}  q_w={self.inj[1]}")
+        self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0]}  q_w={self.prod[1]}")
 
 
     def _update_s(self) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
@@ -242,6 +240,7 @@ class Solver:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов taichi запуск задач в разных процессах снижает производительность
         self.logger.info('')
+        self.logging_resources()
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t} день  ({iter} итерация)")
 
         # --- решение гидродинамики ---
@@ -282,39 +281,32 @@ class Solver:
 
         self.logger.info('Поля данных обновлены на текущем временном слое.')
 
+    def logging_resources(self) -> None:
+        # cpu_usage = psutil.cpu_percent(interval=1)
+        memory_info = psutil.virtual_memory()
+        memory_usage = memory_info.percent
+
+        # self.logger.info(f'CPU Usage:    {cpu_usage}%')
+        self.logger.info(f'Memory Usage: {memory_usage}%')
+
 
     def save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
-        if os.path.exists(results_path) and np.isclose(t, 0.0):
-            os.remove(results_path)
-            self.logger.info('Файл результатов очищен.')
+        if np.isclose(t, 0.0):
+            for file_path in results_path.glob(f'*.pkl'):  # Перебор всех файлов .pkl
+                file_path.unlink()
+            self.logger.info('Старые файлы удалены.')
 
-        # Пробуем открыть существующий файл
-        try:
-            with open(results_path, 'rb') as f:
-                data = load(f)
-            # Добавляем новые данные
-            data['Time']          = np.concatenate((data['Time'], [t]), axis=0)
-            data['Pressure']      = np.concatenate((data['Pressure'], [self.p.to_numpy()]), axis=0)
-            data['Saturation']    = np.concatenate((data['Saturation'], [self.S.to_numpy()]), axis=0)
-            data['Temperature']   = np.concatenate((data['Temperature'], [self.T.to_numpy()]), axis=0)
-            data['Wps']           = np.concatenate((data['Wps'], [self.Wps.to_numpy()]), axis=0)
-            data['Wells']['inj']  = np.concatenate((data['Wells']['inj'], [self.inj[2]]))
-            data['Wells']['prod'] = np.concatenate((data['Wells']['prod'], [self.prod[2]]))
+        data = {
+            'Time':        t,
+            'Pressure':    self.p.to_numpy(),
+            'Saturation':  self.S.to_numpy(),
+            'Temperature': self.T.to_numpy(),
+            'Wps':         self.Wps.to_numpy(),
+            'Wells':       {'inj':  self.inj[2],
+                            'prod': self.prod[2]}
+        }
 
-        # Если файл не существует или пустой
-        except (FileNotFoundError, EOFError):
-            data = {
-                'Time':        np.array([t]),
-                'Pressure':    np.array([self.p.to_numpy()]),
-                'Saturation':  np.array([self.S.to_numpy()]),
-                'Temperature': np.array([self.T.to_numpy()]),
-                'Wps':         np.array([self.Wps.to_numpy()]),
-                'Wells':       {'inj':  np.array([self.inj[2]]),
-                                'prod': np.array([self.prod[2]])}
-            }
-
-        # Записываем обновленные данные
-        with open(results_path, 'wb') as f:
+        with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")

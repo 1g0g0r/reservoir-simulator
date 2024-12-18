@@ -1,14 +1,12 @@
-import numpy as np
 import pyamg
 import taichi as ti
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve, lgmres
 
-from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, rw, bar_to_pa, DEBUGGING
+from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, well_mult, bar_to_pa, DEBUGGING
 from paraphin.utils import mid, show_plot
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
-well_mult = 2.0 * np.pi / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * volume * 0.25  # тк участвует только 0.25 дебита
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 
@@ -78,10 +76,11 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
                           m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
 
         # Добавили скважины в точки (0,0) (nx-1, ny-1)
-        b[0] -= well_mult * k[0, 0] * Pw / mu_o[0, 0]
-        data[0] -= well_mult * k[0, 0] / mu_o[0, 0]
-        b[N-1] += well_mult * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
-        data[NN-1] += well_mult * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
+        w_v = well_mult * volume
+        b[0]       +=  w_v * k[0, 0] * Pw / mu_w[0, 0]
+        data[0]    +=  w_v * k[0, 0] / mu_w[0, 0]
+        b[N-1]     +=  w_v * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
+        data[NN-1] +=  w_v * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))

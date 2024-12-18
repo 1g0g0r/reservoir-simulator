@@ -14,28 +14,29 @@ bar_to_pa = 1e5
 
 # пути проекта
 outputs_path = Path.cwd() / 'outputs'
-outputs_path.mkdir(exist_ok=True)
-results_path = outputs_path / 'data.pkl'
+results_path = outputs_path / 'results'
+results_path.mkdir(parents=True, exist_ok=True)
 logs_path = outputs_path /  'app.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 32, 32  # Число узлов сетки по x и y
+Nx, Ny = 512, 512  # Число узлов сетки по x и y
 X_min, X_max = 0., 300.
 Y_min, Y_max = 0., 300.
 hx = (X_max - X_min) / Nx
 hy = (Y_max - Y_min) / Ny
+h = 1.0  # Толщина пласта, [м]
 area = hx * hy
-volume = area * 1.0  # h = 1 m
+volume = area * h
 
 # Параметры решения
 Time_end = day_to_sec * 365  # год
-dt = day_to_sec / 2  # шаг дискретизации по времени
+dt = day_to_sec / 5   # шаг дискретизации по времени
 sol_time_step = dt  # шаг по времени для сохранения результатов
 
 # Физические параметры задачи
-S_min = 0.18
-S_max = 0.7
+S_min = 0  # 0.18
+S_max = 1  # 0.7
 
 Tm   = 55.0    # температура кристаллизации парафина, [C]
 ro_w = 1000.0  # плотность воды, [кг/м^3]
@@ -60,9 +61,10 @@ R     = 8.31446261815324  # газовая постоянная [J⋅K^−1⋅mo
 
 # учет скважин
 rw = 0.1             # радиус скважин, [м]
-Pw = 30 * bar_to_pa  # давление на нагнетательной скважине, [Па]
+Pw = 25 * bar_to_pa  # давление на нагнетательной скважине, [Па]
 Po = 20 * bar_to_pa  # давление на добывающей скважине, [Па]
 Twater = 10          # температура нагнетаемой воды, [С]
+well_mult = 2.0 * np.pi * h / np.log(rw / (0.14 * np.sqrt(hx*hx + hy*hy))) * 0.25  # тк участвует только 0.25 дебита
 
 # данные инициализации
 init_p   = 1e6  # [Па]

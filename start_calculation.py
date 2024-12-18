@@ -21,7 +21,7 @@ def solve():
         pbar.set_postfix(день=t / day_to_sec)
         pbar.update(1)
 
-        if t >= iter * sol_time_step or np.isclose(t, Time_end):
+        if t >= iter * sol_time_step:  # or np.isclose(t, Time_end):
             sol.save_results(t)
             iter += 1
 
