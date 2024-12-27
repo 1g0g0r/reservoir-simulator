@@ -4,7 +4,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve, lgmres
 
 from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, well_mult, bar_to_pa, DEBUGGING
-from paraphin.utils import mid, show_plot
+from paraphin.utils import mid, show_plot, up_kw, up_ko
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 N = Nx * Ny  # размер матрицы
@@ -58,8 +58,13 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
                 for qq in ti.static(ti.ndrange(4)):
                     i1, j1, hij = arr[qq]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        temp = Wo[i1, j1] * mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
-                                                k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * area / hij
+                        _kw = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        _ko = up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        _mid = mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
+                                   k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        temp = ((Wo[i, j] * _ko + _kw) * _mid * area / hij)
                         row_indices[num] = idx
                         col_indices[num] = idx + (i1-i) + Nx * (j1-j)
                         data[num] = -temp
@@ -72,8 +77,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
                 num += 1
 
                 # rhs
-                b[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) *
-                          m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
+                b[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
 
         # Добавили скважины в точки (0,0) (nx-1, ny-1)
         w_v = well_mult * volume

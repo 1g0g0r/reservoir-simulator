@@ -3,7 +3,7 @@ from pickle import load, PickleError
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import data_type, results_path
+from paraphin.constants import data_type, results_path, Nx, Ny, hx, hy
 from paraphin.utils.phase_f import pf_o, pf_w
 
 
@@ -19,7 +19,7 @@ def mid(k1: data_type, s1: data_type, mu_o1: data_type, mu_w1: data_type,
 @ti.func
 def up_kw(k1: data_type, s1: data_type, p1: data_type, mu_o1: data_type, mu_w1: data_type,
 		  k2: data_type, s2: data_type, p2: data_type, mu_o2: data_type, mu_w2: data_type) -> data_type:
-    """up(kw / (ko + kw)"""
+    """Значение берется вверх по потоку: up(kw / (ko + kw)"""
     ret = 0.0
 
     if p1 >= p2:
@@ -33,7 +33,7 @@ def up_kw(k1: data_type, s1: data_type, p1: data_type, mu_o1: data_type, mu_w1: 
 @ti.func
 def up_ko(k1: data_type, s1: data_type, p1: data_type, mu_o1: data_type, mu_w1: data_type,
 		  k2: data_type, s2: data_type, p2: data_type, mu_o2: data_type, mu_w2: data_type) -> data_type:
-    """up(ko / (ko + kw)"""
+    """Значение берется вверх по потоку: up(ko / (ko + kw)"""
     ret = 0.0
 
     if p1 >= p2:
@@ -72,6 +72,8 @@ def read_pkl_files() -> dict:
         else:
             data[name] = np.array([file_data])
 
+    if len(files_paths) <= 1:
+        return data
     for file_path in files_paths[1:]:
         try:
             with open(file_path, 'rb') as f:
@@ -86,3 +88,29 @@ def read_pkl_files() -> dict:
             print(f"Ошибка при чтении файла {file_path.name}: {e}")
 
     return data
+
+
+@ti.kernel
+def calculate_temp_data(p, S, T, k, mu_o, mu_w):
+    for i in ti.ndrange(Nx):
+        for j in ti.ndrange(Ny):
+            # цикл по граням
+            arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
+            for idx in ti.static(ti.ndrange(4)):
+                i1, j1, hij = arr[idx]
+                if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                    mid_val = mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                  k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                    p_val = (p[i, j] - p[i1, j1]) / hij
+                    t_val = (T[i, j] - T[i1, j1]) / hij
+                    up_kw_val = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                      k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                    up_ko_val = up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                      k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+            if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
+                t1 = 0.0
+                t2 = 0.0
+                t3 = 0.0
+
+
+

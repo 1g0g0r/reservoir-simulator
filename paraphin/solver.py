@@ -5,9 +5,9 @@ import psutil
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S, eta,
+from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
                                 init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa,
-                                well_mult, Pw, Po, day_to_sec)
+                                well_mult, Pw, Po, day_to_sec, eta)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
 from paraphin.utils import _pf_o, _pf_w
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
@@ -158,7 +158,9 @@ class Solver:
         self.prod[2] = (self.prod[0] + self.prod[1])
 
         self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0]}  q_w={self.inj[1]}")
+        self.logger.info(f'dp = {self.p[0, 0] - Pw}')
         self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0]}  q_w={self.prod[1]}")
+        self.logger.info(f'dp = {self.p[Nx - 1, Ny - 1] - Po}')
 
 
     def _update_s(self) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
@@ -244,7 +246,6 @@ class Solver:
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t} день  ({iter} итерация)")
 
         # --- решение гидродинамики ---
-
         self._update_p()                         # Обновление давления
         self._update_q()                         # Обновление дебитов скважин
         new_s = self._update_s()                 # Обновление насыщенности
