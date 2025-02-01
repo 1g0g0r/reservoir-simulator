@@ -1,3 +1,4 @@
+import re
 from pickle import load, PickleError
 
 import numpy as np
@@ -56,9 +57,14 @@ def K_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
 
 def read_pkl_files() -> dict:
     """Считывает содержимое всех бинарных файлов (расширение .pkl)."""
-    files_paths = list(results_path.glob('*.pkl'))
+    def extract_number(_path):
+        numbers = re.findall(r'\d+', _path.stem) # Находим все числа в имени файла
+        return int(numbers[0]) if numbers else 0
 
-    with open(files_paths[0], 'rb') as f:
+    # Сортировка списка
+    sorted_paths = sorted(list(results_path.glob('*.pkl')), key=extract_number)
+
+    with open(sorted_paths[0], 'rb') as f:
         file = load(f)
 
     data = {}
@@ -72,9 +78,9 @@ def read_pkl_files() -> dict:
         else:
             data[name] = np.array([file_data])
 
-    if len(files_paths) <= 1:
+    if len(sorted_paths) <= 1:
         return data
-    for file_path in files_paths[1:]:
+    for file_path in sorted_paths[1:]:
         try:
             with open(file_path, 'rb') as f:
                 file = load(f)
@@ -90,27 +96,35 @@ def read_pkl_files() -> dict:
     return data
 
 
-@ti.kernel
-def calculate_temp_data(p, S, T, k, mu_o, mu_w):
-    for i in ti.ndrange(Nx):
-        for j in ti.ndrange(Ny):
-            # цикл по граням
-            arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
-            for idx in ti.static(ti.ndrange(4)):
-                i1, j1, hij = arr[idx]
-                if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                    mid_val = mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                  k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-                    p_val = (p[i, j] - p[i1, j1]) / hij
-                    t_val = (T[i, j] - T[i1, j1]) / hij
-                    up_kw_val = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                      k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-                    up_ko_val = up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                      k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-            if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
-                t1 = 0.0
-                t2 = 0.0
-                t3 = 0.0
+def calculate_temp_data(p, S, T, k, mu_o, mu_w, mid_val, dp_val, dt_val, up_kw_val, up_ko_val) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                                                   ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                                                   ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                                                   ti.field(dtype=data_type, shape=(Nx, Ny)),
+                                                                                                   ti.field(dtype=data_type, shape=(Nx, Ny))):
+    @ti.kernel
+    def temp_val_loop():
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
+                # цикл по граням
+                arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
+                for idx in ti.static(ti.ndrange(4)):
+                    i1, j1, hij = arr[idx]
+                    if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                        mid_val[i, j] = mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                      k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        dp_val[i, j] = (p[i, j] - p[i1, j1]) / hij
+                        dt_val[i, j] = (T[i, j] - T[i1, j1]) / hij
+                        up_kw_val[i, j] = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                          k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        up_ko_val[i, j] = up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                          k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
+                    dp_val[i, j] = 0.0
+                    dt_val[i, j] = 0.0
+                    mid_val[i, j] = 0.0
+                    up_kw_val[i, j] = 0.0
+                    up_ko_val[i, j] = 0.0
 
+    temp_val_loop()
 
-
+    return dp_val, dt_val, mid_val, up_ko_val, up_kw_val

@@ -16,7 +16,7 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w, inj
     m: taichi.field(Nx, Ny)
         Пористость, [-]
     S: taichi.field(Nx, Ny)
-        Водоносыщенность, [-]
+        Водонасыщенность, [-]
     C_o: taichi.field(Nx, Ny)
         Теплоемкость нефти, [Дж/C]
     C_w: taichi.field(Nx, Ny)

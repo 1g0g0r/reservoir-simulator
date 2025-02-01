@@ -36,7 +36,7 @@ def calc_c_f(t: data_type) -> data_type:
 @ti.func
 def calc_c_p(t: data_type) -> data_type:
     """"Теплоемкость парафина, [Дж/C]"""
-    return 1840 + 3.56 * (t + 273.15)
+    return 1840 + 3.56 * t  # (t + 273.15)
 
 
 # теплопроводности

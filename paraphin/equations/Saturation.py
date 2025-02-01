@@ -4,13 +4,15 @@ from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, area, DEBU
 from paraphin.utils import up_kw, mid, show_plot
 
 
-def calc_saturation(S, p, k, m, m_0, mu_o, mu_w, inj, prod) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
+def calc_saturation(new_S, S, p, k, m, m_0, mu_o, mu_w, inj, prod) -> None:
     """Вычисление водонасыщенности по явной схеме.
 
     Parameters
     ----------
+    new_S: taichi.field(Nx, Ny)
+        Водонасыщенность на новом временном слое, [-]
     S: taichi.field(Nx, Ny)
-        Водоносыщенность, [-]
+        Водонасыщенность, [-]
     p: taichi.field(Nx, Ny)
         Давление, [Па]
     k: taichi.field(Nx, Ny)
@@ -28,13 +30,11 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w, inj, prod) -> ti.field(dtype=da
     prod: taichi.field(3)
         Дебит добывающей скважины [oil, water, total], [м^3/c]
 
-    Returns
-    -------
+    Returns (update)
+    ----------------
     S: taichi.field(Nx, Ny)
-        Водоносыщенность на новом временном слое, [-]
+        Водонасыщенность на новом временном слое, [-]
     """
-
-    new_S = ti.field(dtype=data_type, shape=(Nx, Ny))  # водонасыщенность на новом временном слое
 
     @ti.kernel
     def calc_saturation_loop():
@@ -49,7 +49,7 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w, inj, prod) -> ti.field(dtype=da
                         temp_val += up_kw(k[i, j],   S[i, j],   p[i, j],   mu_o[i, j],   mu_w[i, j],
                                           k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * \
                                     mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
-                                        k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])*(p[i, j] - p[i1, j1])/hij
+                                        k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * (p[i, j] - p[i1, j1])/hij
                 if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
                     temp_val = 0.0
                 new_S[i, j] = S[i, j] - S[i, j] * (m[i, j] - m_0[i, j]) / m[i, j] - dt * temp_val * area / m[i, j] / volume
@@ -60,6 +60,6 @@ def calc_saturation(S, p, k, m, m_0, mu_o, mu_w, inj, prod) -> ti.field(dtype=da
         new_S[Nx - 1, Ny - 1] -= dt * prod[1] / m[Nx - 1, Ny - 1]
 
     calc_saturation_loop()
+
     if DEBUGGING:
         show_plot(new_S.to_numpy(), 'Saturation')
-    return new_S

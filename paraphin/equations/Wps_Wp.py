@@ -21,9 +21,9 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
     m_0: taichi.field(Nx, Ny)
         Пористость на прошлом временном слое, [-]
     S: taichi.field(Nx, Ny)
-        Водоносыщенность, [-]
+        Водонасыщенность, [-]
     S_0: taichi.field(Nx, Ny)
-        Водоносыщенность на прошлом временном слое, [-]
+        Водонасыщенность на прошлом временном слое, [-]
     Wp: taichi.field(Nx, Ny)
         Концентрация растворенного парафина, [-]
     Wp_0: taichi.field(Nx, Ny)

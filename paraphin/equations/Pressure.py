@@ -9,9 +9,13 @@ from paraphin.utils import mid, show_plot, up_kw, up_ko
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
+data = ti.field(data_type, shape=NN)
+row_indices = ti.field(ti.i32, shape=NN)
+col_indices = ti.field(ti.i32, shape=NN)
+b = ti.field(data_type, shape=N)
 
 
-def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data_type, shape=(Nx, Ny))):
+def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
     """
     Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
@@ -30,21 +34,17 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
     k: taichi.field(Nx, Ny)
         Проницаемость, [м^2]
     S: taichi.field(Nx, Ny)
-        Водоносыщенность, [-]
+        Водонасыщенность, [-]
     mu_o: taichi.field(Nx, Ny)
         Вязкость нефти, [Па*с]
     mu_w: taichi.field(Nx, Ny)
         Вязкость воды, [Па*с]
 
-    Returns
-    -------
+    Return (update)
+    ---------------
     p: taichi.field(Nx, Ny)
         Давление на новом временном слое, [Па]
     """
-    data = ti.field(data_type, shape=NN)
-    row_indices = ti.field(ti.i32, shape=NN)
-    col_indices = ti.field(ti.i32, shape=NN)
-    b = ti.field(data_type, shape=N)
 
     @ti.kernel
     def fill_matrix_and_rhs():
@@ -96,4 +96,3 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> (ti.field(dtype=data
     p.from_numpy(x.reshape((Nx, Ny)))
     if DEBUGGING:
         show_plot(x / bar_to_pa, 'Pressure')
-    return p
