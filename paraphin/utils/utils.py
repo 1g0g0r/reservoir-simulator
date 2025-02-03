@@ -4,7 +4,7 @@ from pickle import load, PickleError
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import data_type, results_path, Nx, Ny, hx, hy
+from paraphin.constants import data_type, results_path, Nx, Ny, hx, hy, area
 from paraphin.utils.phase_f import pf_o, pf_w
 
 
@@ -96,11 +96,33 @@ def read_pkl_files() -> dict:
     return data
 
 
-def calculate_temp_data(p, S, T, k, mu_o, mu_w, mid_val, dp_val, dt_val, up_kw_val, up_ko_val) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                                                   ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                                                   ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                                                   ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                                                   ti.field(dtype=data_type, shape=(Nx, Ny))):
+def calculate_temp_data(p, S, T, k, mu_o, mu_w, mid_val, dp_val, dt_val, up_kw_val, up_ko_val) -> None:
+    """
+    Parameters
+    ----------
+    p: taichi.field(Nx, Ny)
+        Давление, [Па]
+    S: taichi.field(Nx, Ny)
+        Водонасыщенность, [-]
+    T: taichi.field(Nx, Ny)
+        Температура, [C]
+    k: taichi.field(Nx, Ny)
+        Проницаемость, [м^2]
+    mu_o: taichi.field(Nx, Ny)
+        Вязкость нефти, [Па*с]
+    mu_w: taichi.field(Nx, Ny)
+        Вязкость воды, [Па*с]
+    mid_val: taichi.field(Nx, Ny)
+        Осредненное значение mid(Ko + Kw)_ij, [-]
+    dp_val: taichi.field(Nx, Ny)
+        Величина (p_i - p_j) * area / h_ij, [Па*м]
+    dt_val: taichi.field(Nx, Ny)
+        Величина (T_i - T_j) * area / h_ij, [C*м]
+    up_kw_val: taichi.field(Nx, Ny)
+        Вычисленный параметр Kw по схеме против потока, [-]
+    up_ko_val: taichi.field(Nx, Ny)
+        Вычисленный параметр Ko по схеме против потока, [-]
+    """
     @ti.kernel
     def temp_val_loop():
         for i in ti.ndrange(Nx):
@@ -110,14 +132,15 @@ def calculate_temp_data(p, S, T, k, mu_o, mu_w, mid_val, dp_val, dt_val, up_kw_v
                 for idx in ti.static(ti.ndrange(4)):
                     i1, j1, hij = arr[idx]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                        # TODO ошибка тут должно быть +=  !!!!
                         mid_val[i, j] = mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                      k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-                        dp_val[i, j] = (p[i, j] - p[i1, j1]) / hij
-                        dt_val[i, j] = (T[i, j] - T[i1, j1]) / hij
+                                            k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        dp_val[i, j] = area * (p[i, j] - p[i1, j1]) / hij
+                        dt_val[i, j] = area * (T[i, j] - T[i1, j1]) / hij
                         up_kw_val[i, j] = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                          k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                                                k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
                         up_ko_val[i, j] = up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                          k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                                                k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
                 if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
                     dp_val[i, j] = 0.0
                     dt_val[i, j] = 0.0
@@ -126,5 +149,3 @@ def calculate_temp_data(p, S, T, k, mu_o, mu_w, mid_val, dp_val, dt_val, up_kw_v
                     up_ko_val[i, j] = 0.0
 
     temp_val_loop()
-
-    return dp_val, dt_val, mid_val, up_ko_val, up_kw_val

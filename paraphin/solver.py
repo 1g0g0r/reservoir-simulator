@@ -9,7 +9,7 @@ from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, 
                                 init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa,
                                 well_mult, Pw, Po, day_to_sec, eta, mu_o, mu_w, c_o, c_w, c_p, c_f)
 from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
-from paraphin.utils import _pf_o, _pf_w
+from paraphin.utils import _pf_o, _pf_w, calculate_temp_data
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
 
@@ -67,6 +67,13 @@ class Solver:
         self.m_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.k_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
+        # вспомогательные массивы данных
+        self.dp_val    = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.dt_val    = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.mid_val   = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.up_ko_val = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.up_kw_val = ti.field(dtype=d_type, shape=(Nx, Ny))
+
         basicConfig(
             filename=logs_path,
             filemode='w',  # 'w'-перезапись, 'a'-добавление
@@ -99,6 +106,7 @@ class Solver:
         def initialize_params_loop(fi_o: ti.types.ndarray()):
             for i in ti.ndrange(Nx):
                 for j in ti.ndrange(Ny):
+                    # TODO убрать цикл и переписать через numpy
                     # параметры пласта
                     self.p[i, j]    = init_p
                     self.S[i, j]    = init_S
@@ -134,8 +142,14 @@ class Solver:
         initialize_params_loop(fi_o=fi_0)
 
 
+    def _calc_temp_arrays(self) -> None:
+        """Вычисление вспомогательных массивов данных."""
+        calculate_temp_data(self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.mid_val,
+                            self.dp_val, self.dt_val, self.up_kw_val, self.up_ko_val)
+
+
     @ti.kernel
-    def _update_mu_and_c_temp(self):
+    def _update_mu_and_c_temp(self) -> None:
         for i, j in ti.ndrange(Nx, Ny):
             self.mu_o[i, j] = calc_mu_o(self.T[i, j])
             self.mu_w[i, j] = calc_mu_w(self.T[i, j])
@@ -157,8 +171,8 @@ class Solver:
     def _update_q(self) -> None:
         """Обновление дебитов скважин."""
         inj_mult  = (self.p[0, 0] - Pw) * well_mult * self.k[0, 0]
-        self.inj[0] = 0.0 # inj_mult / self.mu_o[0, 0] * _pf_o(1.0)
-        self.inj[1] = inj_mult / self.mu_w[0, 0]  # * _pf_w(1.0)
+        self.inj[0] = 0.0
+        self.inj[1] = inj_mult / self.mu_w[0, 0]
         self.inj[2] = (self.inj[0] + self.inj[1])
 
         prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * well_mult * self.k[Nx - 1, Ny - 1]
@@ -167,14 +181,13 @@ class Solver:
         self.prod[2] = (self.prod[0] + self.prod[1])
 
         self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0]}  q_w={self.inj[1]}")
-        self.logger.info(f'dp = {self.p[0, 0] - Pw}')
         self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0]}  q_w={self.prod[1]}")
-        self.logger.info(f'dp = {self.p[Nx - 1, Ny - 1] - Po}')
 
 
     def _update_s(self) -> None:
         """Обновление насыщенности."""
-        calc_saturation(self.new_s, self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w, self.inj, self.prod)
+        calc_saturation(self.S, self.m, self.m_0, self.inj, self.prod,
+                        self.up_kw_val, self.mid_val, self.dp_val, self.new_s)
         min_s = self.new_s.to_numpy().min()
         max_s = self.new_s.to_numpy().max()
 
@@ -182,9 +195,9 @@ class Solver:
 
 
     def _update_wps_wp(self) -> None:
-        """Обновлнние концентрации взвешенного и растворенного парафина."""
-        calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.p, self.k,
-                    self.mu_o, self.mu_w, self.T, self.T_0, self.C_p, self.prod, self.new_wp, self.new_wps)
+        """Обновление концентрации взвешенного и растворенного парафина."""
+        calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0,
+                    self.C_p, self.prod, self.up_ko_val, self.mid_val, self.dp_val, self.new_wp, self.new_wps)
         min_wps = self.new_wps.to_numpy().min()
         max_wps = self.new_wps.to_numpy().max()
         min_wp = self.new_wp.to_numpy().min()
@@ -196,8 +209,8 @@ class Solver:
 
     def _update_t(self) -> None:
         """Обновление температуры."""
-        calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps,
-                         self.p, self.k, self.mu_o, self.mu_w, self.inj, self.prod, self.new_t)
+        calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.inj,
+                         self.prod, self.up_kw_val, self.up_ko_val, self.mid_val, self.dp_val, self.dt_val, self.new_t)
         min_t = self.new_t.to_numpy().min()
         max_t = self.new_t.to_numpy().max()
 
@@ -245,13 +258,10 @@ class Solver:
 
         # --- решение гидродинамики ---
         self._update_p()         # Обновление давления
-        self.logging_resources()
+        self._calc_temp_arrays()
         self._update_q()         # Обновление дебитов скважин
-        self.logging_resources()
         self._update_s()         # Обновление насыщенности
-        self.logging_resources()
         self._update_t()         # Обновление температуры
-        self.logging_resources()
 
         # --- решение задачи кольматации\суффозии ---
         if not np.all(np.isclose(self.Wp.to_numpy(), 0)):

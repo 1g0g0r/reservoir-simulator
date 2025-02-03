@@ -1,12 +1,11 @@
 import taichi as ti
 
-from paraphin.constants import (data_type, Nx, Ny, hx, hy, dt, volume, area, ro_w, ro_f,
-                                ro_o, ro_p, K_o, K_f, K_w, K_p, Twater, DEBUGGING)
-from paraphin.utils import up_kw, up_ko, mid, show_plot
-from paraphin.utils.phase_f import pf_w, pf_o
+from paraphin.constants import Nx, Ny, dt, volume, ro_w, ro_f, ro_o, ro_p, K_o, K_f, K_w, K_p, Twater, DEBUGGING
+from paraphin.utils import show_plot
 
 
-def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w, inj, prod, new_T) -> None:
+def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
+                     up_kw_val, up_ko_val, mid_val, dp_val, dt_val, new_T) -> None:
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -29,56 +28,39 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w, inj
         Концентрация растворенного парафина, [-]
     Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина, [-]
-    p: taichi.field(Nx, Ny)
-        Давление, [Па]
-    k: taichi.field(Nx, Ny)
-        Проницаемость, [м^2]
-    mu_o: taichi.field(Nx, Ny)
-        Вязкость нефти, [Па*с]
-    mu_w: taichi.field(Nx, Ny)
-        Вязкость воды, [Па*с]
     inj: taichi.field(3)
          Дебит нагнетательной скважины [oil, water, total], [м^3/c]
     prod: taichi.field(3)
          Дебит добывающей скважины [oil, water, total], [м^3/c]
+    up_kw_val: taichi.field(Nx, Ny)
+        Вычисленный параметр Kw по схеме против потока, [-]
+    up_ko_val: taichi.field(Nx, Ny)
+        Вычисленный параметр Ko по схеме против потока, [-]
+    mid_val: taichi.field(Nx, Ny)
+        Осредненное значение mid(Ko + Kw)_ij, [-]
+    dp_val: taichi.field(Nx, Ny)
+        Величина (p_i - p_j) * area / h_ij, [Па*м]
+    dt_val: taichi.field(Nx, Ny)
+        Величина (T_i - T_j) * area / h_ij, [C*м]
     new_T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
     """
 
     @ti.kernel
     def calc_temperature_loop():
-        for i in ti.ndrange(Nx):
-            for j in ti.ndrange(Ny):
-                multiplier = dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
-                                   (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] + (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])
-                t1, t2, t3 = 0.0, 0.0, 0.0
+        for i, j in ti.ndrange(Nx, Ny):
+            multiplier = dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
+                               (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] + (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])
 
-                # цикл по граням
-                arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
-                for idx in ti.static(ti.ndrange(4)):
-                    i1, j1, hij = arr[idx]
-                    if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        temp_val = mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
-                                       k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * (p[i, j] - p[i1, j1]) / hij * area
+            t1 = dt_val[i, j] * (m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * K_o) +
+                    (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * K_p + (1.0 - m[i, j] - Wp[i, j]) * K_f)
 
-                        t1 += (T[i, j] - T[i1, j1]) / hij
-                        t2 += up_kw(k[i, j],   S[i, j],   p[i, j],   mu_o[i, j],   mu_w[i, j],
-                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
+            t2 = T[i, j] * ro_w * C_w[i, j] * up_kw_val[i, j] * mid_val[i, j] * dp_val[i, j]
 
-                        t3 += up_ko(k[i, j],   S[i, j],   p[i, j],   mu_o[i, j],   mu_w[i, j],
-                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * temp_val
-                if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
-                    t1 = 0.0
-                    t2 = 0.0
-                    t3 = 0.0
-                t1 *= area * (m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * K_o) +
-                             (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * K_p + (1.0 - m[i, j] - Wp[i, j]) * K_f)
+            t3 = T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j] - Wp[i, j]) +
+                            ro_p * Wps[i, j] * C_p[i, j]) * up_ko_val[i, j] * mid_val[i, j] * dp_val[i, j]
 
-                t2 *= T[i, j] * ro_w * C_w[i, j]
-
-                t3 *= T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j])
-
-                new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3)
+            new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3)
 
         # Учет скважин
         mult00 =  dt / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +

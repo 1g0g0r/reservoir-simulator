@@ -34,8 +34,6 @@ def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, k_mult, m_
         Концентрации взвешенных частиц парафина, [-]
     m: taichi.field(Nx, Ny)
         Пористость, [-]
-    qp: taichi.field(Nx, Ny)
-        Скорость отложения парафина в общем объеме, [-]
     fi: taichi.field(Nx, Ny, Nr)
         Функция распределения пор по размеру, [-]
     Ub: taichi.field(Nx, Ny, Nr)
@@ -70,17 +68,17 @@ def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, k_mult, m_
                     B_ur = (Ur[i,j,ij] - Ur[i,j,ij-1]) / dr
 
                     qp1 += ((r2[ij] - r2[ij-1]) * B_fi * B_ur / 2 + (r4[ij] - r4[ij-1]) * A_fi * A_ur / 4 +
-                            (r3[ij] - r3[ij-1]) * (A_fi * B_ur + B_fi * A_ur) / 3)
-                    r2fi += (r3[ij] - r3[ij-1]) * A_fi / 3 + (r4[ij] - r4[ij-1]) * B_fi / 4
-                    r4fi += (r5[ij] - r5[ij-1]) * A_fi / 5 + (r6[ij] - r6[ij-1]) * B_fi / 6
+                            (r3[ij] - r3[ij-1]) * (A_fi * B_ur + B_fi * A_ur) / 3)  # r * ur * fi
+                    r2fi += (r3[ij] - r3[ij-1]) * A_fi / 3 + (r4[ij] - r4[ij-1]) * B_fi / 4  # r^2 * fi
+                    r4fi += (r5[ij] - r5[ij-1]) * A_fi / 5 + (r6[ij] - r6[ij-1]) * B_fi / 6  # r^4 * fi
                     if rr[ij] <= D_2_g:  # D * 0.5 / gamma
                         A_ub = (Ub[i,j,ij-1] * rr[ij] - Ub[i,j,ij] * rr[ij - 1]) / dr
                         B_ub = (Ub[i,j,ij] - Ub[i,j,ij-1]) / dr
-                        qp2 +=  (r3[ij] - r3[ij-1]) * A_ub / 3 + (r4[ij] - r4[ij-1]) * B_ub / 4
+                        qp2 +=  (r3[ij] - r3[ij-1]) * A_ub / 3 + (r4[ij] - r4[ij-1]) * B_ub / 4  # ub * r^2
 
                     # Обновление функции пор по размерам
-                    fi[i, j, ij] = upd_fi(fi[i, j, ij], Ur[i, j, ij], fi[i, j, ij - 1], Ur[i, j, ij-1],
-                                          dr, Ub[i, j, ij])
+                    fi[i, j, ij] = upd_fi(fi[i, j, ij], Ur[i, j, ij], fi[i, j, ij - 1],
+                                          Ur[i, j, ij-1], dr, Ub[i, j, ij])
 
                 new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
                 m_mult[i, j] = r2fi / integr_r2_fi0
