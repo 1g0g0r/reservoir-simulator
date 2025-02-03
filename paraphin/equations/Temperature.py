@@ -6,7 +6,7 @@ from paraphin.utils import up_kw, up_ko, mid, show_plot
 from paraphin.utils.phase_f import pf_w, pf_o
 
 
-def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w, inj, prod) -> ti.field(dtype=data_type, shape=(Nx, Ny)):
+def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w, inj, prod, new_T) -> None:
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -41,14 +41,9 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w, inj
          Дебит нагнетательной скважины [oil, water, total], [м^3/c]
     prod: taichi.field(3)
          Дебит добывающей скважины [oil, water, total], [м^3/c]
-
-    Returns
-    -------
-    T: taichi.field(Nx, Ny)
+    new_T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
     """
-
-    new_T = ti.field(dtype=data_type, shape=(Nx, Ny))
 
     @ti.kernel
     def calc_temperature_loop():
@@ -101,4 +96,3 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, p, k, mu_o, mu_w, inj
     calc_temperature_loop()
     if DEBUGGING:
         show_plot(new_T.to_numpy(), 'Temperature')
-    return new_T

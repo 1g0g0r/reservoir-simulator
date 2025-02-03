@@ -8,8 +8,7 @@ from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, ro_p, ro_o, volume
 temp = 1.0 / (1.8 * Tm + 32.0)
 
 
-def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p, prod) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                                            ti.field(dtype=data_type, shape=(Nx, Ny))):
+def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p, prod, new_Wp, new_Wps) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -46,17 +45,11 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
         Теплоемкость парафина, [Дж/C]
     prod: taichi.field(3)
         Дебит добывающей скважины [oil, water, total], [м^3/c]
-
-    Returns
-    -------
-    Wp: taichi.field(Nx, Ny)
+    new_Wp: taichi.field(Nx, Ny)
         Концентрация растворенного парафина на новом временном слое, [-]
-    Wps: taichi.field(Nx, Ny)
+    new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-
-    new_Wp  = ti.field(dtype=data_type, shape=(Nx, Ny))  # поля на новом временном слое
-    new_Wps = ti.field(dtype=data_type, shape=(Nx, Ny))  # поля на новом временном слое
 
     @ti.kernel
     def calc_wp_wps_loop():
@@ -92,4 +85,3 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, p, k, mu_o, mu_w, T, T_0, C_p
     calc_wp_wps_loop()
     if DEBUGGING:
         show_plot(new_Wps.to_numpy(), 'Wps')
-    return new_Wps, new_Wp

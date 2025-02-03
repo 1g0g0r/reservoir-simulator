@@ -149,8 +149,8 @@ class Solver:
         """Обновление давления."""
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w)
 
-        min_p = np.min(self.p.to_numpy()) / bar_to_pa
-        max_p = np.max(self.p.to_numpy()) / bar_to_pa
+        min_p = self.p.to_numpy().min() / bar_to_pa
+        max_p = self.p.to_numpy().max() / bar_to_pa
         self.logger.info(f"Обновлено давление (bar):      min={min_p}  max={max_p}")
 
 
@@ -175,73 +175,64 @@ class Solver:
     def _update_s(self) -> None:
         """Обновление насыщенности."""
         calc_saturation(self.new_s, self.S, self.p, self.k, self.m, self.m_0, self.mu_o, self.mu_w, self.inj, self.prod)
-        min_s = np.min(self.new_s.to_numpy())
-        max_s = np.max(self.new_s.to_numpy())
+        min_s = self.new_s.to_numpy().min()
+        max_s = self.new_s.to_numpy().max()
 
         self.logger.info(f"Обновлена насыщенность:                 min={min_s}  max={max_s}")
 
 
     def _update_wps_wp(self) -> None:
         """Обновлнние концентрации взвешенного и растворенного парафина."""
-        new_wps, new_wp = calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
-                                      self.p, self.k, self.mu_o, self.mu_w, self.T, self.T_0, self.C_p, self.prod)
-        min_wps = np.min(new_wps.to_numpy())
-        max_wps = np.max(new_wps.to_numpy())
-        min_wp = np.min(new_wp.to_numpy())
-        max_wp = np.max(new_wp.to_numpy())
+        calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.p, self.k,
+                    self.mu_o, self.mu_w, self.T, self.T_0, self.C_p, self.prod, self.new_wp, self.new_wps)
+        min_wps = self.new_wps.to_numpy().min()
+        max_wps = self.new_wps.to_numpy().max()
+        min_wp = self.new_wp.to_numpy().min()
+        max_wp = self.new_wp.to_numpy().max()
 
-        self.new_wps = new_wps
         self.logger.info(f"Обновлены доли взвешенного парафина:    min={min_wps}  max={max_wps}")
-        self.mew_wp = new_wp
         self.logger.info(f"Обновлены доли растворенного парафина:  min={min_wp}  max={max_wp}")
 
 
     def _update_t(self) -> None:
         """Обновление температуры."""
-        new_t = calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp,
-                                 self.Wps, self.p, self.k, self.mu_o, self.mu_w, self.inj, self.prod)
-        min_t = np.min(new_t.to_numpy())
-        max_t = np.max(new_t.to_numpy())
+        calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps,
+                         self.p, self.k, self.mu_o, self.mu_w, self.inj, self.prod, self.new_t)
+        min_t = self.new_t.to_numpy().min()
+        max_t = self.new_t.to_numpy().max()
 
-        self.new_t = new_t
         self.logger.info(f"Обновлена температура:                  min={min_t}  max={max_t}")
 
 
     def _update_qp_m_k(self) -> None:
         """Обновление объема выделяемого парафина, пористости и проницаемости."""
-        new_qp, m_mult, k_mult = calc_qp(self.Wps, self.m, self.fi, self.Ur, self.Ub,
-                                         self.integr_r2_fi0[None], self.integr_r4_fi0[None])
-        min_qp = np.min(new_qp.to_numpy())
-        max_qp = np.max(new_qp.to_numpy())
-        min_m_mult = np.min(m_mult.to_numpy())
-        max_m_mult = np.max(m_mult.to_numpy())
-        min_k_mult = np.min(k_mult.to_numpy())
-        max_k_mult = np.max(k_mult.to_numpy())
+        calc_qp(self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
+                self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+        min_qp = self.new_qp.to_numpy().min()
+        max_qp = self.new_qp.to_numpy().max()
+        min_m_mult = self.m_mult.to_numpy().min()
+        max_m_mult = self.m_mult.to_numpy().max()
+        min_k_mult = self.k_mult.to_numpy().min()
+        max_k_mult = self.k_mult.to_numpy().max()
 
-        self.new_qp = new_qp
         self.logger.info(f"Обновлена доля выпадающего парафина:    min={min_qp}  max={max_qp}")
-        self.m_mult = m_mult
         self.logger.info(f"Обновлен множитель пористости:          min={min_m_mult}  max={max_m_mult}")
-        self.k_mult = k_mult
         self.logger.info(f"Обновлен множитель проницаемости:       min={min_k_mult}  max={max_k_mult}")
 
 
     def _update_h_ur_ub(self) -> None:
         """Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров."""
-        new_h, new_ur, new_ub = calc_velocitys_h(self.Um_r2, self.Wps, self.mu_o, self.fi,
-                                                 self.h_sloy, self.Ur)
-        min_mew_h  = np.min(new_h.to_numpy())
-        max_mew_h  = np.max(new_h.to_numpy())
-        min_new_ur = np.min(new_ur.to_numpy())
-        max_new_ur = np.max(new_ur.to_numpy())
-        min_new_ub = np.min(new_ub.to_numpy())
-        max_new_ub = np.max(new_ub.to_numpy())
+        calc_velocitys_h(self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
+                         self.new_h, self.new_Ur, self.new_Ub)
+        min_mew_h  = self.new_h.to_numpy().min()
+        max_mew_h  = self.new_h.to_numpy().max()
+        min_new_ur = self.new_Ur.to_numpy().min()
+        max_new_ur = self.new_Ur.to_numpy().max()
+        min_new_ub = self.new_Ub.to_numpy().min()
+        max_new_ub = self.new_Ub.to_numpy().max()
 
-        self.new_h = self.new_h
         self.logger.info(f"Обновлена толщина осадочного слоя:              min={min_mew_h}  max={max_mew_h}")
-        self.new_ur = new_ur
         self.logger.info(f"Обновлена скорость изменения радиуса капилляра: min={min_new_ur}  max={max_new_ur}")
-        self.new_ub = new_ub
         self.logger.info(f"Обновлена скорость блокировки капилляров:       min={min_new_ub}  max={max_new_ub}")
 
 
@@ -254,9 +245,13 @@ class Solver:
 
         # --- решение гидродинамики ---
         self._update_p()         # Обновление давления
+        self.logging_resources()
         self._update_q()         # Обновление дебитов скважин
+        self.logging_resources()
         self._update_s()         # Обновление насыщенности
+        self.logging_resources()
         self._update_t()         # Обновление температуры
+        self.logging_resources()
 
         # --- решение задачи кольматации\суффозии ---
         if not np.all(np.isclose(self.Wp.to_numpy(), 0)):
@@ -296,7 +291,7 @@ class Solver:
     def logging_resources(self) -> None:
         # cpu_usage = psutil.cpu_percent(interval=1)
         memory_info = psutil.virtual_memory()
-        memory_usage = memory_info.percent
+        memory_usage = round(memory_info.used / memory_info.total, 5)  # memory_info.percent
 
         # self.logger.info(f'CPU Usage:    {cpu_usage}%')
         self.logger.info(f'Memory Usage: {memory_usage}%')

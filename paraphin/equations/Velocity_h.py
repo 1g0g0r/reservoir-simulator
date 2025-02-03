@@ -31,9 +31,7 @@ rr.from_numpy(r)
 r2.from_numpy(r * r)
 
 
-def calc_velocitys_h(Um_r2, Wps, mu_o, fi, h_sloy, Ur) -> (ti.field(dtype=data_type, shape=(Nx, Ny, Nr)),
-                                                       ti.field(dtype=data_type, shape=(Nx, Ny, Nr)),
-                                                       ti.field(dtype=data_type, shape=(Nx, Ny, Nr))):
+def calc_velocitys_h(Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new) -> None:
     """Вычисление скоростей и толщины осадочного слоя.
 
     Parameters
@@ -52,19 +50,13 @@ def calc_velocitys_h(Um_r2, Wps, mu_o, fi, h_sloy, Ur) -> (ti.field(dtype=data_t
          Толщина осадочного слоя, [m]
     Ur: taichi.field(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра, [м/с]
-
-    Returns
-    -------
-    h_sloy: : taichi.field(Nx, Ny, Nr)
+    h_sloy_new: : taichi.field(Nx, Ny, Nr)
          Толщина осадочного слоя на новом временном слое, [m]
-    Ub: taichi.field(Nx, Ny, Nr)
+    Ub_new: taichi.field(Nx, Ny, Nr)
         Скорость блокирования капилляра на новом временном слое, [м/с]
-    Ur: taichi.field(Nx, Ny, Nr)
+    Ur_new: taichi.field(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра на новом временном слое, [м/с]
     """
-    h_sloy_new = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
-    Ur_new     = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
-    Ub_new     = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
 
     @ti.kernel
     def calc_velocitys_h_loop():
@@ -76,7 +68,6 @@ def calc_velocitys_h(Um_r2, Wps, mu_o, fi, h_sloy, Ur) -> (ti.field(dtype=data_t
             h_sloy_new[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], rr[ij])
 
     calc_velocitys_h_loop()
-    return h_sloy_new, Ur_new, Ub_new
 
 
 @ti.func

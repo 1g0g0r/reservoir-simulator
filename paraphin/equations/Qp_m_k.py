@@ -24,9 +24,7 @@ r5.from_numpy(r5_np)
 r6.from_numpy(r6_np)
 
 
-def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                           ti.field(dtype=data_type, shape=(Nx, Ny)),
-                                                                           ti.field(dtype=data_type, shape=(Nx, Ny))):
+def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, k_mult, m_mult) -> None:
     """
     Вычисление концентрации взвешенных частиц парафина по явной схеме
 
@@ -48,20 +46,13 @@ def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype
         Интеграл r^2 * fi_o(r), [m^3]
     integr_r4_fi0: float
         Интеграл r^4 * fi_o(r), [m^5]
-
-    Returns
-    -------
-    qp: taichi.field(Nx, Ny)
+    new_qp: taichi.field(Nx, Ny)
          Скорость отложения парафиновых отложений в общем объеме пористой породы
     m_mult: taichi.field(Nx, Ny)
         Изменение пористрости из-за влияния частиц парафина, [-]
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
     """
-    new_qp = ti.field(dtype=data_type, shape=(Nx, Ny))
-    k_mult = ti.field(dtype=data_type, shape=(Nx, Ny))
-    m_mult = ti.field(dtype=data_type, shape=(Nx, Ny))
-
     @ti.kernel
     def calc_qp_loop():
         for i in ti.ndrange(Nx):
@@ -98,7 +89,6 @@ def calc_qp(Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0) -> (ti.field(dtype
     calc_qp_loop()
     if DEBUGGING:
         show_plot(new_qp.to_numpy(), 'Qp')
-    return new_qp, m_mult, k_mult
 
 
 @ti.func
