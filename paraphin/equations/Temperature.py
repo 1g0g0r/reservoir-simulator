@@ -5,7 +5,7 @@ from paraphin.utils import show_plot
 
 
 def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
-                     up_kw_val, up_ko_val, mid_val, dp_val, dt_val, new_T) -> None:
+                     up_kw_val, up_ko_val, dt_val, new_T) -> None:
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -33,13 +33,9 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
     prod: taichi.field(3)
          Дебит добывающей скважины [oil, water, total], [м^3/c]
     up_kw_val: taichi.field(Nx, Ny)
-        Вычисленный параметр Kw по схеме против потока, [-]
+        Перетоки воды в ячейках, [Па*м]
     up_ko_val: taichi.field(Nx, Ny)
-        Вычисленный параметр Ko по схеме против потока, [-]
-    mid_val: taichi.field(Nx, Ny)
-        Осредненное значение mid(Ko + Kw)_ij, [-]
-    dp_val: taichi.field(Nx, Ny)
-        Величина (p_i - p_j) * area / h_ij, [Па*м]
+        Перетоки нефти в ячейках, [Па*м]
     dt_val: taichi.field(Nx, Ny)
         Величина (T_i - T_j) * area / h_ij, [C*м]
     new_T: taichi.field(Nx, Ny)
@@ -55,10 +51,9 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
             t1 = dt_val[i, j] * (m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * K_o) +
                     (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * K_p + (1.0 - m[i, j] - Wp[i, j]) * K_f)
 
-            t2 = T[i, j] * ro_w * C_w[i, j] * up_kw_val[i, j] * mid_val[i, j] * dp_val[i, j]
+            t2 = T[i, j] * ro_w * C_w[i, j] * up_kw_val[i, j]
 
-            t3 = T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j] - Wp[i, j]) +
-                            ro_p * Wps[i, j] * C_p[i, j]) * up_ko_val[i, j] * mid_val[i, j] * dp_val[i, j]
+            t3 = T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j] - Wp[i, j]) + ro_p * Wps[i, j] * C_p[i, j]) * up_ko_val[i, j]
 
             new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3)
 

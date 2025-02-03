@@ -8,7 +8,7 @@ temp = 1.0 / (1.8 * Tm + 32.0)
 
 
 def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p,
-                prod, up_ko_val, mid_val, dp_val,new_Wp, new_Wps) -> None:
+                prod, up_ko_val, new_Wp, new_Wps) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -37,12 +37,8 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p,
         Теплоемкость парафина, [Дж/C]
     prod: taichi.field(3)
         Дебит добывающей скважины [oil, water, total], [м^3/c]
-    up_kw_val: taichi.field(Nx, Ny)
-        Вычисленный параметр Kw по схеме против потока, [-]
-    mid_val: taichi.field(Nx, Ny)
-        Осредненное значение mid(Ko + Kw)_ij, [-]
-    dp_val: taichi.field(Nx, Ny)
-        Величина (p_i - p_j) * area / h_ij, [Па*м]
+    up_ko_val: taichi.field(Nx, Ny)
+        Перетоки нефти в ячейках, [Па*м]
     new_Wp: taichi.field(Nx, Ny)
         Концентрация растворенного парафина на новом временном слое, [-]
     new_Wps: taichi.field(Nx, Ny)
@@ -52,9 +48,8 @@ def calc_wps_wp(qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p,
     @ti.kernel
     def calc_wp_wps_loop():
         for i, j in ti.ndrange(Nx, Ny):
-            temp_val = up_ko_val[i, j] * mid_val[i, j] * dp_val[i, j]
             new_Wps[i, j] = Wps[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_p) * ((Wps[i, j] * ro_p + ro_o * Wp[i, j]) *
-                        (-(m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt + temp_val * volume) -
+                        (-(m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt + up_ko_val[i, j] * volume) -
                         ro_o * Wp[i, j] * (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j])
 
             # delta_Hp = Cp * delta (T) - молярные доли парафина, растворенные в нефти

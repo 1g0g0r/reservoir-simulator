@@ -68,9 +68,7 @@ class Solver:
         self.k_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # вспомогательные массивы данных
-        self.dp_val    = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.dt_val    = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.mid_val   = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.up_ko_val = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.up_kw_val = ti.field(dtype=d_type, shape=(Nx, Ny))
 
@@ -144,8 +142,8 @@ class Solver:
 
     def _calc_temp_arrays(self) -> None:
         """Вычисление вспомогательных массивов данных."""
-        calculate_temp_data(self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.mid_val,
-                            self.dp_val, self.dt_val, self.up_kw_val, self.up_ko_val)
+        calculate_temp_data(self.p, self.S, self.T, self.k, self.mu_o, self.mu_w,
+                            self.dt_val, self.up_kw_val, self.up_ko_val)
 
 
     @ti.kernel
@@ -178,16 +176,13 @@ class Solver:
         prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * well_mult * self.k[Nx - 1, Ny - 1]
         self.prod[0] = prod_mult * _pf_o(self.S[Nx - 1, Ny - 1]) / self.mu_o[Nx - 1, Ny - 1]
         self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
-        self.prod[2] = (self.prod[0] + self.prod[1])
-
         self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0]}  q_w={self.inj[1]}")
         self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0]}  q_w={self.prod[1]}")
 
 
     def _update_s(self) -> None:
         """Обновление насыщенности."""
-        calc_saturation(self.S, self.m, self.m_0, self.inj, self.prod,
-                        self.up_kw_val, self.mid_val, self.dp_val, self.new_s)
+        calc_saturation(self.S, self.m, self.m_0, self.inj, self.prod, self.up_kw_val, self.new_s)
         min_s = self.new_s.to_numpy().min()
         max_s = self.new_s.to_numpy().max()
 
@@ -196,8 +191,8 @@ class Solver:
 
     def _update_wps_wp(self) -> None:
         """Обновление концентрации взвешенного и растворенного парафина."""
-        calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0,
-                    self.C_p, self.prod, self.up_ko_val, self.mid_val, self.dp_val, self.new_wp, self.new_wps)
+        calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T,
+                    self.T_0, self.C_p, self.prod, self.up_ko_val, self.new_wp, self.new_wps)
         min_wps = self.new_wps.to_numpy().min()
         max_wps = self.new_wps.to_numpy().max()
         min_wp = self.new_wp.to_numpy().min()
@@ -209,8 +204,8 @@ class Solver:
 
     def _update_t(self) -> None:
         """Обновление температуры."""
-        calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.inj,
-                         self.prod, self.up_kw_val, self.up_ko_val, self.mid_val, self.dp_val, self.dt_val, self.new_t)
+        calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps,
+                         self.inj, self.prod, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
         min_t = self.new_t.to_numpy().min()
         max_t = self.new_t.to_numpy().max()
 
