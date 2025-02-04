@@ -9,38 +9,38 @@ from paraphin.utils.phase_f import pf_o, pf_w
 
 
 @ti.func
-def mid(k1: data_type, s1: data_type, mu_o1: data_type, mu_w1: data_type,
-		k2: data_type, s2: data_type, mu_o2: data_type, mu_w2: data_type) -> data_type:
+def mid(k_i: data_type, s_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
+		k_j: data_type, s_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
     """mid(Ko + Kw)_ij"""
-    x = K_o(k1, s1, mu_o1) + K_w(k1, s1, mu_w1)
-    y = K_o(k2, s2, mu_o2) + K_w(k2, s2, mu_w2)
+    x = K_o(k_i, s_i, mu_o_i) + K_w(k_i, s_i, mu_w_i)
+    y = K_o(k_j, s_j, mu_o_j) + K_w(k_j, s_j, mu_w_j)
     return 2.0 * x * y / (x + y)
 
 
 @ti.func
-def up_kw(k1: data_type, s1: data_type, p1: data_type, mu_o1: data_type, mu_w1: data_type,
-		  k2: data_type, s2: data_type, p2: data_type, mu_o2: data_type, mu_w2: data_type) -> data_type:
+def up_kw(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
+		  k_j: data_type, s_j: data_type, p_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
     """Значение берется вверх по потоку: up(kw / (ko + kw)"""
     ret = 0.0
 
-    if p1 >= p2:
-        ret = K_w(k1, s1, mu_w1) / (K_w(k1, s1, mu_w1) + K_o(k1, s1, mu_o1))
+    if p_i >= p_j:
+        ret = K_w(k_i, s_i, mu_w_i) / (K_w(k_i, s_i, mu_w_i) + K_o(k_i, s_i, mu_o_i))
     else:
-        ret = K_w(k2, s2, mu_w2) / (K_w(k2, s2, mu_w2) + K_o(k2, s2, mu_o2))
+        ret = K_w(k_j, s_j, mu_w_j) / (K_w(k_j, s_j, mu_w_j) + K_o(k_j, s_j, mu_o_j))
 
     return ret
 
 
 @ti.func
-def up_ko(k1: data_type, s1: data_type, p1: data_type, mu_o1: data_type, mu_w1: data_type,
-		  k2: data_type, s2: data_type, p2: data_type, mu_o2: data_type, mu_w2: data_type) -> data_type:
+def up_ko(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
+		  k_j: data_type, s_j: data_type, p_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
     """Значение берется вверх по потоку: up(ko / (ko + kw)"""
     ret = 0.0
 
-    if p1 >= p2:
-        ret = K_o(k1, s1, mu_o1) / (K_w(k1, s1, mu_w1) + K_o(k1, s1, mu_o1))
+    if p_i >= p_j:
+        ret = K_o(k_i, s_i, mu_o_i) / (K_w(k_i, s_i, mu_w_i) + K_o(k_i, s_i, mu_o_i))
     else:
-        ret = K_o(k2, s2, mu_o2) / (K_w(k2, s2, mu_w2) + K_o(k2, s2, mu_o2))
+        ret = K_o(k_j, s_j, mu_o_j) / (K_w(k_j, s_j, mu_w_j) + K_o(k_j, s_j, mu_o_j))
 
     return ret
 
@@ -136,10 +136,10 @@ def calculate_temp_data(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_val) ->
                         ko += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
                         dtemp += area * (T[i, j] - T[i1, j1]) / hij
-                if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
-                    kw = 0.0
-                    ko = 0.0
-                    dtemp = 0.0
+                # if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
+                #     kw = 0.0
+                #     ko = 0.0
+                #     dtemp = 0.0
 
                 up_kw_val[i, j] = kw
                 up_ko_val[i, j] = ko

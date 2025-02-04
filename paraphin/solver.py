@@ -176,6 +176,8 @@ class Solver:
         prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * well_mult * self.k[Nx - 1, Ny - 1]
         self.prod[0] = prod_mult * _pf_o(self.S[Nx - 1, Ny - 1]) / self.mu_o[Nx - 1, Ny - 1]
         self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
+        self.prod[2] = (self.prod[0] + self.prod[1])
+
         self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0]}  q_w={self.inj[1]}")
         self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0]}  q_w={self.prod[1]}")
 
@@ -256,7 +258,7 @@ class Solver:
         self._calc_temp_arrays()
         self._update_q()         # Обновление дебитов скважин
         self._update_s()         # Обновление насыщенности
-        self._update_t()         # Обновление температуры
+        # self._update_t()         # Обновление температуры
 
         # --- решение задачи кольматации\суффозии ---
         if not np.all(np.isclose(self.Wp.to_numpy(), 0)):
@@ -294,7 +296,7 @@ class Solver:
         self.logger.info('Поля данных обновлены на текущем временном слое.')
 
     def logging_resources(self) -> None:
-        # cpu_usage = psutil.cpu_percent(interval=1)
+        # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
         memory_info = psutil.virtual_memory()
         memory_usage = round(memory_info.used / memory_info.total, 5)  # memory_info.percent
 

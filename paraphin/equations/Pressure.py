@@ -74,12 +74,12 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                 # rhs
                 b[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
 
-        # Добавили скважины в точки (0,0) (nx-1, ny-1)
+        # Добавили скважины в точки (0,0) (Nx-1, Ny-1)
         w_v = well_mult * volume
         b[0]       +=  w_v * k[0, 0] * Pw / mu_w[0, 0]
         data[0]    +=  w_v * k[0, 0] / mu_w[0, 0]
-        b[N-1]     -=  w_v * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
-        data[NN-1] -=  w_v * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
+        b[N-1]     +=  w_v * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
+        data[NN-1] +=  w_v * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))

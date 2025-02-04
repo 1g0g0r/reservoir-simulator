@@ -67,8 +67,7 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
         # new_T[0, 0] -= inj[1] * Twater * C_w[0, 0] * ro_w * mult00
         new_T[0, 0] = Twater
 
-        new_T[Nx - 1, Ny - 1] += (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] +
-                                  C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN
+        new_T[Nx - 1, Ny - 1] += (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN
 
     calc_temperature_loop()
     if DEBUGGING:
