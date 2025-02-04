@@ -36,5 +36,7 @@ def calc_saturation(S, m, m_0, inj, prod, up_kw_val, new_S) -> None:
 
     calc_saturation_loop()
 
+    show_plot(dt * up_kw_val.to_numpy() / volume / m.to_numpy(), 'flows')
+
     if DEBUGGING:
         show_plot(new_S.to_numpy(), 'Saturation')

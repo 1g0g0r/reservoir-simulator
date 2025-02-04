@@ -59,11 +59,11 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
                         _mid = mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
                                    k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-                        temp = (Wo[i, j] * _ko + _kw) * _mid * area / hij
+                        val = (Wo[i, j] * _ko + _kw) * _mid * area / hij
                         row_indices[num] = idx
                         col_indices[num] = idx + (i1-i) + Nx * (j1-j)
-                        data[num] = -temp
-                        p_sum += temp
+                        data[num] = -val
+                        p_sum += val
                         num += 1
 
                 row_indices[num] = idx

@@ -14,6 +14,7 @@ def mid(k_i: data_type, s_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
     """mid(Ko + Kw)_ij"""
     x = K_o(k_i, s_i, mu_o_i) + K_w(k_i, s_i, mu_w_i)
     y = K_o(k_j, s_j, mu_o_j) + K_w(k_j, s_j, mu_w_j)
+
     return 2.0 * x * y / (x + y)
 
 
@@ -55,6 +56,58 @@ def K_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
     return k * pf_w(s) / mu_w
 
 
+def calculate_temp_data(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_val) -> None:
+    """
+    Parameters
+    ----------
+    p: taichi.field(Nx, Ny)
+        Давление, [Па]
+    S: taichi.field(Nx, Ny)
+        Водонасыщенность, [-]
+    T: taichi.field(Nx, Ny)
+        Температура, [C]
+    k: taichi.field(Nx, Ny)
+        Проницаемость, [м^2]
+    mu_o: taichi.field(Nx, Ny)
+        Вязкость нефти, [Па*с]
+    mu_w: taichi.field(Nx, Ny)
+        Вязкость воды, [Па*с]
+    dt_val: taichi.field(Nx, Ny)
+        Величина (T_i - T_j) * area / h_ij, [C*м]
+    up_kw_val: taichi.field(Nx, Ny)
+        Перетоки воды в ячейках, [Па*м]
+    up_ko_val: taichi.field(Nx, Ny)
+        Перетоки нефти в ячейках, [Па*м]
+    """
+    @ti.kernel
+    def temp_val_loop():
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
+
+                arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
+                kw, ko, dtemp = 0.0, 0.0, 0.0
+                for idx in ti.static(ti.ndrange(4)):
+                    i1, j1, hij = arr[idx]
+                    if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                        value = area * (p[i, j] - p[i1, j1]) / hij * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                                k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        kw += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
+                        ko += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
+                        dtemp += area * (T[i, j] - T[i1, j1]) / hij
+                # if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
+                #     kw = 0.0
+                #     ko = 0.0
+                #     dtemp = 0.0
+
+                up_kw_val[i, j] = kw
+                up_ko_val[i, j] = ko
+                dt_val[i, j] = dtemp
+
+    temp_val_loop()
+
+
 def read_pkl_files() -> dict:
     """Считывает содержимое всех бинарных файлов (расширение .pkl)."""
     def extract_number(_path):
@@ -94,55 +147,3 @@ def read_pkl_files() -> dict:
             print(f"Ошибка при чтении файла {file_path.name}: {e}")
 
     return data
-
-
-def calculate_temp_data(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_val) -> None:
-    """
-    Parameters
-    ----------
-    p: taichi.field(Nx, Ny)
-        Давление, [Па]
-    S: taichi.field(Nx, Ny)
-        Водонасыщенность, [-]
-    T: taichi.field(Nx, Ny)
-        Температура, [C]
-    k: taichi.field(Nx, Ny)
-        Проницаемость, [м^2]
-    mu_o: taichi.field(Nx, Ny)
-        Вязкость нефти, [Па*с]
-    mu_w: taichi.field(Nx, Ny)
-        Вязкость воды, [Па*с]
-    dt_val: taichi.field(Nx, Ny)
-        Величина (T_i - T_j) * area / h_ij, [C*м]
-    up_kw_val: taichi.field(Nx, Ny)
-        Перетоки воды в ячейках, [Па*м]
-    up_ko_val: taichi.field(Nx, Ny)
-        Перетоки нефти в ячейках, [Па*м]
-    """
-    @ti.kernel
-    def temp_val_loop():
-        for i in ti.ndrange(Nx):
-            for j in ti.ndrange(Ny):
-                # цикл по граням
-                arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
-                kw, ko, dtemp = 0.0, 0.0, 0.0
-                for idx in ti.static(ti.ndrange(4)):
-                    i1, j1, hij = arr[idx]
-                    if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        value = area * (p[i, j] - p[i1, j1]) / hij * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                                k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-                        kw += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
-                        ko += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
-                        dtemp += area * (T[i, j] - T[i1, j1]) / hij
-                # if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
-                #     kw = 0.0
-                #     ko = 0.0
-                #     dtemp = 0.0
-
-                up_kw_val[i, j] = kw
-                up_ko_val[i, j] = ko
-                dt_val[i, j] = dtemp
-
-    temp_val_loop()
