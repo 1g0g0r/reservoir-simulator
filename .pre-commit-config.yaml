@@ -1,3 +1,4 @@
+fail_fast: true
 repos:
   - repo: local
     hooks:
@@ -16,12 +17,20 @@ repos:
       pass_filenames: true
       entry: python -m flake8
       types: [python]
-      additional_dependencies: [flake8-docstrings]
+      # additional_dependencies: [flake8-docstrings] (слишком душный)
 
     - id: mypy
       name: mypy
       stages: [commit]
       language: system
-      pass_filenames: false
+      pass_filenames: true
       entry: python -m mypy paraphin
+      types: [python]
+
+    - id: pytest
+      name: pytest
+      stages: [commit]
+      language: system
+      pass_filenames: false
+      entry: python -m pytest -n auto tests
       types: [python]

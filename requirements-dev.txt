@@ -1,11 +1,8 @@
-# Testing, typing validation, code formatting
+# Для запуска пре-коммитов следует использовать: pre-commit install
+
 pytest
-pytest-cov
-pytest-xdist
-snapshottest
 flake8
 flake8-docstrings
-git+https://github.com/matthewrv/mypy.git@ccaf1baec0efb3a2a2ab024a155148916536fcbc#egg=mypy
+mypy
 pre-commit==2.4.0
 isort
-

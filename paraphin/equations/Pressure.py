@@ -1,7 +1,6 @@
-import pyamg
 import taichi as ti
 from scipy.sparse import csr_matrix
-from scipy.sparse.linalg import spsolve, lgmres
+from scipy.sparse.linalg import spsolve
 
 from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, well_mult, bar_to_pa, DEBUGGING
 from paraphin.utils import mid, show_plot, up_kw, up_ko
@@ -85,6 +84,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
 
     x = spsolve(A_csr, b.to_numpy())  # lgmres(A_csr, b.to_numpy(), rtol=1e-8)[0]
+
     # ml = pyamg.ruge_stuben_solver(A_csr)  # construct the multigrid hierarchy
     # x = ml.solve(b.to_numpy(), tol=1e-8)
 

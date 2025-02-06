@@ -56,8 +56,10 @@ def K_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
     return k * pf_w(s) / mu_w
 
 
-def calculate_temp_data(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_val) -> None:
+def calculate_flows_in_cells(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_val) -> None:
     """
+    Вычисление потоков в ячейках.
+
     Parameters
     ----------
     p: taichi.field(Nx, Ny)

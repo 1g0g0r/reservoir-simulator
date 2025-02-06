@@ -8,8 +8,9 @@ import taichi as ti
 from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
                                 init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa,
                                 well_mult, Pw, Po, day_to_sec, eta, mu_o, mu_w, c_o, c_w, c_p, c_f)
-from paraphin.equations import calc_qp, calc_pressure, calc_saturation, calc_temperature, calc_wps_wp, calc_velocitys_h
-from paraphin.utils import _pf_o, _pf_w, calculate_temp_data
+from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, calc_saturation, calc_temperature,
+                                calc_wps_wp, calc_velocitys_h)
+from paraphin.utils import _pf_o, _pf_w, calculate_flows_in_cells
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 
 
@@ -140,10 +141,10 @@ class Solver:
         initialize_params_loop(fi_o=fi_0)
 
 
-    def _calc_temp_arrays(self) -> None:
-        """Вычисление вспомогательных массивов данных."""
-        calculate_temp_data(self.p, self.S, self.T, self.k, self.mu_o, self.mu_w,
-                            self.dt_val, self.up_kw_val, self.up_ko_val)
+    def _calc_flows_in_cells(self) -> None:
+        """Вычисление перетоков в ячейках."""
+        calculate_flows_in_cells(self.p, self.S, self.T, self.k, self.mu_o, self.mu_w,
+                                 self.dt_val, self.up_kw_val, self.up_ko_val)
 
 
     @ti.kernel
@@ -214,10 +215,10 @@ class Solver:
         self.logger.info(f"Обновлена температура:                  min={min_t}  max={max_t}")
 
 
-    def _update_qp_m_k(self) -> None:
-        """Обновление объема выделяемого парафина, пористости и проницаемости."""
-        calc_qp(self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
-                self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+    def _update_qp_m_k_fi(self) -> None:
+        """Обновление объема выделяемого парафина, функции пор по размерам, множителей пористости и проницаемости."""
+        calc_qp_m_k_fi(self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
+                       self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
         min_qp = self.new_qp.to_numpy().min()
         max_qp = self.new_qp.to_numpy().max()
         min_m_mult = self.m_mult.to_numpy().min()
@@ -254,17 +255,17 @@ class Solver:
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t} день  ({iter} итерация)")
 
         # --- решение гидродинамики ---
-        self._update_p()         # Обновление давления
-        self._calc_temp_arrays()
-        self._update_q()         # Обновление дебитов скважин
-        self._update_s()         # Обновление насыщенности
-        # self._update_t()         # Обновление температуры
+        self._update_p()            # Обновление давления
+        self._calc_flows_in_cells() # Вычисление перетоков
+        self._update_q()            # Обновление дебитов скважин
+        self._update_s()            # Обновление насыщенности
+        # self._update_t()            # Обновление температуры
 
         # --- решение задачи кольматации\суффозии ---
         if not np.all(np.isclose(self.Wp.to_numpy(), 0)):
-            self._update_wps_wp()   # Обновление концентраций парафина
-            self._update_h_ur_ub()  # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-            self._update_qp_m_k()   # Обновление ФУНКЦИИ ПОР ПО РАЗМЕРАМ, объема выделяемого парафина, пористости, проницаемости
+            self._update_wps_wp()    # Обновление концентраций парафина
+            self._update_h_ur_ub()   # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
+            self._update_qp_m_k_fi() # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
             self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
         self._swap_time_steps()
