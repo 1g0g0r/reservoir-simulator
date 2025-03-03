@@ -2,8 +2,8 @@ import taichi as ti
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 
-from paraphin.constants import data_type, Nx, Ny, area, hx, hy, dt, volume, Po, Pw, well_mult, bar_to_pa, DEBUGGING
-from paraphin.utils import mid, show_plot, up_kw, up_ko
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, Po, Pw, well_mult, bar_to_pa, h, DEBUGGING
+from paraphin.utils import show_plot, K_o, K_w, pf_o, pf_w
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 N = Nx * Ny  # размер матрицы
@@ -48,17 +48,12 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                 idx = i + j * Nx
                 p_sum = 0.0
                 # matrix
-                arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
+                arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
                 for qq in ti.static(ti.ndrange(4)):
-                    i1, j1, hij = arr[qq]
+                    i1, j1, hij, areaij = arr[qq]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        _kw = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-                        _ko = up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-                        _mid = mid(k[i, j],   S[i, j],   mu_o[i, j],   mu_w[i, j],
-                                   k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
-                        val = (Wo[i, j] * _ko + _kw) * _mid * area / hij
+                        val = (Wo[i, j] * K_o(k[i, j], S[i, j], mu_o[i, j]) +
+                                          K_w(k[i, j], S[i, j], mu_w[i, j])) * areaij / hij
                         row_indices[num] = idx
                         col_indices[num] = idx + (i1-i) + Nx * (j1-j)
                         data[num] = -val
@@ -74,11 +69,13 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                 b[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
 
         # Добавили скважины в точки (0,0) (Nx-1, Ny-1)
+        # TODO надо ли учесть ОФП
         w_v = well_mult * volume
-        b[0]       +=  w_v * k[0, 0] * Pw / mu_w[0, 0]
+        b[0]       +=  w_v * k[0, 0] * Pw * (pf_o(S[0, 0]) / mu_o[0, 0] + pf_w(S[0, 0]) / mu_w[0, 0])
         data[0]    +=  w_v * k[0, 0] / mu_w[0, 0]
         b[N-1]     +=  w_v * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
         data[NN-1] +=  w_v * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
+        print(pf_o(S[0, 0]) / mu_o[0, 0], pf_w(S[0, 0]) / mu_w[0, 0])
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))

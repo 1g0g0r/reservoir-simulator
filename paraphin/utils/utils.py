@@ -4,7 +4,7 @@ from pickle import load, PickleError
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import data_type, results_path, Nx, Ny, hx, hy, area
+from paraphin.constants import data_type, results_path, Nx, Ny, hx, hy, h
 from paraphin.utils.phase_f import pf_o, pf_w
 
 
@@ -29,7 +29,7 @@ def up_kw(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
     else:
         ret = K_w(k_j, s_j, mu_w_j) / (K_w(k_j, s_j, mu_w_j) + K_o(k_j, s_j, mu_o_j))
 
-    return ret
+    return -ret
 
 
 @ti.func
@@ -43,7 +43,9 @@ def up_ko(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
     else:
         ret = K_o(k_j, s_j, mu_o_j) / (K_w(k_j, s_j, mu_w_j) + K_o(k_j, s_j, mu_o_j))
 
-    return ret
+    # TODO почему отток положительный, приток отрицательный
+
+    return -ret
 
 
 @ti.func
@@ -85,29 +87,31 @@ def calculate_flows_in_cells(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_va
     def temp_val_loop():
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
-
-                arr = [[i + 1, j, hx], [i - 1, j, hx], [i, j + 1, hy], [i, j - 1, hy]]
+                arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
                 kw, ko, dtemp = 0.0, 0.0, 0.0
                 for idx in ti.static(ti.ndrange(4)):
-                    i1, j1, hij = arr[idx]
+                    i1, j1, hij, areaij = arr[idx]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        value = area * (p[i, j] - p[i1, j1]) / hij * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                        value = areaij * (p[i, j] - p[i1, j1]) / hij * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
                                                 k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
                         kw += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
                         ko += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
-                        dtemp += area * (T[i, j] - T[i1, j1]) / hij
-                # if (i == Nx - 1 and j == Ny - 1) or (i == 0 and j == 0):
-                #     kw = 0.0
-                #     ko = 0.0
-                #     dtemp = 0.0
+                        dtemp += areaij * (T[i, j] - T[i1, j1]) / hij
+                #         if i < 2 and j < 2:
+                #             print([i,j], [i1, j1], kw, ko)
+                # if i < 2 and j < 2:
+                #     print()
 
                 up_kw_val[i, j] = kw
                 up_ko_val[i, j] = ko
                 dt_val[i, j] = dtemp
 
+                # TODO сравнить перетоки с MRST
+
     temp_val_loop()
+    # print()
 
 
 def read_pkl_files() -> dict:
@@ -116,7 +120,7 @@ def read_pkl_files() -> dict:
         numbers = re.findall(r'\d+', _path.stem) # Находим все числа в имени файла
         return int(numbers[0]) if numbers else 0
 
-    # Сортировка списка
+    # Сортировка данных расчета по времени
     sorted_paths = sorted(list(results_path.glob('*.pkl')), key=extract_number)
 
     with open(sorted_paths[0], 'rb') as f:

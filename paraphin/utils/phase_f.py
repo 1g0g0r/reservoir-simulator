@@ -67,3 +67,17 @@ def _pf_w(s: data_type) -> data_type:
         ret = ((s - S_min) / (S_max-S_min)) ** 2
 
     return ret
+
+
+if __name__ == '__main__':
+    import numpy as np
+    import plotly.graph_objects as go
+    s_arr = np.linspace(0, 1, 100)
+    f_o = np.array([_pf_o(i) for i in s_arr])
+    f_w = np.array([_pf_w(i) for i in s_arr])
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=s_arr, y=f_o, mode='lines', name='нефть', line=dict(color='red')))
+    fig.add_trace(go.Scatter(x=s_arr, y=f_w, mode='lines', name='вода', line=dict(color='blue')))
+
+    fig.show()

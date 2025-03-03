@@ -1,8 +1,8 @@
 from logging import basicConfig, INFO, getLogger
 from pickle import dump
-import psutil
 
 import numpy as np
+import psutil
 import taichi as ti
 
 from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
@@ -105,7 +105,6 @@ class Solver:
         def initialize_params_loop(fi_o: ti.types.ndarray()):
             for i in ti.ndrange(Nx):
                 for j in ti.ndrange(Ny):
-                    # TODO убрать цикл и переписать через numpy
                     # параметры пласта
                     self.p[i, j]    = init_p
                     self.S[i, j]    = init_S

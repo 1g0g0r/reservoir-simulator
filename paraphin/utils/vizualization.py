@@ -11,8 +11,8 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     if input_data is None:
         input_data = read_pkl_files()
 
-    x = np.linspace(X_min+hx/2, X_max-hx/2, Nx)
-    y = np.linspace(Y_min+hy/2, Y_max-hy/2, Ny)
+    x = np.linspace(X_min + hx/2, X_max - hx/2, Nx)
+    y = np.linspace(Y_min + hy/2, Y_max - hy/2, Ny)
 
     time = input_data['Time'] / day_to_sec
     n_times = len(time)
@@ -22,9 +22,14 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     data_fields = []
     for name, field in input_data.items():
         if name == 'Pressure':
-            trace = go.Heatmap(x=x, y=y, z=field / bar_to_pa,  colorscale='Jet', name=name,
+            trace = go.Contour(x=x, y=y, z=field / bar_to_pa,  colorscale='Jet', name=name,
                                zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
-                               hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
+                               hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>",
+                               contours=dict(
+                                   coloring='fill',
+                                   showlabels=True,
+                                   labelfont=dict(size=12, color='black')
+                               ))
         elif name == 'Wells':
             inj = go.Scatter(x=time, y=field['inj'] * day_to_sec, mode='lines', name='Injector',
                              hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")  # , xaxis = "Время, день", yaxis = "Дебит, м^3/день"
@@ -33,8 +38,9 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                                hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")
             data_fields.append(inj)
         else:
-            trace = go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field), colorscale='Jet', name=name,  # colorscale='Cividis'
-                            hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
+            trace = go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field),
+                               colorscale='Jet', name=name,  # colorscale='Cividis'
+                               hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
         data_fields.append(trace)
 
     # Создаем фигуру
@@ -87,12 +93,10 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     fig.data[0].visible = True
     # fig.update_layout(sliders=[dict(active=0)], visible=True)
 
-    # Отображаем график
     if __name__ == '__main__':
         fig.write_html(results_path.parent / 'Results.html', include_plotlyjs='plotly_script.js')
     else:
         fig.write_html(results_path.parent / 'Results.html', include_plotlyjs=js_path)
-
     fig.show()
 
 
@@ -102,8 +106,8 @@ def show_plot(x, name: str):
     else:
         data = x
 
-    x = np.linspace(X_min, X_max, Nx)
-    y = np.linspace(Y_min, Y_max, Ny)
+    x = np.linspace(X_min + hx/2, X_max - hx/2, Nx)
+    y = np.linspace(Y_min + hy/2, Y_max - hy/2, Ny)
 
     # Создаем тепловую карту
     fig = go.Figure(data=go.Heatmap(

@@ -31,12 +31,15 @@ def calc_saturation(S, m, m_0, inj, prod, up_kw_val, new_S) -> None:
             new_S[i, j] = S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * up_kw_val[i, j] / volume) / m[i, j]
 
         # учет скважины
-        new_S[0, 0] += dt * inj[1] / m[0, 0]
-        new_S[Nx - 1, Ny - 1] += dt * prod[1] / m[Nx - 1, Ny - 1]
+        new_S[0, 0] = S_max  # += dt * inj[1] / m[0, 0]
+        new_S[Nx - 1, Ny - 1] = S_min  # += dt * prod[1] / m[Nx - 1, Ny - 1]
 
     calc_saturation_loop()
 
-    show_plot(dt * up_kw_val.to_numpy() / volume / m.to_numpy(), 'flows')
+    # TODO величины разных порядков
+    print(dt * inj[1] / m[0, 0])
+    print(dt * up_kw_val[0, 0] / volume / m[0, 0])
+    show_plot(dt * up_kw_val.to_numpy(), 'Flows')
 
     if DEBUGGING:
         show_plot(new_S.to_numpy(), 'Saturation')

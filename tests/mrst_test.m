@@ -4,35 +4,41 @@ mrstModule add incomp ad-core ad-blackoil
 
 %% Geometry
 Lx = 300; Ly = 300; Lz = 1;
-nx = 128; ny = 128; nz = 1;
+nx = 50; ny = 50; nz = 1;
 G = cartGrid([nx, ny, nz], [Lx, Ly, Lz]);
 G = computeGeometry(G);
 gravity off
 
+%% Additional constants
+x_coord = linspace(0, Lx, nx);
+y_coord = linspace(0, Ly, ny);
+
+n_isolines = 11;
+color_steps = 128;
+sat_colormap = [linspace(0.6, 0.0  , color_steps)', ... 
+                linspace(0.4, 0.447, color_steps)', ... 
+                linspace(0.2, 0.741, color_steps)'];
+
 %% Set permeability and porosity
 k = 0.3*darcy;
 m = 0.2;
-rock.perm = repmat(k, [G.cells.num, 1]);
-rock.poro = repmat(m, [G.cells.num, 1]);
-
-%% Relative phase permeability
-alpha = 2;
-x = linspace(0, 1, 100) .';
-y = linspace(1, 0, 100) .';
-kr  = tabulatedSatFunc([x, x.^alpha, y.^alpha]);
+rock = makeRock(G, k, m);
 
 %% Define constant properties for viscosity and density
-kmu = 0.5;
-props = constantProperties([ 1.0, 5.0] .* centi*poise, ...
-                           [1000, 860] .* kilogram/meter^3);
-fluid = struct('properties', props                  , ...
-               'saturation', @(x, varargin)    x.s  , ...
-               'relperm'   , kr);
+mu_w = 1;
+mu_o = 0.5;
+rho_w = 1000;
+rho_o = 860;
+fluid = initSimpleADIFluid('phases', 'WO', ...
+                           'mu', [mu_w, mu_o] .* centi*poise, ...
+                           'rho',[rho_w, rho_o] .* kilogram/meter^3, ...
+                           'n',  [2, 2]);
+model = TwoPhaseOilWaterModel(G, rock, fluid);
 
 %% Add wells
 rw = 0.1;
-p_inj  = 17 * barsa();
-p_prod = 10 * barsa();
+p_inj  = 60 * barsa();
+p_prod = 30 * barsa();
 
 W = verticalWell([], G, rock, 1, 1, [],...
                  'Type', 'bhp', 'Val', p_inj, ...
@@ -45,97 +51,70 @@ W = verticalWell(W, G, rock, nx, ny, [],...
                  'Comp_i', [1, 0]);
 
 %% Create a initialized state and set initial saturation to phase 1.
-sol = initState(G, [], 0, [1, 0]);
-
-%% Find transmissibility.
-T = computeTrans(G, rock);
-
-%% Reference TPFA
-psolve = @(state) incompTPFA(state, G, T, fluid, 'wells', W);
-
-%% Implicit transport solver
-tsolve = @(state, dT) implicitTransport(state, G, dT, rock, ...
-                                        fluid, 'wells', W);
+init_sol = initResSol(G, p_prod, [1, 0]);
 
 %% Start calculation
-dT = 5 * day;
-t  = dT;
-times = [0];
-t_end = 50 * day;
+dt = 1 * day;
+t_end = 500 * day;
+dt_pict = 250 * dt;
 
-dT_pict = 2 * dT;
-i_pict = 0;
+%% Start simulation
+schedule = simpleSchedule(repmat(dt, [t_end / day, 1]), 'W', W);
+[wellsData, fieldData] = simulateScheduleAD(init_sol, model, schedule);
 
-x_coord = linspace(0, Lx, nx);
-y_coord = linspace(0, Ly, ny);
-z_coord = linspace(0, Lz, nz);
+times = cumsum(schedule.step.val) / day;
+q_inj = cellfun(@(ws) ws(1).qOs, wellsData);
+Q_inj = cumsum(q_inj * dt);
+q_prod = cellfun(@(ws) -ws(2).qTs, wellsData);
+qo_prod = cellfun(@(ws) -ws(2).qWs, wellsData);
+Qo_prod = cumsum(qo_prod * dt);
+eta    = cellfun(@(ws) ws(2).ocut, wellsData);
 
-Q_inj  = [0];
-q_inj  = [0];
-Q_prod = [0];
-q_prod = [0];
-sol = psolve(sol);
-while t < t_end
-    sol = tsolve(sol, dT);
-    sol = psolve(sol);
-    p_arr = reshape(sol.pressure/barsa(), [nx, ny, nz]);
-    s_arr = reshape(sol.s(:, 2), [nx, ny, nz]);
-    
-    q_inj  = [q_inj, sum(sol.wellSol(1).flux)];
-    q_prod = [q_prod, -sum(sol.wellSol(2).flux)];
-    Q_inj  = [Q_inj, Q_inj(end) + q_inj(end) * dT];
-    Q_prod = [Q_prod, Q_prod(end) + q_prod(end) * dT];
+step = int32(dt_pict / dt);
+end_idx = int32(length(times));
+for i = unique([1:step:end_idx, end_idx])
+    t = times(i);
+    p_arr = reshape(fieldData{i, 1}.pressure/barsa(), [nx, ny, nz]);
+    s_arr = reshape(fieldData{i, 1}.s(:, 2), [nx, ny, nz]);
 
-    if t_end - t <= dT  %t >= i_pict * dT_pict
-        figure    
-        % трехмерные p(x,y,z)
-        subplot(1, 2, 1);
-        plotCellData(G, sol.pressure/barsa(), 'EdgeColor', 'none');  
-        title(['P(x, y, z) в  ', num2str(convertTo(t,day)),  ' день'])  
-        colorbar; 
-        view(0, 90);
-        
-        % трехмерные s(x,y,z)
-        subplot(1, 2, 2);
-        plotCellData(G, sol.s(:, 2), 'EdgeColor', 'none');  
-        title(['S(x, y, z) в  ', num2str(convertTo(t,day)),  ' день'])  
-        colorbar; 
-        view(0, 90);
-
-        i_pict = i_pict + 1;
-    end
-
-    t = t + dT;
-    times = [times, convertTo(t,day)];
+    figure    
+    % двумерные p(x,y) и s(x,y)
+    subplot(1, 2, 1);
+    [C, h] = contourf(x_coord, y_coord, p_arr, n_isolines);
+    clabel(C, h, 'FontSize', 5, 'Color', 'k');  
+    title(['P(x, y) в  ', num2str(t),  ' сут'])  
+    colorbar; 
+    xlabel('X, метры');
+    ylabel('Y, метры');
+    sp = subplot(1, 2, 2);
+    contourf(x_coord, y_coord, s_arr.', n_isolines)
+    title(['S(x, y) в  ', num2str(t),  ' сут'])  
+    colorbar; 
+    colormap(sp, sat_colormap)
+    xlabel('X, метры');
+    ylabel('Y, метры');
 end
 
-%{
-figure;
-plot(times, Q_prod); 
-title('График накопленного дебита нефти добывающей скважины');
-xlabel('t, дни');
-ylabel('Q, м^3');
-grid on;
+q_prod = q_prod * day();
+q_inj = q_inj * day();
 
 figure;
-plot(times, Q_inj); 
-title('График накопленной приемистости нагнетательной скважины');
-xlabel('t, дни');
-ylabel('Q, м^3');
-grid on;
-
-figure;
-plot(times, q_prod); 
+plot(times, q_prod, 'LineWidth', 2); 
 title('График дебита добывающей скважины');
 xlabel('t, дни');
-ylabel('q, м^3/день');
+ylabel('q, м^3/сут');
 grid on;
 
 figure;
-plot(times, q_inj); 
+plot(times, q_inj, 'LineWidth', 2); 
 title('График приемистости нагнетательной скважины');
 xlabel('t, дни');
-ylabel('q, м^3/день');
+ylabel('q, м^3/сут');
 grid on;
-%}
 
+figure;
+plot(times, eta, 'LineWidth', 2); 
+title('График обводненности добывающей скважины');
+xlabel('t, сут');
+ylabel('доли');
+grid on;
