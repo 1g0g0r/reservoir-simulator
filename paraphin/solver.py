@@ -80,8 +80,8 @@ class Solver:
             format='%(asctime)s - %(message)s',  # - %(name)s - %(levelname)s
             datefmt='%H:%M:%S'  # '%Y-%m-%d %H:%M:%S'
         )
-
         self.logger = getLogger(__name__)
+        results_path.mkdir(parents=True, exist_ok=True)
 
 
     def initialize(self):

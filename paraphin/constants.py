@@ -17,7 +17,6 @@ cpoise_to_Pas = 0.001
 # пути проекта
 outputs_path = Path.cwd() / 'outputs'
 results_path = outputs_path / 'results'
-results_path.mkdir(parents=True, exist_ok=True)
 logs_path = outputs_path /  'app.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
