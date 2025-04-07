@@ -4,7 +4,8 @@ mrstModule add incomp ad-core ad-blackoil
 
 %% Geometry
 Lx = 300; Ly = 300; Lz = 1;
-nx = 50; ny = 50; nz = 1;
+nx = 32; ny = 32; nz = 1;
+hx = Lx / nx; hy = Ly / ny;
 G = cartGrid([nx, ny, nz], [Lx, Ly, Lz]);
 G = computeGeometry(G);
 gravity off
@@ -25,13 +26,14 @@ m = 0.2;
 rock = makeRock(G, k, m);
 
 %% Define constant properties for viscosity and density
-mu_w = 1;
-mu_o = 0.5;
-rho_w = 1000;
-rho_o = 860;
+mu_w = 1 * centi*poise;
+mu_o = 0.5 * centi*poise;
+rho_w = 1000 * kilogram/meter^3;
+rho_o = 860 * kilogram/meter^3;
+                            % [вода, нефть]
 fluid = initSimpleADIFluid('phases', 'WO', ...
-                           'mu', [mu_w, mu_o] .* centi*poise, ...
-                           'rho',[rho_w, rho_o] .* kilogram/meter^3, ...
+                           'mu', [mu_w, mu_o], ...
+                           'rho',[rho_w, rho_o], ...
                            'n',  [2, 2]);
 model = TwoPhaseOilWaterModel(G, rock, fluid);
 
@@ -42,20 +44,18 @@ p_prod = 30 * barsa();
 
 W = verticalWell([], G, rock, 1, 1, [],...
                  'Type', 'bhp', 'Val', p_inj, ...
-                 'Radius', rw, 'InnerProduct', 'ip_tpf', ...
-                 'Comp_i', [0, 1]);
+                 'Radius', rw,  'Comp_i', [0, 1]);
 
 W = verticalWell(W, G, rock, nx, ny, [],...
                  'Type', 'bhp' , 'Val', p_prod, ...
-                 'Radius', rw, 'InnerProduct', 'ip_tpf', ...
-                 'Comp_i', [1, 0]);
+                 'Radius', rw, 'Comp_i', [1, 0]);
 
 %% Create a initialized state and set initial saturation to phase 1.
 init_sol = initResSol(G, p_prod, [1, 0]);
 
 %% Start calculation
 dt = 1 * day;
-t_end = 500 * day;
+t_end = 100 * day;
 dt_pict = 250 * dt;
 
 %% Start simulation
@@ -63,13 +63,20 @@ schedule = simpleSchedule(repmat(dt, [t_end / day, 1]), 'W', W);
 [wellsData, fieldData] = simulateScheduleAD(init_sol, model, schedule);
 
 times = cumsum(schedule.step.val) / day;
-q_inj = cellfun(@(ws) ws(1).qOs, wellsData);
+q_inj = cellfun(@(ws) ws(1).qTs, wellsData);
 Q_inj = cumsum(q_inj * dt);
-q_prod = cellfun(@(ws) -ws(2).qTs, wellsData);
-qo_prod = cellfun(@(ws) -ws(2).qWs, wellsData);
-Qo_prod = cumsum(qo_prod * dt);
+q_prod = cellfun(@(ws) ws(2).qTs, wellsData);
+Qo_prod = cumsum(q_prod * dt);
 eta    = cellfun(@(ws) ws(2).ocut, wellsData);
 
+re = 0.14 * sqrt(hx*hx + hy*hy);
+q_mult = pi * k * Lz / log(re/rw);  % убрал двойку
+p_array_w = cellfun(@(ws) (ws.pressure(1,1)-p_inj), fieldData);
+p_array_o = -cellfun(@(ws) (ws.pressure(nx * ny, 1)-p_prod), fieldData);
+peaceman_q_w = p_array_w .* (q_mult / mu_w);
+peaceman_q_o = p_array_o .* (q_mult / mu_o);
+
+%{
 step = int32(dt_pict / dt);
 end_idx = int32(length(times));
 for i = unique([1:step:end_idx, end_idx])
@@ -94,27 +101,31 @@ for i = unique([1:step:end_idx, end_idx])
     xlabel('X, метры');
     ylabel('Y, метры');
 end
+%}
 
 q_prod = q_prod * day();
 q_inj = q_inj * day();
+peaceman_q_o = peaceman_q_o * day();
+peaceman_q_w = peaceman_q_w * day();
 
 figure;
 plot(times, q_prod, 'LineWidth', 2); 
-title('График дебита добывающей скважины');
+hold on;
+plot(times, peaceman_q_o, '--', 'LineWidth', 2); 
 xlabel('t, дни');
 ylabel('q, м^3/сут');
+legend('reference', 'peaceman');
+title('График дебита добывающей скважины');
 grid on;
 
 figure;
 plot(times, q_inj, 'LineWidth', 2); 
-title('График приемистости нагнетательной скважины');
+hold on;
+plot(times, peaceman_q_w, '--', 'LineWidth', 2); 
 xlabel('t, дни');
 ylabel('q, м^3/сут');
+legend('reference', 'peaceman');
+title('График приемистости нагнетательной скважины');
 grid on;
 
-figure;
-plot(times, eta, 'LineWidth', 2); 
-title('График обводненности добывающей скважины');
-xlabel('t, сут');
-ylabel('доли');
-grid on;
+

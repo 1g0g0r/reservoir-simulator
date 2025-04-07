@@ -11,7 +11,7 @@ from paraphin.solver import Solver
 def solve():
     """Запуск расчета."""
     times = np.linspace(0, Time_end, int(Time_end / dt + 1))
-    pbar = tqdm(iterable=times, ncols=110, desc='Solving timestep', file=stdout)
+    pbar = tqdm(iterable=times, ncols=70, desc='Решение задачи', file=stdout)
 
     iter = 0
     sol = Solver()
