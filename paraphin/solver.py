@@ -176,7 +176,7 @@ class Solver:
         prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * well_mult * self.k[Nx - 1, Ny - 1]
         self.prod[0] = prod_mult * _pf_o(self.S[Nx - 1, Ny - 1]) / self.mu_o[Nx - 1, Ny - 1]
         self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
-        self.prod[2] = (self.prod[0] + self.prod[1])
+        self.prod[2] = -(self.prod[0] + self.prod[1])  # TODO для визуальности
 
         self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0]}  q_w={self.inj[1]}")
         self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0]}  q_w={self.prod[1]}")
@@ -246,12 +246,12 @@ class Solver:
         self.logger.info(f"Обновлена скорость блокировки капилляров:       min={min_new_ub}  max={max_new_ub}")
 
 
-    def upd_time_step(self, t: float, iter: float) -> None:
+    def upd_time_step(self, t: float) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Ввиду параллельного выполнения циклов taichi запуск задач в разных процессах снижает производительность
         self.logger.info('')
         self.logging_resources()
-        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t} день  ({iter} итерация)")
+        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t} день")
 
         # --- решение гидродинамики ---
         self._update_p()            # Обновление давления

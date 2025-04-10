@@ -72,7 +72,7 @@ def _pf_w(s: data_type) -> data_type:
 if __name__ == '__main__':
     import numpy as np
     import plotly.graph_objects as go
-    s_arr = np.linspace(0, 1, 100)
+    s_arr = np.linspace(0, 1, 101)
     f_o = np.array([_pf_o(i) for i in s_arr])
     f_w = np.array([_pf_w(i) for i in s_arr])
 

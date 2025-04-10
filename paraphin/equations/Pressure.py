@@ -3,7 +3,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, Po, Pw, well_mult, bar_to_pa, h, DEBUGGING
-from paraphin.utils import show_plot, K_o, K_w, pf_o, pf_w
+from paraphin.utils import show_plot, pf_o, pf_w, up_ko, up_kw, mid
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
 N = Nx * Ny  # размер матрицы
@@ -11,7 +11,7 @@ NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количест�
 data = ti.field(data_type, shape=NN)
 row_indices = ti.field(ti.i32, shape=NN)
 col_indices = ti.field(ti.i32, shape=NN)
-b = ti.field(data_type, shape=N)
+rhs = ti.field(data_type, shape=N)
 
 
 def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
@@ -52,8 +52,14 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                 for qq in ti.static(ti.ndrange(4)):
                     i1, j1, hij, areaij = arr[qq]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        val = (Wo[i, j] * K_o(k[i, j], S[i, j], mu_o[i, j]) +
-                                          K_w(k[i, j], S[i, j], mu_w[i, j])) * areaij / hij
+                        _kw = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        _ko = up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        _mid = mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                   k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                        val = (Wo[i, j] * _ko + _kw) * _mid * areaij / hij
+
                         row_indices[num] = idx
                         col_indices[num] = idx + (i1-i) + Nx * (j1-j)
                         data[num] = -val
@@ -66,25 +72,23 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                 num += 1
 
                 # rhs
-                b[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
+                rhs[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
 
         # Добавили скважины в точки (0,0) (Nx-1, Ny-1)
-        # TODO надо ли учесть ОФП
         w_v = well_mult * volume
-        b[0]       +=  w_v * k[0, 0] * Pw * (pf_o(S[0, 0]) / mu_o[0, 0] + pf_w(S[0, 0]) / mu_w[0, 0])
-        data[0]    +=  w_v * k[0, 0] / mu_w[0, 0]
-        b[N-1]     +=  w_v * k[Nx-1, Ny-1] * Po / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
-        data[NN-1] +=  w_v * k[Nx-1, Ny-1] / mu_o[Nx-1, Ny-1] * Wo[Nx-1, Ny-1]
-        print(pf_o(S[0, 0]) / mu_o[0, 0], pf_w(S[0, 0]) / mu_w[0, 0])
+        data[2]    -= w_v * k[0, 0] * (pf_o(S[0, 0]) / mu_o[0, 0] + pf_w(S[0, 0]) / mu_w[0, 0])
+        rhs[0]     -= w_v * k[0, 0] * (pf_o(S[0, 0]) / mu_o[0, 0] + pf_w(S[0, 0]) / mu_w[0, 0]) * Pw
+        data[NN-1] -= w_v * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1])
+        rhs[N-1]   -= w_v * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1]) * Wo[Nx-1, Ny-1] * Po
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
 
-    x = spsolve(A_csr, b.to_numpy())  # lgmres(A_csr, b.to_numpy(), rtol=1e-8)[0]
+    solution = spsolve(A_csr, rhs.to_numpy())  # lgmres(A_csr, b.to_numpy(), rtol=1e-8)[0]
 
-    # ml = pyamg.ruge_stuben_solver(A_csr)  # construct the multigrid hierarchy
+    # ml = pyamg.ruge_stuben_solver(A_csr)
     # x = ml.solve(b.to_numpy(), tol=1e-8)
 
-    p.from_numpy(x.reshape((Nx, Ny)))
+    p.from_numpy(solution.reshape((Nx, Ny)))
     if DEBUGGING:
-        show_plot(x / bar_to_pa, 'Pressure')
+        show_plot(solution / bar_to_pa, 'Pressure')

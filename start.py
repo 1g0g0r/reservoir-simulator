@@ -17,7 +17,7 @@ def solve():
     sol = Solver()
     sol.initialize()  # Задание начальных условий
     for t in times:
-        sol.upd_time_step(t / day_to_sec, iter)
+        sol.upd_time_step(t / day_to_sec)
         pbar.set_postfix(день=t / day_to_sec)
         pbar.update(1)
 

@@ -3,8 +3,8 @@ mrstModule add incomp ad-core ad-blackoil
 
 
 %% Geometry
-Lx = 300; Ly = 300; Lz = 1;
-nx = 32; ny = 32; nz = 1;
+Lx = 400; Ly = 400; Lz = 1;
+nx = 50; ny = 50; nz = 1;
 hx = Lx / nx; hy = Ly / ny;
 G = cartGrid([nx, ny, nz], [Lx, Ly, Lz]);
 G = computeGeometry(G);
@@ -27,7 +27,7 @@ rock = makeRock(G, k, m);
 
 %% Define constant properties for viscosity and density
 mu_w = 1 * centi*poise;
-mu_o = 0.5 * centi*poise;
+mu_o = 5 * centi*poise;
 rho_w = 1000 * kilogram/meter^3;
 rho_o = 860 * kilogram/meter^3;
                             % [вода, нефть]
@@ -40,7 +40,7 @@ model = TwoPhaseOilWaterModel(G, rock, fluid);
 %% Add wells
 rw = 0.1;
 p_inj  = 60 * barsa();
-p_prod = 30 * barsa();
+p_prod = 40 * barsa();
 
 W = verticalWell([], G, rock, 1, 1, [],...
                  'Type', 'bhp', 'Val', p_inj, ...
@@ -65,18 +65,18 @@ schedule = simpleSchedule(repmat(dt, [t_end / day, 1]), 'W', W);
 times = cumsum(schedule.step.val) / day;
 q_inj = cellfun(@(ws) ws(1).qTs, wellsData);
 Q_inj = cumsum(q_inj * dt);
-q_prod = cellfun(@(ws) ws(2).qTs, wellsData);
+q_prod = -cellfun(@(ws) ws(2).qTs, wellsData);
 Qo_prod = cumsum(q_prod * dt);
 eta    = cellfun(@(ws) ws(2).ocut, wellsData);
 
 re = 0.14 * sqrt(hx*hx + hy*hy);
-q_mult = pi * k * Lz / log(re/rw);  % убрал двойку
+q_mult = 2.0 * pi * k * Lz / log(re/rw);  
 p_array_w = cellfun(@(ws) (ws.pressure(1,1)-p_inj), fieldData);
-p_array_o = -cellfun(@(ws) (ws.pressure(nx * ny, 1)-p_prod), fieldData);
+p_array_o = cellfun(@(ws) (ws.pressure(nx * ny, 1)-p_prod), fieldData);
 peaceman_q_w = p_array_w .* (q_mult / mu_w);
 peaceman_q_o = p_array_o .* (q_mult / mu_o);
 
-%{
+
 step = int32(dt_pict / dt);
 end_idx = int32(length(times));
 for i = unique([1:step:end_idx, end_idx])
@@ -101,7 +101,6 @@ for i = unique([1:step:end_idx, end_idx])
     xlabel('X, метры');
     ylabel('Y, метры');
 end
-%}
 
 q_prod = q_prod * day();
 q_inj = q_inj * day();

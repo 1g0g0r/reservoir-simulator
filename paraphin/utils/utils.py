@@ -29,7 +29,7 @@ def up_kw(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
     else:
         ret = K_w(k_j, s_j, mu_w_j) / (K_w(k_j, s_j, mu_w_j) + K_o(k_j, s_j, mu_o_j))
 
-    return -ret
+    return ret
 
 
 @ti.func
@@ -45,7 +45,7 @@ def up_ko(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
 
     # TODO почему отток положительный, приток отрицательный
 
-    return -ret
+    return ret
 
 
 @ti.func
@@ -93,25 +93,18 @@ def calculate_flows_in_cells(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_va
                     i1, j1, hij, areaij = arr[idx]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
                         value = areaij * (p[i, j] - p[i1, j1]) / hij * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                                k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
+                                                                       k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
                         kw += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
                         ko += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
                         dtemp += areaij * (T[i, j] - T[i1, j1]) / hij
-                #         if i < 2 and j < 2:
-                #             print([i,j], [i1, j1], kw, ko)
-                # if i < 2 and j < 2:
-                #     print()
 
                 up_kw_val[i, j] = kw
                 up_ko_val[i, j] = ko
                 dt_val[i, j] = dtemp
 
-                # TODO сравнить перетоки с MRST
-
     temp_val_loop()
-    # print()
 
 
 def read_pkl_files() -> dict:

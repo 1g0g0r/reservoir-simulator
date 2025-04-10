@@ -91,7 +91,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     # По умолчанию показываем первое поле
     fig.update_traces(visible=False)
     fig.data[0].visible = True
-    # fig.update_layout(sliders=[dict(active=0)], visible=True)
+    # fig.update_layout(sliders=[dict(active=0)])
 
     if __name__ == '__main__':
         fig.write_html(results_path.parent / 'Results.html', include_plotlyjs='plotly_script.js')
