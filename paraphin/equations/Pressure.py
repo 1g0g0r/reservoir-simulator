@@ -2,7 +2,7 @@ import taichi as ti
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, Po, Pw, well_mult, bar_to_pa, h, DEBUGGING
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, Po, Pw, conductivity_well, bar_to_pa, h, DEBUGGING
 from paraphin.utils import show_plot, pf_o, pf_w, up_ko, up_kw, mid
 
 # Операции с константными величинами (вычисляются один раз только при импорте модуля)
@@ -75,7 +75,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                 rhs[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) * volume / dt
 
         # Добавили скважины в точки (0,0) (Nx-1, Ny-1)
-        w_v = well_mult * volume
+        w_v = conductivity_well * volume
         data[2]    -= w_v * k[0, 0] * (pf_o(S[0, 0]) / mu_o[0, 0] + pf_w(S[0, 0]) / mu_w[0, 0])
         rhs[0]     -= w_v * k[0, 0] * (pf_o(S[0, 0]) / mu_o[0, 0] + pf_w(S[0, 0]) / mu_w[0, 0]) * Pw
         data[NN-1] -= w_v * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1])

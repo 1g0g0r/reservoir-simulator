@@ -7,7 +7,7 @@ import taichi as ti
 
 from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
                                 init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa,
-                                well_mult, Pw, Po, day_to_sec, eta, mu_o, mu_w, c_o, c_w, c_p, c_f)
+                                conductivity_well, Pw, Po, day_to_sec, eta, mu_o, mu_w, c_o, c_w, c_p, c_f)
 from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, calc_saturation, calc_temperature,
                                 calc_wps_wp, calc_velocitys_h)
 from paraphin.utils import _pf_o, _pf_w, calculate_flows_in_cells
@@ -168,12 +168,12 @@ class Solver:
 
     def _update_q(self) -> None:
         """Обновление дебитов скважин."""
-        inj_mult  = (self.p[0, 0] - Pw) * well_mult * self.k[0, 0]
+        inj_mult  = (self.p[0, 0] - Pw) * conductivity_well * self.k[0, 0]
         self.inj[0] = 0.0
         self.inj[1] = inj_mult / self.mu_w[0, 0]
         self.inj[2] = (self.inj[0] + self.inj[1])
 
-        prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * well_mult * self.k[Nx - 1, Ny - 1]
+        prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * conductivity_well * self.k[Nx - 1, Ny - 1]
         self.prod[0] = prod_mult * _pf_o(self.S[Nx - 1, Ny - 1]) / self.mu_o[Nx - 1, Ny - 1]
         self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
         self.prod[2] = -(self.prod[0] + self.prod[1])  # TODO для визуальности
