@@ -269,7 +269,7 @@ class Solver:
 
         self._swap_time_steps()
 
-        # self._update_mu_and_c_temp()  # Обновление свойств веществ ввиду изменения температуры
+        # self._update_mu_and_c_temp()  # Обновление свойств флюидов из-за изменения температуры
 
 
     def _swap_time_steps(self):
@@ -298,7 +298,7 @@ class Solver:
     def logging_resources(self) -> None:
         # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
         memory_info = psutil.virtual_memory()
-        memory_usage = round(memory_info.used / memory_info.total, 5)  # memory_info.percent
+        memory_usage = round(memory_info.used / memory_info.total, 7) * 100  # memory_info.percent
 
         # self.logger.info(f'CPU Usage:    {cpu_usage}%')
         self.logger.info(f'Memory Usage: {memory_usage}%')

@@ -4,7 +4,7 @@ mrstModule add incomp ad-core ad-blackoil
 
 %% Geometry
 Lx = 400; Ly = 400; Lz = 1;
-nx = 50; ny = 50; nz = 1;
+nx = 80; ny = 80; nz = 1;
 hx = Lx / nx; hy = Ly / ny;
 G = cartGrid([nx, ny, nz], [Lx, Ly, Lz]);
 G = computeGeometry(G);
@@ -73,8 +73,8 @@ re = 0.14 * sqrt(hx*hx + hy*hy);
 q_mult = 2.0 * pi * k * Lz / log(re/rw);  
 p_array_w = cellfun(@(ws) (ws.pressure(1,1)-p_inj), fieldData);
 p_array_o = cellfun(@(ws) (ws.pressure(nx * ny, 1)-p_prod), fieldData);
-peaceman_q_w = p_array_w .* (q_mult / mu_w);
-peaceman_q_o = p_array_o .* (q_mult / mu_o);
+peaceman_q_w = -p_array_w .* (q_mult / mu_o);
+peaceman_q_o = p_array_o .* (q_mult / mu_w);
 
 
 step = int32(dt_pict / dt);
