@@ -21,7 +21,7 @@ logs_path = outputs_path /  '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 80, 80  # Число узлов сетки по x и y
+Nx, Ny = 40, 40  # Число узлов сетки по x и y
 X_min, X_max = 0., 400.    # Длина пласта, [м]
 Y_min, Y_max = 0., 400.    # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx
@@ -32,7 +32,7 @@ volume = area * h
 
 # Параметры решения
 Time_end = day_to_sec * 365  # год
-dt = day_to_sec / 50   # шаг дискретизации по времени
+dt = day_to_sec / 2   # шаг дискретизации по времени
 sol_time_step = dt * 10  # шаг по времени для сохранения результатов
 
 # Физические параметры задачи
