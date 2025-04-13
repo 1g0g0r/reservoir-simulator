@@ -32,19 +32,20 @@ class Solver:
         self.C_p  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость парафина
 
         # поля данных
-        self.p    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Давление
-        self.S    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Водонасыщенность
-        self.S_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wo   = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти
-        self.Wo_0 = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wp   = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти
-        self.Wp_0 = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wps  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти
-        self.k    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Проницаемость [m^2]
-        self.m    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Пористость
-        self.m_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.T    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Температура [C]
-        self.T_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.p     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Давление
+        self.S     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Водонасыщенность
+        self.S_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.Wo    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти
+        self.Wo_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.Wp    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти
+        self.Wp_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.Wps   = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти
+        self.Wps_0 = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.k     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Проницаемость [m^2]
+        self.m     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Пористость
+        self.m_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.T     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Температура [C]
+        self.T_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # динамика образования парафина (кольматация\суффозия)
         self.integr_r2_fi0 = ti.field(dtype=d_type, shape=())
@@ -279,9 +280,11 @@ class Solver:
         self.T_0 = self.T
         self.T = self.new_t
 
+        # TODO проверить типы новых массивов taichi\numpy
         if not np.all(np.isclose(self.Wp.to_numpy(), 0)):
             self.Wp_0 = self.Wp
             self.Wp = self.new_wp
+            self.Wps_0 = self.Wps
             self.Wps = self.new_wps
             self.Wo_0 = self.Wo
             self.Wo.from_numpy(1.0 - self.Wp.to_numpy() - self.Wps.to_numpy())

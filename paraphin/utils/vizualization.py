@@ -38,6 +38,13 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                                hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")
             data_fields.append(inj)
         else:
+            # trace = go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
+            #                    zmax=np.max(field), hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
+            #                    contours=dict(
+            #                        coloring='fill',
+            #                        showlabels=True,
+            #                        labelfont=dict(size=12, color='black')
+            #                    ))
             trace = go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field),
                                colorscale='Jet', name=name,  # colorscale='Cividis'
                                hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")

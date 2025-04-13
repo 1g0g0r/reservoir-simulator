@@ -45,6 +45,7 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
     @ti.kernel
     def calc_temperature_loop():
         for i, j in ti.ndrange(Nx, Ny):
+            derivative_add = T[i, j] * (ro_w * C_w * () + ro_o * C_o)
             multiplier = dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
                                (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] + (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])
 
@@ -53,9 +54,9 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
 
             t2 = T[i, j] * ro_w * C_w[i, j] * up_kw_val[i, j]
 
-            t3 = T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j] - Wp[i, j]) + ro_p * Wps[i, j] * C_p[i, j]) * up_ko_val[i, j]
+            t3 = T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j]) * up_ko_val[i, j]
 
-            new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3)
+            new_T[i, j] = T[i, j] + multiplier * (derivative_add + t1 + t2 + t3)
 
         # Учет скважин
         mult00 =  dt / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +
@@ -63,12 +64,13 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
         multNN =  dt / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
                                    (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
 
-
-        # new_T[0, 0] -= inj[1] * Twater * C_w[0, 0] * ro_w * mult00
-        new_T[0, 0] = Twater
-
-        new_T[Nx - 1, Ny - 1] += (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN
+        new_T[0, 0]           += inj[1] * C_w[0, 0] * ro_w * mult00 * Twater
+        new_T[Nx - 1, Ny - 1] += (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN * T[Nx - 1, Ny - 1]
 
     calc_temperature_loop()
+
+    # show_plot(dt_val.to_numpy(), 'heat flow')
+    show_plot(new_T.to_numpy(), 'Temperature')
+
     if DEBUGGING:
         show_plot(new_T.to_numpy(), 'Temperature')
