@@ -4,7 +4,7 @@ from paraphin.constants import Nx, Ny, dt, volume, ro_w, ro_f, ro_o, ro_p, K_o, 
 from paraphin.utils import show_plot
 
 
-def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
+def calc_temperature(T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wp, Wp_0, Wps, Wps_0, inj, prod,
                      up_kw_val, up_ko_val, dt_val, new_T) -> None:
     """Вычисление температуры по явной схеме.
 
@@ -14,8 +14,12 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
         Температура, [С]
     m: taichi.field(Nx, Ny)
         Пористость, [-]
+    m_0: taichi.field(Nx, Ny)
+        Пористость на старом временном слое, [-]
     S: taichi.field(Nx, Ny)
         Водонасыщенность, [-]
+    S_0: taichi.field(Nx, Ny)
+        Водонасыщенность на старом временном слое, [-]
     C_o: taichi.field(Nx, Ny)
         Теплоемкость нефти, [Дж/C]
     C_w: taichi.field(Nx, Ny)
@@ -26,8 +30,12 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
         Теплоемкость парафина, [Дж/C]
     Wp: taichi.field(Nx, Ny)
         Концентрация растворенного парафина, [-]
+    Wp_0: taichi.field(Nx, Ny)
+        Концентрация растворенного парафина на старом временном слое, [-]
     Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина, [-]
+    Wps_0: taichi.field(Nx, Ny)
+        Концентрация взвешенных частиц парафина на старом временном слое, [-]
     inj: taichi.field(3)
          Дебит нагнетательной скважины [oil, water, total], [м^3/c]
     prod: taichi.field(3)
@@ -45,7 +53,12 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
     @ti.kernel
     def calc_temperature_loop():
         for i, j in ti.ndrange(Nx, Ny):
-            derivative_add = T[i, j] * (ro_w * C_w * () + ro_o * C_o)
+            derivative_add = T[i, j] * (ro_w * C_w[i,j] * (m[i,j]*S[i,j] - m_0[i,j]*S_0[i,j])/dt + ro_o * C_o[i,j] *
+                (m[i,j]*(1.0-S[i,j]) - m_0[i,j]*(1.0-S_0[i,j])) / dt + ro_p * C_p[i,j] * ((Wp[i,j]-Wp_0[i,j]) / dt +
+                (m[i,j]*(1.0-S[i,j])*Wps[i,j] - m_0[i,j]*(1.0-S_0[i,j])*Wps_0[i,j]) / dt)) * volume
+
+            # if (i == 0 and j == 0) or (i == Nx-1 and j == Ny-1):
+            #     print((i, j), derivative_add)
             multiplier = dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
                                (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] + (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])
 
@@ -56,7 +69,7 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
 
             t3 = T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j]) * up_ko_val[i, j]
 
-            new_T[i, j] = T[i, j] + multiplier * (derivative_add + t1 + t2 + t3)
+            new_T[i, j] = T[i, j] + multiplier * (-derivative_add + t1 + t2 + t3)
 
         # Учет скважин
         mult00 =  dt / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +
@@ -64,13 +77,13 @@ def calc_temperature(T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, inj, prod,
         multNN =  dt / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
                                    (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
 
-        new_T[0, 0]           += inj[1] * C_w[0, 0] * ro_w * mult00 * Twater
-        new_T[Nx - 1, Ny - 1] += (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN * T[Nx - 1, Ny - 1]
+        new_T[0, 0]           -= inj[1] * C_w[0, 0] * ro_w * mult00 * (Twater - T[0, 0])
+        # new_T[Nx - 1, Ny - 1] -= (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN * T[Nx - 1, Ny - 1]
 
     calc_temperature_loop()
 
     # show_plot(dt_val.to_numpy(), 'heat flow')
-    show_plot(new_T.to_numpy(), 'Temperature')
+    # show_plot(new_T.to_numpy(), 'Temperature')
 
     if DEBUGGING:
         show_plot(new_T.to_numpy(), 'Temperature')

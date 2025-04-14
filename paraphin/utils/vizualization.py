@@ -34,7 +34,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
             inj = go.Scatter(x=time, y=field['inj'] * day_to_sec, mode='lines', name='Injector',
                              hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")  # , xaxis = "Время, день", yaxis = "Дебит, м^3/день"
 
-            trace = go.Scatter(x=time, y=field['prod'] * day_to_sec, mode='lines', name='Producer',
+            trace = go.Scatter(x=time, y=-field['prod'] * day_to_sec, mode='lines', name='Producer',
                                hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")
             data_fields.append(inj)
         else:

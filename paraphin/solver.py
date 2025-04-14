@@ -172,12 +172,12 @@ class Solver:
         inj_mult  = (self.p[0, 0] - Pw) * conductivity_well * self.k[0, 0]
         self.inj[0] = 0.0
         self.inj[1] = inj_mult / self.mu_w[0, 0]
-        self.inj[2] = (self.inj[0] + self.inj[1])
+        self.inj[2] = self.inj[0] + self.inj[1]
 
         prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * conductivity_well * self.k[Nx - 1, Ny - 1]
         self.prod[0] = prod_mult * _pf_o(self.S[Nx - 1, Ny - 1]) / self.mu_o[Nx - 1, Ny - 1]
         self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
-        self.prod[2] = -(self.prod[0] + self.prod[1])  # TODO для визуальности
+        self.prod[2] = self.prod[0] + self.prod[1]
 
         self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0]}  q_w={self.inj[1]}")
         self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0]}  q_w={self.prod[1]}")
@@ -207,8 +207,9 @@ class Solver:
 
     def _update_t(self) -> None:
         """Обновление температуры."""
-        calc_temperature(self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps,
-                         self.inj, self.prod, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
+        calc_temperature(self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp,
+                         self.Wp_0, self.Wps, self.Wps_0, self.inj, self.prod, self.up_kw_val, self.up_ko_val,
+                         self.dt_val, self.new_t)
         min_t = self.new_t.to_numpy().min()
         max_t = self.new_t.to_numpy().max()
 

@@ -76,8 +76,8 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
 
         # Добавили скважины в точки (0,0) (Nx-1, Ny-1)
         w_v = conductivity_well * volume
-        data[2]    -= w_v * k[0, 0] * (pf_o(S[0, 0]) / mu_o[0, 0] + pf_w(S[0, 0]) / mu_w[0, 0])
-        rhs[0]     -= w_v * k[0, 0] * (pf_o(S[0, 0]) / mu_o[0, 0] + pf_w(S[0, 0]) / mu_w[0, 0]) * Pw
+        data[2]    -= w_v * k[0, 0] / mu_w[0, 0]
+        rhs[0]     -= w_v * k[0, 0] / mu_w[0, 0] * Pw
         data[NN-1] -= w_v * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1])
         rhs[N-1]   -= w_v * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1]) * Wo[Nx-1, Ny-1] * Po
 

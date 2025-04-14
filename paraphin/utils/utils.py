@@ -109,9 +109,9 @@ def calculate_flows_in_cells(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_va
 
 
 def read_pkl_files() -> dict:
-    """Считывает содержимое всех бинарных файлов (расширение .pkl)."""
+    """Считывает содержимое всех бинарных файлов расширения .pkl"""
     def extract_number(_path):
-        numbers = re.findall(r'\d+', _path.stem) # Находим все числа в имени файла
+        numbers = re.findall(r'\d+', _path.stem)  # Находим все числа в имени файла
         return int(numbers[0]) if numbers else 0
 
     # Сортировка данных расчета по времени
