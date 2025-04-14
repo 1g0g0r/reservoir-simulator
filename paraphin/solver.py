@@ -281,7 +281,6 @@ class Solver:
         self.T_0 = self.T
         self.T = self.new_t
 
-        # TODO проверить типы новых массивов taichi\numpy
         if not np.all(np.isclose(self.Wp.to_numpy(), 0)):
             self.Wp_0 = self.Wp
             self.Wp = self.new_wp

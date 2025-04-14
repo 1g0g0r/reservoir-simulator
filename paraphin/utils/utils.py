@@ -43,8 +43,6 @@ def up_ko(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
     else:
         ret = K_o(k_j, s_j, mu_o_j) / (K_w(k_j, s_j, mu_w_j) + K_o(k_j, s_j, mu_o_j))
 
-    # TODO почему отток положительный, приток отрицательный
-
     return ret
 
 
