@@ -69,16 +69,20 @@ def calc_temperature(T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wp, Wp_0, Wps, Wps_0
 
             t3 = T[i, j] * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j]) * up_ko_val[i, j]
 
-            new_T[i, j] = T[i, j] + multiplier * (-derivative_add + t1 + t2 + t3)
+            new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3 - derivative_add)
 
         # Учет скважин
-        mult00 =  dt / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +
+        mult00 =  dt / volume / (m[0, 0] * S[0, 0] * ro_w * C_w[0, 0] + m[0, 0] * (1.0 - S[0, 0]) * ro_o * C_o[0, 0] +
                                    (m[0, 0] * (1.0 - S[0, 0]) * Wps[0, 0] + Wp[0, 0]) * ro_p * C_p[0, 0] + (1.0 - m[0, 0] - Wp[0, 0]) * ro_f * C_f[0, 0])
-        multNN =  dt / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
+        multNN =  dt / volume / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
                                    (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
 
-        new_T[0, 0]           -= inj[1] * C_w[0, 0] * ro_w * mult00 * Twater
-        new_T[Nx - 1, Ny - 1] -= (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN * T[Nx - 1, Ny - 1]
+        new_T[0, 0]           += inj[1] * C_w[0, 0] * ro_w * mult00 * (Twater - T[0, 0])
+        # new_T[Nx - 1, Ny - 1] += (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN * T[Nx - 1, Ny - 1]
+
+        # print()
+        # print(inj[1] * C_w[0, 0] * ro_w * mult00 * Twater)
+        # print((C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN * T[Nx - 1, Ny - 1])
 
     calc_temperature_loop()
 

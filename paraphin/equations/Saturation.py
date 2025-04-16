@@ -31,8 +31,8 @@ def calc_saturation(S, m, m_0, inj, prod, up_kw_val, new_S) -> None:
             new_S[i, j] = S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * up_kw_val[i, j] / volume) / m[i, j]
 
         # учет скважины
-        new_S[0, 0]           += dt * inj[1] / m[0, 0]
-        new_S[Nx - 1, Ny - 1] += dt * prod[1] / m[Nx - 1, Ny - 1]
+        new_S[0, 0]           -= dt * inj[1] / m[0, 0] / volume
+        new_S[Nx - 1, Ny - 1] -= dt * prod[1] / m[Nx - 1, Ny - 1] / volume
 
     calc_saturation_loop()
     # print()

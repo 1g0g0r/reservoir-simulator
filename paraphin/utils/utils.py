@@ -90,14 +90,13 @@ def calculate_flows_in_cells(p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_va
                 for idx in ti.static(ti.ndrange(4)):
                     i1, j1, hij, areaij = arr[idx]
                     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                        # TODO поменял знак (понять почему при dp>0 отток >0, хотя должно быть наоборот)
-                        value = - areaij * (p[i, j] - p[i1, j1]) / hij * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                        value = areaij * (p[i1, j1] - p[i, j]) / hij * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
                                                                        k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
                         kw += up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
                         ko += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
                                     k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
-                        dtemp += areaij * (T[i, j] - T[i1, j1]) / hij
+                        dtemp += areaij * (T[i1, j1] - T[i, j]) / hij
 
                 up_kw_val[i, j] = kw
                 up_ko_val[i, j] = ko

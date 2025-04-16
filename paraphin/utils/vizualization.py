@@ -22,14 +22,17 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     data_fields = []
     for name, field in input_data.items():
         if name == 'Pressure':
-            trace = go.Contour(x=x, y=y, z=field / bar_to_pa,  colorscale='Jet', name=name,
+            # trace = go.Contour(x=x, y=y, z=field / bar_to_pa,  colorscale='Jet', name=name,
+            #                    zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
+            #                    hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>",
+            #                    contours=dict(
+            #                        coloring='fill',
+            #                        showlabels=True,
+            #                        labelfont=dict(size=12, color='black')
+            #                    ))
+            trace = go.Heatmap(x=x, y=y, z=field / bar_to_pa, colorscale='Jet', name=name,
                                zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
-                               hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>",
-                               contours=dict(
-                                   coloring='fill',
-                                   showlabels=True,
-                                   labelfont=dict(size=12, color='black')
-                               ))
+                               hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
         elif name == 'Wells':
             inj = go.Scatter(x=time, y=field['inj'] * day_to_sec, mode='lines', name='Injector',
                              hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")  # , xaxis = "Время, день", yaxis = "Дебит, м^3/день"
