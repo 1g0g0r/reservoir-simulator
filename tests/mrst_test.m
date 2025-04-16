@@ -1,10 +1,10 @@
 run startup.m
-mrstModule add incomp ad-core ad-blackoil
+mrstModule add incomp ad-core ad-blackoil 
 
 
 %% Geometry
-Lx = 400; Ly = 400; Lz = 1;
-nx = 40; ny = 40; nz = 1;
+Lx = 250; Ly = 250; Lz = 1;
+nx = 10; ny = 10; nz = 1;
 hx = Lx / nx; hy = Ly / ny;
 G = cartGrid([nx, ny, nz], [Lx, Ly, Lz]);
 G = computeGeometry(G);
@@ -21,7 +21,7 @@ sat_colormap = [linspace(0.6, 0.0  , color_steps)', ...
                 linspace(0.2, 0.741, color_steps)'];
 
 %% Set permeability and porosity
-k = 0.3*darcy;
+k = 0.2*darcy;
 m = 0.2;
 rock = makeRock(G, k, m);
 
@@ -33,14 +33,17 @@ rho_o = 860 * kilogram/meter^3;
                             % [вода, нефть]
 fluid = initSimpleADIFluid('phases', 'WO', ...
                            'mu', [mu_w, mu_o], ...
-                           'rho',[rho_w, rho_o], ...
-                           'n',  [2, 2]);
-model = TwoPhaseOilWaterModel(G, rock, fluid);
+                           'rho',[rho_w, rho_o]);
+relperm = struct('type', 'corey', ...
+                 'params', struct('nw', 2, 'no', 2, 'swr', 0.2, 'sor', 0.3));
+
+% Создание модели с явным указанием relperm
+model = TwoPhaseOilWaterModel(G, rock, fluid, 'relperm', relperm);
 
 %% Add wells
 rw = 0.1;
-p_inj  = 60 * barsa();
-p_prod = 40 * barsa();
+p_inj  = 150 * barsa();
+p_prod = 50 * barsa();
 
 W = verticalWell([], G, rock, 1, 1, [],...
                  'Type', 'bhp', 'Val', p_inj, ...
@@ -51,12 +54,12 @@ W = verticalWell(W, G, rock, nx, ny, [],...
                  'Radius', rw, 'Comp_i', [1, 0]);
 
 %% Create a initialized state and set initial saturation to phase 1.
-init_sol = initResSol(G, p_prod, [1, 0]);
+init_sol = initResSol(G, p_prod, [0.8, 0.2]);
 
 %% Start calculation
 dt = 1 * day;
 t_end = 100 * day;
-dt_pict = 250 * dt;
+dt_pict = 2500 * dt;
 
 %% Start simulation
 schedule = simpleSchedule(repmat(dt, [t_end / day, 1]), 'W', W);
@@ -73,7 +76,7 @@ re = 0.14 * sqrt(hx*hx + hy*hy);
 q_mult = 2.0 * pi * k * Lz / log(re/rw);  
 s_array_inj = cellfun(@(ws) ws.s(1,1), fieldData);
 s_array_prod = cellfun(@(ws) ws.s(nx * ny, 1), fieldData);
-p_array__inj = cellfun(@(ws) (ws.pressure(1,1)-p_inj), fieldData);
+p_array_inj = cellfun(@(ws) (ws.pressure(1,1)-p_inj), fieldData);
 p_array_prod = cellfun(@(ws) (ws.pressure(nx * ny, 1)-p_prod), fieldData);
 peaceman_q_w = -p_array_inj .* (q_mult / mu_o);
 peaceman_q_o = p_array_prod .* (q_mult / mu_w);

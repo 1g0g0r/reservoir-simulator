@@ -70,12 +70,10 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                 rhs[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) / dt * volume
 
         # Добавили скважины в точки (0,0) (Nx-1, Ny-1)
-        data[2]    -= c_well * k[0, 0] * Wo[0, 0] / mu_w[0, 0]
-        rhs[0]     -= c_well * k[0, 0] * Wo[0, 0] / mu_w[0, 0] * Pw
-        data[NN-1] -= c_well * k[Nx-1, Ny-1] * Wo[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] +
-                                                                 pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1])
-        rhs[N-1]   -= c_well * k[Nx-1, Ny-1] * Wo[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] +
-                                                                 pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1]) * Po
+        data[2]    -= c_well * Wo[0, 0] * k[0, 0] / mu_w[0, 0]
+        rhs[0]     -= c_well * Wo[0, 0] * k[0, 0] / mu_w[0, 0] * Pw
+        data[NN-1] -= c_well * Wo[Nx-1, Ny-1] * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1])
+        rhs[N-1]   -= c_well * Wo[Nx-1, Ny-1] * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1]) * Po
 
     fill_matrix_and_rhs()
     A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))

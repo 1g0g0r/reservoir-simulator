@@ -34,10 +34,10 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                                zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
                                hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
         elif name == 'Wells':
-            inj = go.Scatter(x=time, y=field['inj'] * day_to_sec, mode='lines', name='Injector',
+            inj = go.Scatter(x=time, y=-field['inj'] * day_to_sec, mode='lines', name='Injector',
                              hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")  # , xaxis = "Время, день", yaxis = "Дебит, м^3/день"
 
-            trace = go.Scatter(x=time, y=-field['prod'] * day_to_sec, mode='lines', name='Producer',
+            trace = go.Scatter(x=time, y=field['prod'] * day_to_sec, mode='lines', name='Producer',
                                hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")
             data_fields.append(inj)
         else:

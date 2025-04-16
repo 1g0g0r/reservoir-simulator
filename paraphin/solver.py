@@ -179,8 +179,8 @@ class Solver:
         self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
         self.prod[2] = self.prod[0] + self.prod[1]
 
-        self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0]*day_to_sec}  q_w={self.inj[1]*day_to_sec}")
-        self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0]*day_to_sec}  q_w={self.prod[1]*day_to_sec}")
+        self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0] * day_to_sec}  q_w={self.inj[1] * day_to_sec}")
+        self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0] * day_to_sec}  q_w={self.prod[1] * day_to_sec}")
 
 
     def _update_s(self) -> None:
@@ -260,7 +260,7 @@ class Solver:
         self._calc_flows_in_cells() # Вычисление перетоков
         self._update_q()            # Обновление дебитов скважин
         self._update_s()            # Обновление насыщенности
-        # self._update_t()            # Обновление температуры
+        self._update_t()            # Обновление температуры
 
         # --- решение задачи кольматации\суффозии ---
         if not np.all(np.isclose(self.Wp.to_numpy(), 0)):
