@@ -77,8 +77,8 @@ def calc_temperature(T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wp, Wp_0, Wps, Wps_0
         multNN =  dt / volume / (m[Nx-1, Ny-1] * S[Nx-1, Ny-1] * ro_w * C_w[Nx-1, Ny-1] + m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * ro_o * C_o[Nx-1, Ny-1] +
                                    (m[Nx-1, Ny-1] * (1.0 - S[Nx-1, Ny-1]) * Wps[Nx-1, Ny-1] + Wp[Nx-1, Ny-1]) * ro_p * C_p[Nx-1, Ny-1] + (1.0 - m[Nx-1, Ny-1] - Wp[Nx-1, Ny-1]) * ro_f * C_f[Nx-1, Ny-1])
 
-        new_T[0, 0]           += inj[1] * C_w[0, 0] * ro_w * mult00 * (Twater - T[0, 0])
-        # new_T[Nx - 1, Ny - 1] += (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN * T[Nx - 1, Ny - 1]
+        new_T[0, 0]           -= inj[1] * C_w[0, 0] * ro_w * mult00 * Twater
+        new_T[Nx - 1, Ny - 1] -= (C_o[Nx - 1, Ny - 1] * ro_o * prod[0] + C_w[Nx - 1, Ny - 1] * ro_w * prod[1]) * multNN * T[Nx - 1, Ny - 1]
 
         # print()
         # print(inj[1] * C_w[0, 0] * ro_w * mult00 * Twater)

@@ -1,8 +1,0 @@
-# Для запуска пре-коммитов следует использовать: pre-commit install
-
-pytest
-flake8
-flake8-docstrings
-mypy
-pre-commit==2.4.0
-isort

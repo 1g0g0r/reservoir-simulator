@@ -21,7 +21,7 @@ logs_path = outputs_path /  '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 50, 50  # Число узлов сетки по x и y
+Nx, Ny = 10, 10  # Число узлов сетки по x и y
 X_min, X_max = 0., 250.    # Длина пласта, [м]
 Y_min, Y_max = 0., 250.    # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx
@@ -32,8 +32,7 @@ volume = area * h
 
 # Параметры решения
 Time_end = day_to_sec * 365 * 2
-dt = day_to_sec  # шаг дискретизации по времени
-sol_time_step = dt * 4   # шаг по времени для сохранения результатов
+dt = day_to_sec / 2 # шаг дискретизации по времени
 
 # Физические параметры задачи
 S_min = 0.2
@@ -72,7 +71,7 @@ rw = 0.1             # радиус скважин, [м]
 Pw = 150 * bar_to_pa  # давление на нагнетательной скважине, [Па]
 Po = 50 * bar_to_pa  # давление на добывающей скважине, [Па]
 Twater = 20          # температура нагнетаемой воды, [С]
-_re = np.sqrt(2.0 * (hx * hx + hy * hy))  # Радиус контура питания скважины, [м]
+_re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
 conductivity_well = 2.0 * np.pi * h / np.log(_re / rw) * 0.25  # тк участвует только 0.25 дебита
 
 # Данные инициализации
@@ -100,10 +99,15 @@ fi_0 = np.array([0.0, 0.013, 0.023, 0.031, 0.035, 0.034, 0.027, 0.021, 0.016, 0.
 Nr: int = len(r)
 
 # Проверка числа Куранта
-u_aver = init_k / mu_o * Pw
-Cu_num = u_aver * dt / _re
-if Cu_num > 0.5:
-    dt = 0.5 * volume / u_aver  # dt = _re / u_aver
+_u_aver = init_k / mu_o * Pw * 0.05
+Courant_num = _u_aver * dt / _re
+if Courant_num > 0.8:
+    dt = _re / _u_aver
     dt = round(dt / day_to_sec, 3) * day_to_sec
-    sol_time_step = dt * 4
     print(f'Не выполнено условие Куранта!! Новый шаг по времени {dt / day_to_sec} сут.')
+else:
+    dt /= (Courant_num / 0.8)
+    dt = round(dt / day_to_sec, 3) * day_to_sec
+    print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
+
+sol_time_step = dt * 10  # шаг по времени для сохранения результатов
