@@ -75,7 +75,6 @@ def read_pkl_files() -> dict:
 				'inj': np.array([file_data['inj']]),
 				'prod': np.array([file_data['prod']]),
 			}
-
         else:
             data[name] = np.array([file_data])
 
