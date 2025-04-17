@@ -1,43 +1,43 @@
 import taichi as ti
 
-from paraphin.constants import Nx, Ny, dt, volume, DEBUGGING, S_max, S_min
-from paraphin.utils import show_plot
+from paraphin.constants import dt, volume
 
 
-def calc_saturation(S, m, m_0, inj, prod, up_kw_val, new_S) -> None:
+@ti.func
+def saturation_equation(i, j, S, m, m_0, up_kw_val, new_S) -> None:
     """Вычисление водонасыщенности по явной схеме.
 
     Parameters
     ----------
+    i, j : int
+        Индексы текущей ячейки, [-]
     S: taichi.field(Nx, Ny)
         Водонасыщенность, [-]
     m: taichi.field(Nx, Ny)
         Пористость, [-]
     m_0: taichi.field(Nx, Ny)
         Пористость на прошлом временном слое, [-]
-    inj: taichi.field(3)
-        Дебит нагнетательной скважины [oil, water, total], [м^3/c]
-    prod: taichi.field(3)
-        Дебит добывающей скважины [oil, water, total], [м^3/c]
     up_kw_val: taichi.field(Nx, Ny)
         Перетоки воды в ячейках, [Па*м]
     new_S: taichi.field(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """
 
-    @ti.kernel
-    def calc_saturation_loop():
-        for i, j in ti.ndrange(Nx, Ny):
-            new_S[i, j] = S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * up_kw_val[i, j] / volume) / m[i, j]
+    new_S[i, j] = S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * up_kw_val[i, j] / volume) / m[i, j]
 
-        # учет скважины
-        new_S[0, 0]           -= dt * inj[1] / m[0, 0] / volume
-        new_S[Nx - 1, Ny - 1] -= dt * prod[1] / m[Nx - 1, Ny - 1] / volume
 
-    calc_saturation_loop()
-    # print()
-    # print('переток:', up_kw_val[0,0])
-    # print('приемистость:', inj[1])
+def saturation_well(i, j, q, m, new_S) -> None:
+    """Учет скважины в уравнении водонасыщенности.
 
-    if DEBUGGING:
-        show_plot(new_S.to_numpy(), 'Saturation')
+    Parameters
+    ----------
+    i, j : int
+        Индексы скважины, [-]
+    q: taichi.field(3)
+        Дебит скважины [oil, water, total], [м^3/c]
+    m: taichi.field(Nx, Ny)
+        Пористость, [-]
+    new_S: taichi.field(Nx, Ny)
+        Водонасыщенность на новом временном слое, [-]
+    """
+    new_S[i, j] -= dt * q[1] / m[i, j] / volume
