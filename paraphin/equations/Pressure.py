@@ -6,7 +6,6 @@ from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, Po, Pw, ba
 from paraphin.constants import conductivity_well as c_well
 from paraphin.utils import show_plot, pf_o, pf_w, mid
 
-# Операции с константными величинами (вычисляются один раз только при импорте модуля)
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 data = ti.field(data_type, shape=NN)

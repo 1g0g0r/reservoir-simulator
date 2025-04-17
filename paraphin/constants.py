@@ -100,7 +100,6 @@ Nr: int = len(r)
 
 # Проверка числа Куранта
 _u_aver = init_k / mu_o * Pw * 0.05
-_re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
 Courant_num = _u_aver * dt / _re
 if Courant_num > 0.8:
     dt = _re / _u_aver

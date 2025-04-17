@@ -31,8 +31,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, dt_val, up_kw_val, up_ko_val) -
 	up_ko_val: taichi.field(Nx, Ny)
 		Перетоки нефти в ячейках, [Па*м]
 	"""
-
-	arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
+	arr = [[i + 1, j, hx, hy * h], [i - 1, j, hx, hy * h], [i, j + 1, hy, hx * h], [i, j - 1, hy, hx * h]]
 	kw, ko, dtemp = 0.0, 0.0, 0.0
 	for idx in ti.static(ti.ndrange(4)):
 		i1, j1, hij, areaij = arr[idx]

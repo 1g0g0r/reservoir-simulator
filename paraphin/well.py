@@ -1,8 +1,9 @@
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import hx, hy, h, data_type
+from paraphin.constants import h, data_type, _re
 from paraphin.utils import _pf_o, _pf_w
+
 
 @ti.data_oriented
 class Well:
@@ -17,7 +18,7 @@ class Well:
 		self.type_well = type_well
 
 	def calc_q(self, p, S, k, mu_o, mu_w) -> ti.field(dtype=data_type, shape=3):
-		_re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
+
 		conductivity_well = 2.0 * np.pi * k[self.i, self.j] * h / np.log(_re / self.rw) * 0.25  # тк участвует только 0.25 дебита
 		mult = (p[self.i, self.j] - self.p) * conductivity_well
 
