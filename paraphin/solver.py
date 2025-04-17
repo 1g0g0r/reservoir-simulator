@@ -84,7 +84,6 @@ class Solver:
         results_path.mkdir(parents=True, exist_ok=True)
         self.i_img = 0
 
-
     def initialize(self):
         def calc_integrals(rr: ti.types.ndarray(), fi_o: ti.types.ndarray()):
             """Вычисление интегралов от функций r^4*fi_o(r) и r^2*fi_o(r)"""
@@ -94,7 +93,6 @@ class Solver:
             r4 = r3 * r
             r5 = r4 * r
             r6 = r5 * r
-
             for i in range(1, Nr):
                 dr = rr[i] - rr[i - 1]
                 a = (fi_o[i - 1] * rr[i] - fi_o[i] * rr[i - 1]) / dr
@@ -156,11 +154,7 @@ class Solver:
     def _update_p(self) -> None:
         """Обновление давления."""
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w)
-
-        min_p = self.p.to_numpy().min() / bar_to_pa
-        max_p = self.p.to_numpy().max() / bar_to_pa
-        self.logger.info(f"Обновлено давление (bar):      min={min_p}  max={max_p}")
-
+        self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
 
     def _update_q(self) -> None:
         """Обновление дебетов скважин."""
@@ -186,7 +180,6 @@ class Solver:
             for well in self.wells:
                 saturation_well(well.i, well.j, well.q, self.m, self.new_s)
                 wps_wp_wells(well.i, well.j, well.q, self.m, self.S, self.Wp, self.Wps, self.new_wps)
-
                 Twell = self.T[well.i, well.j] if well.T is None else well.T
                 temperature_well(well.i, well.j, well.q, Twell, self.m, self.S, self.C_o, self.C_w,
                                  self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
@@ -210,9 +203,9 @@ class Solver:
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
                                    self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+
                 # Обновление свойств флюидов из-за изменения температуры
                 # self._update_mu_and_c_temp(i, j)
-
         paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0))
         self._update_p()  # Обновление давления
         self._update_q()  # Обновление дебитов скважин
@@ -221,7 +214,6 @@ class Solver:
         if paraphin:
             # Средняя скорость в капилляре * r^2
             self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
-
         return paraphin
 
     def _swap_time_steps(self):
@@ -245,17 +237,14 @@ class Solver:
             self.h_sloy = self.new_h
             self.Ur = self.new_Ur
             self.Ub = self.new_Ub
-
         self.logger.info('Поля данных обновлены на текущем временном слое.')
 
     def _logging_resources(self) -> None:
         # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
         memory_info = psutil.virtual_memory()
         memory_usage = round(memory_info.used / memory_info.total * 100 , 5)  # memory_info.percent
-
         # self.logger.info(f'Использование CPU: {cpu_usage}%')
         self.logger.info(f'Использование памяти: {memory_usage}%')
-
 
     def _save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
@@ -263,7 +252,6 @@ class Solver:
             for file_path in results_path.glob(f'*.pkl'):  # Перебор всех файлов .pkl
                 file_path.unlink()
             self.logger.info('Старые файлы удалены.')
-
         data = {
             'Time':        t,
             'Pressure':    self.p.to_numpy(),
@@ -272,11 +260,9 @@ class Solver:
             'Wps':         self.Wps.to_numpy(),
             'Wells':       {w.name: w.q[2] for w in self.wells}
         }
-
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
-
 
     def _logging_data_fields(self, paraphin):
         self.logger.info(f"Обновлена температура:                  min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
