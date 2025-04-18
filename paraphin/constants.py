@@ -110,4 +110,4 @@ else:
     dt = round(dt / day_to_sec, 3) * day_to_sec
     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt / 10 # шаг по времени для сохранения результатов
+sol_time_step = dt * 10 # шаг по времени для сохранения результатов

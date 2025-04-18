@@ -140,8 +140,8 @@ class Solver:
         initialize_params_loop(fi_o=fi_0)
 
 
-    def add_well(self, name: str, i: int, j: int, p: float, type_well: str = 'prod', T: float|None = None, rw: float = rw):
-        well = Well(name=name, i=i, j=j, p=p, T=T, rw=rw, type_well=type_well)
+    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float|None = None, rw: float = rw):
+        well = Well(name=name, i=i, j=j, p=p, T=T, rw=rw, is_injector=is_injector)
         self.wells = np.append(self.wells, well)
 
 
