@@ -84,6 +84,7 @@ class Solver:
         results_path.mkdir(parents=True, exist_ok=True)
         self.i_img = 0
 
+
     def initialize(self):
         def calc_integrals(rr: ti.types.ndarray(), fi_o: ti.types.ndarray()):
             """Вычисление интегралов от функций r^4*fi_o(r) и r^2*fi_o(r)"""
@@ -104,7 +105,7 @@ class Solver:
         def initialize_params_loop(fi_o: ti.types.ndarray()):
             for i in ti.ndrange(Ny):
                 for j in ti.ndrange(Nx):
-                    # параметры пласта
+                    # Параметры пласта
                     self.p[i, j]    = init_p
                     self.S[i, j]    = init_S
                     self.S_0[i, j]  = init_S
@@ -138,9 +139,11 @@ class Solver:
         calc_integrals(rr=r, fi_o=fi_0)
         initialize_params_loop(fi_o=fi_0)
 
+
     def add_well(self, name: str, i: int, j: int, p: float, type_well: str = 'prod', T: float|None = None, rw: float = rw):
         well = Well(name=name, i=i, j=j, p=p, T=T, rw=rw, type_well=type_well)
         self.wells = np.append(self.wells, well)
+
 
     @ti.func
     def _update_mu_and_c_temp(self, i, j) -> None:
@@ -151,10 +154,12 @@ class Solver:
         self.C_f[i, j]  = calc_c_f(self.T[i, j])
         self.C_p[i, j]  = calc_c_p(self.T[i, j])
 
+
     def _update_p(self) -> None:
         """Обновление давления."""
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w)
         self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
+
 
     def _update_q(self) -> None:
         """Обновление дебетов скважин."""
@@ -162,17 +167,21 @@ class Solver:
             well.calc_q(self.p, self.S, self.k, self.mu_o, self.mu_w)
             self.logger.info(f"Дебит скважины {well.name}: q_o={well.q[0] * day_to_sec}  q_w={well.q[1] * day_to_sec}")
 
+
     def upd_time_step(self, t: float) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         self.logger.info('')
         self._logging_resources()
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день")
+
         paraphin = self._process_time_step()
         self._logging_data_fields(paraphin)
         self._swap_time_steps()
+
         if t >= self.i_img * sol_time_step or np.isclose(t, Time_end):
             self._save_results(t)
             self.i_img += 1
+
 
     def _process_time_step(self) -> bool:
         """Решение уравнений по явной схеме в ячейках области."""
@@ -182,6 +191,7 @@ class Solver:
                 wps_wp_wells(well.i, well.j, well.q, self.m, self.S, self.Wp, self.Wps, self.new_wps)
                 Twell = self.T[well.i, well.j] if well.T is None else well.T
                 temperature_well(well.i, well.j, well.q, Twell, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
+
         @ti.kernel
         def equations_loop(paraphin: bool):
             # for i, j in ti.ndrange(Nx, Ny):
@@ -216,6 +226,7 @@ class Solver:
             self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
         return paraphin
 
+
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
         self.S_0 = self.S
@@ -237,7 +248,9 @@ class Solver:
             self.h_sloy = self.new_h
             self.Ur = self.new_Ur
             self.Ub = self.new_Ub
+
         self.logger.info('Поля данных обновлены на текущем временном слое.')
+
 
     def _logging_resources(self) -> None:
         # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
@@ -246,12 +259,14 @@ class Solver:
         # self.logger.info(f'Использование CPU: {cpu_usage}%')
         self.logger.info(f'Использование памяти: {memory_usage}%')
 
+
     def _save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
         if np.isclose(t, 0.0):
             for file_path in results_path.glob(f'*.pkl'):  # Перебор всех файлов .pkl
                 file_path.unlink()
             self.logger.info('Старые файлы удалены.')
+
         data = {
             'Time':        t,
             'Pressure':    self.p.to_numpy(),
@@ -263,6 +278,7 @@ class Solver:
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
+
 
     def _logging_data_fields(self, paraphin):
         self.logger.info(f"Обновлена температура:         min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
