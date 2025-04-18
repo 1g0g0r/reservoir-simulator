@@ -181,8 +181,7 @@ class Solver:
                 saturation_well(well.i, well.j, well.q, self.m, self.new_s)
                 wps_wp_wells(well.i, well.j, well.q, self.m, self.S, self.Wp, self.Wps, self.new_wps)
                 Twell = self.T[well.i, well.j] if well.T is None else well.T
-                temperature_well(well.i, well.j, well.q, Twell, self.m, self.S, self.C_o, self.C_w,
-                                 self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
+                temperature_well(well.i, well.j, well.q, Twell, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
         @ti.kernel
         def equations_loop(paraphin: bool):
             # for i, j in ti.ndrange(Nx, Ny):
@@ -191,8 +190,7 @@ class Solver:
                     # --- решение гидродинамики ---
                     flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.dt_val, self.up_kw_val, self.up_ko_val)
                     saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
-                    temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp,
-                                         self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
+                    temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
 
                     # --- решение задачи кольматации\суффозии ---
                     if paraphin:

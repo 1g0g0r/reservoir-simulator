@@ -26,7 +26,7 @@ def profile_with_snakeviz(func):
 def solve():
     """Запуск расчета."""
     times = np.linspace(0, Time_end, int(Time_end / dt + 1))
-    pbar = tqdm(iterable=times, ncols=70, desc='Решение задачи', file=stdout)
+    pbar = tqdm(iterable=times, ncols=70, desc='Решение задачи', file=stdout, smoothing=0)
 
     sol = Solver()
     sol.initialize()  # Задание начальных условий из файла const.py
