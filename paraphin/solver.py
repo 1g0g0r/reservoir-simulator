@@ -102,8 +102,8 @@ class Solver:
 
         @ti.kernel
         def initialize_params_loop(fi_o: ti.types.ndarray()):
-            for i in ti.ndrange(Nx):
-                for j in ti.ndrange(Ny):
+            for i in ti.ndrange(Ny):
+                for j in ti.ndrange(Nx):
                     # параметры пласта
                     self.p[i, j]    = init_p
                     self.S[i, j]    = init_S
@@ -185,27 +185,29 @@ class Solver:
                                  self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
         @ti.kernel
         def equations_loop(paraphin: bool):
-            for i, j in ti.ndrange(Nx, Ny):
-                # --- решение гидродинамики ---
-                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.dt_val, self.up_kw_val, self.up_ko_val)
-                saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
-                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp,
-                                     self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
+            # for i, j in ti.ndrange(Nx, Ny):
+            for i in ti.ndrange(Ny):
+                for j in ti.ndrange(Nx):
+                    # --- решение гидродинамики ---
+                    flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.dt_val, self.up_kw_val, self.up_ko_val)
+                    saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
+                    temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp,
+                                         self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
 
-                # --- решение задачи кольматации\суффозии ---
-                if paraphin:
-                    # Обновление концентраций парафина
-                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0,
-                                    self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
-                    # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-                    calc_velocitys_h(i, j, self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
-                                     self.new_h, self.new_Ur, self.new_Ub)
-                    # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
-                                   self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+                    # --- решение задачи кольматации\суффозии ---
+                    if paraphin:
+                        # Обновление концентраций парафина
+                        wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0,
+                                        self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
+                        # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
+                        calc_velocitys_h(i, j, self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
+                                         self.new_h, self.new_Ur, self.new_Ub)
+                        # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
+                        calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
+                                       self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
 
-                # Обновление свойств флюидов из-за изменения температуры
-                # self._update_mu_and_c_temp(i, j)
+                    # Обновление свойств флюидов из-за изменения температуры
+                    # self._update_mu_and_c_temp(i, j)
         paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0))
         self._update_p()  # Обновление давления
         self._update_q()  # Обновление дебитов скважин

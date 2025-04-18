@@ -4,18 +4,35 @@ from sys import stdout
 import numpy as np
 from tqdm import tqdm
 
-from paraphin.constants import Time_end, dt, day_to_sec, Pw, Po, Twater, Ny, Nx
+from paraphin.constants import Time_end, dt, day_to_sec, Pw, Po, Twater, Ny, Nx, outputs_path
 from paraphin.solver import Solver
 
 
+def profile_with_snakeviz(func):
+    """Plugin profiling decorator. As a result, the plugin.prof file is created.
+    For launch, you should install Snakeviz and enter the command in the terminal: snakeviz plugin.prof"""
+    import cProfile
+    def wrapper(*args, **kwargs):
+        profiler = cProfile.Profile()
+        profiler.enable()
+        result = func(*args, **kwargs)
+        profiler.disable()
+        profile_file = outputs_path / f"{func.__name__}.prof"
+        profiler.dump_stats(profile_file)
+
+        return result
+    return wrapper
+
+
+@profile_with_snakeviz
 def solve():
     """Запуск расчета."""
     times = np.linspace(0, Time_end, int(Time_end / dt + 1))
     pbar = tqdm(iterable=times, ncols=70, desc='Решение задачи', file=stdout)
 
     sol = Solver()
-    # Задание начальных условий из файла const.py
-    sol.initialize()
+    sol.initialize()  # Задание начальных условий из файла const.py
+
     # Создание скважин
     sol.add_well(name='inj',  i=0,    j=0,    p=Pw, type_well='inj', T=Twater)
     sol.add_well(name='prod', i=Nx-1, j=Ny-1, p=Po, type_well='prod')

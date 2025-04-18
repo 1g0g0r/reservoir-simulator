@@ -31,7 +31,7 @@ area = hx * hy
 volume = area * h
 
 # Параметры решения
-Time_end = day_to_sec * 365 * 2
+Time_end = day_to_sec * 365 / 30
 dt = day_to_sec / 2 # шаг дискретизации по времени
 
 # Физические параметры задачи

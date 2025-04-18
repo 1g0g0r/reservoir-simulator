@@ -1,4 +1,5 @@
 numpy
+pypardiso
 plotly
 psutil
 scipy
