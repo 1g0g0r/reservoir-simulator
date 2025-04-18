@@ -130,7 +130,7 @@ class Solver:
                     self.C_f[i, j] = c_f
                     self.C_p[i, j] = c_p
 
-                    for ij in ti.ndrange(fi_o.shape[0]):
+                    for ij in ti.ndrange(Nr):
                         self.fi[i, j, ij]     = fi_o[ij]
                         self.h_sloy[i, j, ij] = init_h_sloy
                         self.Ur[i, j, ij] = 0.0
@@ -169,28 +169,30 @@ class Solver:
 
 
     def upd_time_step(self, t: float) -> None:
-        """Метод IMPES: явный по насыщенности неявный по давлению."""
+        """Решение задачи на текущем временном слое."""
         self.logger.info('')
         self._logging_resources()
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день")
 
         paraphin = self._process_time_step()
         self._logging_data_fields(paraphin)
-        self._swap_time_steps()
+        self._swap_time_steps(paraphin)
+        self.logger.info('Поля данных обновлены на текущем временном слое.')
 
+        # Запись данных в файл
         if t >= self.i_img * sol_time_step or np.isclose(t, Time_end):
             self._save_results(t)
             self.i_img += 1
 
 
     def _process_time_step(self) -> bool:
-        """Решение уравнений по явной схеме в ячейках области."""
+        """Метод IMPES: явный по насыщенности неявный по давлению."""
         def wells_loop() -> None:
             for well in self.wells:
                 saturation_well(well.i, well.j, well.q, self.m, self.new_s)
                 wps_wp_wells(well.i, well.j, well.q, self.m, self.S, self.Wp, self.Wps, self.new_wps)
                 Twell = self.T[well.i, well.j] if well.T is None else well.T
-                temperature_well(well.i, well.j, well.q, Twell, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
+                temperature_well(well.i, well.j, well.q, Twell, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
 
         @ti.kernel
         def equations_loop(paraphin: bool):
@@ -227,29 +229,32 @@ class Solver:
         return paraphin
 
 
-    def _swap_time_steps(self):
+    @ti.kernel
+    def _swap_time_steps(self, paraphin: bool):
         """Обновление полей данных на новом временном слое."""
-        self.S_0 = self.S
-        self.S = self.new_s
-        self.T_0 = self.T
-        self.T = self.new_t
+        for i in ti.ndrange(Ny):
+            for j in ti.ndrange(Nx):
+                self.S_0[i, j] = self.S[i, j]
+                self.S[i, j] = self.new_s[i, j]
+                self.T_0[i, j] = self.T[i, j]
+                self.T[i, j] = self.new_t[i, j]
 
-        if not np.all(np.isclose(self.Wp.to_numpy(), 0)):
-            self.Wp_0 = self.Wp
-            self.Wp = self.new_wp
-            self.Wps_0 = self.Wps
-            self.Wps = self.new_wps
-            self.Wo_0 = self.Wo
-            self.Wo.from_numpy(1.0 - self.Wp.to_numpy() - self.Wps.to_numpy())
-            self.k.from_numpy(self.k.to_numpy() * self.k_mult.to_numpy())
-            self.m_0 = self.m
-            self.m.from_numpy(self.m.to_numpy() * self.m_mult.to_numpy())
-            self.qp = self.new_qp
-            self.h_sloy = self.new_h
-            self.Ur = self.new_Ur
-            self.Ub = self.new_Ub
+                if paraphin:
+                    self.Wp_0[i, j] = self.Wp[i, j]
+                    self.Wp[i, j] = self.new_wp[i, j]
+                    self.Wps_0[i, j] = self.Wps[i, j]
+                    self.Wps[i, j] = self.new_wps[i, j]
+                    self.Wo_0[i, j] = self.Wo[i, j]
+                    self.Wo[i, j] = 1.0 - self.Wp[i, j] - self.Wps[i, j]
+                    self.k[i, j] = init_k * self.k_mult[i, j]  # TODO проверить
+                    self.m_0[i, j] = self.m[i, j]
+                    self.m[i, j] = init_m * self.m_mult[i, j]  # TODO проверить
+                    self.qp[i, j] = self.new_qp[i, j]
 
-        self.logger.info('Поля данных обновлены на текущем временном слое.')
+                    for ij in ti.ndrange(Nr):
+                        self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
+                        self.Ur[i, j, ij] = self.new_Ur[i, j, ij]
+                        self.Ub[i, j, ij] = self.new_Ub[i, j, ij]
 
 
     def _logging_resources(self) -> None:

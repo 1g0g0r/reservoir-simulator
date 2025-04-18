@@ -17,11 +17,11 @@ cpoise_to_Pas = 1e-3
 # Пути проекта
 outputs_path = Path.cwd() / 'outputs'
 results_path = outputs_path / 'results'
-logs_path = outputs_path /  '.log'
+logs_path = outputs_path / '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 50, 50  # Число узлов сетки по x и y
+Nx, Ny = 60, 60  # Число узлов сетки по x и y
 X_min, X_max = 0., 250.    # Длина пласта, [м]
 Y_min, Y_max = 0., 250.    # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx

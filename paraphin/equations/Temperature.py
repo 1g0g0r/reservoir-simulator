@@ -47,7 +47,6 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wp, Wp_0, 
     new_T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
     """
-
     derivative_add = T[i, j] * (ro_w * C_w[i,j] * (m[i,j]*S[i,j] - m_0[i,j]*S_0[i,j])/dt + ro_o * C_o[i,j] *
         (m[i,j]*(1.0-S[i,j]) - m_0[i,j]*(1.0-S_0[i,j])) / dt + ro_p * C_p[i,j] * ((Wp[i,j]-Wp_0[i,j]) / dt +
         (m[i,j]*(1.0-S[i,j])*Wps[i,j] - m_0[i,j]*(1.0-S_0[i,j])*Wps_0[i,j]) / dt)) * volume
@@ -68,7 +67,7 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wp, Wp_0, 
     new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3 - derivative_add)
 
 
-def temperature_well(i, j, q, T_well, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_T) -> None:
+def temperature_well(i, j, q, T_well, T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_T) -> None:
     """Учет скважины в уравнении энергии.
 
     Parameters
@@ -79,6 +78,8 @@ def temperature_well(i, j, q, T_well, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_T) 
         Дебит скважины [oil, water, total], [м^3/c]
     T_well: float
         Температура потока в скважине
+    T: taichi.field(Nx, Ny)
+        Температура, [С]
     m: taichi.field(Nx, Ny)
         Пористость, [-]
     S: taichi.field(Nx, Ny)
@@ -98,7 +99,6 @@ def temperature_well(i, j, q, T_well, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_T) 
     new_T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
     """
-
     mult =  dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
                            (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] +
                            (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])

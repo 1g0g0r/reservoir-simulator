@@ -73,5 +73,4 @@ def wps_wp_wells(i, j, q, m, S, Wp, Wps, new_Wps) -> None:
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-
     new_Wps[i, j] -= (dt * q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) / (m[i, j] * (1.0 - S[i, j]) * ro_p))

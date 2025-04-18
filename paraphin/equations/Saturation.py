@@ -22,7 +22,6 @@ def saturation_equation(i, j, S, m, m_0, up_kw_val, new_S) -> None:
     new_S: taichi.field(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """
-
     new_S[i, j] = S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * up_kw_val[i, j] / volume) / m[i, j]
 
 
