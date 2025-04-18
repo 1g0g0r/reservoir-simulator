@@ -5,13 +5,13 @@ import numpy as np
 import psutil
 import taichi as ti
 
-from paraphin.constants import (data_type, Nx, Ny, Nr, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
-                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa,
-                                conductivity_well, Pw, Po, day_to_sec, eta, mu_o, mu_w, c_o, c_w, c_p, c_f)
-from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, calc_saturation, calc_temperature,
-                                calc_wps_wp, calc_velocitys_h)
-from paraphin.utils import _pf_o, _pf_w, calculate_flows_in_cells
+from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
+                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, eta,
+                                day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end)
+from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
+                                temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
+from paraphin.well import Well
 
 
 @ti.data_oriented
@@ -19,35 +19,34 @@ class Solver:
     def __init__(self, d_type = data_type):
         self.d_type = d_type
 
-        # Дебиты скважин
-        self.inj  = ti.field(dtype=d_type, shape=3)  # расположена в точке (0, 0)
-        self.prod = ti.field(dtype=d_type, shape=3)  # расположена в точке (Lx, Ly)
+        # Скважины
+        self.wells = np.array([], dtype=object)
 
-        # свойства флюидов
-        self.mu_o = ti.field(dtype=d_type, shape=(Nx, Ny))  # Вязкость нефти
-        self.mu_w = ti.field(dtype=d_type, shape=(Nx, Ny))  # Вязкость воды
-        self.C_w  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость воды
-        self.C_o  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость нефти
-        self.C_f  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость пласта
-        self.C_p  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость парафина
+        # Свойства флюидов
+        self.mu_o = ti.field(dtype=d_type, shape=(Nx, Ny))  # Вязкость нефти, [Па*с]
+        self.mu_w = ti.field(dtype=d_type, shape=(Nx, Ny))  # Вязкость воды, [Па*с]
+        self.C_w  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость воды, [Дж*кг/C]
+        self.C_o  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость нефти, [Дж*кг/C]
+        self.C_f  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость пласта, [Дж*кг/C]
+        self.C_p  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость парафина, [Дж*кг/C]
 
-        # поля данных
-        self.p     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Давление
-        self.S     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Водонасыщенность
+        # Поля данных
+        self.p     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Давление, [Па]
+        self.S     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Водонасыщенность, [-]
         self.S_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wo    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти
+        self.Wo    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
         self.Wo_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wp    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти
+        self.Wp    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти, [-]
         self.Wp_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wps   = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти
+        self.Wps   = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти, [-]
         self.Wps_0 = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.k     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Проницаемость [m^2]
-        self.m     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Пористость
+        self.k     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Проницаемость, [м^2]
+        self.m     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Пористость, [-]
         self.m_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.T     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Температура [C]
+        self.T     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Температура [С]
         self.T_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
 
-        # динамика образования парафина (кольматация\суффозия)
+        # Динамика образования парафина (кольматация\суффозия)
         self.integr_r2_fi0 = ti.field(dtype=d_type, shape=())
         self.integr_r4_fi0 = ti.field(dtype=d_type, shape=())
         self.Um_r2  = ti.field(dtype=d_type, shape=(Nx, Ny))
@@ -57,7 +56,7 @@ class Solver:
         self.Ur     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.Ub     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
 
-        # поля данный с нового временного слоя
+        # Поля данный нового временного слоя
         self.new_h   = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.new_Ur  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.new_Ub  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
@@ -69,7 +68,7 @@ class Solver:
         self.m_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.k_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
-        # вспомогательные массивы данных
+        # Временные массивы
         self.dt_val    = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.up_ko_val = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.up_kw_val = ti.field(dtype=d_type, shape=(Nx, Ny))
@@ -83,6 +82,7 @@ class Solver:
         )
         self.logger = getLogger(__name__)
         results_path.mkdir(parents=True, exist_ok=True)
+        self.i_img = 0
 
 
     def initialize(self):
@@ -94,7 +94,6 @@ class Solver:
             r4 = r3 * r
             r5 = r4 * r
             r6 = r5 * r
-
             for i in range(1, Nr):
                 dr = rr[i] - rr[i - 1]
                 a = (fi_o[i - 1] * rr[i] - fi_o[i] * rr[i - 1]) / dr
@@ -104,9 +103,9 @@ class Solver:
 
         @ti.kernel
         def initialize_params_loop(fi_o: ti.types.ndarray()):
-            for i in ti.ndrange(Nx):
-                for j in ti.ndrange(Ny):
-                    # параметры пласта
+            for i in ti.ndrange(Ny):
+                for j in ti.ndrange(Nx):
+                    # Параметры пласта
                     self.p[i, j]    = init_p
                     self.S[i, j]    = init_S
                     self.S_0[i, j]  = init_S
@@ -141,137 +140,91 @@ class Solver:
         initialize_params_loop(fi_o=fi_0)
 
 
-    def _calc_flows_in_cells(self) -> None:
-        """Вычисление перетоков в ячейках."""
-        calculate_flows_in_cells(self.p, self.S, self.T, self.k, self.mu_o, self.mu_w,
-                                 self.dt_val, self.up_kw_val, self.up_ko_val)
+    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float|None = None, rw: float = rw):
+        well = Well(name=name, i=i, j=j, p=p, T=T, rw=rw, is_injector=is_injector)
+        self.wells = np.append(self.wells, well)
 
 
-    @ti.kernel
-    def _update_mu_and_c_temp(self) -> None:
-        for i, j in ti.ndrange(Nx, Ny):
-            self.mu_o[i, j] = calc_mu_o(self.T[i, j])
-            self.mu_w[i, j] = calc_mu_w(self.T[i, j])
-            self.C_w[i, j]  = calc_c_w(self.T[i, j])
-            self.C_o[i, j]  = calc_c_o(self.T[i, j])
-            self.C_f[i, j]  = calc_c_f(self.T[i, j])
-            self.C_p[i, j]  = calc_c_p(self.T[i, j])
+    @ti.func
+    def _update_mu_and_c_temp(self, i, j) -> None:
+        self.mu_o[i, j] = calc_mu_o(self.T[i, j])
+        self.mu_w[i, j] = calc_mu_w(self.T[i, j])
+        self.C_w[i, j]  = calc_c_w(self.T[i, j])
+        self.C_o[i, j]  = calc_c_o(self.T[i, j])
+        self.C_f[i, j]  = calc_c_f(self.T[i, j])
+        self.C_p[i, j]  = calc_c_p(self.T[i, j])
 
 
     def _update_p(self) -> None:
         """Обновление давления."""
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w)
-
-        min_p = self.p.to_numpy().min() / bar_to_pa
-        max_p = self.p.to_numpy().max() / bar_to_pa
-        self.logger.info(f"Обновлено давление (bar):      min={min_p}  max={max_p}")
+        self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
 
 
     def _update_q(self) -> None:
-        """Обновление дебитов скважин."""
-        inj_mult  = (self.p[0, 0] - Pw) * conductivity_well * self.k[0, 0]
-        self.inj[0] = 0.0
-        self.inj[1] = inj_mult / self.mu_w[0, 0]
-        self.inj[2] = self.inj[0] + self.inj[1]
-
-        prod_mult = (self.p[Nx - 1, Ny - 1] - Po) * conductivity_well * self.k[Nx - 1, Ny - 1]
-        self.prod[0] = prod_mult * _pf_o(self.S[Nx - 1, Ny - 1]) / self.mu_o[Nx - 1, Ny - 1]
-        self.prod[1] = prod_mult * _pf_w(self.S[Nx - 1, Ny - 1]) / self.mu_w[Nx - 1, Ny - 1]
-        self.prod[2] = self.prod[0] + self.prod[1]
-
-        self.logger.info(f"Дебит нагнетательной скважины: q_o={self.inj[0] * day_to_sec}  q_w={self.inj[1] * day_to_sec}")
-        self.logger.info(f"Дебит добывающей скважины:     q_o={self.prod[0] * day_to_sec}  q_w={self.prod[1] * day_to_sec}")
-
-
-    def _update_s(self) -> None:
-        """Обновление насыщенности."""
-        calc_saturation(self.S, self.m, self.m_0, self.inj, self.prod, self.up_kw_val, self.new_s)
-        min_s = self.new_s.to_numpy().min()
-        max_s = self.new_s.to_numpy().max()
-
-        self.logger.info(f"Обновлена насыщенность:                 min={min_s}  max={max_s}")
-
-
-    def _update_wps_wp(self) -> None:
-        """Обновление концентрации взвешенного и растворенного парафина."""
-        calc_wps_wp(self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T,
-                    self.T_0, self.C_p, self.prod, self.up_ko_val, self.new_wp, self.new_wps)
-        min_wps = self.new_wps.to_numpy().min()
-        max_wps = self.new_wps.to_numpy().max()
-        min_wp = self.new_wp.to_numpy().min()
-        max_wp = self.new_wp.to_numpy().max()
-
-        self.logger.info(f"Обновлены доли взвешенного парафина:    min={min_wps}  max={max_wps}")
-        self.logger.info(f"Обновлены доли растворенного парафина:  min={min_wp}  max={max_wp}")
-
-
-    def _update_t(self) -> None:
-        """Обновление температуры."""
-        calc_temperature(self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp,
-                         self.Wp_0, self.Wps, self.Wps_0, self.inj, self.prod, self.up_kw_val, self.up_ko_val,
-                         self.dt_val, self.new_t)
-        min_t = self.new_t.to_numpy().min()
-        max_t = self.new_t.to_numpy().max()
-
-        self.logger.info(f"Обновлена температура:                  min={min_t}  max={max_t}")
-
-
-    def _update_qp_m_k_fi(self) -> None:
-        """Обновление объема выделяемого парафина, функции пор по размерам, множителей пористости и проницаемости."""
-        calc_qp_m_k_fi(self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
-                       self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
-        min_qp = self.new_qp.to_numpy().min()
-        max_qp = self.new_qp.to_numpy().max()
-        min_m_mult = self.m_mult.to_numpy().min()
-        max_m_mult = self.m_mult.to_numpy().max()
-        min_k_mult = self.k_mult.to_numpy().min()
-        max_k_mult = self.k_mult.to_numpy().max()
-
-        self.logger.info(f"Обновлена доля выпадающего парафина:    min={min_qp}  max={max_qp}")
-        self.logger.info(f"Обновлен множитель пористости:          min={min_m_mult}  max={max_m_mult}")
-        self.logger.info(f"Обновлен множитель проницаемости:       min={min_k_mult}  max={max_k_mult}")
-
-
-    def _update_h_ur_ub(self) -> None:
-        """Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров."""
-        calc_velocitys_h(self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
-                         self.new_h, self.new_Ur, self.new_Ub)
-        min_mew_h  = self.new_h.to_numpy().min()
-        max_mew_h  = self.new_h.to_numpy().max()
-        min_new_ur = self.new_Ur.to_numpy().min()
-        max_new_ur = self.new_Ur.to_numpy().max()
-        min_new_ub = self.new_Ub.to_numpy().min()
-        max_new_ub = self.new_Ub.to_numpy().max()
-
-        self.logger.info(f"Обновлена толщина осадочного слоя:              min={min_mew_h}  max={max_mew_h}")
-        self.logger.info(f"Обновлена скорость изменения радиуса капилляра: min={min_new_ur}  max={max_new_ur}")
-        self.logger.info(f"Обновлена скорость блокировки капилляров:       min={min_new_ub}  max={max_new_ub}")
+        """Обновление дебетов скважин."""
+        for well in self.wells:
+            well.calc_q(self.p, self.S, self.k, self.mu_o, self.mu_w)
+            self.logger.info(f"Дебит скважины {well.name}: q_o={well.q[0] * day_to_sec}  q_w={well.q[1] * day_to_sec}")
 
 
     def upd_time_step(self, t: float) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
-        # Ввиду параллельного выполнения циклов taichi запуск задач в разных процессах снижает производительность
         self.logger.info('')
-        self.logging_resources()
-        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {t} день")
+        self._logging_resources()
+        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день")
 
-        # --- решение гидродинамики ---
-        self._update_p()            # Обновление давления
-        self._calc_flows_in_cells() # Вычисление перетоков
-        self._update_q()            # Обновление дебитов скважин
-        self._update_s()            # Обновление насыщенности
-        self._update_t()            # Обновление температуры
-
-        # --- решение задачи кольматации\суффозии ---
-        if not np.all(np.isclose(self.Wp.to_numpy(), 0)):
-            self._update_wps_wp()    # Обновление концентраций парафина
-            self._update_h_ur_ub()   # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-            self._update_qp_m_k_fi() # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-            self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
-
+        paraphin = self._process_time_step()
+        self._logging_data_fields(paraphin)
         self._swap_time_steps()
 
-        # self._update_mu_and_c_temp()  # Обновление свойств флюидов из-за изменения температуры
+        if t >= self.i_img * sol_time_step or np.isclose(t, Time_end):
+            self._save_results(t)
+            self.i_img += 1
+
+
+    def _process_time_step(self) -> bool:
+        """Решение уравнений по явной схеме в ячейках области."""
+        def wells_loop() -> None:
+            for well in self.wells:
+                saturation_well(well.i, well.j, well.q, self.m, self.new_s)
+                wps_wp_wells(well.i, well.j, well.q, self.m, self.S, self.Wp, self.Wps, self.new_wps)
+                Twell = self.T[well.i, well.j] if well.T is None else well.T
+                temperature_well(well.i, well.j, well.q, Twell, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
+
+        @ti.kernel
+        def equations_loop(paraphin: bool):
+            # for i, j in ti.ndrange(Nx, Ny):
+            for i in ti.ndrange(Ny):
+                for j in ti.ndrange(Nx):
+                    # --- решение гидродинамики ---
+                    flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.dt_val, self.up_kw_val, self.up_ko_val)
+                    saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
+                    temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
+
+                    # --- решение задачи кольматации\суффозии ---
+                    if paraphin:
+                        # Обновление концентраций парафина
+                        wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0,
+                                        self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
+                        # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
+                        calc_velocitys_h(i, j, self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
+                                         self.new_h, self.new_Ur, self.new_Ub)
+                        # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
+                        calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
+                                       self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+
+                    # Обновление свойств флюидов из-за изменения температуры
+                    # self._update_mu_and_c_temp(i, j)
+        paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0))
+        self._update_p()  # Обновление давления
+        self._update_q()  # Обновление дебитов скважин
+        equations_loop(paraphin)
+        wells_loop()
+        if paraphin:
+            # Средняя скорость в капилляре * r^2
+            self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
+        return paraphin
 
 
     def _swap_time_steps(self):
@@ -298,16 +251,16 @@ class Solver:
 
         self.logger.info('Поля данных обновлены на текущем временном слое.')
 
-    def logging_resources(self) -> None:
+
+    def _logging_resources(self) -> None:
         # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
         memory_info = psutil.virtual_memory()
         memory_usage = round(memory_info.used / memory_info.total * 100 , 5)  # memory_info.percent
-
         # self.logger.info(f'Использование CPU: {cpu_usage}%')
         self.logger.info(f'Использование памяти: {memory_usage}%')
 
 
-    def save_results(self, t) -> None:
+    def _save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
         if np.isclose(t, 0.0):
             for file_path in results_path.glob(f'*.pkl'):  # Перебор всех файлов .pkl
@@ -320,10 +273,25 @@ class Solver:
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
-            'Wells':       {'inj':  self.inj[2],
-                            'prod': self.prod[2]}
+            'Wells':       {w.name: w.q[2] for w in self.wells}
         }
-
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
+
+
+    def _logging_data_fields(self, paraphin):
+        self.logger.info(f"Обновлена насыщенность:  min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
+        self.logger.info(f"Обновлена температура:   min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
+
+        if paraphin:
+            self.logger.info(f"Обновлены доли взвешенного парафина:   min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
+            self.logger.info(f"Обновлены доли растворенного парафина: min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
+
+            self.logger.info(f"Обновлена доля выпадающего парафина:   min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
+            self.logger.info(f"Обновлен множитель пористости:         min={self.m_mult.to_numpy().min()}  max={self.m_mult.to_numpy().max()}")
+            self.logger.info(f"Обновлен множитель проницаемости:      min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
+
+            self.logger.info(f"Обновлена толщина осадочного слоя:              min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
+            self.logger.info(f"Обновлена скорость изменения радиуса капилляра: min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
+            self.logger.info(f"Обновлена скорость блокировки капилляров:       min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")

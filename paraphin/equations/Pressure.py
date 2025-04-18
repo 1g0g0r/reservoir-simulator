@@ -1,12 +1,12 @@
 import taichi as ti
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
+# from pypardiso import spsolve
 
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, Po, Pw, bar_to_pa, h, DEBUGGING
 from paraphin.constants import conductivity_well as c_well
 from paraphin.utils import show_plot, pf_o, pf_w, mid
 
-# Операции с константными величинами (вычисляются один раз только при импорте модуля)
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
 data = ti.field(data_type, shape=NN)
@@ -40,12 +40,11 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
     mu_w: taichi.field(Nx, Ny)
         Вязкость воды, [Па*с]
     """
-
     @ti.kernel
     def fill_matrix_and_rhs():
         num = 0
-        for i in ti.ndrange(Nx):
-            for j in ti.ndrange(Ny):
+        for i in ti.ndrange(Ny):
+            for j in ti.ndrange(Nx):
                 idx = i + j * Nx
                 p_sum = 0.0
                 # matrix

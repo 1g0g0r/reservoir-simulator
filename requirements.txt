@@ -4,3 +4,4 @@ psutil
 scipy
 taichi
 tqdm
+# pypardiso

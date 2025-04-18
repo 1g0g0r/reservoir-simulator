@@ -1,6 +1,6 @@
 import taichi as ti
 
-from paraphin.constants import data_type, Nx, Ny, Nr, r, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta
+from paraphin.constants import data_type, Nr, r, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta
 
 """
 Lk: float
@@ -31,11 +31,14 @@ rr.from_numpy(r)
 r2.from_numpy(r * r)
 
 
-def calc_velocitys_h(Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new) -> None:
-    """Вычисление скоростей и толщины осадочного слоя.
+@ti.func
+def calc_velocitys_h(i, j, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new) -> None:
+    """Вычисление скоростей и толщины осадочного слоя в ячейке.
 
     Parameters
     ----------
+    i, j : int
+        Индексы текущей ячейки, [-]
     Um_r2: taichi.field(Nx, Ny)
          Средняя скорость в капилляре без множителя r^2, [1/(с*м)]
     Wps: taichi.field(Nx, Ny)
@@ -57,17 +60,12 @@ def calc_velocitys_h(Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_ne
     Ur_new: taichi.field(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра на новом временном слое, [м/с]
     """
-
-    @ti.kernel
-    def calc_velocitys_h_loop():
-        for i, j, ij in ti.ndrange(Nx, Ny, Nr):
-            um = Um_r2[i, j] * r2[ij]
-            uc = u_c(rr[ij], mu_o[i, j], ro_p)
-            Ub_new[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], rr[ij])
-            Ur_new[i, j, ij] = u_r(Wps[i, j], um, uc, rr[ij], h_sloy[i, j, ij])
-            h_sloy_new[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], rr[ij])
-
-    calc_velocitys_h_loop()
+    for ij in ti.ndrange(Nr):
+        um = Um_r2[i, j] * r2[ij]
+        uc = u_c(rr[ij], mu_o[i, j], ro_p)
+        Ub_new[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], rr[ij])
+        Ur_new[i, j, ij] = u_r(Wps[i, j], um, uc, rr[ij], h_sloy[i, j, ij])
+        h_sloy_new[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], rr[ij])
 
 
 @ti.func

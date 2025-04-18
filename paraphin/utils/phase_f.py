@@ -1,6 +1,6 @@
 import taichi as ti
 
-from paraphin.constants import S_min, S_max, data_type
+from paraphin.constants import S_min, S_max, n_power, data_type
 
 
 @ti.func
@@ -15,7 +15,7 @@ def pf_o(s: data_type) -> data_type:
     elif s > S_max:
         ret = 0.0  # однофазная фильтрация воды
     else:
-        ret = ((S_max - s) / (S_max-S_min)) ** 2
+        ret = ((S_max - s) / (S_max-S_min)) ** n_power
 
     return ret
 
@@ -32,7 +32,7 @@ def pf_w(s: data_type) -> data_type:
     elif s > S_max:
         ret = 1.0    # однофазная фильтрация воды
     else:
-        ret = ((s - S_min) / (S_max-S_min)) ** 2
+        ret = ((s - S_min) / (S_max-S_min)) ** n_power
 
     return ret
 
@@ -48,7 +48,7 @@ def _pf_o(s: data_type) -> data_type:
     elif s > S_max:
         ret = 0.0  # однофазная фильтрация воды
     else:
-        ret = ((S_max - s) / (S_max-S_min)) ** 2
+        ret = ((S_max - s) / (S_max-S_min)) ** n_power
 
     return ret
 
@@ -64,7 +64,7 @@ def _pf_w(s: data_type) -> data_type:
     elif s > S_max:
         ret = 1.0    # однофазная фильтрация воды
     else:
-        ret = ((s - S_min) / (S_max-S_min)) ** 2
+        ret = ((s - S_min) / (S_max-S_min)) ** n_power
 
     return ret
 
