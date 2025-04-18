@@ -267,7 +267,7 @@ class Solver:
             self.logger.info("Данные записаны в файл.")
 
     def _logging_data_fields(self, paraphin):
-        self.logger.info(f"Обновлена температура:                  min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
+        self.logger.info(f"Обновлена температура:         min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
 
         if paraphin:
             self.logger.info(f"Обновлены доли взвешенного парафина:    min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")

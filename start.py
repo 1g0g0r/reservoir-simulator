@@ -9,8 +9,7 @@ from paraphin.solver import Solver
 
 
 def profile_with_snakeviz(func):
-    """Plugin profiling decorator. As a result, the plugin.prof file is created.
-    For launch, you should install Snakeviz and enter the command in the terminal: snakeviz plugin.prof"""
+    """For launch, you should install Snakeviz and enter the command in the terminal: snakeviz plugin.prof"""
     import cProfile
     def wrapper(*args, **kwargs):
         profiler = cProfile.Profile()
@@ -19,12 +18,11 @@ def profile_with_snakeviz(func):
         profiler.disable()
         profile_file = outputs_path / f"{func.__name__}.prof"
         profiler.dump_stats(profile_file)
-
         return result
     return wrapper
 
 
-@profile_with_snakeviz
+# @profile_with_snakeviz
 def solve():
     """Запуск расчета."""
     times = np.linspace(0, Time_end, int(Time_end / dt + 1))

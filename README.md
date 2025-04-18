@@ -1,4 +1,4 @@
-# Paraphin 🔬
+# Paraphin 
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-100%25-brightgreen.svg)](https://github.com/1g0g0r/paraphin)

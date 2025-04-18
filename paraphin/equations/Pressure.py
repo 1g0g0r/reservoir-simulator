@@ -1,7 +1,7 @@
 import taichi as ti
 from scipy.sparse import csr_matrix
-# from scipy.sparse.linalg import spsolve
-from pypardiso import spsolve
+from scipy.sparse.linalg import spsolve
+# from pypardiso import spsolve
 
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, Po, Pw, bar_to_pa, h, DEBUGGING
 from paraphin.constants import conductivity_well as c_well
