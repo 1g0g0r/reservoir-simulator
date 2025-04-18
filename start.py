@@ -33,7 +33,7 @@ def solve():
 
     # Создание скважин
     sol.add_well(name='inj',  i=0,    j=0,    p=Pw, is_injector=True, T=Twater)
-    sol.add_well(name='prod', i=Nx-1, j=Ny-1, p=Po)
+    sol.add_well(name='prod', i=Nx-1, j=Ny-1, p=Po, is_injector=False)
 
     for t in times:
         sol.upd_time_step(t)

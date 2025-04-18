@@ -1,7 +1,7 @@
 numpy
-pypardiso
 plotly
 psutil
 scipy
 taichi
 tqdm
+# pypardiso

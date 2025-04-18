@@ -281,15 +281,16 @@ class Solver:
 
 
     def _logging_data_fields(self, paraphin):
-        self.logger.info(f"Обновлена температура:         min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
+        self.logger.info(f"Обновлена насыщенность:  min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
+        self.logger.info(f"Обновлена температура:   min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
 
         if paraphin:
-            self.logger.info(f"Обновлены доли взвешенного парафина:    min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
-            self.logger.info(f"Обновлены доли растворенного парафина:  min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
+            self.logger.info(f"Обновлены доли взвешенного парафина:   min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
+            self.logger.info(f"Обновлены доли растворенного парафина: min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
 
-            self.logger.info(f"Обновлена доля выпадающего парафина:    min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
-            self.logger.info(f"Обновлен множитель пористости:          min={self.m_mult.to_numpy().min()}  max={self.m_mult.to_numpy().max()}")
-            self.logger.info(f"Обновлен множитель проницаемости:       min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
+            self.logger.info(f"Обновлена доля выпадающего парафина:   min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
+            self.logger.info(f"Обновлен множитель пористости:         min={self.m_mult.to_numpy().min()}  max={self.m_mult.to_numpy().max()}")
+            self.logger.info(f"Обновлен множитель проницаемости:      min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
 
             self.logger.info(f"Обновлена толщина осадочного слоя:              min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
             self.logger.info(f"Обновлена скорость изменения радиуса капилляра: min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
