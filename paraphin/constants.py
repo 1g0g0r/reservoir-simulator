@@ -103,7 +103,7 @@ Nr: int = len(r)
 _u_aver = init_k / mu_o * Pw * 0.05
 Courant_num = _u_aver * dt / _re
 if Courant_num > 0.8:
-    dt = 0.5 * _re / _u_aver
+    dt = 0.2 * _re / _u_aver
     dt = round(dt / day_to_sec, 3) * day_to_sec
     print(f'Не выполнено условие Куранта!! Новый шаг по времени {dt / day_to_sec} сут.')
 else:
