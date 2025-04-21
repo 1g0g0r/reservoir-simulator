@@ -157,7 +157,10 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w)
+        from time import perf_counter
+        t = perf_counter()
+        calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells)
+        print('p calc', perf_counter() - t)
         self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
 
 

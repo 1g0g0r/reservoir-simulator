@@ -1,11 +1,11 @@
 import taichi as ti
+import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 # from pypardiso import spsolve
 
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, Po, Pw, bar_to_pa, h, DEBUGGING
-from paraphin.constants import conductivity_well as c_well
-from paraphin.utils import show_plot, pf_o, pf_w, mid
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, bar_to_pa, h, DEBUGGING
+from paraphin.utils import show_plot, mid
 
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
@@ -15,7 +15,7 @@ col_indices = ti.field(ti.i32, shape=NN)
 rhs = ti.field(data_type, shape=N)
 
 
-def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
+def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w, wells) -> None:
     """
     Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
@@ -68,18 +68,23 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w) -> None:
                 # rhs
                 rhs[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) / dt * volume
 
-        # Добавили скважины в точки (0,0) (Nx-1, Ny-1)
-        data[2]    -= c_well * Wo[0, 0] * k[0, 0] / mu_w[0, 0]
-        rhs[0]     -= c_well * Wo[0, 0] * k[0, 0] / mu_w[0, 0] * Pw
-        data[NN-1] -= c_well * Wo[Nx-1, Ny-1] * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1])
-        rhs[N-1]   -= c_well * Wo[Nx-1, Ny-1] * k[Nx-1, Ny-1] * (pf_o(S[Nx-1, Ny-1]) / mu_o[Nx-1, Ny-1] + pf_w(S[Nx-1, Ny-1]) / mu_w[Nx-1, Ny-1]) * Po
-
     fill_matrix_and_rhs()
-    A_csr = csr_matrix((data.to_numpy(), (row_indices.to_numpy(), col_indices.to_numpy())), shape=(N, N))
 
-    solution = spsolve(A_csr, rhs.to_numpy())  # lgmres(A_csr, rhs.to_numpy(), rtol=1e-8)[0]
-    # ml = pyamg.ruge_stuben_solver(A_csr)
-    # x = ml.solve(rhs.to_numpy(), tol=1e-8)
+    row_indices_np = row_indices.to_numpy()
+    col_indices_np = col_indices.to_numpy()
+    data_np = data.to_numpy()
+    diagonal = row_indices_np == col_indices_np
+
+    # Добавили скважины
+    for well in wells:
+        well.calc_q(well.p + 1.0, S, k, mu_o, mu_w)
+        temp_data = Wo[well.i, well.j] * well.q[2]
+        data_idx = np.logical_and(row_indices_np == well.idx, diagonal)
+        data_np[data_idx] -= temp_data
+        rhs[well.idx] -= temp_data * well.p
+
+    A_csr = csr_matrix((data_np, (row_indices_np, col_indices_np)), shape=(N, N))
+    solution = spsolve(A_csr, rhs.to_numpy())
 
     p.from_numpy(solution.reshape((Nx, Ny)))
     if DEBUGGING:
