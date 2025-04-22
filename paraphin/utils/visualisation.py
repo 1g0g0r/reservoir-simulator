@@ -3,8 +3,11 @@ from __future__ import annotations
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec
+from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec, \
+    data_type
 from paraphin.utils import read_pkl_files
+
+CONTOUR_PLOT = True
 
 
 def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]] | None = None):
@@ -21,37 +24,39 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     # Создаем графики
     data_fields = []
     for name, field in input_data.items():
+        trace = []
         if name == 'Pressure':
-            # trace = go.Contour(x=x, y=y, z=field / bar_to_pa,  colorscale='Jet', name=name,
-            #                    zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
-            #                    hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>",
-            #                    contours=dict(
-            #                        coloring='fill',
-            #                        showlabels=True,
-            #                        labelfont=dict(size=12, color='black')
-            #                    ))
-            trace = go.Heatmap(x=x, y=y, z=field / bar_to_pa, colorscale='Jet', name=name,
-                               zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
-                               hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")
+            if CONTOUR_PLOT:
+                trace = [go.Contour(x=x, y=y, z=field / bar_to_pa,  colorscale='Jet', name=name,
+                                   zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
+                                   hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>",
+                                   contours=dict(
+                                       coloring='fill',
+                                       showlabels=True,
+                                       labelfont=dict(size=12, color='black')
+                                   ))]
+            else:
+                trace = [go.Heatmap(x=x, y=y, z=field / bar_to_pa, colorscale='Jet', name=name,
+                                   zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
+                                   hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")]
         elif name == 'Wells':
-            inj = go.Scatter(x=time, y=-field['inj'] * day_to_sec, mode='lines', name='Injector',
-                             hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")  # , xaxis = "Время, день", yaxis = "Дебит, м^3/день"
-
-            trace = go.Scatter(x=time, y=field['prod'] * day_to_sec, mode='lines', name='Producer',
-                               hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")
-            data_fields.append(inj)
+            for _name, _val in field.items():
+                trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
+                                 hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]  # , xaxis = "Время, день", yaxis = "Дебит, м^3/день"
         else:
-            # trace = go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
-            #                    zmax=np.max(field), hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
-            #                    contours=dict(
-            #                        coloring='fill',
-            #                        showlabels=True,
-            #                        labelfont=dict(size=12, color='black')
-            #                    ))
-            trace = go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field),
-                               colorscale='Jet', name=name,  # colorscale='Cividis'
-                               hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")
-        data_fields.append(trace)
+            if CONTOUR_PLOT:
+                trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
+                                   zmax=np.max(field), hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
+                                   contours=dict(
+                                       coloring='fill',
+                                       showlabels=True,
+                                       labelfont=dict(size=12, color='black')
+                                   ))]
+            else:
+                trace = [go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field),
+                                   colorscale='Jet', name=name,  # colorscale='Cividis'
+                                   hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
+        data_fields += trace
 
     # Создаем фигуру
     fig = go.Figure(data=data_fields)
