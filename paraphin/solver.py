@@ -188,10 +188,9 @@ class Solver:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         def wells_loop() -> None:
             for well in self.wells:
-                saturation_well(well.i, well.j, well.q, self.m, self.new_s)
-                wps_wp_wells(well.i, well.j, well.q, self.m, self.S, self.Wp, self.Wps, self.new_wps)
-                Twell = self.T[well.i, well.j] if well.T is None else well.T
-                temperature_well(well.i, well.j, well.q, Twell, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
+                saturation_well(well, self.m, self.new_s)
+                wps_wp_wells(well, self.m, self.S, self.Wp, self.Wps, self.new_wps)
+                temperature_well(well, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
 
         @ti.kernel
         def equations_loop(paraphin: bool):

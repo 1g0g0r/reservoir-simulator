@@ -52,16 +52,14 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p, up_ko_
     new_Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
 
 
-def wps_wp_wells(i, j, q, m, S, Wp, Wps, new_Wps) -> None:
+def wps_wp_wells(well, m, S, Wp, Wps, new_Wps) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
     ----------
-    i, j : int
-        Индексы текущей ячейки, [-]
-    q: taichi.field(3)
-        Дебит скважины [oil, water, total], [м^3/c]
-    m: taichi.field(Nx, Ny)
+    well: Well
+        Объект класса скважина
+     m: taichi.field(Nx, Ny)
         Пористость, [-]
     S: taichi.field(Nx, Ny)
         Водонасыщенность, [-]
@@ -73,4 +71,5 @@ def wps_wp_wells(i, j, q, m, S, Wp, Wps, new_Wps) -> None:
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    new_Wps[i, j] -= (dt * q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) / (m[i, j] * (1.0 - S[i, j]) * ro_p))
+    i, j = well.i, well.j
+    new_Wps[i, j] -= (dt * well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) / (m[i, j] * (1.0 - S[i, j]) * ro_p))

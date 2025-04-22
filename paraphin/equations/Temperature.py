@@ -67,17 +67,13 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wp, Wp_0, 
     new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3 - derivative_add)
 
 
-def temperature_well(i, j, q, T_well, T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_T) -> None:
+def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_T) -> None:
     """Учет скважины в уравнении энергии.
 
     Parameters
     ----------
-    i, j : int
-        Индексы скважины, [-]
-    q: taichi.field(3)
-        Дебит скважины [oil, water, total], [м^3/c]
-    T_well: float
-        Температура потока в скважине
+    well: Well
+        Объект класса скважина
     T: taichi.field(Nx, Ny)
         Температура, [С]
     m: taichi.field(Nx, Ny)
@@ -99,8 +95,11 @@ def temperature_well(i, j, q, T_well, T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_
     new_T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
     """
+    i, j = well.i, well.j
+    Twell = T[i, j] if well.T is None else well.T
+
     mult =  dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
                            (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] +
                            (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])
 
-    new_T[i, j] -= (C_o[i, j] * ro_o * q[0] + C_w[Nx - 1, Ny - 1] * ro_w * q[1]) * mult * T_well
+    new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[Nx - 1, Ny - 1] * ro_w * well.q[1]) * mult * Twell
