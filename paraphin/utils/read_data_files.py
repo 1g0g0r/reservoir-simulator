@@ -1,4 +1,5 @@
 import re
+from dataclasses import field
 from pickle import load, PickleError
 
 import numpy as np
@@ -21,10 +22,7 @@ def read_pkl_files() -> dict:
     data = {}
     for name, file_data in file.items():
         if name == 'Wells':
-            data['Wells'] = {
-				'inj': np.array([file_data['inj']]),
-				'prod': np.array([file_data['prod']]),
-			}
+            data['Wells'] = {_name: [_val] for _name, _val in file_data.items()}
         else:
             data[name] = np.array([file_data])
 
@@ -36,8 +34,8 @@ def read_pkl_files() -> dict:
                 file = load(f)
             for name, file_data in file.items():
                 if name == 'Wells':
-                    data['Wells']['inj']  = np.concatenate((data['Wells']['inj'],  [file_data['inj']]), axis=0)
-                    data['Wells']['prod'] = np.concatenate((data['Wells']['prod'], [file_data['prod']]), axis=0)
+                    for _name, _val in file_data.items():
+                        data['Wells'][_name] = np.concatenate((data['Wells'][_name],  [file_data[_name]]), axis=0)
                 else:
                     data[name] = np.concatenate((data[name], [file_data]), axis=0)
         except (PickleError, EOFError) as e:

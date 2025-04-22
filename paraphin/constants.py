@@ -21,7 +21,7 @@ logs_path = outputs_path / '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 60, 60  # Число узлов сетки по x и y
+Nx, Ny = 10, 10  # Число узлов сетки по x и y
 X_min, X_max = 0., 250.    # Длина пласта, [м]
 Y_min, Y_max = 0., 250.    # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx
@@ -31,7 +31,7 @@ area = hx * hy
 volume = area * h
 
 # Параметры времени задачи
-Time_end = day_to_sec * 365
+Time_end = day_to_sec * 365 * 2
 dt = day_to_sec / 2 # шаг дискретизации по времени
 
 # Параметры ОФП
