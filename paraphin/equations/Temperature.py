@@ -1,6 +1,6 @@
 import taichi as ti
 
-from paraphin.constants import Nx, Ny, dt, volume, ro_w, ro_f, ro_o, ro_p, K_o, K_f, K_w, K_p
+from paraphin.constants import Nx, Ny, dt, volume, ro_w, ro_f, ro_o, ro_p
 
 
 @ti.func
@@ -57,8 +57,7 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wp, Wp_0, 
                        (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] +
                                 (1.0 - m[i, j] - Wp[i, j]) * ro_f * C_f[i, j])
 
-    t1 = dt_val[i, j] * (m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * K_o) +
-            (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * K_p + (1.0 - m[i, j] - Wp[i, j]) * K_f)
+    t1 = dt_val[i, j]
 
     t2 = T[i, j] * ro_w * C_w[i, j] * up_kw_val[i, j]
 

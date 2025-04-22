@@ -5,8 +5,14 @@ from paraphin.utils.phase_f import pf_o, pf_w
 
 
 @ti.func
-def mid(k_i: data_type, s_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
-		k_j: data_type, s_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
+def mid(x: data_type, y: data_type) -> data_type:
+    """Среднее значение"""
+    return 2.0 * x * y / (x + y)
+
+
+@ti.func
+def mid_Ko_Kw(k_i: data_type, s_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
+              k_j: data_type, s_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
     """mid(Ko + Kw)_ij"""
     x = K_o(k_i, s_i, mu_o_i) + K_w(k_i, s_i, mu_w_i)
     y = K_o(k_j, s_j, mu_o_j) + K_w(k_j, s_j, mu_w_j)

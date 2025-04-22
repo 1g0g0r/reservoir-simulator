@@ -5,7 +5,7 @@ from scipy.sparse.linalg import spsolve
 # from pypardiso import spsolve
 
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, bar_to_pa, h, DEBUGGING
-from paraphin.utils import show_plot, mid
+from paraphin.utils import show_plot, mid_Ko_Kw
 
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
@@ -51,8 +51,8 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w, wells) -> None:
             for qq in ti.static(ti.ndrange(4)):
                 i1, j1, hij, areaij = arr[qq]
                 if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                    val = Wo[i, j] * mid(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                         k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+                    val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                               k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
                     row_indices[num] = idx
                     col_indices[num] = idx + (i1-i) + Nx * (j1-j)
                     data[num] = val

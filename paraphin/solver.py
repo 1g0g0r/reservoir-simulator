@@ -196,7 +196,7 @@ class Solver:
         def equations_loop(paraphin: bool):
             for i, j in ti.ndrange(Nx, Ny):
                 # --- решение гидродинамики ---
-                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.dt_val, self.up_kw_val, self.up_ko_val)
+                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps, self.dt_val, self.up_kw_val, self.up_ko_val)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
                 temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
 
