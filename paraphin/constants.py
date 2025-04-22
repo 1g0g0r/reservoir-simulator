@@ -31,7 +31,7 @@ area = hx * hy
 volume = area * h
 
 # Параметры времени задачи
-Time_end = day_to_sec * 365 * 2
+Time_end = day_to_sec * 365 * 3
 dt = day_to_sec / 2 # шаг дискретизации по времени
 
 # Параметры ОФП
@@ -74,7 +74,7 @@ Po = 50 * bar_to_pa  # давление на добывающей скважин
 Twater = 20          # температура нагнетаемой воды, [С]
 
 # Данные инициализации
-init_p   = 10 * bar_to_pa  # [Па]
+init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
 init_Wo  = 1.0
 init_Wp  = 0.0
