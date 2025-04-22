@@ -3,11 +3,10 @@ from __future__ import annotations
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec, \
-    data_type
+from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec
 from paraphin.utils import read_pkl_files
 
-CONTOUR_PLOT = True
+CONTOUR_PLOT = False
 
 
 def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]] | None = None):
