@@ -37,4 +37,5 @@ def saturation_well(well, m, new_S) -> None:
     new_S: taichi.field(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """
-    new_S[well.i, well.j] -= dt * well.q[1] / m[well.i, well.j] / volume
+    i, j = well.i, well.j
+    new_S[i, j] -= dt * well.q[1] / m[i, j] / volume
