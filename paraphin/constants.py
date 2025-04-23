@@ -102,7 +102,7 @@ _re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура пита�
 _u_aver = init_k / mu_o * Pw * 0.05  # Примерная средняя скорость потока
 Courant_num = _u_aver * dt / _re  # Число Куранта
 if Courant_num > 0.8:
-    dt = 0.2 * _re / _u_aver
+    dt = 0.05 * _re / _u_aver
     dt = round(dt / day_to_sec, 3) * day_to_sec
     print(f'Не выполнено условие Куранта!! Новый шаг по времени {dt / day_to_sec} сут.')
 else:
@@ -110,4 +110,4 @@ else:
     dt = round(dt / day_to_sec, 3) * day_to_sec
     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 10 # шаг по времени для сохранения результатов
+sol_time_step = dt * 50 # шаг по времени для сохранения результатов

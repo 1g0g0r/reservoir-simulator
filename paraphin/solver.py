@@ -104,7 +104,7 @@ class Solver:
 
         @ti.kernel
         def initialize_params_loop(fi_o: ti.types.ndarray()):
-            ti.loop_config(parallelize=8, bit_vectorize=True)
+            # ti.loop_config(parallelize=8, bit_vectorize=True)
             for j in ti.ndrange(Ny):
                 for i in ti.ndrange(Nx):
                     # Параметры пласта
@@ -188,51 +188,51 @@ class Solver:
 
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
-        def wells_loop() -> None:
-            for well in self.wells:
-                saturation_well(well, self.m, self.new_s)
-                wps_wp_wells(well, self.m, self.S, self.Wp, self.Wps, self.new_wps)
-                temperature_well(well, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
-
-        @ti.kernel
-        def equations_loop(paraphin: bool):
-            ti.loop_config(parallelize=8, bit_vectorize=True)
-            for j in ti.ndrange(Ny):
-                for i in ti.ndrange(Nx):
-                    # --- решение гидродинамики ---
-                    flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps, self.dt_val, self.up_kw_val, self.up_ko_val)
-                    saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
-                    temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
-
-                    # --- решение задачи кольматации\суффозии ---
-                    if paraphin:
-                        # Обновление концентраций парафина
-                        wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0,
-                                        self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
-                        # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-                        calc_velocitys_h(i, j, self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
-                                         self.new_h, self.new_Ur, self.new_Ub)
-                        # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                        calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
-                                       self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
-
-                    # Обновление свойств флюидов из-за изменения температуры
-                    # self._update_mu_and_c_temp(i, j)
-
         self.paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0))
         self._update_p()  # Обновление давления
         self._update_q()  # Обновление дебитов скважин
-        equations_loop(self.paraphin)
-        wells_loop()
+        self._equations_loop()
+        self._wells_loop()
         if self.paraphin:
             # Средняя скорость в капилляре * r^2
             self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
 
+    def _wells_loop(self) -> None:
+        for well in self.wells:
+            saturation_well(well, self.m, self.new_s)
+            wps_wp_wells(well, self.m, self.S, self.Wp, self.Wps, self.new_wps)
+            temperature_well(well, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
+
+    @ti.kernel
+    def _equations_loop(self):
+        # ti.loop_config(parallelize=8, bit_vectorize=True)
+        for j in ti.ndrange(Ny):
+            for i in ti.ndrange(Nx):
+                # --- решение гидродинамики ---
+                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps, self.dt_val, self.up_kw_val, self.up_ko_val)
+                saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
+                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
+
+                # --- решение задачи кольматации\суффозии ---
+                if self.paraphin:
+                    # Обновление концентраций парафина
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0,
+                                    self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
+                    # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
+                    calc_velocitys_h(i, j, self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
+                                     self.new_h, self.new_Ur, self.new_Ub)
+                    # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
+                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
+                                   self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+
+                # Обновление свойств флюидов из-за изменения температуры
+                # self._update_mu_and_c_temp(i, j)
+
+
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
-        ti.loop_config(parallelize=8, bit_vectorize=True)
         for j in ti.ndrange(Ny):
             for i in ti.ndrange(Nx):
                 self.S_0[i, j] = self.S[i, j]
@@ -246,8 +246,7 @@ class Solver:
                     self.Wps_0[i, j] = self.Wps[i, j]
                     self.Wps[i, j] = self.new_wps[i, j]
                     self.Wo_0[i, j] = self.Wo[i, j]
-                    # TODO вроде как Wo не изменяется
-                    self.Wo[i, j] = 1.0 - self.Wp[i, j] - self.Wps[i, j]
+                    self.Wo[i, j] = 1.0 - self.Wp[i, j] - self.Wps[i, j]   # TODO вроде как Wo не изменяется
                     self.k[i, j] = init_k * self.k_mult[i, j]
                     self.m_0[i, j] = self.m[i, j]
                     self.m[i, j] = init_m * self.m_mult[i, j]
@@ -276,7 +275,8 @@ class Solver:
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
-            self.logger.info("Данные записаны в файл.")
+            if LOGGING:
+                self.logger.info("Данные записаны в файл.")
 
 
     def _logging_solution(self, t):
