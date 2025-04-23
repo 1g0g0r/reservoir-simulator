@@ -4,7 +4,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 # from pypardiso import spsolve
 
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, bar_to_pa, h, DEBUGGING
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, bar_to_pa, h
 from paraphin.utils import show_plot, mid_Ko_Kw
 
 N = Nx * Ny  # размер матрицы
@@ -43,29 +43,31 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w, wells) -> None:
     @ti.kernel
     def fill_matrix_and_rhs():
         num = 0
-        for i, j in ti.ndrange(Nx, Ny):
-            idx = i + j * Nx
-            p_sum = 0.0
-            # matrix
-            arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
-            for qq in ti.static(ti.ndrange(4)):
-                i1, j1, hij, areaij = arr[qq]
-                if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                    val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                               k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
-                    row_indices[num] = idx
-                    col_indices[num] = idx + (i1-i) + Nx * (j1-j)
-                    data[num] = val
-                    p_sum -= val
-                    num += 1
+        ti.loop_config(parallelize=8, bit_vectorize=True)
+        for j in ti.ndrange(Ny):
+            for i in ti.ndrange(Nx):
+                idx = i + j * Nx
+                p_sum = 0.0
+                # matrix
+                arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
+                for qq in ti.static(ti.ndrange(4)):
+                    i1, j1, hij, areaij = arr[qq]
+                    if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                        val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                                   k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+                        row_indices[num] = idx
+                        col_indices[num] = idx + (i1-i) + Nx * (j1-j)
+                        data[num] = val
+                        p_sum -= val
+                        num += 1
 
-            row_indices[num] = idx
-            col_indices[num] = idx
-            data[num] = p_sum
-            num += 1
+                row_indices[num] = idx
+                col_indices[num] = idx
+                data[num] = p_sum
+                num += 1
 
-            # rhs
-            rhs[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) / dt * volume
+                # rhs
+                rhs[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) / dt * volume
 
     fill_matrix_and_rhs()
 
@@ -86,5 +88,3 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w, wells) -> None:
     solution = spsolve(A_csr, rhs.to_numpy())
 
     p.from_numpy(solution.reshape((Nx, Ny)))
-    if DEBUGGING:
-        show_plot(solution / bar_to_pa, 'Pressure')
