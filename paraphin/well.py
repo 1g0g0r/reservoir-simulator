@@ -1,8 +1,7 @@
-import numpy as np
 import taichi as ti
 
-from paraphin.constants import h, data_type, Nx, hx, hy, _re
-from paraphin.utils import _pf_o, _pf_w, pf_w, pf_o
+from paraphin.constants import data_type
+from paraphin.utils import pf_w, pf_o
 
 WellStruct = ti.types.struct(
 	i = ti.i32,

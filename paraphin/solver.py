@@ -5,13 +5,14 @@ import numpy as np
 import psutil
 import taichi as ti
 
-from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
+from paraphin import r1, r3, r4, r5, r6
+from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, fi_0, init_k, init_S,
                                 init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, eta, h,
                                 day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
 from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                                 temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                                 preprocess_matrix_and_wells)
-from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
+from paraphin.utils import Buckley_Leverett, calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
 from paraphin.well import WellStruct, calc_q
 
 
@@ -78,6 +79,8 @@ class Solver:
         # Вспомогательные поля класса
         self._i_img = 0
         self._paraphin = False
+        self.row_indices_np = np.ndarray
+        self.col_indices_np = np.ndarray
         results_path.mkdir(parents=True, exist_ok=True)
 
         if LOGGING:
@@ -100,18 +103,14 @@ class Solver:
             self.wells = WellStruct.field(shape=self.n_wells)
             self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer)
 
-
-        def _calc_integrals(rr: ti.types.ndarray(), fi_o: ti.types.ndarray()):
+        @ti.kernel
+        def _calc_integrals(fi_o: ti.types.ndarray()):
             """Вычисление интегралов от функций r^4*fi_o(r) и r^2*fi_o(r)"""
             self.integr_r2_fi0[None] = 0.0
             self.integr_r4_fi0[None] = 0.0
-            r3 = r ** 3
-            r4 = r3 * r
-            r5 = r4 * r
-            r6 = r5 * r
             for i in range(1, Nr):
-                dr = rr[i] - rr[i - 1]
-                a = (fi_o[i - 1] * rr[i] - fi_o[i] * rr[i - 1]) / dr
+                dr = r1[i] - r1[i - 1]
+                a = (fi_o[i - 1] * r1[i] - fi_o[i] * r1[i - 1]) / dr
                 b = (fi_o[i] - fi_o[i - 1]) / dr
                 self.integr_r2_fi0[None] += (r3[i] - r3[i-1]) * a / 3 + (r4[i] - r4[i-1]) * b / 4  # r^2 * fi
                 self.integr_r4_fi0[None] += (r5[i] - r5[i-1]) * a / 5 + (r6[i] - r6[i-1]) * b / 6  # r^4 * fi
@@ -150,7 +149,7 @@ class Solver:
                         self.Ur[i, j, ij] = 0.0
                         self.Ub[i, j, ij] = 0.0
 
-        _calc_integrals(rr=r, fi_o=fi_0)
+        _calc_integrals(fi_o=fi_0)
         _initialize_params_loop(fi_o=fi_0)
         _well_processing()
 
@@ -163,14 +162,17 @@ class Solver:
         self.n_wells += 1
 
 
-    @ti.func
-    def _update_mu_and_c_temp(self, i, j) -> None:
-        self.mu_o[i, j] = calc_mu_o(self.T[i, j])
-        self.mu_w[i, j] = calc_mu_w(self.T[i, j])
-        self.C_w[i, j]  = calc_c_w(self.T[i, j])
-        self.C_o[i, j]  = calc_c_o(self.T[i, j])
-        self.C_f[i, j]  = calc_c_f(self.T[i, j])
-        self.C_p[i, j]  = calc_c_p(self.T[i, j])
+    def upd_time_step(self, t: float) -> None:
+        """Решение задачи на текущем временном слое."""
+        self._process_time_step()
+        self._logging_solution(t)
+        self._swap_time_steps()
+        self.logger.info('Поля данных обновлены на текущем временном слое.')
+
+        # Запись данных в файл
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):
+            self._save_results(t)
+            self._i_img += 1
 
 
     def _update_p(self) -> None:
@@ -185,19 +187,6 @@ class Solver:
         """Обновление дебетов скважин."""
         for i in ti.ndrange(self.n_wells):
             self.wells[i] = calc_q(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
-
-
-    def upd_time_step(self, t: float) -> None:
-        """Решение задачи на текущем временном слое."""
-        self._process_time_step()
-        self._logging_solution(t)
-        self._swap_time_steps()
-        self.logger.info('Поля данных обновлены на текущем временном слое.')
-
-        # Запись данных в файл
-        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):
-            self._save_results(t)
-            self._i_img += 1
 
 
     def _process_time_step(self):
@@ -244,6 +233,16 @@ class Solver:
                 # self._update_mu_and_c_temp(i, j)
 
 
+    @ti.func
+    def _update_mu_and_c_temp(self, i, j) -> None:
+        self.mu_o[i, j] = calc_mu_o(self.T[i, j])
+        self.mu_w[i, j] = calc_mu_w(self.T[i, j])
+        self.C_w[i, j]  = calc_c_w(self.T[i, j])
+        self.C_o[i, j]  = calc_c_o(self.T[i, j])
+        self.C_f[i, j]  = calc_c_f(self.T[i, j])
+        self.C_p[i, j]  = calc_c_p(self.T[i, j])
+
+
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
@@ -277,17 +276,32 @@ class Solver:
                 file_path.unlink()
             self.logger.info('Старые файлы удалены.')
 
+        wells = [self.wells[i] for i in range(self.n_wells) if not self.wells[i].is_injector]
+        eta_array = [Buckley_Leverett(self.S[w.i, w.j], self.mu_w[w.i, w.j], self.mu_o[w.i, w.j]) for w in wells]
+
+        wells_data_o = {f'{self._wells_buffer[i]["name"]}_oil': self.wells[i].q[0] for i in range(self.n_wells)}
+        wells_data_w = {f'{self._wells_buffer[i]["name"]}_water': self.wells[i].q[1] for i in range(self.n_wells)}
+        wells_data_t = {f'{self._wells_buffer[i]["name"]}_total': self.wells[i].q[2] for i in range(self.n_wells)}
+        wells_data_eta = {'eta': eta_array[0] / day_to_sec}
         data = {
             'Time':        t,
             'Pressure':    self.p.to_numpy(),
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
-            'Wps':         self.Wps.to_numpy(),
-            'Wells':       {self._wells_buffer[i]['name']: self.wells[i].q[2] for i in range(self.n_wells)}
+            # 'Wps':         self.Wps.to_numpy(),
+            'Wells':       wells_data_o | wells_data_w | wells_data_t | wells_data_eta
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
+
+
+    def _logging_resources(self) -> None:
+        # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
+        memory_info = psutil.virtual_memory()
+        memory_usage = round(memory_info.used / memory_info.total * 100 , 5)  # memory_info.percent
+        # self.logger.info(f'Использование CPU: {cpu_usage}%')
+        self.logger.info(f'Использование памяти: {memory_usage}%')
 
 
     def _logging_solution(self, t):
@@ -315,10 +329,3 @@ class Solver:
         self.logger.info(f"Обновлена скорость изменения радиуса капилляра: min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Обновлена скорость блокировки капилляров:       min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
 
-
-    def _logging_resources(self) -> None:
-        # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
-        memory_info = psutil.virtual_memory()
-        memory_usage = round(memory_info.used / memory_info.total * 100 , 5)  # memory_info.percent
-        # self.logger.info(f'Использование CPU: {cpu_usage}%')
-        self.logger.info(f'Использование памяти: {memory_usage}%')

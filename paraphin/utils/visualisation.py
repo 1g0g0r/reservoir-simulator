@@ -10,6 +10,7 @@ CONTOUR_PLOT = True
 
 
 def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]] | None = None):
+    wells_plots = 0
     if input_data is None:
         input_data = read_pkl_files()
 
@@ -40,8 +41,11 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                                    hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")]
         elif name == 'Wells':
             for _name, _val in field.items():
+                if np.all(np.isclose(_val, 0.0)):
+                    continue
                 trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
                                  hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
+                wells_plots += 1
         else:
             if CONTOUR_PLOT:
                 trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
@@ -62,14 +66,15 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
 
     # Создаем массив отображаемых данных (все False, а на диагонали True)
     visibility = np.eye(len(data_fields), dtype=bool)
-    visibility[-2, -1] = True
+    visibility[-wells_plots:, -wells_plots:] = True
 
     # Добавляем слайдеры для изменения данных
     steps = []
     for i in range(n_times):
         step = dict(
             method="update",
-            args=[{"z": [j.z[i] for j in data_fields[:-2]] + [[j.y[i] for j in data_fields[-2:]]]}],
+            args=[{"z": [j.z[i] for j in data_fields if j.plotly_name=='contour'] +
+                        [[j.y[i] for j in data_fields if j.plotly_name=='scatter']]}],
             label=f'{round(time[i], 5)} день'
         )
         steps.append(step)

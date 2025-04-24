@@ -1,6 +1,7 @@
 import taichi as ti
 
-from paraphin.constants import data_type, Nr, r, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta
+from paraphin import r1, r2
+from paraphin.constants import data_type, Nr, dt, ro_p, D, gamma, betta, Diff, Lk, Cf, Delta
 
 """
 Lk: float
@@ -21,14 +22,9 @@ eta: float
     Коэффициент извилистости, [-]
 """
 
-# Операции с константными величинами (вычисляются один раз только при импорте модуля)
 b_D_3 = 6.0 * betta / D / D / D
 cf_D2 = Cf * D * D * 9.81 / 18.0
 Diff_2 = 2.0 * Diff * Diff / Lk
-rr = ti.field(dtype=data_type, shape=Nr)
-r2 = ti.field(dtype=data_type, shape=Nr)
-rr.from_numpy(r)
-r2.from_numpy(r * r)
 
 
 @ti.func
@@ -62,10 +58,10 @@ def calc_velocitys_h(i, j, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new,
     """
     for ij in ti.ndrange(Nr):
         um = Um_r2[i, j] * r2[ij]
-        uc = u_c(rr[ij], mu_o[i, j], ro_p)
-        Ub_new[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], rr[ij])
-        Ur_new[i, j, ij] = u_r(Wps[i, j], um, uc, rr[ij], h_sloy[i, j, ij])
-        h_sloy_new[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], rr[ij])
+        uc = u_c(r1[ij], mu_o[i, j], ro_p)
+        Ub_new[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], r1[ij])
+        Ur_new[i, j, ij] = u_r(Wps[i, j], um, uc, r1[ij], h_sloy[i, j, ij])
+        h_sloy_new[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], r1[ij])
 
 
 @ti.func

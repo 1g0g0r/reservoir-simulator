@@ -21,7 +21,7 @@ logs_path = outputs_path / '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 20, 20  # Число узлов сетки по x и y
+Nx, Ny = 25, 25  # Число узлов сетки по x и y
 X_min, X_max = 0., 250.    # Длина пласта, [м]
 Y_min, Y_max = 0., 250.    # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx

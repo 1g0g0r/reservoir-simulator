@@ -9,7 +9,7 @@ from paraphin.utils import mid_Ko_Kw
 from paraphin.well import calc_q_mult
 
 N = Nx * Ny  # размер матрицы
-NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов
+NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов в матрице давления
 data = ti.field(data_type, shape=NN)
 rhs = ti.field(data_type, shape=N)
 
