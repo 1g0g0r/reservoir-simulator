@@ -38,7 +38,6 @@ class Solver:
         self.S     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Водонасыщенность, [-]
         self.S_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.Wo    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
-        self.Wo_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.Wp    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти, [-]
         self.Wp_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.Wps   = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти, [-]
@@ -93,11 +92,9 @@ class Solver:
     def initialize(self):
         def _well_processing():
             self.wells = WellStruct.field(shape=self.n_wells)
-            self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer,
-                                                                                               self.S, self.k, self.mu_o, self.mu_w)
+            self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer)
 
 
-        # TODO это тоже обернуть в kernel
         def _calc_integrals(rr: ti.types.ndarray(), fi_o: ti.types.ndarray()):
             """Вычисление интегралов от функций r^4*fi_o(r) и r^2*fi_o(r)"""
             self.integr_r2_fi0[None] = 0.0
@@ -123,7 +120,6 @@ class Solver:
                     self.S[i, j]    = init_S
                     self.S_0[i, j]  = init_S
                     self.Wo[i, j]   = init_Wo
-                    self.Wo_0[i, j] = init_Wo
                     self.Wp[i, j]   = init_Wp
                     self.Wp_0[i, j] = init_Wp
                     self.Wps[i, j]  = init_Wps
@@ -154,12 +150,10 @@ class Solver:
         _well_processing()
 
 
-    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float|None = None, rw: float = rw):
+    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = -9999, rw: float = rw):
         """Добавление скважин в расчет"""
-        # TODO имена скважин
-        Twell = -9999 if T is None else T
         cond = 2.0 * np.pi * h / np.log(_re / rw) * 0.25
-        well = WellStruct(i=i, j=j, p=p, T=Twell, rw=rw, is_injector=int(is_injector), cond=cond)
+        well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), cond=cond)
         self._wells_buffer.append({'well': well, 'name': name})
         self.n_wells += 1
 
@@ -176,7 +170,7 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.row_indices_np, self.col_indices_np)
+        calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.row_indices_np, self.col_indices_np)
         if LOGGING:
             self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
 
@@ -186,8 +180,6 @@ class Solver:
         """Обновление дебетов скважин."""
         for i in ti.ndrange(self.n_wells):
             self.wells[i] = calc_q(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
-            # if LOGGING:
-            #     self.logger.info(f"Дебит скважины {well.name}: q_o={well.q[0] * day_to_sec}  q_w={well.q[1] * day_to_sec}")
 
 
     def upd_time_step(self, t: float) -> None:
@@ -263,8 +255,6 @@ class Solver:
                     self.Wp[i, j] = self.new_wp[i, j]
                     self.Wps_0[i, j] = self.Wps[i, j]
                     self.Wps[i, j] = self.new_wps[i, j]
-                    self.Wo_0[i, j] = self.Wo[i, j]
-                    self.Wo[i, j] = 1.0 - self.Wp[i, j] - self.Wps[i, j]   # TODO вроде как Wo не изменяется
                     self.k[i, j] = init_k * self.k_mult[i, j]
                     self.m_0[i, j] = self.m[i, j]
                     self.m[i, j] = init_m * self.m_mult[i, j]
@@ -305,6 +295,8 @@ class Solver:
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день")
         self.logger.info(f"Обновлена насыщенность:  min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
         self.logger.info(f"Обновлена температура:   min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
+        for i in range(self.n_wells):
+            self.logger.info(f"Дебит скважины {self._wells_buffer[i]['name']}: q_o={self.wells[i].q[0] * day_to_sec}  q_w={self.wells[i].q[1] * day_to_sec}")
 
         if not self.paraphin:
             return None

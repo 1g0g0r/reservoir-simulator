@@ -14,7 +14,7 @@ data = ti.field(data_type, shape=NN)
 rhs = ti.field(data_type, shape=N)
 
 
-def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w, wells, row_indices_np, col_indices_np) -> None:
+def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, row_indices_np, col_indices_np) -> None:
     """
     Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
@@ -24,8 +24,6 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w, wells, row_indices_np, 
         Давление, [Па]
     Wo: taichi.field(Nx, Ny)
         Объемная доля масляного компонента в нефти, [-]
-    Wo_0: taichi.field(Nx, Ny)
-        Объемная доля масляного компонента в нефти на прошлом временном слое, [-]
     m: taichi.field(Nx, Ny)
         Пористость, [-]
     m_0: taichi.field(Nx, Ny)
@@ -39,22 +37,17 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, mu_o, mu_w, wells, row_indices_np, 
     mu_w: taichi.field(Nx, Ny)
         Вязкость воды, [Па*с]
     """
-    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, mu_o, mu_w, data, rhs)
+    _fill_matrix_and_rhs(Wo, m, m_0, k, S, mu_o, mu_w, data, rhs)
+    _adding_wells(wells, Wo, S, k, mu_o, mu_w, data, rhs)
 
-    # Добавили скважины
-    _pressure_wells(wells, Wo, S, k, mu_o, mu_w, data, rhs)
-
-    data_np = data.to_numpy()
-    rhs_np = rhs.to_numpy()
-
-    A_csr = csr_matrix((data_np, (row_indices_np, col_indices_np)), shape=(N, N))
-    solution = spsolve(A_csr, rhs_np)
+    A_csr = csr_matrix((data.to_numpy(), (row_indices_np, col_indices_np)), shape=(N, N))
+    solution = spsolve(A_csr, rhs.to_numpy())
 
     p.from_numpy(solution.reshape((Nx, Ny)))
 
 
 @ti.kernel
-def _pressure_wells(wells: ti.template(), Wo: ti.template(), S: ti.template(), k: ti.template(),
+def _adding_wells(wells: ti.template(), Wo: ti.template(), S: ti.template(), k: ti.template(),
                     mu_o: ti.template(), mu_w: ti.template(), data: ti.template(), rhs: ti.template()):
     """Добавление скважин в уравнение давления"""
     for i in ti.ndrange(wells.shape[0]):
@@ -64,8 +57,8 @@ def _pressure_wells(wells: ti.template(), Wo: ti.template(), S: ti.template(), k
 
 
 @ti.kernel
-def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(), k: ti.template(),
-                         S: ti.template(), mu_o: ti.template(), mu_w: ti.template(), data: ti.template(), rhs: ti.template()):
+def _fill_matrix_and_rhs(Wo: ti.template(), m: ti.template(), m_0: ti.template(), k: ti.template(), S: ti.template(),
+                         mu_o: ti.template(), mu_w: ti.template(), data: ti.template(), rhs: ti.template()):
     """Сборка матрицы уравнения давления"""
     num = 0
     for j in ti.ndrange(Ny):
@@ -86,7 +79,7 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
             num += 1
 
             # rhs
-            rhs[idx] = (Wo[i, j] * (m[i, j] - m_0[i, j]) + (1 - S[i, j]) * m[i, j] * (Wo[i, j] - Wo_0[i, j])) / dt * volume
+            rhs[idx] = Wo[i, j] * (m[i, j] - m_0[i, j]) / dt * volume
 
     """
     В этом же цикле обновлять поля данных. 
@@ -94,7 +87,7 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
     """
 
 
-def preprocess_matrix_and_wells(wells, wells_buffer, S, k, mu_o, mu_w):
+def preprocess_matrix_and_wells(wells, wells_buffer):
     row_indices = ti.field(ti.i32, shape=NN)
     col_indices = ti.field(ti.i32, shape=NN)
     _get_rows_cols(row_indices=row_indices, col_indices=col_indices)

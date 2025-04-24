@@ -41,7 +41,21 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
         elif name == 'Wells':
             for _name, _val in field.items():
                 trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
-                                 hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]  # , xaxis = "Время, день", yaxis = "Дебит, м^3/день"
+                                 hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
+        elif name == 'Temperature':
+            t_max = 42
+            if CONTOUR_PLOT:
+                trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
+                                   zmax=t_max, hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
+                                   contours=dict(
+                                       coloring='fill',
+                                       showlabels=True,
+                                       labelfont=dict(size=12, color='black')
+                                   ))]
+            else:
+                trace = [go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=t_max,
+                                   colorscale='Jet', name=name,  # colorscale='Cividis'
+                                   hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
         else:
             if CONTOUR_PLOT:
                 trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
