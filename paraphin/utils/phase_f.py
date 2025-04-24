@@ -37,45 +37,14 @@ def pf_w(s: data_type) -> data_type:
     return ret
 
 
-def _pf_o(s: data_type) -> data_type:
-    """
-    Функция отностельной фазовой проницаемости нефти
-        [(Smax-S)/(Smax-Smin)]^n
-    """
-    ret = 0.0
-    if s < S_min:
-        ret = 1.0  # однофазная фильтрация нефти
-    elif s > S_max:
-        ret = 0.0  # однофазная фильтрация воды
-    else:
-        ret = ((S_max - s) / (S_max-S_min)) ** n_power
-
-    return ret
-
-
-def _pf_w(s: data_type) -> data_type:
-    """
-    Функция отностельной фазовой проницаемости воды
-        [(S-Smin)/(Smax-Smin)]^n
-    """
-    ret = 0.0
-    if s < S_min:
-        ret = 0.0   # однофазная фильтрация нефти
-    elif s > S_max:
-        ret = 1.0    # однофазная фильтрация воды
-    else:
-        ret = ((s - S_min) / (S_max-S_min)) ** n_power
-
-    return ret
-
-
+@ti.func
 def Buckley_Leverett(s: data_type, mu_w: data_type, mu_o: data_type) -> data_type:
     """Функция Баклея-Леверетта
                       pf_w
         f = -------------------------
             pf_w + pf_o * mu_w / mu_o
     """
-    return _pf_w(s) / (_pf_w(s) + _pf_o(s) * mu_w / mu_o)
+    return pf_w(s) / (pf_w(s) + pf_o(s) * mu_w / mu_o)
 
 
 if __name__ == '__main__':

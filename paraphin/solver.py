@@ -12,8 +12,8 @@ from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_pa
 from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                                 temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                                 preprocess_matrix_and_wells)
-from paraphin.utils import Buckley_Leverett, calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
-from paraphin.well import WellStruct, calc_q
+from paraphin.utils import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
+from paraphin.well import WellStruct, upd_q_and_eta
 
 
 @ti.data_oriented
@@ -156,8 +156,8 @@ class Solver:
 
     def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = -9999, rw: float = rw):
         """Добавление скважин в расчет"""
-        cond = 2.0 * np.pi * h / np.log(_re / rw) * 0.25
-        well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), cond=cond)
+        conductivity_mult = 2.0 * np.pi * h / np.log(_re / rw) * 0.25
+        well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), conductivity_mult=conductivity_mult)
         self._wells_buffer.append({'well': well, 'name': name})
         self.n_wells += 1
 
@@ -177,23 +177,24 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.row_indices_np, self.col_indices_np)
+        calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells,
+                      self.row_indices_np, self.col_indices_np)
         if LOGGING:
             self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
 
 
     @ti.kernel
-    def _update_q(self):
+    def _update_wells_data(self):
         """Обновление дебетов скважин."""
         for i in ti.ndrange(self.n_wells):
-            self.wells[i] = calc_q(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
+            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
 
 
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         self._paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0.0))
         self._update_p()  # Обновление давления
-        self._update_q()  # Обновление дебитов скважин
+        self._update_wells_data()  # Обновление дебитов скважин
         self._equations_loop()
         self._wells_loop()
         if self._paraphin:
@@ -276,13 +277,11 @@ class Solver:
                 file_path.unlink()
             self.logger.info('Старые файлы удалены.')
 
-        wells = [self.wells[i] for i in range(self.n_wells) if not self.wells[i].is_injector]
-        eta_array = [Buckley_Leverett(self.S[w.i, w.j], self.mu_w[w.i, w.j], self.mu_o[w.i, w.j]) for w in wells]
-
         wells_data_o = {f'{self._wells_buffer[i]["name"]}_oil': self.wells[i].q[0] for i in range(self.n_wells)}
         wells_data_w = {f'{self._wells_buffer[i]["name"]}_water': self.wells[i].q[1] for i in range(self.n_wells)}
         wells_data_t = {f'{self._wells_buffer[i]["name"]}_total': self.wells[i].q[2] for i in range(self.n_wells)}
-        wells_data_eta = {'eta': eta_array[0] / day_to_sec}
+        wells_data_eta = {f'{self._wells_buffer[i]["name"]}_eta': self.wells[i].eta / day_to_sec
+                          for i in range(self.n_wells) if not self.wells[i].is_injector}
         data = {
             'Time':        t,
             'Pressure':    self.p.to_numpy(),
