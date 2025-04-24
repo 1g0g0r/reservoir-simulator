@@ -6,12 +6,13 @@ import psutil
 import taichi as ti
 
 from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, r, fi_0, init_k, init_S,
-                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, eta,
-                                day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING)
+                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, eta, h,
+                                day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
 from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
-                                temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
+                                temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
+                                preprocess_matrix_and_wells)
 from paraphin.utils.fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
-from paraphin.well import Well
+from paraphin.well import WellStruct, calc_q
 
 
 @ti.data_oriented
@@ -20,7 +21,9 @@ class Solver:
         self.d_type = d_type
 
         # Скважины
-        self.wells = np.array([], dtype=object)
+        self.n_wells = 0
+        self._wells_buffer = []
+        self.wells = WellStruct.field(shape=1)
 
         # Свойства флюидов
         self.mu_o = ti.field(dtype=d_type, shape=(Nx, Ny))  # Вязкость нефти, [Па*с]
@@ -81,13 +84,21 @@ class Solver:
             datefmt='%H:%M:%S'  # '%Y-%m-%d %H:%M:%S'
         )
         self.logger = getLogger(__name__)
-        results_path.mkdir(parents=True, exist_ok=True)
-        self.i_img = 0
+
+        self._i_img = 0
         self.paraphin = False
+        results_path.mkdir(parents=True, exist_ok=True)
 
 
     def initialize(self):
-        def calc_integrals(rr: ti.types.ndarray(), fi_o: ti.types.ndarray()):
+        def _well_processing():
+            self.wells = WellStruct.field(shape=self.n_wells)
+            self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer,
+                                                                                               self.S, self.k, self.mu_o, self.mu_w)
+
+
+        # TODO это тоже обернуть в kernel
+        def _calc_integrals(rr: ti.types.ndarray(), fi_o: ti.types.ndarray()):
             """Вычисление интегралов от функций r^4*fi_o(r) и r^2*fi_o(r)"""
             self.integr_r2_fi0[None] = 0.0
             self.integr_r4_fi0[None] = 0.0
@@ -103,7 +114,7 @@ class Solver:
                 self.integr_r4_fi0[None] += (r5[i] - r5[i-1]) * a / 5 + (r6[i] - r6[i-1]) * b / 6  # r^4 * fi
 
         @ti.kernel
-        def initialize_params_loop(fi_o: ti.types.ndarray()):
+        def _initialize_params_loop(fi_o: ti.types.ndarray()):
             # ti.loop_config(parallelize=8, bit_vectorize=True)
             for j in ti.ndrange(Ny):
                 for i in ti.ndrange(Nx):
@@ -138,13 +149,19 @@ class Solver:
                         self.Ur[i, j, ij] = 0.0
                         self.Ub[i, j, ij] = 0.0
 
-        calc_integrals(rr=r, fi_o=fi_0)
-        initialize_params_loop(fi_o=fi_0)
+        _calc_integrals(rr=r, fi_o=fi_0)
+        _initialize_params_loop(fi_o=fi_0)
+        _well_processing()
 
 
     def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float|None = None, rw: float = rw):
-        well = Well(name=name, i=i, j=j, p=p, T=T, rw=rw, is_injector=is_injector)
-        self.wells = np.append(self.wells, well)
+        """Добавление скважин в расчет"""
+        # TODO имена скважин
+        Twell = -9999 if T is None else T
+        cond = 2.0 * np.pi * h / np.log(_re / rw) * 0.25
+        well = WellStruct(i=i, j=j, p=p, T=Twell, rw=rw, is_injector=int(is_injector), cond=cond)
+        self._wells_buffer.append({'well': well, 'name': name})
+        self.n_wells += 1
 
 
     @ti.func
@@ -159,17 +176,18 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells)
+        calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.row_indices_np, self.col_indices_np)
         if LOGGING:
             self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
 
 
-    def _update_q(self) -> None:
+    @ti.kernel
+    def _update_q(self):
         """Обновление дебетов скважин."""
-        for well in self.wells:
-            well.calc_q(self.p, self.S, self.k, self.mu_o, self.mu_w)
-            if LOGGING:
-                self.logger.info(f"Дебит скважины {well.name}: q_o={well.q[0] * day_to_sec}  q_w={well.q[1] * day_to_sec}")
+        for i in ti.ndrange(self.n_wells):
+            self.wells[i] = calc_q(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
+            # if LOGGING:
+            #     self.logger.info(f"Дебит скважины {well.name}: q_o={well.q[0] * day_to_sec}  q_w={well.q[1] * day_to_sec}")
 
 
     def upd_time_step(self, t: float) -> None:
@@ -181,14 +199,14 @@ class Solver:
             self.logger.info('Поля данных обновлены на текущем временном слое.')
 
         # Запись данных в файл
-        if t >= self.i_img * sol_time_step or np.isclose(t, Time_end):
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):
             self._save_results(t)
-            self.i_img += 1
+            self._i_img += 1
 
 
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
-        self.paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0))
+        self.paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0.0))
         self._update_p()  # Обновление давления
         self._update_q()  # Обновление дебитов скважин
         self._equations_loop()
@@ -198,15 +216,15 @@ class Solver:
             self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
 
-    def _wells_loop(self) -> None:
-        for well in self.wells:
-            saturation_well(well, self.m, self.new_s)
-            wps_wp_wells(well, self.m, self.S, self.Wp, self.Wps, self.new_wps)
-            temperature_well(well, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
+    @ti.kernel
+    def _wells_loop(self):
+        for i in ti.ndrange(self.n_wells):
+            saturation_well(self.wells[i], self.m, self.new_s)
+            wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wps)
+            temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
 
     @ti.kernel
     def _equations_loop(self):
-        # ti.loop_config(parallelize=8, bit_vectorize=True)
         for j in ti.ndrange(Ny):
             for i in ti.ndrange(Nx):
                 # --- решение гидродинамики ---
@@ -271,7 +289,7 @@ class Solver:
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
-            'Wells':       {w.name: w.q[2] for w in self.wells}
+            'Wells':       {self._wells_buffer[i]['name']: self.wells[i].q[2] for i in range(self.n_wells)}
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)

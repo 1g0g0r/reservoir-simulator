@@ -27,14 +27,15 @@ def solve():
     """Запуск расчета."""
     times = np.linspace(0, Time_end, int(Time_end / dt + 1))
     pbar = tqdm(iterable=times, ncols=90, desc='Решение задачи', file=stdout,
-                bar_format="{l_bar}{bar}{n_fmt}/{total_fmt}  [{elapsed}]{postfix}")
+                bar_format="{l_bar}{bar}{n_fmt}/{total_fmt}  [{elapsed}]{postfix}   ")
 
     sol = Solver()
-    sol.initialize()  # Задание начальных условий из файла const.py
 
     # Создание скважин
     sol.add_well(name='Injector', i=0,    j=0,    p=Pw, is_injector=True, T=Twater)
-    sol.add_well(name='Producer', i=Nx-1, j=Ny-1, p=Po, is_injector=False)
+    sol.add_well(name='Producer', i=Nx-1, j=Ny-1, p=Po, is_injector=False, T=40)
+
+    sol.initialize()  # Задание начальных условий из файла const.py
 
     for t in times:
         sol.upd_time_step(t)

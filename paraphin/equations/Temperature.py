@@ -66,6 +66,7 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wp, Wp_0, 
     new_T[i, j] = T[i, j] + multiplier * (t1 + t2 + t3 - derivative_add)
 
 
+@ti.func
 def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_T) -> None:
     """Учет скважины в уравнении энергии.
 
@@ -95,7 +96,7 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_T) -> None:
         Температура на новом временном слое, [С]
     """
     i, j = well.i, well.j
-    Twell = T[i, j] if well.T is None else well.T
+    Twell = T[i, j] if well.T == -9999 else well.T
 
     mult =  dt / volume / (m[i, j] * S[i, j] * ro_w * C_w[i, j] + m[i, j] * (1.0 - S[i, j]) * ro_o * C_o[i, j] +
                            (m[i, j] * (1.0 - S[i, j]) * Wps[i, j] + Wp[i, j]) * ro_p * C_p[i, j] +
