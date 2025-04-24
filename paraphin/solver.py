@@ -94,15 +94,14 @@ class Solver:
             self.logger = getLogger(__name__)
         else:
             self.logger = getLogger(__name__)
-            self.logger.handlers = []  # Удаляем обработчики
+            self.logger.handlers = []
             self.logger.propagate = False
 
 
     def initialize(self):
         def _well_processing():
             self.wells = WellStruct.field(shape=self.n_wells)
-            self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer,
-                                                                                               self.p, self.S, self.k, self.mu_o, self.mu_w)
+            self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
 
         @ti.kernel
         def _calc_integrals(fi_o: ti.types.ndarray()):
