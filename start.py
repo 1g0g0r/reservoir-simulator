@@ -4,36 +4,21 @@ from sys import stdout
 import numpy as np
 from tqdm import tqdm
 
-from paraphin.constants import Time_end, dt, day_to_sec, Pw, Po, Twater, Ny, Nx, outputs_path
+from paraphin.constants import Time_end, dt, day_to_sec, Pw, Po, Twater, Ny, Nx
 from paraphin.solver import Solver
 
 
-def profile_with_snakeviz(func):
-    """For launch, you should install Snakeviz and enter the command in the terminal: snakeviz plugin.prof"""
-    import cProfile
-    def wrapper(*args, **kwargs):
-        profiler = cProfile.Profile()
-        profiler.enable()
-        result = func(*args, **kwargs)
-        profiler.disable()
-        profile_file = outputs_path / f"{func.__name__}.prof"
-        profiler.dump_stats(profile_file)
-        return result
-    return wrapper
-
-
-# @profile_with_snakeviz
 def solve():
     """Запуск расчета."""
     times = np.linspace(0, Time_end, int(Time_end / dt + 1))
     pbar = tqdm(iterable=times, ncols=90, desc='Решение задачи', file=stdout,
-                bar_format="{l_bar}{bar}{n_fmt}/{total_fmt}  [{elapsed}]{postfix}   ")
+                bar_format="{l_bar}{bar}[{elapsed}]  {n_fmt}/{total_fmt}{postfix}   ")
 
     sol = Solver()
 
     # Создание скважин
     sol.add_well(name='Injector', i=0,    j=0,    p=Pw, is_injector=True, T=Twater)
-    sol.add_well(name='Producer', i=Nx-1, j=Ny-1, p=Po, is_injector=False, T=40)
+    sol.add_well(name='Producer', i=Nx-1, j=Ny-1, p=Po, is_injector=False)
 
     sol.initialize()  # Задание начальных условий из файла const.py
 

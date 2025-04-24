@@ -75,18 +75,24 @@ class Solver:
         self.up_ko_val = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.up_kw_val = ti.field(dtype=d_type, shape=(Nx, Ny))
 
-        basicConfig(
-            filename=logs_path,
-            filemode='w',  # 'w'-перезапись, 'a'-добавление
-            level=INFO,
-            format='%(asctime)s - %(message)s',  # - %(name)s - %(levelname)s
-            datefmt='%H:%M:%S'  # '%Y-%m-%d %H:%M:%S'
-        )
-        self.logger = getLogger(__name__)
-
+        # Вспомогательные поля класса
         self._i_img = 0
-        self.paraphin = False
+        self._paraphin = False
         results_path.mkdir(parents=True, exist_ok=True)
+
+        if LOGGING:
+            basicConfig(
+                filename=logs_path,
+                filemode='w',
+                level=INFO,
+                format='%(asctime)s - %(message)s',
+                datefmt='%H:%M:%S'
+            )
+            self.logger = getLogger(__name__)
+        else:
+            self.logger = getLogger(__name__)
+            self.logger.handlers = []  # Удаляем обработчики
+            self.logger.propagate = False
 
 
     def initialize(self):
@@ -112,7 +118,6 @@ class Solver:
 
         @ti.kernel
         def _initialize_params_loop(fi_o: ti.types.ndarray()):
-            # ti.loop_config(parallelize=8, bit_vectorize=True)
             for j in ti.ndrange(Ny):
                 for i in ti.ndrange(Nx):
                     # Параметры пласта
@@ -187,8 +192,7 @@ class Solver:
         self._process_time_step()
         self._logging_solution(t)
         self._swap_time_steps()
-        if LOGGING:
-            self.logger.info('Поля данных обновлены на текущем временном слое.')
+        self.logger.info('Поля данных обновлены на текущем временном слое.')
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):
@@ -198,12 +202,12 @@ class Solver:
 
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
-        self.paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0.0))
+        self._paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0.0))
         self._update_p()  # Обновление давления
         self._update_q()  # Обновление дебитов скважин
         self._equations_loop()
         self._wells_loop()
-        if self.paraphin:
+        if self._paraphin:
             # Средняя скорость в капилляре * r^2
             self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
@@ -219,24 +223,24 @@ class Solver:
     def _equations_loop(self):
         for j in ti.ndrange(Ny):
             for i in ti.ndrange(Nx):
-                # --- решение гидродинамики ---
-                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps, self.dt_val, self.up_kw_val, self.up_ko_val)
+                # ---решение гидродинамики---
+                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps,
+                               self.dt_val, self.up_kw_val, self.up_ko_val)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
-                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
-
-                # --- решение задачи кольматации\суффозии ---
-                if self.paraphin:
+                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p,
+                                     self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
+                # ---решение задачи кольматации\суффозии---
+                if self._paraphin:
                     # Обновление концентраций парафина
-                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0,
-                                    self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
+                                    self.T, self.T_0, self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
                                      self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
                                    self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
-
-                # Обновление свойств флюидов из-за изменения температуры
+                # ---пересчет свойств флюидов из-за изменения температуры---
                 # self._update_mu_and_c_temp(i, j)
 
 
@@ -250,7 +254,7 @@ class Solver:
                 self.T_0[i, j] = self.T[i, j]
                 self.T[i, j] = self.new_t[i, j]
 
-                if self.paraphin:
+                if self._paraphin:
                     self.Wp_0[i, j] = self.Wp[i, j]
                     self.Wp[i, j] = self.new_wp[i, j]
                     self.Wps_0[i, j] = self.Wps[i, j]
@@ -283,11 +287,11 @@ class Solver:
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
-            if LOGGING:
-                self.logger.info("Данные записаны в файл.")
+            self.logger.info("Данные записаны в файл.")
 
 
     def _logging_solution(self, t):
+        """Логирование полей задачи"""
         if not LOGGING:
             return None
         self.logger.info('')
@@ -298,7 +302,7 @@ class Solver:
         for i in range(self.n_wells):
             self.logger.info(f"Дебит скважины {self._wells_buffer[i]['name']}: q_o={self.wells[i].q[0] * day_to_sec}  q_w={self.wells[i].q[1] * day_to_sec}")
 
-        if not self.paraphin:
+        if not self._paraphin:
             return None
         self.logger.info(f"Обновлены доли взвешенного парафина:   min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
         self.logger.info(f"Обновлены доли растворенного парафина: min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")

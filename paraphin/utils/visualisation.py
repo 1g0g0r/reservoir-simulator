@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec
 from paraphin.utils import read_pkl_files
 
-CONTOUR_PLOT = False
+CONTOUR_PLOT = True
 
 
 def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]] | None = None):
@@ -42,20 +42,6 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
             for _name, _val in field.items():
                 trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
                                  hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
-        elif name == 'Temperature':
-            t_max = 42
-            if CONTOUR_PLOT:
-                trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
-                                   zmax=t_max, hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
-                                   contours=dict(
-                                       coloring='fill',
-                                       showlabels=True,
-                                       labelfont=dict(size=12, color='black')
-                                   ))]
-            else:
-                trace = [go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=t_max,
-                                   colorscale='Jet', name=name,  # colorscale='Cividis'
-                                   hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
         else:
             if CONTOUR_PLOT:
                 trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
