@@ -52,6 +52,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wps, dt_val, up_kw_val, up_k
 			ko += up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
 						k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
 			dtemp += mid(lam, lam_ij) * areaij * (T[i1, j1] - T[i, j]) / hij
+			# TODO посмотреть перетоки энергии
 
 	up_kw_val[i, j] = kw
 	up_ko_val[i, j] = ko

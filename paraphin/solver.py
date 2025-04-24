@@ -101,7 +101,8 @@ class Solver:
     def initialize(self):
         def _well_processing():
             self.wells = WellStruct.field(shape=self.n_wells)
-            self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer)
+            self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer,
+                                                                                               self.p, self.S, self.k, self.mu_o, self.mu_w)
 
         @ti.kernel
         def _calc_integrals(fi_o: ti.types.ndarray()):
@@ -185,7 +186,8 @@ class Solver:
 
     @ti.kernel
     def _update_wells_data(self):
-        """Обновление дебетов скважин."""
+        """Обновление дебетов и обводненности скважин."""
+        ti.loop_config(serialize=True)  # parallelize=1
         for i in ti.ndrange(self.n_wells):
             self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
 
@@ -204,6 +206,7 @@ class Solver:
 
     @ti.kernel
     def _wells_loop(self):
+        ti.loop_config(serialize=True)
         for i in ti.ndrange(self.n_wells):
             saturation_well(self.wells[i], self.m, self.new_s)
             wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wps)

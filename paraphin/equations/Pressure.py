@@ -6,7 +6,7 @@ from scipy.sparse.linalg import spsolve
 
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
 from paraphin.utils import mid_Ko_Kw
-from paraphin.well import calc_q_mult
+from paraphin.well import upd_q_and_eta
 
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов в матрице давления
@@ -15,8 +15,7 @@ rhs = ti.field(data_type, shape=N)
 
 
 def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, row_indices_np, col_indices_np) -> None:
-    """
-    Сборка матрицы и решение СЛАУ уравнения давления (МКО)
+    """Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
     Parameters
     ----------
@@ -38,7 +37,7 @@ def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, row_indices_np, col_in
         Вязкость воды, [Па*с]
     """
     _fill_matrix_and_rhs(Wo, m, m_0, k, S, mu_o, mu_w, data, rhs)
-    _adding_wells(wells, Wo, S, k, mu_o, mu_w, data, rhs)
+    _adding_wells(wells, Wo, data, rhs)
 
     A_csr = csr_matrix((data.to_numpy(), (row_indices_np, col_indices_np)), shape=(N, N))
     solution = spsolve(A_csr, rhs.to_numpy())
@@ -47,11 +46,11 @@ def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, row_indices_np, col_in
 
 
 @ti.kernel
-def _adding_wells(wells: ti.template(), Wo: ti.template(), S: ti.template(), k: ti.template(),
-                    mu_o: ti.template(), mu_w: ti.template(), data: ti.template(), rhs: ti.template()):
+def _adding_wells(wells: ti.template(), Wo: ti.template(), data: ti.template(), rhs: ti.template()):
     """Добавление скважин в уравнение давления"""
+    ti.loop_config(serialize=True)
     for i in ti.ndrange(wells.shape[0]):
-        temp_data = Wo[wells[i].i, wells[i].j] * calc_q_mult(wells[i], S, k, mu_o, mu_w)
+        temp_data = Wo[wells[i].i, wells[i].j] * wells[i].q[2] / wells[i].dp
         data[wells[i].idx_mat] -= temp_data
         rhs[wells[i].idx_rhs] -= temp_data * wells[i].p
 
@@ -87,7 +86,7 @@ def _fill_matrix_and_rhs(Wo: ti.template(), m: ti.template(), m_0: ti.template()
     """
 
 
-def preprocess_matrix_and_wells(wells, wells_buffer):
+def preprocess_matrix_and_wells(wells, wells_buffer, p, S, k, mu_o, mu_w):
     row_indices = ti.field(ti.i32, shape=NN)
     col_indices = ti.field(ti.i32, shape=NN)
     _get_rows_cols(row_indices=row_indices, col_indices=col_indices)
@@ -102,7 +101,17 @@ def preprocess_matrix_and_wells(wells, wells_buffer):
         wells[i].idx_rhs = wells[i].i + wells[i].j * Nx
         wells[i].idx_mat = np.where(np.logical_and(row_indices_np == wells[i].idx_rhs, diagonal))[0][0]
 
+    _update_wells_data(wells, p, S, k, mu_o, mu_w)
+
     return row_indices_np, col_indices_np, wells
+
+
+@ti.kernel
+def _update_wells_data(wells: ti.template(), p: ti.template(), S: ti.template(), k: ti.template(), mu_o: ti.template(), mu_w: ti.template()):
+    """Обновление дебетов и обводненности скважин."""
+    ti.loop_config(serialize=True)
+    for i in ti.ndrange(wells.shape[0]):
+        wells[i] = upd_q_and_eta(wells[i], p, S, k, mu_o, mu_w)
 
 
 @ti.kernel

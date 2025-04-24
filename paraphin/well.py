@@ -14,38 +14,27 @@ WellStruct = ti.types.struct(
 	q = ti.types.vector(3, data_type),
 	idx_rhs = ti.i32,
 	idx_mat = ti.i32,
-	eta = data_type
+	eta = data_type,
+	dp = data_type
 )
+
 
 @ti.func
 def upd_q_and_eta(well, p, S, k, mu_o, mu_w) -> WellStruct:
 	"""Вычисление дебета скважины."""
-	mult = (p[well.i, well.j] - well.p) * k[well.i, well.j] * well.conductivity_mult
+	well.dp = p[well.i, well.j] - well.p
+	mult = well.dp * k[well.i, well.j] * well.conductivity_mult
 
 	if well.is_injector == 1:
 		well.q[0] = 0.0
 		well.q[1] = mult / mu_w[well.i, well.j]
+		well.eta = 1.0
+
 	else:
 		well.q[0] = mult * pf_o(S[well.i, well.j]) / mu_o[well.i, well.j]
 		well.q[1] = mult * pf_w(S[well.i, well.j]) / mu_w[well.i, well.j]
+		well.eta = Buckley_Leverett(S[well.i, well.j], mu_w[well.i, well.j], mu_o[well.i, well.j])
 
 	well.q[2] = well.q[0] + well.q[1]
-	well.eta = Buckley_Leverett(S[well.i, well.j], mu_w[well.i, well.j], mu_o[well.i, well.j])
 
 	return well
-
-
-@ti.func
-def calc_q_mult(well, S, k, mu_o, mu_w) -> data_type:
-	"""Вычисление дебета скважины."""
-	q_o, q_w = 0.0, 0.0
-	mult = k[well.i, well.j] * well.conductivity_mult
-
-	if well.is_injector == 1:
-		q_o = 0.0
-		q_w = mult / mu_w[well.i, well.j]
-	else:
-		q_o = mult * pf_o(S[well.i, well.j]) / mu_o[well.i, well.j]
-		q_w = mult * pf_w(S[well.i, well.j]) / mu_w[well.i, well.j]
-
-	return q_o + q_w
