@@ -11,8 +11,8 @@ from paraphin.solver import Solver
 def solve():
     """Запуск расчета."""
     times = np.linspace(0, Time_end, int(Time_end / dt + 1))
-    pbar = tqdm(iterable=times, ncols=90, desc='Решение задачи', file=stdout,
-                bar_format="{l_bar}{bar}[{elapsed}]  {n_fmt}/{total_fmt}{postfix}   ")
+    pbar = tqdm(iterable=times, ncols=90, desc='Решение задачи', file=stdout, smoothing=0.15,
+                bar_format="{l_bar}{bar}[{elapsed}/{rate_fmt}]  {n_fmt}/{total_fmt}{postfix}   ")
 
     solution = Solver()
 

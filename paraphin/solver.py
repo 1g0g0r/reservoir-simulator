@@ -52,7 +52,7 @@ class Solver:
         # Динамика образования парафина (кольматация\суффозия)
         self.integr_r2_fi0 = ti.field(dtype=d_type, shape=())
         self.integr_r4_fi0 = ti.field(dtype=d_type, shape=())
-        self.Um_r2  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self._Um_r2  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.qp     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
         self.fi     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.h_sloy = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
@@ -78,7 +78,7 @@ class Solver:
 
         # Вспомогательные поля класса
         self._i_img = 0
-        self._paraphin = False
+        self._paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0.0))
         self.row_indices_np = np.ndarray
         self.col_indices_np = np.ndarray
         results_path.mkdir(parents=True, exist_ok=True)
@@ -133,7 +133,7 @@ class Solver:
                     self.T[i, j]    = init_T
                     self.T_0[i, j]  = init_T
                     self.qp[i, j]   = init_qp
-                    self.Um_r2[i, j]= 0.0
+                    self._Um_r2[i, j]= 0.0
 
                     # свойства флюидов
                     self.mu_o[i, j] = mu_o
@@ -193,14 +193,13 @@ class Solver:
 
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
-        self._paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0.0))
-        self._update_p()  # Обновление давления
+        self._update_p()           # Обновление давления
         self._update_wells_data()  # Обновление дебитов скважин
-        self._equations_loop()
-        self._wells_loop()
+        self._equations_loop()     # Решение уравнений по явной схеме
+        self._wells_loop()         # Учет скважин в уравнениях
         if self._paraphin:
             # Средняя скорость в капилляре * r^2
-            self.Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
+            self._Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
 
     @ti.kernel
@@ -227,7 +226,7 @@ class Solver:
                     wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
                                     self.T, self.T_0, self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-                    calc_velocitys_h(i, j, self.Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
+                    calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
                                      self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
