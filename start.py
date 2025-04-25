@@ -10,10 +10,8 @@ from paraphin.solver import Solver
 
 def solve():
     """Запуск расчета."""
-    times = np.linspace(0, Time_end, int(Time_end / dt + 1))
-    pbar = tqdm(iterable=times, ncols=90, desc='Решение задачи', file=stdout, smoothing=0.15,
-                bar_format="{l_bar}{bar}[{elapsed}/{rate_fmt}]  {n_fmt}/{total_fmt}{postfix}   ")
-
+    n_times = int(Time_end / dt + 1)
+    times = np.linspace(0, Time_end, n_times)
     solution = Solver()
 
     # Создание скважин
@@ -21,11 +19,13 @@ def solve():
     solution.add_well(name='Producer', i=Nx-1, j=Ny-1, p=Po, rw=rw, is_injector=False)
 
     solution.initialize()  # Задание начальных условий из файла const.py
+    solution.upd_time_step(0)  # при первом запуске компилируются модули
 
-    for t in times:
-        solution.upd_time_step(t)
-        pbar.set_postfix(день=t / day_to_sec)
-        pbar.update()
+    with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
+              bar_format="{l_bar}{bar}[{elapsed}/{rate_fmt}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
+        for t in pbar:
+            solution.upd_time_step(t)
+            pbar.set_postfix(день=t / day_to_sec)
 
 
 if __name__ == '__main__':

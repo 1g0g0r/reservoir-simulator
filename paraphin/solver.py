@@ -79,8 +79,8 @@ class Solver:
         # Вспомогательные поля класса
         self._i_img = 0
         self._paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0.0))
-        self.row_indices_np = np.ndarray
-        self.col_indices_np = np.ndarray
+        self.rows_indices = np.ndarray
+        self.cols_indices = np.ndarray
         results_path.mkdir(parents=True, exist_ok=True)
 
         if LOGGING:
@@ -101,7 +101,7 @@ class Solver:
     def initialize(self):
         def _well_processing():
             self.wells = WellStruct.field(shape=self.n_wells)
-            self.row_indices_np, self.col_indices_np, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
+            self.rows_indices, self.cols_indices, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
 
         @ti.kernel
         def _calc_integrals(fi_o: ti.types.ndarray()):
@@ -178,7 +178,7 @@ class Solver:
     def _update_p(self) -> None:
         """Обновление давления."""
         calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells,
-                      self.row_indices_np, self.col_indices_np)
+                      self.rows_indices, self.cols_indices)
         if LOGGING:
             self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
 
