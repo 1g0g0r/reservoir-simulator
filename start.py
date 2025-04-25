@@ -10,8 +10,7 @@ from paraphin.solver import Solver
 
 def solve():
     """Запуск расчета."""
-    n_times = int(Time_end / dt + 1)
-    times = np.linspace(0, Time_end, n_times)
+    times = np.linspace(0, Time_end, int(Time_end / dt + 1))
     solution = Solver()
 
     # Создание скважин
