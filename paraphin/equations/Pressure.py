@@ -7,13 +7,11 @@ from scipy.sparse.linalg import splu
 from taichi._kernels import ndarray_to_ext_arr, ext_arr_to_tensor
 
 from paraphin import N, NN
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h, np_dtype
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h, np_dtype, bar_to_pa
 from paraphin.utils import mid_Ko_Kw
 
 rhs = ti.ndarray(data_type, shape=N)
-rhs_np = np.zeros(N, dtype=np_dtype)
 data = ti.ndarray(data_type, shape=NN)
-data_np = np.zeros(NN, dtype=np_dtype)
 
 
 def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_indices) -> None:
@@ -46,14 +44,11 @@ def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ind
     _fill_matrix_and_rhs(Wo, m, m_0, k, S, mu_o, mu_w, data, rhs)
     _adding_wells(wells, Wo, data, rhs)
 
-    ndarray_to_ext_arr(data, data_np)
-    ndarray_to_ext_arr(rhs, rhs_np)
-
-    A_csc = csc_matrix((data_np, (rows_indices, cols_indices)), shape=(N, N))
+    A_csc = csc_matrix((data.to_numpy(), (rows_indices, cols_indices)), shape=(N, N))
     sp = splu(A_csc)
-    solution = sp.solve(rhs_np)
+    solution = sp.solve(rhs.to_numpy())
 
-    ext_arr_to_tensor(solution.reshape((Nx, Ny)), p)
+    p.from_numpy(solution.reshape((Ny, Nx)).T)
 
 
 @ti.kernel
@@ -71,8 +66,8 @@ def _fill_matrix_and_rhs(Wo: ti.template(), m: ti.template(), m_0: ti.template()
                          mu_o: ti.template(), mu_w: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
     """Сборка матрицы уравнения давления"""
     num = 0
-    for j in ti.ndrange(Ny):
-        for i in ti.ndrange(Nx):
+    for i in ti.ndrange(Nx):
+        for j in ti.ndrange(Ny):
             idx = i + j * Nx
             p_sum = 0.0
             arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]

@@ -38,8 +38,8 @@ def _update_wells_data(wells: ti.template(), p: ti.template(), S: ti.template(),
 def _get_rows_cols(row_indices: ti.template(), col_indices: ti.template()):
     """Сборка матрицы уравнения давления"""
     num = 0
-    for j in ti.ndrange(Ny):
-        for i in ti.ndrange(Nx):
+    for i in ti.ndrange(Nx):
+        for j in ti.ndrange(Ny):
             idx = i + j * Nx
             # matrix
             arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]

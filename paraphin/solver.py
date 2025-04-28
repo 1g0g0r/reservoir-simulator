@@ -116,8 +116,8 @@ class Solver:
 
         @ti.kernel
         def _initialize_params_loop(fi_o: ti.types.ndarray()):
-            for j in ti.ndrange(Ny):
-                for i in ti.ndrange(Nx):
+            for i in ti.ndrange(Nx):
+                for j in ti.ndrange(Ny):
                     # Параметры пласта
                     self.p[i, j]    = init_p
                     self.S[i, j]    = init_S
@@ -155,8 +155,8 @@ class Solver:
 
     def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = -9999, rw: float = rw):
         """Добавление скважин в расчет"""
-        conductivity_mult = 2.0 * np.pi * h / np.log(_re / rw) * 0.25
-        well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), conductivity_mult=conductivity_mult)
+        productivity_mult = 2.0 * np.pi * h / np.log(_re / rw) * 0.25
+        well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), productivity_mult=productivity_mult)
         self._wells_buffer.append({'well': well, 'name': name})
         self.n_wells += 1
 
@@ -211,8 +211,8 @@ class Solver:
 
     @ti.kernel
     def _equations_loop(self):
-        for j in ti.ndrange(Ny):
-            for i in ti.ndrange(Nx):
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
                 # ---решение гидродинамики---
                 flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps,
                                self.C_o, self.C_w, self.C_p, self.tem_eq_val, self.up_kw_val, self.up_ko_val)
@@ -247,8 +247,8 @@ class Solver:
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
-        for j in ti.ndrange(Ny):
-            for i in ti.ndrange(Nx):
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
                 self.S_0[i, j] = self.S[i, j]
                 self.S[i, j] = self.new_s[i, j]
                 self.T_0[i, j] = self.T[i, j]

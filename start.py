@@ -14,11 +14,11 @@ def solve():
     solution = Solver()
 
     # Создание скважин
-    solution.add_well(name='Injector', i=0,    j=0,    p=Pw, rw=rw, is_injector=True, T=Twater)
-    solution.add_well(name='Producer', i=Nx-1, j=Ny-1, p=Po, rw=rw, is_injector=False)
+    solution.add_well(name='Injector', i=Nx-1,    j=0,    p=Pw, rw=rw, is_injector=True, T=Twater)
+    solution.add_well(name='Producer', i=0, j=Ny-1, p=Po, rw=rw, is_injector=False)
 
     solution.initialize()  # Задание начальных условий из файла const.py
-    solution.upd_time_step(0)  # при первом запуске компилируются модули
+    solution.upd_time_step(0)  # При первом запуске компилируются модули
 
     with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
               bar_format="{l_bar}{bar}[{elapsed}/{rate_fmt}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
