@@ -10,9 +10,8 @@ from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_pa
                                 init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, eta, h,
                                 day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
 from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
-                                temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
-                                preprocess_matrix_and_wells)
-from paraphin.utils import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p
+                                temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
+from paraphin.utils import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p, preprocess_matrix_and_wells
 from paraphin.well import WellStruct, upd_q_and_eta
 
 
