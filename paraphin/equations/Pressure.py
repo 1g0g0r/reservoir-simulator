@@ -75,47 +75,46 @@ def _fill_matrix_and_rhs(Wo: ti.template(), m: ti.template(), m_0: ti.template()
         for i in ti.ndrange(Nx):
             idx = i + j * Nx
             p_sum = 0.0
-
-            if i != 0:  # i - 1, j, hx, hy*h
-                val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                           k[i-1, j], S[i-1, j], mu_o[i-1, j], mu_w[i-1, j]) * hy * h / hx
-                data[num] = val
-                p_sum -= val
-                num += 1
-            if i != Nx - 1:  # i + 1, j, hx, hy*h
-                val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                           k[i + 1, j], S[i + 1, j], mu_o[i + 1, j], mu_w[i + 1, j]) * hy * h / hx
-                data[num] = val
-                p_sum -= val
-                num += 1
-            if j != 0:  # i, j - 1, hy, hx*h
-                val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                           k[i, j - 1], S[i, j - 1], mu_o[i, j - 1], mu_w[i, j - 1]) * hx * h / hy
-                data[num] = val
-                p_sum -= val
-                num += 1
-            if j != Ny - 1:  # i, j + 1, hy, hx*h
-                val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                           k[i, j + 1], S[i, j + 1], mu_o[i, j + 1], mu_w[i, j + 1]) * hx * h / hy
-                data[num] = val
-                p_sum -= val
-                num += 1
+            arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
+            for qq in ti.static(ti.ndrange(4)):
+                i1, j1, hij, areaij = arr[qq]
+                if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                    val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                               k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+                    data[num] = val
+                    p_sum -= val
+                    num += 1
 
             data[num] = p_sum
             num += 1
 
             # rhs
             rhs[idx] = Wo[i, j] * (m[i, j] - m_0[i, j]) / dt * volume
-            # matrix
-            # arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
-            # for qq in ti.static(ti.ndrange(4)):
-            #     i1, j1, hij, areaij = arr[qq]
-            #     if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-            #         val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-            #                                    k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
-            #         data[num] = val
-            #         p_sum -= val
-            #         num += 1
+
+            # if i != 0:  # i - 1, j, hx, hy*h
+            #     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+            #                                k[i-1, j], S[i-1, j], mu_o[i-1, j], mu_w[i-1, j]) * hy * h / hx
+            #     data[num] = val
+            #     p_sum -= val
+            #     num += 1
+            # if i != Nx - 1:  # i + 1, j, hx, hy*h
+            #     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+            #                                k[i + 1, j], S[i + 1, j], mu_o[i + 1, j], mu_w[i + 1, j]) * hy * h / hx
+            #     data[num] = val
+            #     p_sum -= val
+            #     num += 1
+            # if j != 0:  # i, j - 1, hy, hx*h
+            #     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+            #                                k[i, j - 1], S[i, j - 1], mu_o[i, j - 1], mu_w[i, j - 1]) * hx * h / hy
+            #     data[num] = val
+            #     p_sum -= val
+            #     num += 1
+            # if j != Ny - 1:  # i, j + 1, hy, hx*h
+            #     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+            #                                k[i, j + 1], S[i, j + 1], mu_o[i, j + 1], mu_w[i, j + 1]) * hx * h / hy
+            #     data[num] = val
+            #     p_sum -= val
+            #     num += 1
 
     """
     В этом же цикле обновлять поля данных. 

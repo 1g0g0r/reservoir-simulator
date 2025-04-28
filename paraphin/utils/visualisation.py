@@ -3,10 +3,9 @@ from __future__ import annotations
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa, day_to_sec
+from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
+                                day_to_sec, CONTOUR_PLOT)
 from paraphin.utils import read_pkl_files
-
-CONTOUR_PLOT = True
 
 
 def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]] | None = None):
@@ -56,7 +55,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                                        labelfont=dict(size=12, color='black')
                                    ))]
             else:
-                trace = [go.Heatmap(x=x, y=y, z=field,  zmin=np.min(field), zmax=np.max(field),
+                trace = [go.Heatmap(x=x, y=y, z=field, zmin=np.min(field), zmax=np.max(field),
                                    colorscale='Jet', name=name,  # colorscale='Cividis'
                                    hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
         data_fields += trace
@@ -73,7 +72,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     for i in range(n_times):
         step = dict(
             method="update",
-            args=[{"z": [j.z[i] for j in data_fields if j.plotly_name=='contour'] +
+            args=[{"z": [j.z[i] for j in data_fields if j.plotly_name in ['contour', 'heatmap']] +
                         [[j.y[i] for j in data_fields if j.plotly_name=='scatter']]}],
             label=f'{round(time[i], 5)} день'
         )
@@ -119,7 +118,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     fig.show()
 
 
-def show_plot(x, name: str):
+def show_plot(x, name: str = 'map'):
     if x.ndim == 1:
         data = x.reshape((Nx, Ny))
     else:

@@ -71,9 +71,9 @@ class Solver:
         self.k_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # Временные массивы
-        self.dt_val    = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.up_ko_val = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.up_kw_val = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.tem_eq_val = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.up_ko_val  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.up_kw_val  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # Вспомогательные поля класса
         self._i_img = 0
@@ -207,7 +207,7 @@ class Solver:
         for i in ti.ndrange(self.n_wells):
             saturation_well(self.wells[i], self.m, self.new_s)
             wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wps)
-            temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wp, self.Wps, self.new_t)
+            temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
     @ti.kernel
     def _equations_loop(self):
@@ -215,10 +215,10 @@ class Solver:
             for i in ti.ndrange(Nx):
                 # ---решение гидродинамики---
                 flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps,
-                               self.dt_val, self.up_kw_val, self.up_ko_val)
+                               self.C_o, self.C_w, self.C_p, self.tem_eq_val, self.up_kw_val, self.up_ko_val)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
                 temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p,
-                                     self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.up_kw_val, self.up_ko_val, self.dt_val, self.new_t)
+                                     self.Wps, self.Wps_0, self.tem_eq_val, self.new_t)
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина

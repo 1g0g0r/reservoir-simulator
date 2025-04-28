@@ -7,6 +7,7 @@ import taichi as ti
 data_type = ti.f64
 ti.init(arch=ti.cpu, default_fp=data_type)
 LOGGING = False
+CONTOUR_PLOT = False
 
 # Перевод единиц измерения
 day_to_sec = 86400.0
@@ -21,7 +22,7 @@ logs_path = outputs_path / '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nx, Ny = 25, 25  # Число узлов сетки по x и y
+Nx, Ny = 10, 10  # Число узлов сетки по x и y
 X_min, X_max = 0., 250.    # Длина пласта, [м]
 Y_min, Y_max = 0., 250.    # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx
