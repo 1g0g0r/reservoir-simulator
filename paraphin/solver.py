@@ -153,7 +153,7 @@ class Solver:
         _well_processing()
 
 
-    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = -9999, rw: float = rw):
+    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = 0.0, rw: float = rw):
         """Добавление скважин в расчет"""
         productivity_mult = 2.0 * np.pi * h / np.log(_re / rw) * 0.25
         well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), productivity_mult=productivity_mult)
