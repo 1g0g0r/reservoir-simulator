@@ -78,9 +78,26 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
         Температура на новом временном слое, [С]
     """
     i, j = well.i, well.j
-    Twell = T[i, j] if well.T == -9999 else well.T
+    if well.T == -9999:
+        t_aver = 0.0
+        num = 0
+        if i != 0:
+            t_aver += T[i - 1, j]
+            num += 1
+        if i != Nx - 1:
+            t_aver += T[i + 1, j]
+            num += 1
+        if j != 0:
+            t_aver += T[i, j - 1]
+            num += 1
+        if j != Ny - 1:
+            t_aver += T[i, j + 1]
+            num += 1
 
-    multiplier = (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
-                                 ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j]) * volume / dt
+        new_T[i, j] = t_aver / num
 
-    new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[Nx - 1, Ny - 1] * ro_w * well.q[1]) / multiplier * Twell
+    else:
+        multiplier = (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
+                                     ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j]) * volume / dt
+
+        new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[Nx - 1, Ny - 1] * ro_w * well.q[1]) / multiplier * well.T
