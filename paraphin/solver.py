@@ -290,7 +290,7 @@ class Solver:
             # 'Wps':         self.Wps.to_numpy(),
             'Wells':       wells_data_o | wells_data_w | wells_data_t | wells_data_eta
         }
-        with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
+        with open(results_path / f'data_{round(t, 3)}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
 

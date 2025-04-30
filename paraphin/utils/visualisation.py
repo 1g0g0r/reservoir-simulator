@@ -42,8 +42,12 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
             for _name, _val in field.items():
                 if np.all(np.isclose(_val, 0.0)):
                     continue
-                trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
-                                 hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
+                if 'eta' in _name:
+                    trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name, yaxis='y2',
+                                     hovertemplate="x: %{x} день<br>y: %{y}<br>")]
+                else:
+                    trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
+                                     hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
                 wells_plots += 1
         else:
             if CONTOUR_PLOT:
@@ -62,6 +66,12 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
 
     # Создаем фигуру
     fig = go.Figure(data=data_fields)
+
+    fig.update_layout(
+        yaxis2=dict(side="right",
+                    overlaying="y"),
+        legend=dict(x=1.05, y=1.0)
+    )
 
     # Создаем массив отображаемых данных (все False, а на диагонали True)
     visibility = np.eye(len(data_fields), dtype=bool)
