@@ -6,7 +6,7 @@ import taichi as ti
 # Инициализация ядра taichi
 data_type = ti.f64
 ti.init(arch=ti.cpu, default_fp=data_type)
-LOGGING = False
+LOGGING = True
 CONTOUR_PLOT = False
 
 # Перевод единиц измерения
@@ -32,7 +32,7 @@ area = hx * hy
 volume = area * h
 
 # Параметры времени задачи
-Time_end = day_to_sec * 365 * 3
+Time_end = day_to_sec * 365 * 1.5
 dt = day_to_sec  # шаг дискретизации по времени
 
 # Параметры ОФП
@@ -77,8 +77,7 @@ Twater = 20          # температура нагнетаемой воды, [
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
-init_Wo  = 1.0
-init_Wp  = 0.0
+init_Wp  = 0.05
 init_Wps = 0.0
 init_k   = 0.2 * darcy_to_m2  # [м^2]
 init_m   = 0.2
@@ -111,4 +110,4 @@ else:
     dt = 0.05 * round(dt / day_to_sec, 5) * day_to_sec
     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 50 # шаг по времени для сохранения результатов
+sol_time_step = dt  # шаг по времени для сохранения результатов

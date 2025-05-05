@@ -45,7 +45,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p, up_ko_
     """
     new_Wps[i, j] = Wps[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_p) * ((Wps[i, j] * ro_p + ro_o * Wp[i, j]) *
                 (-(m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt + up_ko_val[i, j] * volume) -
-                ro_o * Wp[i, j] * (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j])
+                ro_o * Wp[i, j] * (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j] / volume)
 
     # delta_Hp = Cp * delta (T) - молярные доли парафина, растворенные в нефти
     delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8   # * 1.8 - перевод в фаренгейты
@@ -73,4 +73,4 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wps) -> None:
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j
-    new_Wps[i, j] -= (dt * well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) / (m[i, j] * (1.0 - S[i, j]) * ro_p))
+    new_Wps[i, j] -= dt * (well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) / (m[i, j] * (1.0 - S[i, j]) * ro_p) / volume)

@@ -50,6 +50,8 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wps, C_o, C_w, C_p, temp_eq_
 	for idx in ti.static(ti.ndrange(4)):
 		i1, j1, hij, areaij = arr[idx]
 		if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+			# TODO придумать, как объединить вычисление слагаемых вверх по потоку
+
 			T_Co_ij = ro_o * C_o[i1, j1] * (1.0 - Wps[i1, j1]) + ro_p * Wps[i1, j1] * C_p[i1, j1]
 			lam_ij = m[i1, j1] * (S[i1, j1] * K_w + (1.0 - S[i1, j1]) * ((1.0 - Wps[i1, j1]) * K_o +
 																		 Wps[i1, j1]* K_p)) + (1.0 - m[i1, j1]) * K_f

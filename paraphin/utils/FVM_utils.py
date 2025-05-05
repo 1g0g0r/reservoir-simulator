@@ -19,7 +19,6 @@ def mid_Ko_Kw(k_i: data_type, s_i: data_type, mu_o_i: data_type, mu_w_i: data_ty
 
     return 2.0 * x * y / (x + y)
 
-# TODO придумать, как объединить все слагаемые вверх по потоку
 
 @ti.func
 def up_kw(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_w_i: data_type,

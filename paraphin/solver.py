@@ -7,7 +7,7 @@ import taichi as ti
 
 from paraphin import r1, r3, r4, r5, r6
 from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, fi_0, init_k, init_S,
-                                init_m, init_Wp, init_Wo, init_p, init_qp, init_h_sloy, init_Wps, bar_to_pa, eta, h,
+                                init_m, init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, eta, h,
                                 day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
 from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                                 temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
@@ -77,7 +77,7 @@ class Solver:
 
         # Вспомогательные поля класса
         self._i_img = 0
-        self._paraphin = not np.all(np.isclose(self.Wp.to_numpy(), 0.0))
+        self._paraphin = not np.isclose(init_Wp, 0.0)
         self.rows_indices = np.ndarray
         self.cols_indices = np.ndarray
         results_path.mkdir(parents=True, exist_ok=True)
@@ -122,7 +122,7 @@ class Solver:
                     self.p[i, j]    = init_p
                     self.S[i, j]    = init_S
                     self.S_0[i, j]  = init_S
-                    self.Wo[i, j]   = init_Wo
+                    self.Wo[i, j]   = 1.0 - init_Wp
                     self.Wp[i, j]   = init_Wp
                     self.Wp_0[i, j] = init_Wp
                     self.Wps[i, j]  = init_Wps
@@ -178,9 +178,6 @@ class Solver:
         """Обновление давления."""
         calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells,
                       self.rows_indices, self.cols_indices)
-        if LOGGING:
-            self.logger.info(f"Обновлено давление (bar):      min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
-
 
     @ti.kernel
     def _update_wells_data(self):
@@ -280,17 +277,17 @@ class Solver:
         wells_data_o = {f'{self._wells_buffer[i]["name"]}_oil': self.wells[i].q[0] for i in range(self.n_wells)}
         wells_data_w = {f'{self._wells_buffer[i]["name"]}_water': self.wells[i].q[1] for i in range(self.n_wells)}
         wells_data_t = {f'{self._wells_buffer[i]["name"]}_total': self.wells[i].q[2] for i in range(self.n_wells)}
-        wells_data_eta = {f'{self._wells_buffer[i]["name"]}_eta': self.wells[i].eta / day_to_sec
+        wells_data_eta = {f'{self._wells_buffer[i]["name"]}_eta': self.wells[i].eta
                           for i in range(self.n_wells) if not self.wells[i].is_injector}
         data = {
             'Time':        t,
             'Pressure':    self.p.to_numpy(),
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
-            # 'Wps':         self.Wps.to_numpy(),
+            'Wp':         self.Wp.to_numpy(),
             'Wells':       wells_data_o | wells_data_w | wells_data_t | wells_data_eta
         }
-        with open(results_path / f'data_{round(t, 3)}.pkl', 'wb') as f:
+        with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
 
@@ -310,21 +307,22 @@ class Solver:
         self.logger.info('')
         self._logging_resources()
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день")
-        self.logger.info(f"Обновлена насыщенность:  min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
-        self.logger.info(f"Обновлена температура:   min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
+        self.logger.info(f"Обновлено давление (bar): min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
+        self.logger.info(f"Обновлена насыщенность:   min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
+        self.logger.info(f"Обновлена температура:    min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
         for i in range(self.n_wells):
             self.logger.info(f"Дебит скважины {self._wells_buffer[i]['name']}: q_o={self.wells[i].q[0] * day_to_sec}  q_w={self.wells[i].q[1] * day_to_sec}")
 
         if not self._paraphin:
             return None
-        self.logger.info(f"Обновлены доли взвешенного парафина:   min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
-        self.logger.info(f"Обновлены доли растворенного парафина: min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
+        self.logger.info(f"Wps:  min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
+        self.logger.info(f"Wp:   min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
 
-        self.logger.info(f"Обновлена доля выпадающего парафина:   min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
-        self.logger.info(f"Обновлен множитель пористости:         min={self.m_mult.to_numpy().min()}  max={self.m_mult.to_numpy().max()}")
-        self.logger.info(f"Обновлен множитель проницаемости:      min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
+        self.logger.info(f"qp:   min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
+        self.logger.info(f"m_mult: min={self.m_mult.to_numpy().min()}  max={self.m_mult.to_numpy().max()}")
+        self.logger.info(f"k_mult: min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
 
-        self.logger.info(f"Обновлена толщина осадочного слоя:              min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
-        self.logger.info(f"Обновлена скорость изменения радиуса капилляра: min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
-        self.logger.info(f"Обновлена скорость блокировки капилляров:       min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
+        self.logger.info(f"sloy: min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
+        self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
+        self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
 
