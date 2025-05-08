@@ -22,13 +22,13 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0
     S_0: taichi.field(Nx, Ny)
         Водонасыщенность на старом временном слое, [-]
     C_o: taichi.field(Nx, Ny)
-        Теплоемкость нефти, [Дж/C]
+        Теплоемкость нефти, [Дж/(кг*C)]
     C_w: taichi.field(Nx, Ny)
-        Теплоемкость воды, [Дж/C]
+        Теплоемкость воды, [Дж/(кг*C)]
     C_f: taichi.field(Nx, Ny)
-        Теплоемкость пласта, [Дж/C]
+        Теплоемкость пласта, [Дж/(кг*C)]
     C_p: taichi.field(Nx, Ny)
-        Теплоемкость парафина, [Дж/C]
+        Теплоемкость парафина, [Дж/(кг*C)]
     Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина, [-]
     Wps_0: taichi.field(Nx, Ny)
@@ -65,13 +65,13 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
     S: taichi.field(Nx, Ny)
         Водонасыщенность, [-]
     C_o: taichi.field(Nx, Ny)
-        Теплоемкость нефти, [Дж/C]
+        Теплоемкость нефти, [Дж/(кг*C)]
     C_w: taichi.field(Nx, Ny)
-        Теплоемкость воды, [Дж/C]
+        Теплоемкость воды, [Дж/(кг*C)]
     C_f: taichi.field(Nx, Ny)
-        Теплоемкость пласта, [Дж/C]
+        Теплоемкость пласта, [Дж/(кг*C)]
     C_p: taichi.field(Nx, Ny)
-        Теплоемкость парафина, [Дж/C]
+        Теплоемкость парафина, [Дж/(кг*C)]
     Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина, [-]
     new_T: taichi.field(Nx, Ny)

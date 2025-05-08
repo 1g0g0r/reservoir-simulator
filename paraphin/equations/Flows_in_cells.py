@@ -29,11 +29,11 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wps, C_o, C_w, C_p, temp_eq_
     Wps: taichi.field(Nx, Ny)
         Объемная доля масляного компонента в нефти, [-]
     C_o: taichi.field(Nx, Ny)
-        Теплоемкость нефти, [Дж/C]
+        Теплоемкость нефти, [Дж/(кг*C)]
     C_w: taichi.field(Nx, Ny)
-        Теплоемкость воды, [Дж/C]
+        Теплоемкость воды, [Дж/(кг*C)]
     C_p: taichi.field(Nx, Ny)
-        Теплоемкость парафина, [Дж/C]
+        Теплоемкость парафина, [Дж/(кг*C)]
 	temp_eq_val: taichi.field(Nx, Ny)
 		Сумма величин перетоков тепла в уравнении энергии
 	up_kw_val: taichi.field(Nx, Ny)

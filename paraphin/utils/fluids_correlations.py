@@ -17,25 +17,25 @@ def calc_mu_w(t: data_type) -> data_type:
 
 @ti.func
 def calc_c_w(t: data_type) -> data_type:
-    """"Теплоемкость воды, [Дж/C]"""
+    """"Теплоемкость воды, [Дж/(кг*C)]"""
     return 4217 - 2.15 * t + 0.002 * t ** 2
 
 
 @ti.func
 def calc_c_o(t: data_type) -> data_type:
-    """"Теплоемкость нефти, [Дж/C]"""
+    """"Теплоемкость нефти, [Дж/(кг*C)]"""
     return 1800 + 4 * t + 0.01 * t ** 2
 
 
 @ti.func
 def calc_c_f(t: data_type) -> data_type:
-    """"Теплоемкость пласта, [Дж/C]"""
+    """"Теплоемкость пласта, [Дж/(кг*C)]"""
     return 800 + 0.75 * t
 
 
 @ti.func
 def calc_c_p(t: data_type) -> data_type:
-    """"Теплоемкость парафина, [Дж/C]"""
+    """"Теплоемкость парафина, [Дж/(кг*C)]"""
     return 1840 + 3.56 * t  # (t + 273.15)
 
 
