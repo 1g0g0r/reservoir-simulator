@@ -190,7 +190,7 @@ class Solver:
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         self._update_p()           # Обновление давления
-        self._update_wells_data()  # Обновление дебитов скважин
+        self._update_wells_data()  # Обновление дебетов скважин
         self._equations_loop()     # Решение уравнений по явной схеме
         self._wells_loop()         # Учет скважин в уравнениях
         if self._paraphin:
@@ -284,7 +284,8 @@ class Solver:
             'Pressure':    self.p.to_numpy(),
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
-            'Wp':         self.Wp.to_numpy(),
+            'Wp':          self.Wp.to_numpy(),
+            'Wps':         self.Wps.to_numpy(),
             'Wells':       wells_data_o | wells_data_w | wells_data_t | wells_data_eta
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
@@ -311,7 +312,7 @@ class Solver:
         self.logger.info(f"Обновлена насыщенность:   min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
         self.logger.info(f"Обновлена температура:    min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
         for i in range(self.n_wells):
-            self.logger.info(f"Дебит скважины {self._wells_buffer[i]['name']}: q_o={self.wells[i].q[0] * day_to_sec}  q_w={self.wells[i].q[1] * day_to_sec}")
+            self.logger.info(f"Дебет скважины {self._wells_buffer[i]['name']}: q_o={self.wells[i].q[0] * day_to_sec}  q_w={self.wells[i].q[1] * day_to_sec}")
 
         if not self._paraphin:
             return None

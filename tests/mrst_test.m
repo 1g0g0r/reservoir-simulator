@@ -119,7 +119,7 @@ plot(times, peaceman_q_o, '--', 'LineWidth', 2);
 xlabel('t, дни');
 ylabel('q, м^3/сут');
 legend('reference', 'peaceman');
-title('График дебита добывающей скважины');
+title('График дебета добывающей скважины');
 grid on;
 
 figure;

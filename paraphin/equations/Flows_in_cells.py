@@ -58,9 +58,9 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wps, C_o, C_w, C_p, temp_eq_
 			value = (p[i1, j1] - p[i, j]) * areaij / hij * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
 																	 k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
 			up_k_w = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-						k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
+						   k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
 			up_k_o = up_ko(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
-						k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
+						   k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
 			up_t = up_T(p[i, j], T[i, j], p[i1, j1], T[i1, j1])
 
 			ko += up_k_o
