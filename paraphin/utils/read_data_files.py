@@ -22,7 +22,7 @@ def read_pkl_files() -> dict:
     data = {}
     for name, file_data in file.items():
         if name == 'Wells':
-            data['Wells'] = {_name: [_val] for _name, _val in file_data.items()}
+            data['Wells'] = {_name: np.array([_val]) for _name, _val in file_data.items()}
         else:
             data[name] = np.array([file_data])
 

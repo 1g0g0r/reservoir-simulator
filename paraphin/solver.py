@@ -134,7 +134,8 @@ class Solver:
                     self.T[i, j]    = init_T
                     self.T_0[i, j]  = init_T
                     self.qp[i, j]   = init_qp
-                    self._Um_r2[i, j]= 0.0
+                    self.m_mult[i, j] = 1.0
+                    self.k_mult[i, j] = 1.0
 
                     # свойства флюидов
                     self.mu_o[i, j] = mu_o

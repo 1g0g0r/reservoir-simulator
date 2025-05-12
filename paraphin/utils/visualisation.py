@@ -40,7 +40,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                                    hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")]
         elif name == 'Wells':
             for _name, _val in field.items():
-                if np.all(np.isclose(_val, 0.0)):
+                if np.all(np.isclose(_val, 0.0)) or np.all(np.isclose(_val, 1.0)):
                     continue
                 if 'eta' in _name:
                     trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name, yaxis='y2',
@@ -126,6 +126,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     else:
         fig.write_html(results_path.parent / 'Results.html', include_plotlyjs=js_path)
     fig.show()
+    print('Временных слоев:', n_times)
 
 
 def show_plot(x, name: str = 'map'):

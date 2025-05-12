@@ -51,12 +51,6 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p, up_ko_
     delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8  * 0.000239  # * 1.8 - перевод в фаренгейты
     new_Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
 
-    if i < 1 and j < 1:
-        print()
-        print(m[i, j] * (1.0 - S[i, j]) )
-        print( (Wp[i, j] - Wp_0[i, j]) / dt)
-        print(- ro_p * qp[i, j])
-
 
 @ti.func
 def wps_wp_wells(well, m, S, Wp, Wps, new_Wps) -> None:
@@ -79,4 +73,4 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wps) -> None:
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j
-    new_Wps[i, j] += well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_p * volume)
+    new_Wps[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_p * volume)
