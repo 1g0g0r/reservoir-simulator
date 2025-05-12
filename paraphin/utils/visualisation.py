@@ -10,6 +10,7 @@ from paraphin.utils import read_pkl_files
 
 def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]] | None = None):
     wells_plots = 0
+    aver_param_plots = 0
     if input_data is None:
         input_data = read_pkl_files()
 
@@ -49,6 +50,11 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                     trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
                                      hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
                 wells_plots += 1
+        elif name == 'Average params':
+            for _name, _val in field.items():
+                trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name,
+                                     hovertemplate="x: %{x} день<br>y: %{y}<br>")]
+                aver_param_plots += 1
         else:
             if CONTOUR_PLOT:
                 trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
@@ -75,7 +81,9 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
 
     # Создаем массив отображаемых данных (все False, а на диагонали True)
     visibility = np.eye(len(data_fields), dtype=bool)
-    visibility[-wells_plots:, -wells_plots:] = True
+    visibility[-wells_plots-aver_param_plots, -wells_plots-aver_param_plots:-aver_param_plots] = True
+    visibility[-wells_plots-aver_param_plots+1, -aver_param_plots:] = True
+    visibility[-wells_plots-aver_param_plots+1,-wells_plots-aver_param_plots+1] = False
 
     # Добавляем слайдеры для изменения данных
     steps = []

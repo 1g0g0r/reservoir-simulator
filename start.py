@@ -24,7 +24,7 @@ def solve():
     print('Время компиляции:', perf_counter() - tt)
 
     with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
-              bar_format="{l_bar}{bar}[{elapsed}/{rate_fmt}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
+              bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
         for t in pbar:
             solution.upd_time_step(t)
             pbar.set_postfix(день=t / day_to_sec)

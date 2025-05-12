@@ -21,8 +21,8 @@ def read_pkl_files() -> dict:
 
     data = {}
     for name, file_data in file.items():
-        if name == 'Wells':
-            data['Wells'] = {_name: np.array([_val]) for _name, _val in file_data.items()}
+        if name in ['Wells', 'Average params']:
+            data[name] = {_name: np.array([_val]) for _name, _val in file_data.items()}
         else:
             data[name] = np.array([file_data])
 
@@ -33,9 +33,9 @@ def read_pkl_files() -> dict:
             with open(file_path, 'rb') as f:
                 file = load(f)
             for name, file_data in file.items():
-                if name == 'Wells':
+                if name in ['Wells', 'Average params']:
                     for _name, _val in file_data.items():
-                        data['Wells'][_name] = np.concatenate((data['Wells'][_name],  [file_data[_name]]), axis=0)
+                        data[name][_name] = np.concatenate((data[name][_name],  [file_data[_name]]), axis=0)
                 else:
                     data[name] = np.concatenate((data[name], [file_data]), axis=0)
         except (PickleError, EOFError) as e:

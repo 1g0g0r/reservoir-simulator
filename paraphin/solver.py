@@ -280,8 +280,8 @@ class Solver:
             well = self.wells[i]
             q_value = well.q
             wells_data.update({
-                f"{name}_oil": q_value[0], f"{name}_water": q_value[1],
-                f"{name}_total": q_value[2], f"{name}_eta": well.eta
+                f'{name}_oil': q_value[0], f'{name}_water': q_value[1],
+                f'{name}_total': q_value[2], f'{name}_eta': well.eta
             })
 
         data = {
@@ -291,7 +291,10 @@ class Solver:
             'Temperature': self.T.to_numpy(),
             'Wp':          self.Wp.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
-            'Wells':       wells_data
+            'Qp':          self.qp.to_numpy(),
+            'Wells':       wells_data,
+            'Average params': {'aver Wp':  np.mean(self.Wp.to_numpy()),
+                               'aver Wps': np.mean(self.Wps.to_numpy())}
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
@@ -325,7 +328,7 @@ class Solver:
         self.logger.info(f"Wps:  min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
         self.logger.info(f"Wp:   min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
 
-        self.logger.info(f"qp:   min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
+        self.logger.info(f"qp:     min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
         self.logger.info(f"m_mult: min={self.m_mult.to_numpy().min()}  max={self.m_mult.to_numpy().max()}")
         self.logger.info(f"k_mult: min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
 

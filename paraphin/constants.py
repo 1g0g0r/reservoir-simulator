@@ -6,7 +6,7 @@ import taichi as ti
 # Инициализация ядра taichi
 data_type = ti.f64
 ti.init(arch=ti.cpu, default_fp=data_type)
-LOGGING = True
+LOGGING = False
 CONTOUR_PLOT = False
 
 # Перевод единиц измерения
