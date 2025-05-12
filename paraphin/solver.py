@@ -23,6 +23,7 @@ class Solver:
         # Скважины
         self.n_wells = 0
         self._wells_buffer = []
+        self._wells_names = []
         self.wells = WellStruct.field(shape=1)
 
         # Свойства флюидов
@@ -99,6 +100,7 @@ class Solver:
 
     def initialize(self):
         def _well_processing():
+            self._wells_names = [i['name'] for i in self._wells_buffer]
             self.wells = WellStruct.field(shape=self.n_wells)
             self.rows_indices, self.cols_indices, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
 
@@ -271,11 +273,15 @@ class Solver:
                 file_path.unlink()
             self.logger.info('Старые файлы удалены.')
 
-        wells_data_o = {f'{self._wells_buffer[i]["name"]}_oil': self.wells[i].q[0] for i in range(self.n_wells)}
-        wells_data_w = {f'{self._wells_buffer[i]["name"]}_water': self.wells[i].q[1] for i in range(self.n_wells)}
-        wells_data_t = {f'{self._wells_buffer[i]["name"]}_total': self.wells[i].q[2] for i in range(self.n_wells)}
-        wells_data_eta = {f'{self._wells_buffer[i]["name"]}_eta': self.wells[i].eta
-                          for i in range(self.n_wells) if not self.wells[i].is_injector}
+        wells_data = {}
+        for i in range(self.n_wells):
+            name = self._wells_names[i]
+            q_value = self.wells[i].q
+            wells_data.update({
+                f"{name}_oil": q_value[0], f"{name}_water": q_value[1],
+                f"{name}_total": q_value[2], f"{name}_eta": eta
+            })
+
         data = {
             'Time':        t,
             'Pressure':    self.p.to_numpy(),
@@ -283,7 +289,7 @@ class Solver:
             'Temperature': self.T.to_numpy(),
             'Wp':          self.Wp.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
-            'Wells':       wells_data_o | wells_data_w | wells_data_t | wells_data_eta
+            'Wells':       wells_data
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
