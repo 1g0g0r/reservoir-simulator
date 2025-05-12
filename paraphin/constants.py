@@ -81,7 +81,7 @@ init_Wp  = 0.05
 init_Wps = 0.0
 init_k   = 0.2 * darcy_to_m2  # [м^2]
 init_m   = 0.2
-init_T   = 40  # [C]
+init_T   = 80  # [C]
 init_qp  = 0.0
 init_h_sloy = 0.0
 

@@ -166,7 +166,6 @@ class Solver:
         self._process_time_step()
         self._logging_solution(t)
         self._swap_time_steps()
-        self.logger.info('Поля данных обновлены на текущем временном слое.')
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):
@@ -222,11 +221,9 @@ class Solver:
                     wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
                                     self.T, self.T_0, self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-                    calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur,
-                                     self.new_h, self.new_Ur, self.new_Ub)
+                    calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None],
-                                   self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+                    # calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
                 # self._update_mu_and_c_temp(i, j)
 
@@ -316,6 +313,7 @@ class Solver:
 
         if not self._paraphin:
             return None
+        self.logger.info(f"Wo:   min={self.Wo.to_numpy().min()}  max={self.Wo.to_numpy().max()}")
         self.logger.info(f"Wps:  min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
         self.logger.info(f"Wp:   min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
 
