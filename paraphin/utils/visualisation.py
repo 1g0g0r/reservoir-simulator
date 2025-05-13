@@ -22,6 +22,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     del input_data['Time']
 
     # Создаем графики
+    n_fields = len(input_data)
     data_fields = []
     for name, field in input_data.items():
         trace = []
@@ -81,9 +82,12 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
 
     # Создаем массив отображаемых данных (все False, а на диагонали True)
     visibility = np.eye(len(data_fields), dtype=bool)
-    visibility[-wells_plots-aver_param_plots, -wells_plots-aver_param_plots:-aver_param_plots] = True
-    visibility[-wells_plots-aver_param_plots+1, -aver_param_plots:] = True
-    visibility[-wells_plots-aver_param_plots+1,-wells_plots-aver_param_plots+1] = False
+    if aver_param_plots == 0:
+        visibility[n_fields-1, n_fields-1:] = True
+    else:
+        visibility[n_fields-2, n_fields-2:-aver_param_plots] = True
+        visibility[n_fields-1, n_fields-2 + wells_plots:] = True
+        visibility[n_fields-1, n_fields-1] = False
 
     # Добавляем слайдеры для изменения данных
     steps = []
