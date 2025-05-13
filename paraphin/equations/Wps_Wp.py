@@ -47,8 +47,9 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p, up_ko_
                 (-(m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt + up_ko_val[i, j] / volume) -
                 ro_o * m[i, j] * (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j])
 
-    # delta_Hp = Cp * delta (T) - молярные доли парафина, растворенные в нефти
-    delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8  * 0.000239  # * 1.8 - перевод в фаренгейты
+    # молярные доли парафина, растворенные в нефти
+    delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8  # * 1.8 - перевод в фаренгейты   * 0.000239
+
     new_Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
 
 

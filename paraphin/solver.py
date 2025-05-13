@@ -293,8 +293,8 @@ class Solver:
             'Wps':         self.Wps.to_numpy(),
             'Qp':          self.qp.to_numpy(),
             'Wells':       wells_data,
-            'Average params': {'aver Wp':  np.mean(self.Wp.to_numpy()),
-                               'aver Wps': np.mean(self.Wps.to_numpy())}
+            'Average params': {'aver Wp':  np.average(self.Wp.to_numpy()),
+                               'aver Wps': np.average(self.Wps.to_numpy())}
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
