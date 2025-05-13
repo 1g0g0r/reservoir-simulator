@@ -43,8 +43,6 @@ def calc_velocitys_h(i, j, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new,
         Вязкость нефти, [Па*с]
     fi: taichi.field(Nx, Ny, Nr)
         Функция распределения пор по размеру, [-]
-    r: taichi.field(Nr)
-        Радиусы пор, [m]
     h_sloy: : taichi.field(Nx, Ny, Nr)
          Толщина осадочного слоя, [m]
     Ur: taichi.field(Nx, Ny, Nr)
@@ -89,7 +87,8 @@ def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type
     ur = 0.0
     if 2.0 * r * gamma > D:
         # Сужение (кольматация) каналов
-        # Ur = -wps * (Um * 2 * Diff ** 2 / (r * Lk)) ** (1/3)
+        # TODO нужен ли минус и надо ли 86400*
+        # Ur = -wps * (um * 2 * Diff ** 2 / (r * Lk)) ** (1/3)
         ur = -wps * (um * Diff_2 / r) ** (1/3)
 
         # Расширение (суффозия) каналов

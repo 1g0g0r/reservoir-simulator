@@ -7,7 +7,7 @@ import taichi as ti
 
 from paraphin import r1, r3, r4, r5, r6
 from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, fi_0, init_k, init_S,
-                                init_m, init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, eta, h,
+                                init_m, init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, eta, h, dt,
                                 day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
 from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                                 temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
@@ -64,9 +64,9 @@ class Solver:
         self.new_Ur  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.new_Ub  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.new_s   = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.new_t   = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.new_wps = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.new_wp  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.new_t   = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.new_qp  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.m_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.k_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
@@ -124,7 +124,7 @@ class Solver:
                     self.p[i, j]    = init_p
                     self.S[i, j]    = init_S
                     self.S_0[i, j]  = init_S
-                    self.Wo[i, j]   = 1.0 - init_Wp
+                    self.Wo[i, j]   = 1.0 - init_Wp - init_Wps
                     self.Wp[i, j]   = init_Wp
                     self.Wp_0[i, j] = init_Wp
                     self.Wps[i, j]  = init_Wps
@@ -144,6 +144,10 @@ class Solver:
                     self.C_o[i, j] = c_o
                     self.C_f[i, j] = c_f
                     self.C_p[i, j] = c_p
+
+                    # Поля данный нового временного слоя
+                    self.new_wps[i, j] = init_Wps
+                    self.new_wp[i, j] = init_Wp
 
                     for ij in ti.ndrange(Nr):
                         self.fi[i, j, ij]     = fi_o[ij]
@@ -213,20 +217,17 @@ class Solver:
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
                 # ---решение гидродинамики---
-                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps,
-                               self.C_o, self.C_w, self.C_p, self.tem_eq_val, self.up_kw_val, self.up_ko_val)
+                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps, self.C_o, self.C_w, self.C_p, self.tem_eq_val, self.up_kw_val, self.up_ko_val)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
-                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p,
-                                     self.Wps, self.Wps_0, self.tem_eq_val, self.new_t)
+                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.tem_eq_val, self.new_t)
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина
-                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps,
-                                    self.T, self.T_0, self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0, self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    # calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
                 # self._update_mu_and_c_temp(i, j)
 
@@ -291,7 +292,8 @@ class Solver:
             'Temperature': self.T.to_numpy(),
             'Wp':          self.Wp.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
-            'Qp':          self.qp.to_numpy(),
+            'm_mult':      self.m_mult.to_numpy(),
+            'k_mult':      self.k_mult.to_numpy(),
             'Wells':       wells_data,
             'Average params': {'aver Wp':  np.average(self.Wp.to_numpy()),
                                'aver Wps': np.average(self.Wps.to_numpy())}
@@ -299,6 +301,7 @@ class Solver:
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
+            self.logger.info('')
 
 
     def _logging_resources(self) -> None:
@@ -313,9 +316,8 @@ class Solver:
         """Логирование полей задачи"""
         if not LOGGING:
             return None
-        self.logger.info('')
         self._logging_resources()
-        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день")
+        self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день ({int(t / dt)} итерация)")
         self.logger.info(f"Обновлено давление (bar): min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
         self.logger.info(f"Обновлена насыщенность:   min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
         self.logger.info(f"Обновлена температура:    min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
