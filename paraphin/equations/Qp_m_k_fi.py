@@ -31,7 +31,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
     new_qp: taichi.field(Nx, Ny)
          Скорость отложения парафиновых отложений в общем объеме пористой породы
     m_mult: taichi.field(Nx, Ny)
-        Изменение пористрости из-за влияния частиц парафина, [-]
+        Изменение пористости из-за влияния частиц парафина, [-]
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
     """
@@ -57,7 +57,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
             qp2 +=  (r3[ij] - r3[ij-1]) * A_ub / 3 + (r4[ij] - r4[ij-1]) * B_ub / 4  # ub * r^2
 
         # Обновление функции пор по размерам
-        # fi[i, j, ij] = upd_fi(fi[i, j, ij], Ur[i, j, ij], fi[i, j, ij - 1], Ur[i, j, ij-1], dr, Ub[i, j, ij])
+        fi[i, j, ij] = upd_fi(fi[i, j, ij], Ur[i, j, ij], fi[i, j, ij - 1], Ur[i, j, ij-1], dr, Ub[i, j, ij])
 
     # TODO посмотреть ЕИ qp. Значения qp1 слишком большое !!
     new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi

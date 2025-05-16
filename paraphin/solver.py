@@ -333,8 +333,8 @@ class Solver:
         self.logger.info(f"m_mult: min={self.m_mult.to_numpy().min()}  max={self.m_mult.to_numpy().max()}")
         self.logger.info(f"k_mult: min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
 
+        self.logger.info(f"fi:   min={self.fi.to_numpy().min()}  max={self.fi.to_numpy().max()}")
         self.logger.info(f"sloy: min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
-        self.logger.info(f"um:   min={self._Um_r2.to_numpy().min()*0.000001*0.000001}  max={self._Um_r2.to_numpy().max()*0.000001*0.000001}")
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
 
