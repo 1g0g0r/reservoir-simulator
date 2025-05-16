@@ -209,7 +209,7 @@ class Solver:
         ti.loop_config(serialize=True)
         for i in ti.ndrange(self.n_wells):
             saturation_well(self.wells[i], self.m, self.new_s)
-            wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wps)
+            # wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wps)
             temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
     @ti.kernel
@@ -223,7 +223,7 @@ class Solver:
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина
-                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0, self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
+                    # wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wp_0, self.Wps, self.T, self.T_0, self.C_p, self.up_ko_val, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
@@ -292,11 +292,10 @@ class Solver:
             'Temperature': self.T.to_numpy(),
             'Wp':          self.Wp.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
-            'm_mult':      self.m_mult.to_numpy(),
-            'k_mult':      self.k_mult.to_numpy(),
+            'qp':          self.qp.to_numpy(),
             'Wells':       wells_data,
-            'Average params': {'aver Wp':  np.average(self.Wp.to_numpy()),
-                               'aver Wps': np.average(self.Wps.to_numpy())}
+            # 'Average params': {'aver Wp':  np.average(self.Wp.to_numpy()),
+            #                    'aver Wps': np.average(self.Wps.to_numpy())}
         }
         with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
             dump(data, f)
@@ -335,6 +334,7 @@ class Solver:
         self.logger.info(f"k_mult: min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
 
         self.logger.info(f"sloy: min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
+        self.logger.info(f"um:   min={self._Um_r2.to_numpy().min()*0.000001*0.000001}  max={self._Um_r2.to_numpy().max()*0.000001*0.000001}")
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
 

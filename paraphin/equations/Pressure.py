@@ -37,9 +37,6 @@ def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ind
         Вязкость воды, [Па*с]
     wells: taichi.field(n_wells)
         Массив скважин
-    mask_csc_sort: np.ndarray(NN)
-        Маска сортировки элементов в разреженном формате CSC
-
     """
     _fill_matrix_and_rhs(Wo, m, m_0, k, S, mu_o, mu_w, data, rhs)
     _adding_wells(wells, Wo, data, rhs)
