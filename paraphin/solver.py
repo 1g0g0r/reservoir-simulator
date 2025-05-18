@@ -182,8 +182,8 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells,
-                      self.rows_indices, self.cols_indices)
+        calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o,
+                      self.mu_w, self.wells, self.rows_indices, self.cols_indices)
 
     @ti.kernel
     def _update_wells_data(self):
@@ -297,10 +297,9 @@ class Solver:
             # 'Average params': {'aver Wp':  np.average(self.Wp.to_numpy()),
             #                    'aver Wps': np.average(self.Wps.to_numpy())}
         }
-        with open(results_path / f'data_{round(t / day_to_sec, 3)}.pkl', 'wb') as f:
+        with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
-            self.logger.info('')
 
 
     def _logging_resources(self) -> None:
@@ -315,13 +314,15 @@ class Solver:
         """Логирование полей задачи"""
         if not LOGGING:
             return None
+
+        self.logger.info('')
         self._logging_resources()
         self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день ({int(t / dt)} итерация)")
-        self.logger.info(f"Обновлено давление (bar): min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
+        self.logger.info(f"Обновлено давление (бар): min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
         self.logger.info(f"Обновлена насыщенность:   min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
         self.logger.info(f"Обновлена температура:    min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
         for i in range(self.n_wells):
-            self.logger.info(f"Дебет скважины {self._wells_buffer[i]['name']}: q_o={self.wells[i].q[0] * day_to_sec}  q_w={self.wells[i].q[1] * day_to_sec}")
+            self.logger.info(f"Дебет скважины {self._wells_buffer[i]['name']} (м^3/сут): q_o={self.wells[i].q[0] * day_to_sec}  q_w={self.wells[i].q[1] * day_to_sec}")
 
         if not self._paraphin:
             return None
@@ -338,3 +339,7 @@ class Solver:
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
 
+
+        # self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
+        # self.logger.info(f"Ur:   {' '.join([f'{x}' for x in self.Ur.to_numpy()[0, 0]])}")
+        # self.logger.info(f"Ub:   {' '.join([f'{x}' for x in self.Ub.to_numpy()[0, 0]])}")

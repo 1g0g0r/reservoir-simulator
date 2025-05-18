@@ -33,7 +33,7 @@ volume = area * h
 
 # Параметры времени задачи
 Time_end = day_to_sec * 365 * 1.5
-dt = day_to_sec  # шаг дискретизации по времени
+dt = day_to_sec / 1e3 # шаг дискретизации по времени
 
 # Параметры ОФП
 S_min = 0.2
@@ -77,8 +77,8 @@ Twater = 20          # температура нагнетаемой воды, [
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
-init_Wp  = 0.04
-init_Wps = 0.01
+init_Wp  = 0.049
+init_Wps = 0.001
 init_k   = 0.2 * darcy_to_m2  # [м^2]
 init_m   = 0.2
 init_T   = 80  # [C]
@@ -105,9 +105,9 @@ if Courant_num > 0.8:
     dt = 0.02 * _re / _u_aver
     dt = round(dt / day_to_sec, 5) * day_to_sec
     print(f'Не выполнено условие Куранта!! Новый шаг по времени {dt / day_to_sec} сут.')
-else:
-    dt /= (Courant_num / 0.8)
-    dt = 0.05 * round(dt / day_to_sec, 5) * day_to_sec
-    print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
+# else:
+#     dt /= (Courant_num / 0.8)
+#     dt = 0.01 * round(dt / day_to_sec, 5) * day_to_sec
+#     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
 sol_time_step = dt # шаг по времени для сохранения результатов
