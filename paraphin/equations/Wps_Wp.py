@@ -1,13 +1,10 @@
 import taichi as ti
 
-from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R
-
-
-temp = 1.0 / (1.8 * Tm + 32.0)
+from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha
 
 
 @ti.func
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p, up_ko_val, new_Wp, new_Wps) -> None:
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, up_ko_val, new_Wp, new_Wps) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -32,10 +29,6 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p, up_ko_
         Концентрация взвешенных частиц парафина, [-]
     T: taichi.field(Nx, Ny)
         Температура, [С]
-    T_0: taichi.field(Nx, Ny)
-        Температура на прошлом временном слое, [С]
-    C_p: taichi.field(Nx, Ny)
-        Теплоемкость парафина, [Дж/(кг*C)]
     up_ko_val: taichi.field(Nx, Ny)
         Перетоки нефти в ячейках, [Па*м]
     new_Wp: taichi.field(Nx, Ny)
@@ -47,10 +40,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, T_0, C_p, up_ko_
                 (-(m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt + up_ko_val[i, j] / volume) -
                 ro_o * m[i, j] * (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j])
 
-    # молярные доли парафина, растворенные в нефти
-    delta_Hp = C_p[i, j] * (T[i, j] - T_0[i, j]) * 1.8  # * 1.8 - перевод в фаренгейты   * 0.000239
-
-    new_Wp[i, j] = Wps[i, j] * ti.exp(delta_Hp / R * (temp - 1.0 / (1.8 * T[i, j] + 32.0)))
+    new_Wp[i, j] = Wps[i, j] * ti.exp(alpha / R * (1 / Tm - 1 / T[i, j]))
 
 
 @ti.func

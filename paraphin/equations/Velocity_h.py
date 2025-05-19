@@ -87,12 +87,13 @@ def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type
     ur = 0.0
     if 2.0 * r * gamma > D:
         # Сужение (кольматация) каналов
-        # Ur = -wps * (um * 2 * Diff ** 2 / (r * Lk)) ** (1/3)
+        # ur = -wps * (um * 2 * Diff ** 2 / (r * Lk)) ** (1/3)
         ur = -wps * (um * Diff_2 / r) ** (1/3)
 
         # Расширение (суффозия) каналов
         if um > uc and h > 0:
-            ur += Delta * (um - uc) * h * (r + h * 0.5) / r / day_to_sec
+            ue = Delta * (um - uc) * h * (r + h * 0.5) / r
+            ur += ue
 
     return ur
 
@@ -120,7 +121,7 @@ def u_b(um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type
     ub = 0.0
     if 2.0 * r * gamma <= D:
         # 6.0 * betta * wps * r * r * fi * Um / D**3
-        ub = wps * r * r * fi * um * b_D_3 / day_to_sec
+        ub = wps * r * r * fi * um * b_D_3
 
     return ub
 
@@ -148,7 +149,7 @@ def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
     if x0 <= 1.0:
         x = 1.0 - x0
         # uc = Cf * D * D * 9.81 / 18.0 * ro / (mu * (1.0 - x * x))
-        uc =  cf_D2 * ro / (mu * (1.0 - x * x)) / day_to_sec
+        uc =  cf_D2 * ro / (mu * (1.0 - x * x))
 
     return uc
 
