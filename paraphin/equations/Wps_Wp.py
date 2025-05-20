@@ -1,10 +1,10 @@
 import taichi as ti
 
-from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha
+from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type
 
 
 @ti.func
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wps_0, Wps, T, up_ko_val, new_Wp, new_Wps) -> None:
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wps_0, Wps, T, T_0, cells_Wp_eq, new_Wp, new_Wps) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -29,19 +29,23 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wps_0, Wps, T, up_ko_val, new_
         Концентрация взвешенных частиц парафина, [-]
     T: taichi.field(Nx, Ny)
         Температура, [С]
-    up_ko_val: taichi.field(Nx, Ny)
+    cells_Wp_eq: taichi.field(Nx, Ny)
         Перетоки нефти в ячейках, [Па*м]
     new_Wp: taichi.field(Nx, Ny)
         Концентрация растворенного парафина на новом временном слое, [-]
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    new_Wp[i, j] = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * ((Wps[i, j] * ro_p + Wp[i, j] * ro_o) *
-                (-(m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt + up_ko_val[i, j] / volume) -
-                ro_p * m[i, j] * (1.0 - S[i, j]) * (Wps[i, j] - Wps_0[i, j]) / dt - ro_p * qp[i, j])
+    Wps_i = Wp[i, j] * _Wp_to_Wps(T[i, j])
+    Wps_0_i = Wp[i, j] * _Wp_to_Wps(T_0[i, j])
 
-    new_Wps[i, j] = Wp[i, j] * ti.exp(alpha / R * (1 / T[i, j] - 1 / Tm))
-    # TODO спросить про временные слои Wp
+    new_Wp[i, j] = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
+            - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
+            - ro_p * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
+            + cells_Wp_eq[i, j] / volume - ro_p * qp[i, j] / volume)
+    # TODO нужно ли умножать на объем ro_p * qp[i, j]
+
+    new_Wps[i, j] = 1.0 - Wp[i, j] - Wo[i, j]
 
 
 @ti.func
@@ -66,3 +70,9 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
     """
     i, j = well.i, well.j
     new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)
+
+
+@ti.func
+def _Wp_to_Wps(T: data_type) -> data_type:
+    """Моделирование процесса кристаллизации парафина."""
+    return ti.exp(alpha / R * (1.0 / T - 1.0 / Tm))

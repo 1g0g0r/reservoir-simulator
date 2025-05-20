@@ -72,13 +72,13 @@ class Solver:
         self.k_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # Временные массивы
-        self.tem_eq_val = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.up_ko_val  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.up_kw_val  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.cells_T_eq = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.cells_Wp_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.cells_S_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # Вспомогательные поля класса
         self._i_img = 0
-        self._paraphin = not np.isclose(init_Wp, 0.0)
+        self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)
         self.rows_indices = np.ndarray
         self.cols_indices = np.ndarray
         results_path.mkdir(parents=True, exist_ok=True)
@@ -173,6 +173,9 @@ class Solver:
         self._process_time_step()
         self._logging_solution(t)
         self._swap_time_steps()
+        if self.Wp.to_numpy()[0, 0] > 2:
+            import sys
+            sys.exit(11111)
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):
@@ -217,17 +220,17 @@ class Solver:
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
                 # ---решение гидродинамики---
-                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wps, self.C_o, self.C_w, self.C_p, self.tem_eq_val, self.up_kw_val, self.up_ko_val)
-                saturation_equation(i, j, self.S, self.m, self.m_0, self.up_kw_val, self.new_s)
-                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.tem_eq_val, self.new_t)
+                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
+                saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_s)
+                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.cells_T_eq, self.new_t)
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина
-                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wp, self.Wps_0, self.Wps, self.T, self.up_ko_val, self.new_wp, self.new_wps)
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wps_0, self.Wps, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+                    # calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
                 # self._update_mu_and_c_temp(i, j)
 
@@ -294,12 +297,12 @@ class Solver:
             'Wps':         self.Wps.to_numpy(),
             'qp':          self.qp.to_numpy(),
             'Wells':       wells_data,
-            # 'Average params': {'aver Wp':  np.average(self.Wp.to_numpy()),
-            #                    'aver Wps': np.average(self.Wps.to_numpy()),
-            #                    'Wp+Wps+Wo': np.average(self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy())}
-            'Average params': {'Wp':  self.Wp.to_numpy()[0,0],
-                               'Wps': self.Wps.to_numpy()[0,0],
-                               'Wp+Wps+Wo': (self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy())[0,0]}
+            'Average params': {
+                'Wp':  self.Wp.to_numpy()[0,0],
+                'Wps': self.Wps.to_numpy()[0,0],
+                # 'Wp+Wps+Wo': (self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy())[0,0],
+                # 'qp': self.qp.to_numpy()[0,0]
+            }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
             dump(data, f)
@@ -344,8 +347,3 @@ class Solver:
         self.logger.info(f"sloy: min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
-
-
-        # self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
-        # self.logger.info(f"Ur:   {' '.join([f'{x}' for x in self.Ur.to_numpy()[0, 0]])}")
-        # self.logger.info(f"Ub:   {' '.join([f'{x}' for x in self.Ub.to_numpy()[0, 0]])}")

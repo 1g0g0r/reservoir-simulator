@@ -4,7 +4,7 @@ from paraphin.constants import dt, volume
 
 
 @ti.func
-def saturation_equation(i, j, S, m, m_0, up_kw_val, new_S) -> None:
+def saturation_equation(i, j, S, m, m_0, cells_S_eq, new_S) -> None:
     """Вычисление водонасыщенности по явной схеме.
 
     Parameters
@@ -17,12 +17,12 @@ def saturation_equation(i, j, S, m, m_0, up_kw_val, new_S) -> None:
         Пористость, [-]
     m_0: taichi.field(Nx, Ny)
         Пористость на прошлом временном слое, [-]
-    up_kw_val: taichi.field(Nx, Ny)
+    cells_S_eq: taichi.field(Nx, Ny)
         Перетоки воды в ячейках, [Па*м]
     new_S: taichi.field(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """
-    new_S[i, j] = S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * up_kw_val[i, j] / volume) / m[i, j]
+    new_S[i, j] = S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * cells_S_eq[i, j] / volume) / m[i, j]
 
 
 @ti.func

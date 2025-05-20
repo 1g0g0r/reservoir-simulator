@@ -4,7 +4,7 @@ from paraphin.constants import Nx, Ny, dt, volume, ro_w, ro_f, ro_o, ro_p
 
 
 @ti.func
-def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0, temp_eq_val, new_T) -> None:
+def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0, cells_T_eq, new_T) -> None:
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -33,7 +33,7 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0
         Концентрация взвешенных частиц парафина, [-]
     Wps_0: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на старом временном слое, [-]
-    temp_eq_val: taichi.field(Nx, Ny)
+    cells_T_eq: taichi.field(Nx, Ny)
 		Сумма величин перетоков тепла в уравнении энергии
     new_T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
@@ -47,7 +47,7 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0
     multiplier = (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i,j] * (1.0 - Wps[i,j]) +
                                      ro_p * C_p[i,j] * Wps[i,j])) + (1.0 - m[i,j]) * ro_f * C_f[i,j]) * volume / dt
 
-    new_T[i, j] = T[i, j] + (temp_eq_val[i, j] - derivative_add) / multiplier
+    new_T[i, j] = T[i, j] + (cells_T_eq[i, j] - derivative_add) / multiplier
 
 
 @ti.func
