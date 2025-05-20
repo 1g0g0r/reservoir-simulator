@@ -67,7 +67,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                                    ))]
             else:
                 trace = [go.Heatmap(x=x, y=y, z=field, zmin=np.min(field), zmax=np.max(field),
-                                   colorscale='Jet', name=name,  # colorscale='Cividis'
+                                   colorscale='Jet', name=name,  # colorscale='bluered'
                                    hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
         data_fields += trace
 

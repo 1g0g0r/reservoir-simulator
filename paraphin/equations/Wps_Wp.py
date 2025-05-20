@@ -4,7 +4,7 @@ from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha
 
 
 @ti.func
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, up_ko_val, new_Wp, new_Wps) -> None:
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wps_0, Wps, T, up_ko_val, new_Wp, new_Wps) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -23,7 +23,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, up_ko_val, new_W
         Водонасыщенность на прошлом временном слое, [-]
     Wp: taichi.field(Nx, Ny)
         Концентрация растворенного парафина, [-]
-    Wp_0: taichi.field(Nx, Ny)
+    Wps_0: taichi.field(Nx, Ny)
         Концентрация растворенного парафина на прошлом временном слое, [-]
     Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина, [-]
@@ -36,15 +36,16 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, T, up_ko_val, new_W
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    new_Wps[i, j] = Wps[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_p) * ((Wps[i, j] * ro_p + Wp[i, j] * ro_o) *
+    new_Wp[i, j] = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * ((Wps[i, j] * ro_p + Wp[i, j] * ro_o) *
                 (-(m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt + up_ko_val[i, j] / volume) -
-                ro_o * m[i, j] * (1.0 - S[i, j]) * (Wp[i, j] - Wp_0[i, j]) / dt - ro_p * qp[i, j])
+                ro_p * m[i, j] * (1.0 - S[i, j]) * (Wps[i, j] - Wps_0[i, j]) / dt - ro_p * qp[i, j])
 
-    new_Wp[i, j] = Wps[i, j] * ti.exp(alpha / R * (1 / Tm - 1 / T[i, j]))
+    new_Wps[i, j] = Wp[i, j] * ti.exp(alpha / R * (1 / T[i, j] - 1 / Tm))
+    # TODO спросить про временные слои Wp
 
 
 @ti.func
-def wps_wp_wells(well, m, S, Wp, Wps, new_Wps) -> None:
+def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -60,8 +61,8 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wps) -> None:
     Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина, [-]
         Концентрация растворенного парафина на новом временном слое, [-]
-    new_Wps: taichi.field(Nx, Ny)
+    new_Wp: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j
-    new_Wps[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_p * volume)
+    new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)
