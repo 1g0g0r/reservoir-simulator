@@ -1,7 +1,7 @@
 import taichi as ti
 
 from paraphin import r1, r2, r3, r4, r5, r6
-from paraphin.constants import data_type, Nr, dt, D, gamma
+from paraphin.constants import Nr, dt, D, gamma
 
 D_2_g = D * 0.5 / gamma
 
@@ -57,7 +57,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
             qp2 +=  (r3[ij] - r3[ij-1]) * A_ub / 3 + (r4[ij] - r4[ij-1]) * B_ub / 4  # ub * r^2
 
         # Обновление функции пор по размерам
-        fi[i, j, ij] = upd_fi(fi[i, j, ij], Ur[i, j, ij], fi[i, j, ij - 1], Ur[i, j, ij-1], dr, Ub[i, j, ij])
+        upd_fi(fi, Ur, Ub, i, j, ij)
 
     # TODO посмотреть ЕИ qp. Значения qp1 слишком большое !!
     new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
@@ -71,29 +71,29 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
 
 
 @ti.func
-def upd_fi(fi: data_type, Ur: data_type, fi1: data_type, Ur1: data_type, dr: data_type, Ub: data_type) -> data_type:
+def upd_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int, ij: int):
     """Обновление функции пор по размерам.
 
     Parameters
     ----------
-    fi: float
-        fi[i] - функции распределения пор по размерам
-    Ur: float
-        ur[i] - Скорость изменения радиуса капилляра
-    fi1: float
-        fi[i-1] - функции распределения пор по размерам
-    Ur1: float
-        ur[i-1] - Скорость изменения радиуса капилляра
-    dr: float
-        r[i]-r[i-1] - шаг дискретизации
-    Ub: float
-        ub[i] - Скорость блокирования капилляров, [м/с]
-
-    Returns
-    -------
-    fi: float
-        Обновленная функции пор по размерам
+    fi: taichi.field(Nx, Ny, Nr)
+        Функции распределения пор по размерам
+    Ur: taichi.field(Nx, Ny, Nr)
+        Скорость изменения радиуса капилляра
+    Ub: taichi.field(Nx, Ny, Nr)
+        Скорость блокирования капилляров, [м/с]
+    i, j, ij: int
+        Индексы текущей ячейки, [-]
     """
+    ij1, ij2 = ij, ij - 1
+    if ij != Nr-1:
+        if Ur[i, j, ij]<=0.0:
+            ij1, ij2 = ij + 1, ij
+        else:
+            ij1, ij2 = ij, ij - 1
+        dr = r1[ij1] - r1[ij2]
+        fi[j, i, ij] -= dt * ((Ur[i, j, ij1] * fi[j, i, ij1] - Ur[i, j, ij2] * fi[j, i, ij2]) / dr + Ub[i, j, ij])
 
-    fi -= dt * ((fi * Ur - fi1 * Ur1) / dr + Ub)
-    return fi
+        # TODO спросить про это
+        if fi[j, i, ij] < 1e-9:
+            fi[j, i, ij] = 1e-9
