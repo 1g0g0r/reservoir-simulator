@@ -42,10 +42,10 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
 
     for ij in ti.ndrange((1, Nr)):
         dr = r1[ij] - r1[ij-1]
-        A_fi = (fi[i,j,ij-1] * r1[ij] - fi[i,j,ij] * r1[ij-1]) / dr
-        B_fi = (fi[i,j,ij] - fi[i,j,ij-1]) / dr
-        A_ur = (Ur[i,j,ij-1] * r1[ij] - Ur[i,j,ij] * r1[ij - 1]) / dr
-        B_ur = (Ur[i,j,ij] - Ur[i,j,ij-1]) / dr
+        A_fi = (fi[i, j, ij-1] * r1[ij] - fi[i, j, ij] * r1[ij-1]) / dr
+        B_fi = (fi[i, j, ij] - fi[i, j, ij-1]) / dr
+        A_ur = (Ur[i, j, ij-1] * r1[ij] - Ur[i, j, ij] * r1[ij - 1]) / dr
+        B_ur = (Ur[i, j, ij] - Ur[i, j, ij-1]) / dr
 
         qp1 += ((r2[ij] - r2[ij-1]) * B_fi * B_ur / 2 + (r4[ij] - r4[ij-1]) * A_fi * A_ur / 4 +
                 (r3[ij] - r3[ij-1]) * (A_fi * B_ur + B_fi * A_ur) / 3)  # r * ur * fi
@@ -59,7 +59,6 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         # Обновление функции пор по размерам
         upd_fi(fi, Ur, Ub, i, j, ij)
 
-    # TODO посмотреть ЕИ qp. Значения qp1 слишком большое !!
     new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
     m_mult[i, j] = r2fi / integr_r2_fi0
     k_mult[i, j] = r4fi / integr_r4_fi0
