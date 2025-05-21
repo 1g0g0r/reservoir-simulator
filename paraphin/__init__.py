@@ -1,9 +1,16 @@
+import numpy as np
 import taichi as ti
 
-from .constants import data_type, Nx, Ny, Nr, r
+from .constants import data_type, Nx, Ny, Nr
 
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов в матрице давления
+
+r = np.linspace(0, 0.000001 * 40, Nr, endpoint=True)
+# fi_0 = np.array([0.0, 0.013, 0.023, 0.031, 0.035, 0.034, 0.027, 0.021, 0.016, 0.018, 0.025, 0.032, 0.041, 0.052, 0.061, 0.073, 0.082, 0.086, 0.081, 0.07, 0.059, 0.048, 0.035, 0.024, 0.013, 0])
+_sigma = Nr * 0.15
+fi_0 = np.exp(-0.5*((r / 0.000001 - Nr * 0.5 + 0.5) / _sigma)**2) / _sigma
+fi_0 /= np.sum(fi_0)
 
 # массивы радиусов пор в необходимых степенях
 r1 = ti.field(dtype=data_type, shape=Nr)

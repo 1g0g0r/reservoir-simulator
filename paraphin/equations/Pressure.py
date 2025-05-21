@@ -4,10 +4,9 @@ from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
 # from scipy.sparse.linalg import spsolve
 # from pypardiso import spsolve
-from taichi._kernels import ndarray_to_ext_arr, ext_arr_to_tensor
 
 from paraphin import N, NN
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h, np_dtype, bar_to_pa
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
 from paraphin.utils import mid_Ko_Kw
 
 rhs = ti.ndarray(data_type, shape=N)

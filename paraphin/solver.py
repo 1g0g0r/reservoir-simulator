@@ -5,8 +5,8 @@ import numpy as np
 import psutil
 import taichi as ti
 
-from paraphin import r1, r3, r4, r5, r6
-from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, fi_0, init_k, init_S,
+from paraphin import r1, r3, r4, r5, r6, fi_0
+from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, init_k, init_S,
                                 init_m, init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, eta, h, dt,
                                 day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
 from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
@@ -46,7 +46,7 @@ class Solver:
         self.k     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Проницаемость, [м^2]
         self.m     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Пористость, [-]
         self.m_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.T     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Температура [С]
+        self.T     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Температура, [С]
         self.T_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # Динамика образования парафина (кольматация\суффозия)
@@ -204,7 +204,6 @@ class Solver:
         self._wells_loop()         # Учет скважин в уравнениях
         if self._paraphin:
             # Средняя скорость в капилляре * r^2
-            # TODO кажется здесь нужна ОФП
             self._Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) * (1.0 - self.new_s.to_numpy()) / self.mu_o.to_numpy() * 0.125 / eta)
 
 
@@ -213,7 +212,7 @@ class Solver:
         ti.loop_config(serialize=True)
         for i in ti.ndrange(self.n_wells):
             saturation_well(self.wells[i], self.m, self.new_s)
-            # wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wp)
+            wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wp)
             temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
     @ti.kernel
@@ -227,11 +226,11 @@ class Solver:
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина
-                    # wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wps_0, self.Wps, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wps_0, self.Wps, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+                    # calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
                 # self._update_mu_and_c_temp(i, j)
 
