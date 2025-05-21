@@ -51,10 +51,10 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
                     trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
                                      hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
                 wells_plots += 1
-        elif name == 'Average params':
+        elif name == 'Other params':
             for _name, _val in field.items():
-                trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name,
-                                     hovertemplate="x: %{x} день<br>y: %{y}<br>")]
+                trace += [go.Scatter(x=input_data['Temperature'][:,0,0], y=abs(_val), mode='lines', name=_name,
+                                     hovertemplate="x: %{x} °C<br>y: %{y}<br>")]
                 aver_param_plots += 1
         else:
             if CONTOUR_PLOT:

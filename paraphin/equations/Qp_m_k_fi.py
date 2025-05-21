@@ -91,8 +91,8 @@ def upd_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: i
         else:
             ij1, ij2 = ij, ij - 1
         dr = r1[ij1] - r1[ij2]
-        fi[j, i, ij] -= dt * ((Ur[i, j, ij1] * fi[j, i, ij1] - Ur[i, j, ij2] * fi[j, i, ij2]) / dr + Ub[i, j, ij])
+        fi[j, i, ij] -= dt * ((Ur[i, j, ij1] * fi[i, j, ij1] - Ur[i, j, ij2] * fi[i, j, ij2]) / dr + Ub[i, j, ij])
 
         # TODO спросить про это
-        if fi[j, i, ij] < 1e-9:
-            fi[j, i, ij] = 1e-9
+        # if fi[j, i, ij] < 1e-9:
+        #     fi[j, i, ij] = 1e-9

@@ -42,7 +42,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wps_0, Wps, T, T_0, cells_
     new_Wp[i, j] = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
             - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
             - ro_p * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
-            + cells_Wp_eq[i, j] / volume - ro_p * qp[i, j] / volume)
+            + cells_Wp_eq[i, j] / volume - ro_p * qp[i, j])
     # TODO нужно ли умножать на объем ro_p * qp[i, j]
 
     new_Wps[i, j] = 1.0 - Wp[i, j] - Wo[i, j]
@@ -75,4 +75,5 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
 @ti.func
 def _Wp_to_Wps(T: data_type) -> data_type:
     """Моделирование процесса кристаллизации парафина."""
+    # TODO попробовать вернуть проверку температуры T > Tm
     return ti.exp(alpha / R * (1.0 / T - 1.0 / Tm))

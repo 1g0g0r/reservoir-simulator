@@ -295,9 +295,10 @@ class Solver:
             'Temperature': self.T.to_numpy(),
             'Wp':          self.Wp.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
-            'qp':          self.qp.to_numpy(),
+            'm mult':      self.m_mult.to_numpy(),
+            'k mult':      self.k_mult.to_numpy(),
             'Wells':       wells_data,
-            'Average params': {
+            'Other params': {
                 'Wp':  self.Wp.to_numpy()[0,0],
                 'Wps': self.Wps.to_numpy()[0,0],
                 # 'Wp+Wps+Wo': (self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy())[0,0],

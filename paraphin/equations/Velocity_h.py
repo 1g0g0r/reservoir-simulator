@@ -85,7 +85,7 @@ def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type
         Скорость изменения радиуса капилляра, [м/с]
     """
     ur = 0.0
-    if 2.0 * r * gamma > D:
+    if 2.0 * r * gamma >= D:
         # Сужение (кольматация) каналов
         # ur = -wps * (um * 2 * Diff ** 2 / (r * Lk)) ** (1/3)
         ur = -wps * (um * Diff_2 / r) ** (1/3)
