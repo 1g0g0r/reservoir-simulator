@@ -54,7 +54,7 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
         elif name == 'Other params':
             for _name, _val in field.items():
                 trace += [go.Scatter(x=input_data['Temperature'][:,0,0], y=abs(_val), mode='lines', name=_name,
-                                     hovertemplate="x: %{x} °C<br>y: %{y}<br>")]
+                                     xaxis='x2', hovertemplate="x: %{x} °C<br>y: %{y}<br>")]
                 aver_param_plots += 1
         else:
             if CONTOUR_PLOT:
@@ -75,8 +75,8 @@ def visualize_solution(input_data: dict[str, np.ndarray | dict[str, np.ndarray]]
     fig = go.Figure(data=data_fields)
 
     fig.update_layout(
-        yaxis2=dict(side="right",
-                    overlaying="y"),
+        xaxis2=dict(autorange="reversed", overlaying='x'),
+        yaxis2=dict(side="right", overlaying="y"),
         legend=dict(x=1.05, y=1.0)
     )
 
