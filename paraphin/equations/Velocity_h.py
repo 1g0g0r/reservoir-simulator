@@ -54,12 +54,14 @@ def calc_velocitys_h(i, j, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new,
     Ur_new: taichi.field(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра на новом временном слое, [м/с]
     """
-    for ij in ti.ndrange(Nr):
-        um = Um_r2[i, j] * r2[ij]
-        uc = u_c(r1[ij], mu_o[i, j], ro_p)
-        Ub_new[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], r1[ij])
-        Ur_new[i, j, ij] = u_r(Wps[i, j], um, uc, r1[ij], h_sloy[i, j, ij])
-        h_sloy_new[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], r1[ij])
+    # Тк при Wps=0 цикл не имеет смысла
+    if Wps[i, j] > 0.0:
+        for ij in ti.ndrange(Nr):
+            um = Um_r2[i, j] * r2[ij]
+            uc = u_c(r1[ij], mu_o[i, j], ro_p)
+            Ub_new[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], r1[ij])
+            Ur_new[i, j, ij] = u_r(Wps[i, j], um, uc, r1[ij], h_sloy[i, j, ij])
+            h_sloy_new[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], r1[ij])
 
 
 @ti.func
@@ -87,7 +89,6 @@ def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type
     ur = 0.0
     if 2.0 * r * gamma >= D:
         # Сужение (кольматация) каналов
-        # ur = -wps * (um * 2 * Diff ** 2 / (r * Lk)) ** (1/3)
         ur = -wps * (um * Diff_2 / r) ** (1/3)
 
         # Расширение (суффозия) каналов
@@ -120,7 +121,6 @@ def u_b(um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type
     """
     ub = 0.0
     if 2.0 * r * gamma <= D:
-        # 6.0 * betta * r * r * wps * fi * um / D**3
         ub = wps * r * r * fi * um * b_D_3
 
     return ub
@@ -148,7 +148,6 @@ def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
     x0 = 0.5 * D / r
     if x0 < 1.0:
         x = 1.0 - x0
-        # uc = Cf * D * D * g / 18.0 * ro / (mu * (1.0 - x * x))
         uc =  cf_D2 * ro / (mu * (1.0 - x * x))
 
     return uc
