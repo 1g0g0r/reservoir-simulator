@@ -35,11 +35,12 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, T, T_0, cells_Wp_eq, new_W
     Wps_i = _get_Wps(Wp[i, j], Wo[i, j], T[i, j])
     Wps_0_i = _get_Wps(Wp[i, j], Wo[i, j], T_0[i, j])
 
-    new_Wp[i, j] = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
+    _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
             - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
             - ro_p * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
             + cells_Wp_eq[i, j] / volume - ro_p * qp[i, j])
 
+    new_Wp[i, j] = ti.max(_new_Wp, 0.0)
     new_Wps[i, j] = 1.0 - Wo[i, j] - Wp[i, j]
 
 
@@ -70,10 +71,9 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
 @ti.func
 def _get_Wps(Wp: data_type, Wo: data_type, T: data_type) -> data_type:
     """Моделирование процесса кристаллизации парафина."""
-    # TODO попробовать вернуть проверку температуры T > Tm
     ret = 1.0 - Wo - Wp
 
-    if Wp > 1e-8 and T > Tm * 0.8:
+    if Wp > 1e-8:
         ret = Wp * ti.exp(alpha / R * (1.0 / T - 1.0 / Tm))
 
     return ret

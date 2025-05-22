@@ -185,8 +185,7 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o,
-                      self.mu_w, self.wells, self.rows_indices, self.cols_indices)
+        calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.rows_indices, self.cols_indices)
 
     @ti.kernel
     def _update_wells_data(self):
