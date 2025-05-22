@@ -173,9 +173,6 @@ class Solver:
         self._process_time_step()
         self._logging_solution(t)
         self._swap_time_steps()
-        if np.max(self.Wp.to_numpy()) > 2:
-            import sys
-            sys.exit(11111)
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):

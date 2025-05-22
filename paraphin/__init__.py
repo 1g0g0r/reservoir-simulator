@@ -33,7 +33,6 @@ r5.from_numpy(r5_np)
 r6.from_numpy(r6_np)
 
 
-
 if __name__ == '__main__':
     import plotly.graph_objects as go
 
