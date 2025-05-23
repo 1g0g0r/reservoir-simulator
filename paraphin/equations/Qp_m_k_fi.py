@@ -6,8 +6,6 @@ from paraphin.constants import data_type, Nr, dt, D, gamma
 D_2_g = D * 0.5 / gamma
 _a = ti.field(dtype=data_type, shape=Nr)
 _b = ti.field(dtype=data_type, shape=Nr)
-_fi_cache = ti.field(dtype=data_type, shape=Nr)
-
 
 
 @ti.func
@@ -62,24 +60,65 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
             B_ub = (Ub[i,j,ij] - Ub[i,j,ij-1]) / dr
             qp2 +=  (r3[ij] - r3[ij-1]) * A_ub / 3 + (r4[ij] - r4[ij-1]) * B_ub / 4  # ub * r^2
 
-        # Обновление функции пор по размерам
-        # upd_fi(fi, Ur, Ub, i, j, ij)
-
-    if i == j == 0:
-        for ij in ti.ndrange((1, Nr-1)):
-            _fi_cache[ij] = fi[i, j, ij]
-    _new_upd_fi(fi, Ur, Ub, i, j)
-    if i == j == 0:
-        for ij in ti.ndrange((1, Nr - 1)):
-            print(_fi_cache[ij], fi[i, j, ij], _fi_cache[ij]-fi[i, j, ij])
-
     new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
     m_mult[i, j] = r2fi / integr_r2_fi0
     k_mult[i, j] = r4fi / integr_r4_fi0
 
+    # Обновление функции пор по размерам
+    upd_fi(fi, Ur, Ub, i, j)
+
 
 @ti.func
-def upd_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int, ij: int):
+def upd_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
+    """Обновление функции пор по размерам по неявной схеме с использованием метода прогонки.
+
+    Parameters
+    ----------
+    fi: taichi.field(Nx, Ny, Nr)
+        Функции распределения пор по размерам
+    Ur: taichi.field(Nx, Ny, Nr)
+        Скорость изменения радиуса капилляра
+    Ub: taichi.field(Nx, Ny, Nr)
+        Скорость блокирования капилляров, [м/с]
+    i, j: int
+        Индексы текущей ячейки, [-]
+    """
+    c, d, e, f = 0.0, 0.0, 0.0, 0.0
+    # Вычисление прогоночных коэффициентов
+    if Ur[i, j, 0] > 0:
+        d = 1.0 / dt + Ur[i, j, 0] / (r1[1] - r1[0])
+        e = 0.0
+    else:
+        d = 1.0 / dt - Ur[i, j, 0] / (r1[1] - r1[0])
+        e = Ur[i, j, 1] / (r1[1] - r1[0])
+    _a[0] = -e / d
+    _b[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
+
+    for ij in ti.ndrange((1, Nr)):
+        dr = r1[ij] - r1[ij-1]
+        f = fi[i, j, ij] / dt - Ub[i, j, ij]
+        if Ur[i, j, ij] > 0:
+            c = - Ur[i, j, ij-1] / dr
+            d = 1.0 / dt + Ur[i, j, ij] / dr
+            e = 0.0
+        else:
+            c = 0.0
+            d = 1.0 / dt - Ur[i, j, ij] / dr
+            e = Ur[i, j, ij+1] / dr
+        denominator = c * _a[ij - 1] + d
+        _a[ij] = -e / denominator
+        _b[ij] = (f - c * _b[ij - 1]) / denominator
+    _a[Nr - 1] = 0.0
+
+    # Вычисление функции пор размерам
+    fi[i, j, Nr - 1] = _b[Nr - 1]
+    for _ij in ti.ndrange(Nr):
+        ij = Nr - 1 - _ij  # тк обратный ход
+        fi[i, j, ij] = ti.max(fi[i, j, ij + 1] * _a[ij] + _b[ij], 1e-10)
+
+
+@ti.func
+def upd_fi_deprecated(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int, ij: int):
     """Обновление функции пор по размерам.
 
     Parameters
@@ -104,30 +143,3 @@ def upd_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: i
 
         if fi[j, i, ij] < 1e-9:
             fi[j, i, ij] = 1e-9
-
-
-@ti.func
-def _new_upd_fi(fi: ti.template(), ur: ti.template(), ub: ti.template(), i: int, j: int):
-    """ """
-    c, d, e, f = 0.0, 0.0, 0.0, 0.0
-    # Вычисление прогоночных коэффициентов
-    for ij in ti.ndrange((1, Nr)):
-        dr = r1[ij] - r1[ij-1]
-        f = fi[i, j, ij] / dt - ub[i, j, ij]
-        if ur[i, j, ij] > 0:
-            c = - ur[i, j, ij-1] / dr
-            d = 1.0 / dt + ur[i, j, ij] / dr
-            e = 0.0
-        else:
-            c = 0.0
-            d = 1.0 / dt - ur[i, j, ij] / dr
-            e = ur[i, j, ij+1] / dr
-        znam = c * _a[ij - 1] + d
-        _a[ij] = -e / znam
-        _b[ij] = (f - c * _b[ij - 1]) / znam
-
-    # Вычисление функции пор размерам
-    fi[i, j, Nr - 1] = _b[Nr - 1]
-    for _ij in ti.ndrange(Nr):
-        ij = Nr - 1 - _ij  # тк обратный ход
-        fi[i, j, ij - 1] = ti.max(fi[i, j, ij] * _a[ij] + _b[ij], 1e-10)
