@@ -1,4 +1,3 @@
-import numpy as np
 import taichi as ti
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu

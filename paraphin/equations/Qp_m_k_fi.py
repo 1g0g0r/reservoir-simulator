@@ -93,7 +93,6 @@ def upd_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: i
     i, j, ij: int
         Индексы текущей ячейки, [-]
     """
-    # TODO переписать на метод прогонки (или дробить шаг)
     ij1, ij2 = ij, ij - 1
     if ij != Nr-1:
         if Ur[i, j, ij]<=0.0:
@@ -112,23 +111,23 @@ def _new_upd_fi(fi: ti.template(), ur: ti.template(), ub: ti.template(), i: int,
     """ """
     c, d, e, f = 0.0, 0.0, 0.0, 0.0
     # Вычисление прогоночных коэффициентов
-    for ij in ti.ndrange((1, Nr-1)):
+    for ij in ti.ndrange((1, Nr)):
         dr = r1[ij] - r1[ij-1]
         f = fi[i, j, ij] / dt - ub[i, j, ij]
         if ur[i, j, ij] > 0:
             c = - ur[i, j, ij-1] / dr
-            d = 1 / dt + ur[i, j, ij] / dr
+            d = 1.0 / dt + ur[i, j, ij] / dr
             e = 0.0
         else:
             c = 0.0
-            d = 1 / dt - ur[i, j, ij] / dr
+            d = 1.0 / dt - ur[i, j, ij] / dr
             e = ur[i, j, ij+1] / dr
-
         znam = c * _a[ij - 1] + d
         _a[ij] = -e / znam
         _b[ij] = (f - c * _b[ij - 1]) / znam
 
     # Вычисление функции пор размерам
-    for _ij in ti.ndrange((1, Nr-1)):
+    fi[i, j, Nr - 1] = _b[Nr - 1]
+    for _ij in ti.ndrange(Nr):
         ij = Nr - 1 - _ij  # тк обратный ход
-        fi[i, j, ij-1] = ti.max(fi[i, j, ij] * _a[ij] + _b[ij], 1e-10)
+        fi[i, j, ij - 1] = ti.max(fi[i, j, ij] * _a[ij] + _b[ij], 1e-10)
