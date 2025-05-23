@@ -53,11 +53,11 @@ class Solver:
         self.integr_r2_fi0 = ti.field(dtype=d_type, shape=())
         self.integr_r4_fi0 = ti.field(dtype=d_type, shape=())
         self._Um_r2  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.qp     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
-        self.fi     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.h_sloy = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.Ur     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.Ub     = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.qp      = ti.field(dtype=d_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
+        self.fi      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.h_sloy  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.Ur      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.Ub      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
 
         # Поля данный нового временного слоя
         self.new_h   = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
@@ -72,8 +72,8 @@ class Solver:
         self.k_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # Временные массивы
-        self.cells_T_eq = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.cells_Wp_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.cells_T_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.cells_Wp_eq = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.cells_S_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # Вспомогательные поля класса

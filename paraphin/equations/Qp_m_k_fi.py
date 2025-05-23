@@ -37,39 +37,57 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
     """
-    qp1 = 0.0
-    qp2 = 0.0
-    r2fi = 0.0
-    r4fi = 0.0
+    if Wps[i, j] > 0:
+        # Вычисление изменения пористости и проницаемости пласта
+        qp1, qp2, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
+        new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
+        m_mult[i, j] = r2fi / integr_r2_fi0
+        k_mult[i, j] = r4fi / integr_r4_fi0
 
-    for ij in ti.ndrange((1, Nr)):
-        dr = r1[ij] - r1[ij-1]
-        A_fi = (fi[i, j, ij-1] * r1[ij] - fi[i, j, ij] * r1[ij-1]) / dr
-        B_fi = (fi[i, j, ij] - fi[i, j, ij-1]) / dr
-        A_ur = (Ur[i, j, ij-1] * r1[ij] - Ur[i, j, ij] * r1[ij - 1]) / dr
-        B_ur = (Ur[i, j, ij] - Ur[i, j, ij-1]) / dr
-
-        qp1 += ((r2[ij] - r2[ij-1]) * B_fi * B_ur / 2 + (r4[ij] - r4[ij-1]) * A_fi * A_ur / 4 +
-                (r3[ij] - r3[ij-1]) * (A_fi * B_ur + B_fi * A_ur) / 3)  # r * ur * fi
-        r2fi += (r3[ij] - r3[ij-1]) * A_fi / 3 + (r4[ij] - r4[ij-1]) * B_fi / 4  # r^2 * fi
-        r4fi += (r5[ij] - r5[ij-1]) * A_fi / 5 + (r6[ij] - r6[ij-1]) * B_fi / 6  # r^4 * fi
-
-        # TODO нужно добавить параметр Rnedost
-        if r1[ij] <= D_2_g:  # D * 0.5 / gamma
-            A_ub = (Ub[i,j,ij-1] * r1[ij] - Ub[i,j,ij] * r1[ij - 1]) / dr
-            B_ub = (Ub[i,j,ij] - Ub[i,j,ij-1]) / dr
-            qp2 +=  (r3[ij] - r3[ij-1]) * A_ub / 3 + (r4[ij] - r4[ij-1]) * B_ub / 4  # ub * r^2
-
-    new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
-    m_mult[i, j] = r2fi / integr_r2_fi0
-    k_mult[i, j] = r4fi / integr_r4_fi0
-
-    # Обновление функции пор по размерам
-    upd_fi(fi, Ur, Ub, i, j)
+        # Обновление функции пор по размерам
+        _update_fi(fi, Ur, Ub, i, j)
 
 
 @ti.func
-def upd_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
+def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
+    """Вычисление интегралов функции пор по размерам.
+
+    Parameters
+    ----------
+    fi: taichi.field(Nx, Ny, Nr)
+        Функции распределения пор по размерам
+    Ur: taichi.field(Nx, Ny, Nr)
+        Скорость изменения радиуса капилляра
+    Ub: taichi.field(Nx, Ny, Nr)
+        Скорость блокирования капилляров, [м/с]
+    i, j: int
+        Индексы текущей ячейки, [-]
+    """
+    qp1, qp2, r2fi, r4fi = 0.0, 0.0, 0.0, 0.0
+
+    for ij in ti.ndrange((1, Nr)):
+        dr = r1[ij] - r1[ij - 1]
+        A_fi = (fi[i, j, ij - 1] * r1[ij] - fi[i, j, ij] * r1[ij - 1]) / dr
+        B_fi = (fi[i, j, ij] - fi[i, j, ij - 1]) / dr
+        A_ur = (Ur[i, j, ij - 1] * r1[ij] - Ur[i, j, ij] * r1[ij - 1]) / dr
+        B_ur = (Ur[i, j, ij] - Ur[i, j, ij - 1]) / dr
+
+        qp1 += ((r2[ij] - r2[ij - 1]) * B_fi * B_ur / 2 + (r4[ij] - r4[ij - 1]) * A_fi * A_ur / 4 +
+                (r3[ij] - r3[ij - 1]) * (A_fi * B_ur + B_fi * A_ur) / 3)  # r * ur * fi
+        r2fi += (r3[ij] - r3[ij - 1]) * A_fi / 3 + (r4[ij] - r4[ij - 1]) * B_fi / 4  # r^2 * fi
+        r4fi += (r5[ij] - r5[ij - 1]) * A_fi / 5 + (r6[ij] - r6[ij - 1]) * B_fi / 6  # r^4 * fi
+
+        # TODO нужно добавить параметр Rnedost
+        if r1[ij] <= D_2_g:  # D * 0.5 / gamma
+            A_ub = (Ub[i, j, ij - 1] * r1[ij] - Ub[i, j, ij] * r1[ij - 1]) / dr
+            B_ub = (Ub[i, j, ij] - Ub[i, j, ij - 1]) / dr
+            qp2 += (r3[ij] - r3[ij - 1]) * A_ub / 3 + (r4[ij] - r4[ij - 1]) * B_ub / 4  # ub * r^2
+
+    return qp1, qp2, r2fi, r4fi
+
+
+@ti.func
+def _update_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
     """Обновление функции пор по размерам по неявной схеме с использованием метода прогонки.
 
     Parameters
@@ -118,7 +136,7 @@ def upd_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: i
 
 
 @ti.func
-def upd_fi_deprecated(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int, ij: int):
+def _update_fi_deprecated(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int, ij: int):
     """Обновление функции пор по размерам.
 
     Parameters
