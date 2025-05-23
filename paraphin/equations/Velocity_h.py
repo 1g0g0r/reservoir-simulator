@@ -1,7 +1,7 @@
 import taichi as ti
 
 from paraphin import r1, r2
-from paraphin.constants import data_type, Nr, dt, ro_p, D, g, gamma, betta, Diff, Lk, Cf, Delta, day_to_sec
+from paraphin.constants import data_type, Nr, dt, ro_p, D, g, gamma, betta, Diff, Lk, Cf, Delta
 
 """
 Lk: float
@@ -15,7 +15,7 @@ Diff: float
 D: float
     Размер частицы(диаметр частицы), [м]
 Cf: float
-    Коэффициент сопротивления частицы в нефти
+    Коэффициент сопротивления частицы в нефти, [-]
 Delta: float
     Кинетическая константа суффозии, [1/м]
 eta: float
@@ -58,10 +58,10 @@ def calc_velocitys_h(i, j, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new,
     if Wps[i, j] > 0.0:
         for ij in ti.ndrange(Nr):
             um = Um_r2[i, j] * r2[ij]
-            uc = u_c(r1[ij], mu_o[i, j], ro_p)
-            Ub_new[i, j, ij] = u_b(um, Wps[i, j], fi[i, j, ij], r1[ij])
-            Ur_new[i, j, ij] = u_r(Wps[i, j], um, uc, r1[ij], h_sloy[i, j, ij])
-            h_sloy_new[i, j, ij] = sed_h(h_sloy[i, j, ij], Ur[i, j, ij], r1[ij])
+            uc = u_c(r=r1[ij], mu=mu_o[i, j], ro=ro_p)
+            Ub_new[i, j, ij] = u_b(um=um, wps=Wps[i, j], fi=fi[i, j, ij], r=r1[ij])
+            Ur_new[i, j, ij] = u_r(wps=Wps[i, j], um=um, uc=uc, r=r1[ij], h=h_sloy[i, j, ij])
+            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij])
 
 
 @ti.func
@@ -173,5 +173,5 @@ def sed_h(h0: data_type, ur: data_type, r: data_type) -> data_type:
         Толщина осадочного слоя, [m].
     """
     hr = h0 - dt * ur
-    hr = max(0.0, min(hr, r - 1e-7))
+    hr = ti.max(0.0, ti.min(hr, r - 1e-7))
     return hr

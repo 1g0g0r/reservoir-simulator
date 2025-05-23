@@ -289,17 +289,17 @@ class Solver:
             'Pressure':    self.p.to_numpy(),
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
-            'Wp':          self.Wp.to_numpy(),
-            'Wps':         self.Wps.to_numpy(),
+            # 'Wp':          self.Wp.to_numpy(),
+            # 'Wps':         self.Wps.to_numpy(),
             'm mult':      self.m_mult.to_numpy(),
             'k mult':      self.k_mult.to_numpy(),
             'Wells':       wells_data,
-            'Other params': {
-                'Wp':  self.Wp.to_numpy()[0,0],
-                'Wps': self.Wps.to_numpy()[0,0],
-                # 'Wp+Wps+Wo': (self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy())[0,0],
-                # 'qp': self.qp.to_numpy()[0,0]
-            }
+            # 'Other params': {
+            #     'Wp':  self.Wp.to_numpy()[0,0],
+            #     'Wps': self.Wps.to_numpy()[0,0],
+            #     'Wp+Wps+Wo': (self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy())[0,0],
+            #     'qp': self.qp.to_numpy()[0,0]
+            # }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
             dump(data, f)
@@ -330,7 +330,6 @@ class Solver:
 
         if not self._paraphin:
             return None
-        self.logger.info(f"Wo:   min={self.Wo.to_numpy().min()}  max={self.Wo.to_numpy().max()}")
         self.logger.info(f"Wps:  min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
         self.logger.info(f"Wp:   min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
         oil_components = self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy()
@@ -344,3 +343,4 @@ class Solver:
         self.logger.info(f"sloy: min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
+        self.logger.info(f"Um:   min={self._Um_r2.to_numpy().min()*1e-12}  max={self._Um_r2.to_numpy().max()*1e-12}")
