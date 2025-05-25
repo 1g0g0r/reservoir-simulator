@@ -121,7 +121,7 @@ def u_b(um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type
     """
     ub = 0.0
     if 2.0 * r * gamma <= D:
-        ub = wps * r * r * fi * um * b_D_3
+        ub = 0.0  # wps * r * r * fi * um * b_D_3
 
     return ub
 
