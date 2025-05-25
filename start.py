@@ -28,6 +28,7 @@ def solve():
         for t in pbar:
             solution.upd_time_step(t)
             pbar.set_postfix(день=t / day_to_sec)
+            # ti.profiler.print_kernel_profiler_info()
 
 
 if __name__ == '__main__':

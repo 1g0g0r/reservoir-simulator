@@ -5,7 +5,7 @@ import taichi as ti
 
 # Инициализация ядра taichi
 data_type = ti.f64
-ti.init(arch=ti.cpu, default_fp=data_type)  # , kernel_profiler=True ti.profiler.print_kernel_profiler_info()
+ti.init(arch=ti.cpu, default_fp=data_type)  # , kernel_profiler=True
 LOGGING = True
 CONTOUR_PLOT = False
 
