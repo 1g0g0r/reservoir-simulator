@@ -57,12 +57,15 @@ class Solver:
         self.fi      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.h_sloy  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.Ur      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.Ur_0    = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.Ub      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.Ub_0    = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
 
         # Поля данный нового временного слоя
         self.new_h   = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.new_Ur  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.new_Ub  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.new_fi  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.new_s   = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.new_t   = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.new_wps = ti.field(dtype=d_type, shape=(Nx, Ny))
@@ -226,7 +229,7 @@ class Solver:
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.k_mult, self.m_mult)
+                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
                 # self._update_mu_and_c_temp(i, j)
 
@@ -262,9 +265,12 @@ class Solver:
                     self.qp[i, j] = self.new_qp[i, j]
 
                     for ij in ti.ndrange(Nr):
+                        self.fi[i, j, ij]     = self.new_fi[i, j, ij]
                         self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
-                        self.Ur[i, j, ij] = self.new_Ur[i, j, ij]
-                        self.Ub[i, j, ij] = self.new_Ub[i, j, ij]
+                        self.Ur_0[i, j, ij]   = self.Ur[i, j, ij]
+                        self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
+                        self.Ub_0[i, j, ij]   = self.Ub[i, j, ij]
+                        self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
 
 
     def _save_results(self, t) -> None:
@@ -294,12 +300,10 @@ class Solver:
             'm mult':      self.m_mult.to_numpy(),
             'k mult':      self.k_mult.to_numpy(),
             'Wells':       wells_data,
-            # 'Other params': {
-            #     'Wp':  self.Wp.to_numpy()[0,0],
-            #     'Wps': self.Wps.to_numpy()[0,0],
-            #     'Wp+Wps+Wo': (self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy())[0,0],
-            #     'qp': self.qp.to_numpy()[0,0]
-            # }
+            'Other params': {
+                'm mult':  self.m_mult.to_numpy()[0,0],
+                'k mult': self.k_mult.to_numpy()[0,0],
+            }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
             dump(data, f)
@@ -340,7 +344,8 @@ class Solver:
         self.logger.info(f"k_mult: min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
 
         self.logger.info(f"fi:   min={self.fi.to_numpy().min()}  max={self.fi.to_numpy().max()}")
-        self.logger.info(f"sloy: min={self.new_h.to_numpy().min()}  max={self.new_h.to_numpy().max()}")
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
         self.logger.info(f"Um:   min={self._Um_r2.to_numpy().min()*1e-12}  max={self._Um_r2.to_numpy().max()*1e-12}")
+        self.logger.info(f"fi: {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
+        self.logger.info(f"Ur: {' '.join([f'{x:.{3}f}' for x in self.Ur.to_numpy()[0, 0]])}")

@@ -9,7 +9,7 @@ _b = ti.field(dtype=data_type, shape=Nr)
 
 
 @ti.func
-def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, k_mult, m_mult) -> None:
+def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, k_mult, m_mult, new_fi) -> None:
     """Вычисление концентрации взвешенных частиц парафина по явной схеме.
 
     Parameters
@@ -36,6 +36,8 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         Изменение пористости из-за влияния частиц парафина, [-]
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
+    new_fi: taichi.field(Nx, Ny, Nr)
+        Обновленная функция распределения пор по размеру, [-]
     """
     if Wps[i, j] > 0:
         # Вычисление изменения пористости и проницаемости пласта
@@ -45,7 +47,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         k_mult[i, j] = r4fi / integr_r4_fi0
 
         # Обновление функции пор по размерам
-        _update_fi(fi, Ur, Ub, i, j)
+        _update_fi(new_fi, fi, Ur, Ub, i, j)
 
 
 @ti.func
@@ -98,11 +100,13 @@ def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template()
 
 
 @ti.func
-def _update_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
+def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
     """Обновление функции пор по размерам по неявной схеме с использованием метода прогонки.
 
     Parameters
     ----------
+    new_fi: taichi.field(Nx, Ny, Nr)
+        Обновленная функция распределения пор по размерам
     fi: taichi.field(Nx, Ny, Nr)
         Функции распределения пор по размерам
     Ur: taichi.field(Nx, Ny, Nr)
@@ -140,10 +144,10 @@ def _update_fi(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, 
     _a[Nr - 1] = 0.0
 
     # Вычисление функции пор размерам
-    fi[i, j, Nr - 1] = _b[Nr - 1]
+    new_fi[i, j, Nr - 1] = _b[Nr - 1]
     for _ij in ti.ndrange(Nr):
         ij = Nr - 1 - _ij  # тк обратный ход
-        fi[i, j, ij] = ti.max(fi[i, j, ij + 1] * _a[ij] + _b[ij], 0)
+        new_fi[i, j, ij] = ti.max(new_fi[i, j, ij + 1] * _a[ij] + _b[ij], 0)
 
 
 @ti.func
