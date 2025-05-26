@@ -12,7 +12,7 @@ _sigma = Nr * 0.2
 _m = np.max(r) / 2
 fi_0 = np.exp(-0.5 * ((r - _m) / 0.000001 / _sigma)**2) / _sigma
 fi_0[0] = fi_0[-1] = 0.0
-fi_0 /= np.sum(fi_0)
+fi_0 = np.round(fi_0 / np.sum(fi_0), 3)
 
 # массивы радиусов пор в необходимых степенях
 r1 = ti.field(dtype=data_type, shape=Nr)

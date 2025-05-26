@@ -9,7 +9,7 @@ _b = ti.field(dtype=data_type, shape=Nr)
 
 
 @ti.func
-def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, k_mult, m_mult, new_fi) -> None:
+def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, new_fi, k_mult, m_mult) -> None:
     """Вычисление концентрации взвешенных частиц парафина по явной схеме.
 
     Parameters
@@ -32,12 +32,12 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         Интеграл r^4 * fi_o(r), [m^5]
     new_qp: taichi.field(Nx, Ny)
          Скорость отложения парафиновых отложений в общем объеме пористой породы
+    new_fi: taichi.field(Nx, Ny, Nr)
+        Обновленная функция распределения пор по размеру, [-]
     m_mult: taichi.field(Nx, Ny)
         Изменение пористости из-за влияния частиц парафина, [-]
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
-    new_fi: taichi.field(Nx, Ny, Nr)
-        Обновленная функция распределения пор по размеру, [-]
     """
     if Wps[i, j] > 0:
         # Вычисление изменения пористости и проницаемости пласта

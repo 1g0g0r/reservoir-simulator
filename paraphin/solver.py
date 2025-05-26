@@ -299,6 +299,9 @@ class Solver:
             # 'Wps':         self.Wps.to_numpy(),
             'm mult':      self.m_mult.to_numpy(),
             'k mult':      self.k_mult.to_numpy(),
+            'plots':       {'fi_o': fi_0,
+                            'fi': self.fi.to_numpy()[0, 0]
+                            },
             'Wells':       wells_data,
             'Other params': {
                 'm mult':  self.m_mult.to_numpy()[0,0],
@@ -347,5 +350,6 @@ class Solver:
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
         self.logger.info(f"Um:   min={self._Um_r2.to_numpy().min()*1e-12}  max={self._Um_r2.to_numpy().max()*1e-12}")
-        self.logger.info(f"fi: {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
-        self.logger.info(f"Ur: {' '.join([f'{x:.{3}f}' for x in self.Ur.to_numpy()[0, 0]])}")
+        self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
+        self.logger.info(f"fi_0: {' '.join([f'{x:.{3}f}' for x in fi_0])}")
+        # self.logger.info(f"Ur: {' '.join([f'{x*1e10:.{3}f}' for x in self.Ur.to_numpy()[0, 0]])}")
