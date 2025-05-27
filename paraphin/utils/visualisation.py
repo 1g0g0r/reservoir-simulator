@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin import r, data_type
+from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
                                 day_to_sec, CONTOUR_PLOT)
 from paraphin.utils import read_pkl_files
@@ -43,8 +43,6 @@ def visualize_solution():
 
     _visualize_plots(input_data)
     _visualize_fields(input_data)
-
-    print('Временных слоев:', n_times)
 
 
 def _visualize_fields(input_data):
@@ -190,9 +188,19 @@ def _visualize_plots(plots_data):
 
     # Создаем базовый график с первой строкой
     for _name, _val in data.items():
-        data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>")]
+        if _name == 'Ur':
+            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, yaxis='y2',
+                                       hovertemplate="x: %{x}<br>y: %{y}<br>")]
+        else:
+            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>")]
 
     fig = go.Figure(data=data_fields)
+
+    fig.update_layout(
+        # xaxis2=dict(autorange="reversed", overlaying='x'),
+        yaxis2=dict(side="right", overlaying="y"),
+        legend=dict(x=1.05, y=1.0)
+    )
 
     # Настраиваем ползунок
     steps = [{}] * n_times

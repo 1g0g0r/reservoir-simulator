@@ -154,6 +154,7 @@ class Solver:
 
                     for ij in ti.ndrange(Nr):
                         self.fi[i, j, ij]     = fi_o[ij]
+                        self.new_fi[i, j, ij]     = fi_o[ij]
                         self.h_sloy[i, j, ij] = init_h_sloy
                         self.Ur[i, j, ij] = 0.0
                         self.Ub[i, j, ij] = 0.0
@@ -261,15 +262,16 @@ class Solver:
                     self.Wps[i, j] = self.new_wps[i, j]
                     self.k[i, j] = init_k * self.k_mult[i, j]
                     self.m_0[i, j] = self.m[i, j]
+                    # TODO тут init_m или m прошлого временного слоя
                     self.m[i, j] = init_m * self.m_mult[i, j]
                     self.qp[i, j] = self.new_qp[i, j]
 
                     for ij in ti.ndrange(Nr):
                         self.fi[i, j, ij]     = self.new_fi[i, j, ij]
                         self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
-                        self.Ur_0[i, j, ij]   = self.Ur[i, j, ij]
+                        # self.Ur_0[i, j, ij]   = self.Ur[i, j, ij]
                         self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
-                        self.Ub_0[i, j, ij]   = self.Ub[i, j, ij]
+                        # self.Ub_0[i, j, ij]   = self.Ub[i, j, ij]
                         self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
 
 
@@ -300,7 +302,9 @@ class Solver:
             'm mult':      self.m_mult.to_numpy(),
             'k mult':      self.k_mult.to_numpy(),
             'plots':       {'fi_o': fi_0,
-                            'fi': self.fi.to_numpy()[0, 0]
+                            'fi': self.fi.to_numpy()[0, 0],
+                            'dfi': fi_0 - self.fi.to_numpy()[0, 0],
+                            'Ur': self.Ur.to_numpy()[0, 0]
                             },
             'Wells':       wells_data,
             'Other params': {
@@ -350,6 +354,6 @@ class Solver:
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
         self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
         self.logger.info(f"Um:   min={self._Um_r2.to_numpy().min()*1e-12}  max={self._Um_r2.to_numpy().max()*1e-12}")
-        self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
-        self.logger.info(f"fi_0: {' '.join([f'{x:.{3}f}' for x in fi_0])}")
-        # self.logger.info(f"Ur: {' '.join([f'{x*1e10:.{3}f}' for x in self.Ur.to_numpy()[0, 0]])}")
+
+        # self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
+        # self.logger.info(f"fi_0: {' '.join([f'{x:.{3}f}' for x in fi_0])}")

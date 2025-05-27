@@ -6,8 +6,8 @@ import taichi as ti
 # Инициализация ядра taichi
 data_type = ti.f64
 ti.init(arch=ti.cpu, default_fp=data_type)  # , kernel_profiler=True
-LOGGING = True
-CONTOUR_PLOT = False
+LOGGING = False
+CONTOUR_PLOT = True
 
 # Перевод единиц измерения
 day_to_sec = 86400.0
@@ -35,7 +35,7 @@ volume = area * h
 
 # Параметры времени задачи
 Time_end = day_to_sec * 365 * 1.5
-dt = day_to_sec / 6e3  # шаг дискретизации по времени
+dt = day_to_sec / 1e4  # шаг дискретизации по времени
 
 # Параметры ОФП
 S_min = 0.18
@@ -74,7 +74,7 @@ alpha = 25000 * kal_to_J  # Скрытая теплота плавления п�
 
 # Параметры скважин
 rw = 0.1              # Радиус скважин, [м]
-Pw = 150 * bar_to_pa  # Давление на нагнетательной скважине, [Па]
+Pw = 60 * bar_to_pa   # Давление на нагнетательной скважине, [Па]
 Po = 50 * bar_to_pa   # Давление на добывающей скважине, [Па]
 Twater = 20           # Температура нагнетаемой воды, [С]
 
@@ -84,7 +84,7 @@ init_S   = S_min
 init_Wp  = 0.049
 init_Wps = 0.001
 init_k   = 0.2 * darcy_to_m2  # [м^2]
-init_m   = 0.3
+init_m   = 0.2
 init_T   = 80  # [C]
 init_qp  = 0.0
 init_h_sloy = 0.0
@@ -102,4 +102,4 @@ if Courant_num > 0.8:
 #     dt = 0.01 * round(dt / day_to_sec, 5) * day_to_sec
 #     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 10 # шаг по времени для сохранения результатов
+sol_time_step = dt * 50 # шаг по времени для сохранения результатов

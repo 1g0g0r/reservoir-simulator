@@ -130,7 +130,7 @@ def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: 
     for ij in ti.ndrange((1, Nr)):
         dr = r1[ij] - r1[ij-1]
         f = fi[i, j, ij] / dt - Ub[i, j, ij]
-        if Ur[i, j, ij] > 0:
+        if Ur[i, j, ij] >= 0:
             c = - Ur[i, j, ij-1] / dr
             d = 1.0 / dt + Ur[i, j, ij] / dr
             e = 0.0
@@ -147,7 +147,7 @@ def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: 
     new_fi[i, j, Nr - 1] = _b[Nr - 1]
     for _ij in ti.ndrange(Nr):
         ij = Nr - 1 - _ij  # тк обратный ход
-        new_fi[i, j, ij] = ti.max(new_fi[i, j, ij + 1] * _a[ij] + _b[ij], 0)
+        new_fi[i, j, ij] = ti.max(new_fi[i, j, ij + 1] * _a[ij] + _b[ij], 0.0)
 
 
 @ti.func
