@@ -14,20 +14,20 @@ def read_pkl_files() -> dict:
         numbers = re.findall(r'\d+', _path.stem)  # Находим все числа в имени файла
         return int(numbers[0]) if numbers else 0
 
-    files_paths = list(results_path.glob('*.pkl'))  # Все файлы формата pkl
+    data = {}
+    files_paths = [path for path in results_path.glob('*.pkl') if path != _processed_data_path]  # Все файлы формата pkl
 
     # Если данные уже визуализировались, то открывается файл обработанных данных
     if _processed_data_path.exists():
         with open(_processed_data_path, 'rb') as f:
-            n_files, data = load(f)
+            n_files, _data = load(f)
 
             if n_files >= len(files_paths):
-                return data
+                return _data
 
     # Сортировка данных расчета по времени
     sorted_paths = sorted(files_paths, key=extract_number)
 
-    data = {}
     with open(sorted_paths[0], 'rb') as f:
         for name, file_data in load(f).items():
             if name in ['Wells', 'Other params', 'plots']:
@@ -35,8 +35,6 @@ def read_pkl_files() -> dict:
             else:
                 data[name] = np.array([file_data])
 
-    if len(sorted_paths) <= 1:
-        return data
     for file_path in sorted_paths[1:]:
         try:
             with open(file_path, 'rb') as f:

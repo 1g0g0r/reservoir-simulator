@@ -41,8 +41,11 @@ def visualize_solution():
     """Визуализация данных расчета."""
     input_data = read_pkl_files()
 
-    # _visualize_plots(input_data)
-    _visualize_fields(input_data)
+    # fig_plots = _visualize_plots(input_data)
+    fig_fields = _visualize_fields(input_data)
+
+    # fig_plots.show()
+    fig_fields.show()
 
 
 def _visualize_fields(input_data):
@@ -175,7 +178,7 @@ def _visualize_fields(input_data):
     else:
         fig.write_html(results_path.parent / 'Results.html', include_plotlyjs=js_path)
 
-    fig.show()
+    return fig
 
 
 def _visualize_plots(plots_data):
@@ -238,7 +241,7 @@ def _visualize_plots(plots_data):
     else:
         fig.write_html(results_path.parent / f'fi_func.html', include_plotlyjs=js_path)
 
-    fig.show()
+    return fig
 
 
 if __name__ == '__main__':
