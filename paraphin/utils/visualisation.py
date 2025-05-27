@@ -41,7 +41,7 @@ def visualize_solution():
     """Визуализация данных расчета."""
     input_data = read_pkl_files()
 
-    _visualize_plots(input_data)
+    # _visualize_plots(input_data)
     _visualize_fields(input_data)
 
 

@@ -1,7 +1,7 @@
 import taichi as ti
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
-# from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import spsolve
 # from pypardiso import spsolve
 
 from paraphin import N, NN
@@ -40,8 +40,9 @@ def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ind
     _adding_wells(wells, Wo, data, rhs)
 
     A_csc = csc_matrix((data.to_numpy(), (rows_indices, cols_indices)), shape=(N, N))
-    sp = splu(A_csc)
-    solution = sp.solve(rhs.to_numpy())
+    # sp = splu(A_csc)
+    # solution = sp.solve(rhs.to_numpy())
+    solution = spsolve(A_csc, rhs.to_numpy())
 
     p.from_numpy(solution.reshape((Ny, Nx)).T)
 

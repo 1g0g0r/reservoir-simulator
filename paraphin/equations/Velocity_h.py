@@ -93,7 +93,7 @@ def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type
 
         # Расширение (суффозия) каналов
         if um > uc and h > 0:
-            ue = Delta * (um - uc) * h * (r + h * 0.5) / r
+            ue = 0.0  #Delta * (um - uc) * h * (r + h * 0.5) / r
             ur += ue
 
     return ur

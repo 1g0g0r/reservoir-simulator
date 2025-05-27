@@ -262,7 +262,6 @@ class Solver:
                     self.Wps[i, j] = self.new_wps[i, j]
                     self.k[i, j] = init_k * self.k_mult[i, j]
                     self.m_0[i, j] = self.m[i, j]
-                    # TODO тут init_m или m прошлого временного слоя
                     self.m[i, j] = init_m * self.m_mult[i, j]
                     self.qp[i, j] = self.new_qp[i, j]
 
@@ -304,7 +303,7 @@ class Solver:
             'plots':       {'fi_o': fi_0,
                             'fi': self.fi.to_numpy()[0, 0],
                             'dfi': fi_0 - self.fi.to_numpy()[0, 0],
-                            'Ur': self.Ur.to_numpy()[0, 0]
+                            # 'Ur': self.Ur.to_numpy()[0, 0]
                             },
             'Wells':       wells_data,
             'Other params': {
