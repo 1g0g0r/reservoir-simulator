@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
-                                day_to_sec, CONTOUR_PLOT)
+                                day_to_sec, CONTOUR_PLOT, init_Wp)
 from paraphin.utils import read_pkl_files
 
 
@@ -39,7 +39,8 @@ def show_plot(data, name: str = 'map'):
 
 def visualize_solution():
     """Визуализация данных расчета."""
-    input_data = read_pkl_files()
+    _n_times, input_data = read_pkl_files()
+    print('Временных слоев:', _n_times)
 
     fig_plots = _visualize_plots(input_data)
     fig_fields = _visualize_fields(input_data)
@@ -97,9 +98,10 @@ def _visualize_fields(input_data):
                                      hovertemplate="x: %{x}<br>y: %{y}<br>")]  # xaxis='x2',
                 aver_param_plots += 1
         else:
+            z_max = np.max(field)
+            z_min = np.min(field)
             if CONTOUR_PLOT:
-                trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=np.min(field),
-                                    zmax=np.max(field),
+                trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=z_min, zmax=z_max,
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
                                     contours=dict(
                                         coloring='fill',
@@ -107,7 +109,7 @@ def _visualize_fields(input_data):
                                         labelfont=dict(size=12, color='black')
                                     ))]
             else:
-                trace = [go.Heatmap(x=x, y=y, z=field, zmin=np.min(field), zmax=np.max(field),
+                trace = [go.Heatmap(x=x, y=y, z=field, zmin=z_min, zmax=z_max,
                                     colorscale='Jet', name=name,  # colorscale='bluered'
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
         data_fields += trace
@@ -192,8 +194,10 @@ def _visualize_plots(plots_data):
     # Создаем базовый график с первой строкой
     for _name, _val in data.items():
         if _name == 'Ur':
-            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, yaxis='y2',
-                                       hovertemplate="x: %{x}<br>y: %{y}<br>")]
+            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, yaxis='y2', hovertemplate="x: %{x}<br>y: %{y}<br>")]
+        elif _name == 'dfi':
+            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>",
+                                       visible=False, showlegend=True)]
         else:
             data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>")]
 

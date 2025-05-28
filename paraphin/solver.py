@@ -57,9 +57,7 @@ class Solver:
         self.fi      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.h_sloy  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.Ur      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.Ur_0    = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
         self.Ub      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.Ub_0    = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
 
         # Поля данный нового временного слоя
         self.new_h   = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))

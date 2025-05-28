@@ -8,7 +8,7 @@ from paraphin.constants import results_path
 _processed_data_path = results_path / f'processed_data.pkl'
 
 
-def read_pkl_files() -> dict:
+def read_pkl_files() -> (int, dict):
     """Считывает содержимое всех бинарных файлов расширения .pkl"""
     def extract_number(_path):
         numbers = re.findall(r'\d+', _path.stem)  # Находим все числа в имени файла
@@ -16,14 +16,15 @@ def read_pkl_files() -> dict:
 
     data = {}
     files_paths = [path for path in results_path.glob('*.pkl') if path != _processed_data_path]  # Все файлы формата pkl
+    n_files = len(files_paths)
 
     # Если данные уже визуализировались, то открывается файл обработанных данных
     if _processed_data_path.exists():
         with open(_processed_data_path, 'rb') as f:
-            n_files, _data = load(f)
+            _n_files, _data = load(f)
 
-            if n_files == len(files_paths):
-                return _data
+            if _n_files == n_files:
+                return _n_files, _data
 
     # Сортировка данных расчета по времени
     sorted_paths = sorted(files_paths, key=extract_number)
@@ -49,6 +50,6 @@ def read_pkl_files() -> dict:
 
     # Сохранение обработанных данных
     with open(_processed_data_path, 'wb') as f:
-        dump([len(files_paths), data], f)
+        dump([n_files, data], f)
 
-    return data
+    return n_files, data

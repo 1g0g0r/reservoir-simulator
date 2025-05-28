@@ -34,7 +34,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, T, T_0, cells_Wp_eq, new_W
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    Wps_i = _get_Wps(Wp[i, j], Wo[i, j], T[i, j])
+    Wps_i   = _get_Wps(Wp[i, j], Wo[i, j], T[i, j])
     Wps_0_i = _get_Wps(Wp[i, j], Wo[i, j], T_0[i, j])
 
     _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
@@ -43,7 +43,8 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, T, T_0, cells_Wp_eq, new_W
             + cells_Wp_eq[i, j] / volume - ro_p * qp[i, j])
 
     new_Wp[i, j] = ti.max(_new_Wp, 0.0)
-    new_Wps[i, j] = 1.0 - Wo[i, j] - Wp[i, j]
+    # TODO попробовать использовать new_Wp[i, j]
+    new_Wps[i, j] = ti.max(1.0 - Wo[i, j] - new_Wp[i, j], 0.0)
 
 
 @ti.func
