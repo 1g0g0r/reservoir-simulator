@@ -305,8 +305,10 @@ class Solver:
                             },
             'Wells':       wells_data,
             'Other params': {
-                'Wps [0,0]':  self.Wps.to_numpy()[0,0],
-                'Wp [0,0]': self.Wp.to_numpy()[0,0],
+                # 'Wps [0,0]':  self.Wps.to_numpy()[0,0],
+                # 'Wp [0,0]': self.Wp.to_numpy()[0,0],
+                'k_mult [0,0]':  self.k_mult.to_numpy()[0,0],
+                'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
             }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:

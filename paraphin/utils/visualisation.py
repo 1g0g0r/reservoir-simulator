@@ -41,10 +41,10 @@ def visualize_solution():
     """Визуализация данных расчета."""
     input_data = read_pkl_files()
 
-    # fig_plots = _visualize_plots(input_data)
+    fig_plots = _visualize_plots(input_data)
     fig_fields = _visualize_fields(input_data)
 
-    # fig_plots.show()
+    fig_plots.show()
     fig_fields.show()
 
 

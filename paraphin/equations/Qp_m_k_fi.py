@@ -49,6 +49,9 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         # Обновление функции пор по размерам
         _update_fi(new_fi, fi, Ur, Ub, i, j)
 
+        # if i == j == 0:
+        #     print(qp1 / r2fi)
+
 
 @ti.func
 def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
