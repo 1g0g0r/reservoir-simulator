@@ -39,7 +39,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
     k_mult: taichi.field(Nx, Ny)
         Изменение проницаемости из-за влияния частиц парафина, [-]
     """
-    if Wps[i, j] > 0:
+    if Wps[i, j] > 1e-6:
         # Вычисление изменения пористости и проницаемости пласта
         qp1, qp2, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
         new_qp[i, j] = 0.0  # m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
