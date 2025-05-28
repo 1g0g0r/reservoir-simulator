@@ -212,7 +212,7 @@ class Solver:
         ti.loop_config(serialize=True)
         for i in ti.ndrange(self.n_wells):
             saturation_well(self.wells[i], self.m, self.new_s)
-            # wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wp)
+            wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wp)
             temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
     @ti.kernel
@@ -226,7 +226,7 @@ class Solver:
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина
-                    # wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
@@ -251,26 +251,24 @@ class Solver:
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
                 self.S_0[i, j] = self.S[i, j]
-                self.S[i, j] = self.new_s[i, j]
+                self.S[i, j]   = self.new_s[i, j]
                 self.T_0[i, j] = self.T[i, j]
-                self.T[i, j] = self.new_t[i, j]
+                self.T[i, j]   = self.new_t[i, j]
 
                 if self._paraphin:
-                    self.Wp_0[i, j] = self.Wp[i, j]
-                    self.Wp[i, j] = self.new_wp[i, j]
+                    self.Wp_0[i, j]  = self.Wp[i, j]
+                    self.Wp[i, j]    = self.new_wp[i, j]
                     self.Wps_0[i, j] = self.Wps[i, j]
-                    self.Wps[i, j] = self.new_wps[i, j]
-                    self.k[i, j] = init_k * self.k_mult[i, j]
-                    self.m_0[i, j] = self.m[i, j]
-                    self.m[i, j] = init_m * self.m_mult[i, j]
-                    self.qp[i, j] = self.new_qp[i, j]
+                    self.Wps[i, j]   = self.new_wps[i, j]
+                    self.k[i, j]     = init_k * self.k_mult[i, j]
+                    self.m[i, j]     = init_m * self.m_mult[i, j]
+                    self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
+                    self.qp[i, j]    = self.new_qp[i, j]
 
                     for ij in ti.ndrange(Nr):
                         self.fi[i, j, ij]     = self.new_fi[i, j, ij]
                         self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
-                        # self.Ur_0[i, j, ij]   = self.Ur[i, j, ij]
                         self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
-                        # self.Ub_0[i, j, ij]   = self.Ub[i, j, ij]
                         self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
 
 
@@ -297,7 +295,7 @@ class Solver:
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
             # 'Wp':          self.Wp.to_numpy(),
-            # 'Wps':         self.Wps.to_numpy(),
+            'Wps':         self.Wps.to_numpy(),
             'm mult':      self.m_mult.to_numpy(),
             'k mult':      self.k_mult.to_numpy(),
             'plots':       {'fi_o': fi_0,
@@ -307,8 +305,8 @@ class Solver:
                             },
             'Wells':       wells_data,
             'Other params': {
-                'm mult':  self.m_mult.to_numpy()[0,0],
-                'k mult': self.k_mult.to_numpy()[0,0],
+                'Wps [0,0]':  self.Wps.to_numpy()[0,0],
+                'Wp [0,0]': self.Wp.to_numpy()[0,0],
             }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:

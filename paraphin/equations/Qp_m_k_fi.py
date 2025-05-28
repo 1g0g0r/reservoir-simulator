@@ -42,7 +42,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
     if Wps[i, j] > 0:
         # Вычисление изменения пористости и проницаемости пласта
         qp1, qp2, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
-        new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
+        new_qp[i, j] = 0.0  # m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
         m_mult[i, j] = r2fi / integr_r2_fi0
         k_mult[i, j] = r4fi / integr_r4_fi0
 

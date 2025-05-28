@@ -15,15 +15,15 @@ WellStruct = ti.types.struct(
 	idx_rhs = ti.i32,
 	idx_mat = ti.i32,
 	eta = data_type,
-	dp = data_type
+	dp_k = data_type
 )
 
 
 @ti.func
 def upd_q_and_eta(well, p, S, k, mu_o, mu_w) -> WellStruct:
 	"""Вычисление дебета скважины."""
-	well.dp = p[well.i, well.j] - well.p
-	mult = well.dp * k[well.i, well.j] * well.productivity_mult
+	well.dp_k = (p[well.i, well.j] - well.p) * k[well.i, well.j]
+	mult = well.dp_k * well.productivity_mult
 
 	if well.is_injector == 1:
 		well.q[0] = 0.0

@@ -1,12 +1,13 @@
 import taichi as ti
 from scipy.sparse import csc_matrix
-from scipy.sparse.linalg import splu
 from scipy.sparse.linalg import spsolve
-# from pypardiso import spsolve
 
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
 from paraphin.utils import mid_Ko_Kw
+
+# from scipy.sparse.linalg import splu
+# from pypardiso import spsolve
 
 rhs = ti.ndarray(data_type, shape=N)
 data = ti.ndarray(data_type, shape=NN)
@@ -37,22 +38,21 @@ def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ind
         Массив скважин
     """
     _fill_matrix_and_rhs(Wo, m, m_0, k, S, mu_o, mu_w, data, rhs)
-    _adding_wells(wells, Wo, data, rhs)
+    _adding_wells(wells, Wo, data, rhs, k)
 
     A_csc = csc_matrix((data.to_numpy(), (rows_indices, cols_indices)), shape=(N, N))
-    # sp = splu(A_csc)
-    # solution = sp.solve(rhs.to_numpy())
+    # solution = splu(A_csc).solve(rhs.to_numpy())
     solution = spsolve(A_csc, rhs.to_numpy())
 
     p.from_numpy(solution.reshape((Ny, Nx)).T)
 
 
 @ti.kernel
-def _adding_wells(wells: ti.template(), Wo: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
+def _adding_wells(wells: ti.template(), Wo: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray(), k: ti.template()):
     """Добавление скважин в уравнение давления"""
     ti.loop_config(serialize=True)
     for i in ti.ndrange(wells.shape[0]):
-        temp_data = Wo[wells[i].i, wells[i].j] * wells[i].q[2] / wells[i].dp
+        temp_data = Wo[wells[i].i, wells[i].j] * wells[i].q[2] / wells[i].dp_k * k[wells[i].i, wells[i].j]
         data[wells[i].idx_mat] -= temp_data
         rhs[wells[i].idx_rhs] -= temp_data * wells[i].p
 

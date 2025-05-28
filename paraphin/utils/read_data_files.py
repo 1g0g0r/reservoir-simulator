@@ -22,7 +22,7 @@ def read_pkl_files() -> dict:
         with open(_processed_data_path, 'rb') as f:
             n_files, _data = load(f)
 
-            if n_files >= len(files_paths):
+            if n_files == len(files_paths):
                 return _data
 
     # Сортировка данных расчета по времени
