@@ -1,10 +1,10 @@
 import taichi as ti
 
-from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type
+from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type, init_Wp
 
 
 @ti.func
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, T, T_0, cells_Wp_eq, new_Wp, new_Wps) -> None:
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wps, Wps_0, T, T_0, cells_Wp_eq, new_Wp, new_Wps) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -34,17 +34,17 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, T, T_0, cells_Wp_eq, new_W
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    Wps_i   = _get_Wps(Wp[i, j], Wo[i, j], T[i, j])
-    Wps_0_i = _get_Wps(Wp[i, j], Wo[i, j], T_0[i, j])
+    Wps_i   = _get_Wps(Wp[i, j], Wps[i, j], Wo[i, j], T[i, j])
+    Wps_0_i = _get_Wps(Wp[i, j], Wps[i, j], Wo[i, j], T_0[i, j])
 
     _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
             - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
             - ro_p * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
-            + cells_Wp_eq[i, j] / volume - ro_p * qp[i, j])
+            + cells_Wp_eq[i, j] / volume ) #- ro_p * qp[i, j] / volume)
 
     new_Wp[i, j] = ti.max(_new_Wp, 0.0)
-    # TODO попробовать использовать new_Wp[i, j]
     new_Wps[i, j] = ti.max(1.0 - Wo[i, j] - new_Wp[i, j], 0.0)
+
 
 
 @ti.func
@@ -71,11 +71,11 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
 
 
 @ti.func
-def _get_Wps(Wp: data_type, Wo: data_type, T: data_type) -> data_type:
+def _get_Wps(Wp: data_type, Wps: data_type, Wo: data_type, T: data_type) -> data_type:
     """Моделирование процесса кристаллизации парафина."""
-    ret = 1.0 - Wo - Wp
+    new_Wps = 1.0 - Wo - Wp
 
-    if Wp > 1e-8:
-        ret = Wp * ti.exp(alpha / R * (1.0 / T - 1.0 / Tm))
+    if Wp > 1e-6:
+        new_Wps = Wp * ti.exp(alpha / R * (1.0 / T - 1.0 / Tm))
 
-    return ret
+    return new_Wps

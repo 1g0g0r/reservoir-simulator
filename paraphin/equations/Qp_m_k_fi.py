@@ -42,7 +42,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
     if Wps[i, j] > 1e-6:
         # Вычисление изменения пористости и проницаемости пласта
         qp1, qp2, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
-        new_qp[i, j] = 0.0  # m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
+        new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
         m_mult[i, j] = r2fi / integr_r2_fi0
         k_mult[i, j] = r4fi / integr_r4_fi0
 
@@ -94,6 +94,7 @@ def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template()
         r4fi += (r5[ij] - r5[ij - 1]) * A_fi / 5 + (r6[ij] - r6[ij - 1]) * B_fi / 6  # r^4 * fi
 
         # TODO нужно добавить параметр Rnedost или достаточно оставить D * 0.5 / gamma
+        # TODO даже для заблокированных каналов этот параметр продолжает считаться
         if r1[ij] <= D_2_g:  # D * 0.5 / gamma
             A_ub = (Ub[i, j, ij - 1] * r1[ij] - Ub[i, j, ij] * r1[ij - 1]) / dr
             B_ub = (Ub[i, j, ij] - Ub[i, j, ij - 1]) / dr

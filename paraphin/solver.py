@@ -224,7 +224,7 @@ class Solver:
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина
-                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
@@ -303,8 +303,8 @@ class Solver:
                             },
             'Wells':       wells_data,
             'Other params': {
-                # 'Wps [0,0]':  self.Wps.to_numpy()[0,0],
-                # 'Wp [0,0]': self.Wp.to_numpy()[0,0],
+                'Wps [0,0]':  self.Wps.to_numpy()[0,0],
+                'Wp [0,0]': self.Wp.to_numpy()[0,0],
                 'k_mult [0,0]':  self.k_mult.to_numpy()[0,0],
                 'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
             }
