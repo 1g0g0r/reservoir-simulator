@@ -45,6 +45,8 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wps, Wps_0, T, T_0, cells_
     new_Wp[i, j] = ti.max(_new_Wp, 0.0)
     new_Wps[i, j] = ti.max(1.0 - Wo[i, j] - new_Wp[i, j], 0.0)
 
+    if i == j == 0:
+        print(Wps[i, j], qp[i, j], dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * ro_p * qp[i, j] / volume)
 
 
 @ti.func

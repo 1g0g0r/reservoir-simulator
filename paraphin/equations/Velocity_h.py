@@ -89,10 +89,10 @@ def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type
     ur = 0.0
     if 2.0 * r * gamma >= D:
         # Сужение (кольматация) каналов
-        ur = -wps * (um * Diff_2 / r) ** (1/3)
+        ur = -wps * (um * Diff_2 / r) ** (1.0/3.0)
 
         # Расширение (суффозия) каналов
-        if um > uc and h > 0:
+        if um > uc and h > 0.0:
             ue = Delta * (um - uc) * h * (r + h * 0.5) / r
             ur += ue
 
