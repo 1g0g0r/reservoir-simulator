@@ -25,16 +25,19 @@ eta: float
 b_D_3 = 6.0 * betta / D / D / D
 cf_D2 = Cf * D * D * g / 18.0
 Diff_2 = 2.0 * Diff * Diff / Lk
+D_2_gamma = D * 0.5 / gamma
 
 
 @ti.func
-def calc_velocitys_h(i, j, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new) -> None:
+def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new) -> None:
     """Вычисление скоростей и толщины осадочного слоя в ячейке.
 
     Parameters
     ----------
     i, j : int
         Индексы текущей ячейки, [-]
+    S: taichi.field(Nx, Ny)
+        Водонасыщенность, [-]
     Um_r2: taichi.field(Nx, Ny)
          Средняя скорость в капилляре без множителя r^2, [1/(с*м)]
     Wps: taichi.field(Nx, Ny)
@@ -56,20 +59,23 @@ def calc_velocitys_h(i, j, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new,
     """
     # Тк при Wps=0 цикл не имеет смысла
     if Wps[i, j] > 1e-6:
+        So = (1.0 - S[i, j])
         for ij in ti.ndrange(Nr):
             um = Um_r2[i, j] * r2[ij]
             uc = u_c(r=r1[ij], mu=mu_o[i, j], ro=ro_p)
-            Ub_new[i, j, ij] = u_b(um=um, wps=Wps[i, j], fi=fi[i, j, ij], r=r1[ij])
-            Ur_new[i, j, ij] = u_r(wps=Wps[i, j], um=um, uc=uc, r=r1[ij], h=h_sloy[i, j, ij])
+            Ub_new[i, j, ij] = u_b(So=So, um=um, wps=Wps[i, j], fi=fi[i, j, ij], r=r1[ij])
+            Ur_new[i, j, ij] = u_r(So=So, wps=Wps[i, j], um=um, uc=uc, r=r1[ij], h=h_sloy[i, j, ij])
             h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij])
 
 
 @ti.func
-def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type) -> data_type:
+def u_r(So: data_type, wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type) -> data_type:
     """Скорость изменения радиуса капилляра.
 
     Parameters
     ----------
+    So: taichi.field(Nx, Ny)
+        Нефтенасыщенность, [-]
     wps: float
         Объемная концентрация взвешенных частиц парафина, [м3/м3]
     um: float
@@ -87,24 +93,27 @@ def u_r(wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type
         Скорость изменения радиуса капилляра, [м/с]
     """
     ur = 0.0
-    if 2.0 * r * gamma >= D:
+    if r >= D_2_gamma:
         # Сужение (кольматация) каналов
         ur = -wps * (um * Diff_2 / r) ** (1.0/3.0)
 
         # Расширение (суффозия) каналов
         if um > uc and h > 0.0:
-            ue = Delta * (um - uc) * h * (r + h * 0.5) / r
+            # TODO возможно, стоит считать скорость выноса и для воды
+            ue = So * Delta * (um - uc) * h * (r + h * 0.5) / r
             ur += ue
 
     return ur
 
 
 @ti.func
-def u_b(um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type:
+def u_b(So: data_type, um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type:
     """Скорость блокирования капилляров.
 
     Parameters
     ----------
+    So: taichi.field(Nx, Ny)
+        Нефтенасыщенность, [-]
     um: float
         Средняя скорость жидкости в капилляре, [м/с]
     wps: float
@@ -120,8 +129,8 @@ def u_b(um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type
         Скорость блокирования капилляров, [м/с]
     """
     ub = 0.0
-    if 2.0 * r * gamma <= D:
-        ub = wps * r * r * fi * um * b_D_3
+    if r <= D_2_gamma:
+        ub = So * wps * r * r * fi * um * b_D_3
 
     return ub
 

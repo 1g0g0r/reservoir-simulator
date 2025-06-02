@@ -202,7 +202,7 @@ class Solver:
         self._wells_loop()         # Учет скважин в уравнениях
         if self._paraphin:
             # Средняя скорость в капилляре * r^2
-            self._Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) * (1.0 - self.new_s.to_numpy()) / self.mu_o.to_numpy() * 0.125 / eta)
+            self._Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
 
     @ti.kernel
@@ -224,9 +224,9 @@ class Solver:
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина
-                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-                    calc_velocitys_h(i, j, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
+                    calc_velocitys_h(i, j, self.S, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
@@ -298,15 +298,18 @@ class Solver:
             'k mult':      self.k_mult.to_numpy(),
             'plots':       {'fi_o': fi_0,
                             'fi': self.fi.to_numpy()[0, 0],
-                            'dfi': fi_0 - self.fi.to_numpy()[0, 0],
-                            # 'Ur': self.Ur.to_numpy()[0, 0]
+                            # 'dfi': fi_0 - self.fi.to_numpy()[0, 0],
+                            'Ub': self.Ub.to_numpy()[0, 0],
+                            'Ur': self.Ur.to_numpy()[0, 0],
                             },
             'Wells':       wells_data,
             'Other params': {
                 'Wps [0,0]':  self.Wps.to_numpy()[0,0],
                 'Wp [0,0]': self.Wp.to_numpy()[0,0],
+                'Wp [0,0] + Wps [0,0]': self.Wp.to_numpy()[0,0]+self.Wps.to_numpy()[0,0],
                 'k_mult [0,0]':  self.k_mult.to_numpy()[0,0],
                 'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
+                'qp [0,0]': self.qp.to_numpy()[0,0],
             }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:

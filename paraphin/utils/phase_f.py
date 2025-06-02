@@ -1,6 +1,6 @@
 import taichi as ti
 
-from paraphin.constants import S_min, S_max, n_power, data_type
+from paraphin.constants import S_min, S_max, n_power, data_type, mu_w, mu_o
 
 
 @ti.func
@@ -67,4 +67,5 @@ if __name__ == '__main__':
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_o.to_numpy(), mode='lines', name='нефть', line=dict(color='red')))
     fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='вода', line=dict(color='blue')))
+    fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy()/(f_w.to_numpy()+mu_w/mu_o*f_o.to_numpy()), mode='lines', name='БЛ', line=dict(color='black')))
     fig.show()

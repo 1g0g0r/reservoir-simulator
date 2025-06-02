@@ -196,8 +196,7 @@ def _visualize_plots(plots_data):
         if _name == 'Ur':
             data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, yaxis='y2', hovertemplate="x: %{x}<br>y: %{y}<br>")]
         elif _name == 'dfi':
-            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>",
-                                       visible=False, showlegend=True)]
+            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>")]
         else:
             data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>")]
 

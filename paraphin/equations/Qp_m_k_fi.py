@@ -3,7 +3,7 @@ import taichi as ti
 from paraphin import r1, r2, r3, r4, r5, r6
 from paraphin.constants import data_type, Nr, dt, D, gamma
 
-D_2_g = D * 0.5 / gamma
+D_2_gamma = D * 0.5 / gamma
 _a = ti.field(dtype=data_type, shape=Nr)
 _b = ti.field(dtype=data_type, shape=Nr)
 
@@ -49,8 +49,8 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         # Обновление функции пор по размерам
         _update_fi(new_fi, fi, Ur, Ub, i, j)
 
-        # if i == j == 0:
-        #     print(qp1 / r2fi)
+        if i == j == 0:
+            print(qp1 / r2fi)
 
 
 @ti.func
@@ -93,9 +93,7 @@ def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template()
         r2fi += (r3[ij] - r3[ij - 1]) * A_fi / 3 + (r4[ij] - r4[ij - 1]) * B_fi / 4  # r^2 * fi
         r4fi += (r5[ij] - r5[ij - 1]) * A_fi / 5 + (r6[ij] - r6[ij - 1]) * B_fi / 6  # r^4 * fi
 
-        # TODO нужно добавить параметр Rnedost или достаточно оставить D * 0.5 / gamma
-        # TODO даже для заблокированных каналов этот параметр продолжает считаться
-        if r1[ij] <= D_2_g:  # D * 0.5 / gamma
+        if r1[ij] <= D_2_gamma:  # D * 0.5 / gamma
             A_ub = (Ub[i, j, ij - 1] * r1[ij] - Ub[i, j, ij] * r1[ij - 1]) / dr
             B_ub = (Ub[i, j, ij] - Ub[i, j, ij - 1]) / dr
             qp2 += (r3[ij] - r3[ij - 1]) * A_ub / 3 + (r4[ij] - r4[ij - 1]) * B_ub / 4  # ub * r^2
