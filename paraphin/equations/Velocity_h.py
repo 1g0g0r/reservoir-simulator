@@ -99,8 +99,7 @@ def u_r(So: data_type, wps: data_type, um: data_type, uc: data_type, r: data_typ
 
         # Расширение (суффозия) каналов
         if um > uc and h > 0.0:
-            # TODO возможно, стоит считать скорость выноса и для воды
-            ue = So * Delta * (um - uc) * h * (r + h * 0.5) / r
+            ue = 0.0  # So * Delta * (um - uc) * h * (r + h * 0.5) / r
             ur += ue
 
     return ur

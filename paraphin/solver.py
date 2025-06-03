@@ -299,8 +299,8 @@ class Solver:
             'plots':       {'fi_o': fi_0,
                             'fi': self.fi.to_numpy()[0, 0],
                             # 'dfi': fi_0 - self.fi.to_numpy()[0, 0],
-                            'Ub': self.Ub.to_numpy()[0, 0],
-                            'Ur': self.Ur.to_numpy()[0, 0],
+                            # 'Ub': self.Ub.to_numpy()[0, 0],
+                            # 'Ur': self.Ur.to_numpy()[0, 0],
                             },
             'Wells':       wells_data,
             'Other params': {

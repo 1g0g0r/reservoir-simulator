@@ -33,12 +33,12 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, Wps_0, T, T_0, cell
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     Wps_i   = _get_Wps(Wp[i, j], Wps[i, j], T[i, j])
-    Wps_0_i = _get_Wps(Wp_0[i, j], Wps_0[i, j], T_0[i, j])
+    Wps_0_i = _get_Wps(Wp[i, j], Wps[i, j], T_0[i, j])  # _get_Wps(Wp_0[i, j], Wps_0[i, j], T_0[i, j])
 
     _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
             - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
             - ro_p * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
-            + cells_Wp_eq[i, j] / volume ) #- ro_p * qp[i, j] / volume)
+            + cells_Wp_eq[i, j] / volume + ro_p * qp[i, j])
 
     new_Wp[i, j] = ti.max(_new_Wp, 0.0)
     new_Wps[i, j] = ti.max(_get_Wps(new_Wp[i, j], Wps[i, j], T[i, j]), 0.0)

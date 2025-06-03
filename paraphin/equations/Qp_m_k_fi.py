@@ -42,15 +42,15 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
     if Wps[i, j] > 1e-6:
         # Вычисление изменения пористости и проницаемости пласта
         qp1, qp2, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
-        new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
+        new_qp[i, j] = m[i, j] * Wps[i, j] * qp2 / r2fi  # m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
         m_mult[i, j] = r2fi / integr_r2_fi0
         k_mult[i, j] = r4fi / integr_r4_fi0
 
         # Обновление функции пор по размерам
         _update_fi(new_fi, fi, Ur, Ub, i, j)
 
-        if i == j == 0:
-            print(qp1 / r2fi)
+        # if i == j == 0:
+        #     print(qp1 / r2fi)
 
 
 @ti.func
@@ -88,8 +88,8 @@ def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template()
         A_ur = (Ur[i, j, ij - 1] * r1[ij] - Ur[i, j, ij] * r1[ij - 1]) / dr
         B_ur = (Ur[i, j, ij] - Ur[i, j, ij - 1]) / dr
 
-        qp1 += ((r2[ij] - r2[ij - 1]) * B_fi * B_ur / 2 + (r4[ij] - r4[ij - 1]) * A_fi * A_ur / 4 +
-                (r3[ij] - r3[ij - 1]) * (A_fi * B_ur + B_fi * A_ur) / 3)  # r * ur * fi
+        qp1 += ((r2[ij] - r2[ij - 1]) * A_fi * A_ur / 2 + (r3[ij] - r3[ij - 1]) * (A_fi * B_ur + B_fi * A_ur) / 3 +
+                (r4[ij] - r4[ij - 1]) * B_fi * B_ur / 4)  # r * ur * fi
         r2fi += (r3[ij] - r3[ij - 1]) * A_fi / 3 + (r4[ij] - r4[ij - 1]) * B_fi / 4  # r^2 * fi
         r4fi += (r5[ij] - r5[ij - 1]) * A_fi / 5 + (r6[ij] - r6[ij - 1]) * B_fi / 6  # r^4 * fi
 

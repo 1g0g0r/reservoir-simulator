@@ -193,10 +193,8 @@ def _visualize_plots(plots_data):
 
     # Создаем базовый график с первой строкой
     for _name, _val in data.items():
-        if _name == 'Ur':
+        if _name in ['Ur', 'Ub']:
             data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, yaxis='y2', hovertemplate="x: %{x}<br>y: %{y}<br>")]
-        elif _name == 'dfi':
-            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>")]
         else:
             data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>")]
 
