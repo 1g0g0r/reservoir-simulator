@@ -292,7 +292,7 @@ class Solver:
             'Pressure':    self.p.to_numpy(),
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
-            # 'Wp':          self.Wp.to_numpy(),
+            'Wp':          self.Wp.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
             'm mult':      self.m_mult.to_numpy(),
             'k mult':      self.k_mult.to_numpy(),
