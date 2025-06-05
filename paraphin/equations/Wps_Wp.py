@@ -1,6 +1,9 @@
 import taichi as ti
 
-from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type, init_Wp
+from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type
+
+reverse_Tm = 1.0 / Tm
+alpha_R = alpha / R
 
 
 @ti.func
@@ -32,8 +35,8 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, Wps_0, T, T_0, cell
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    Wps_i   = _get_Wps(Wp[i, j], Wps[i, j], T[i, j])
-    Wps_0_i = _get_Wps(Wp[i, j], Wps[i, j], T_0[i, j])  # _get_Wps(Wp_0[i, j], Wps_0[i, j], T_0[i, j])
+    Wps_i   = Wps[i, j]
+    Wps_0_i = Wps_0[i, j]  # _get_Wps(Wp_0[i, j], Wps_0[i, j], T_0[i, j])
 
     _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
             - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
@@ -41,10 +44,12 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, Wps_0, T, T_0, cell
             + cells_Wp_eq[i, j] / volume + ro_p * qp[i, j])
 
     new_Wp[i, j] = ti.max(_new_Wp, 0.0)
-    new_Wps[i, j] = ti.max(_get_Wps(new_Wp[i, j], Wps[i, j], T[i, j]), 0.0)
+    new_Wps[i, j] = ti.max(_get_Wps(Wp[i, j], Wps[i, j], T[i, j]), 0.0)
 
-    # if i == j == 0:
-    #     print(qp[i, j], dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * ro_p * qp[i, j] / volume)
+    if i == j == 0:
+        # if T[i, j] + 273.15 < Tm:
+        K2 = ti.exp(alpha_R * (1.0 / (T[i, j] + 273.15) - reverse_Tm))
+        print(T[i, j], K2, Wp[i, j] - (1.0 - Wp[i, j]) / (K2 - 1.0))
 
 
 @ti.func
@@ -75,7 +80,8 @@ def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
     """Моделирование процесса кристаллизации парафина."""
     new_Wps = Wps
 
-    if Wp > 1e-6:
-        new_Wps = Wp * ti.exp(alpha / R * (1.0 / T - 1.0 / Tm))
+    # if T + 273.15 < Tm:
+    K2 = ti.exp(alpha_R * (1.0 / (T + 273.15) - reverse_Tm))
+    new_Wps = Wp - (1.0 - Wp) / (K2 - 1.0)
 
     return new_Wps
