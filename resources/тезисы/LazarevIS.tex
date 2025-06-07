@@ -18,13 +18,13 @@
 
 \begin{document}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \noindent
 УДК: 532.546
 
 {\large
 \begin{center}
-\textbf{Моделирование выпадения парафина при закачке холодной воды}\\
+\textbf{О процессе выпадения парафина в пласте}\\
 И.С.~Лазарев$^1$, А.И.~Никифоров$^2$
 \end{center}
 } 
@@ -34,55 +34,104 @@
 \noindent $^2$ nikiforov@imm.knc.ru; ФИЦ КазНЦ РАН, ИММ
 }
 
-%\hrule
 
 \begin{abstract}
-This paper describes a recursive approach to the enumeration of some classes of combinatorial tasks. Most tasks are used in the
-specific scope of teaching and learning informatics through olympiads and other competitions. Combinatorial problems can often
-lead to interesting and beautiful dynamic programming tasks, because they both depend on recurrence relations: formulae that
-solve a larger problem in terms of one or more smaller problems.
+В данной работе рассматривается задача двухфазной неизотермической фильтрации. В рамках моделирования нефть рассматривается как смесь двух несмешивающихся с водой углеводородных составляющих "нефти" и "парафина". Для прогнозирования кристаллизации парафина применяется теория идеального раствора бинарной смеси. Для уравнений, определяющих динамику изменения пористости и проницаемости, используются зависимости, основанные на функции распределения пор по размерам. Особое внимание уделяется процессам осаждения частиц в пористой среде и их срыва со стенок пор. Представлено сопоставление результатов моделирования с экспериментальными данными.
 \end{abstract}
 
 \noindent
-\textit{Keywords:} programming contests, informatics olympiads, combinatorial tasks.
+\textit{Ключевые слова:} парафин, фильтрация, дисперсные частицы, кольматация, суффозия, пористость, проницаемость, повреждение пласта.
 
-
-\vspace{1em}
-\hrule
-\vspace{2em}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\bibliographystyle{gost2008}      % mathematics and physical sciences
-\bibliography{LazarevIS}   % name your BibTeX data base
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{otherlanguage}{english}
 
 {\large
 \begin{center}
-\textbf{Article's Title}\\
-I.I.~Ivanov, P.P.~Petrov
+\textbf{About the process of paraffin deposition in the formation}\\
+I.S.~Lazarev, A.I.~Nikiforov
 \end{center}
 }
 
 \begin{abstract}
-This paper describes a recursive approach to the enumeration of some classes of combinatorial tasks. Most tasks are used in the
-specific scope of teaching and learning informatics through olympiads and other competitions. Combinatorial problems can often
-lead to interesting and beautiful dynamic programming tasks, because they both depend on recurrence relations: formulae that
-solve a larger problem in terms of one or more smaller problems.
+This paper considers the problem of two-phase non-isothermal filtration. In the framework of modelling oil is considered as a mixture of two immiscible with water hydrocarbon components "oil" and "paraffin". The ideal solution theory of the binary mixture is applied to predict paraffin crystallisation. Dependences based on the pore size distribution function are used for equations determining the dynamics of porosity and permeability changes. Particular attention is paid to the processes of particle deposition in the porous medium and their disruption from the pore walls. Comparison of modelling results with experimental data is presented.
 \end{abstract}
 
-\textit{Keywords:} programming contests, informatics olympiads, combinatorial tasks.
+\textit{Keywords:} paraffin, filtration, dispersed particles, colmatisation, suffosion, porosity, permeability, damage.
 
 \end{otherlanguage}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{1em}
+\hrule
+\vspace{2em}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Примеры набора формул
+
+\begin{equation}\label{eq1}
+\int_{0}^{1} f(x)\, dx = 0,
+\end{equation}
+\begin{multline}
+\omega(y;\delta)_{2,q}\equiv \sup\limits_{0<\eta\leq \delta}\,
+\Biggl\{\int\limits_{-1}^{1-\eta}(1+t)^
+{2r-3/2}(1-t-\eta)^{2r-3/2}\times
+\\
+ \times|y(t+\eta)- y(t)|^2dt\Biggr\}^{1/2},\quad y\in L_{2,q},\quad
+ 0<\delta\leq 2. \label{eq2}
+\end{multline}
+Формулы без ссылок
+$$
+y=f(x)
+$$
+не нумеровать. Для ссылок на формулы (\ref{eq1})--(\ref{eq2}), а также на
+рисунки, таблицы, элементы списка и т.п. использовать команды перекрестного
+цитирования \verb!\label! и \verb!\ref!.
+
+Пример оформления определений и утверждений типа теорем, лемм:
+
+\medskip
+
+\textbf{Теорема.} {\it Текст теорем, определений и утверждений следует
+набирать, используя курсив, а название --- полужирным. Этот текст следует
+отделять от основного вертикальными пробелами с помощью команды
+\verb!\medskip!.}
+
+\medskip
+
+Пример оформления рисунков (рис.~\ref{fig:01}).
+
+\begin{figure}[h]
+ \centering
+ \includegraphics[width=0.4\linewidth]{IvanovAA_1.eps}
+ \caption{Подпись рисунка}
+ \label{fig:01}
+\end{figure}
+
+Ссылки на книгу \cite{bib:01,bib:02}, на статью \cite{bib:03,bib:04}, на
+диссертацию \cite{bib:05,bib:06}, на тезисы \cite{bib:07,bib:08}.
+
+Пример указания на поддержку научных фондов (отделять от основного текста
+командой \verb!\medskip!):
+
+\medskip
+
+Работа выполнена при финансовой поддержке ФЦП ``Научные
+и~научно-педагогические кадры инновационной России'' на 2009~--
+2013 годы (госконтракт ...), РФФИ (проект ...), программы
+Президента ``Ведущие научные школы РФ'' (проект ...), АВЦП
+``Развитие научного потенциала высшей школы (2009~-- 2010 годы)''
+Минобрнауки РФ (проект ...).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\bibliographystyle{gost2008}     
+\bibliography{LazarevIS}   
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 \end{document}
