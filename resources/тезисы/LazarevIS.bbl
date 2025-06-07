@@ -1,0 +1,77 @@
+\begin{thebibliography}{1}
+\def\selectlanguageifdefined#1{
+\expandafter\ifx\csname date#1\endcsname\relax
+\else\selectlanguage{#1}\fi}
+\providecommand*{\href}[2]{{\small #2}}
+\providecommand*{\url}[1]{{\small #1}}
+\providecommand*{\BibUrl}[1]{\url{#1}}
+\providecommand{\BibAnnote}[1]{}
+\providecommand*{\BibEmph}[1]{#1}
+\ProvideTextCommandDefault{\cyrdash}{\iflanguage{russian}{\hbox
+  to.8em{--\hss--}}{\textemdash}}
+\providecommand*{\BibDash}{\ifdim\lastskip>0pt\unskip\nobreak\hskip.2em plus
+  0.1em\fi
+\cyrdash\hskip.2em plus 0.1em\ignorespaces}
+\renewcommand{\newblock}{\ignorespaces}
+
+\bibitem{bib:01}
+\selectlanguageifdefined{english}
+Happel~J., Brenner~H. Low {R}eynolds Number Hydrodynamics: with special
+  applications to particulate media. \BibDash
+\newblock Englewood Cliffs, New York~: Prentice-Hall, 1965. \BibDash
+\newblock 553~p.
+
+\bibitem{bib:02}
+\selectlanguageifdefined{english}
+Happel~J., Brenner~H. Low {R}eynolds Number Hydrodynamics: with special
+  applications to particulate media. \BibDash
+\newblock Englewood Cliffs, New York~: Prentice-Hall, 1965. \BibDash
+\newblock 553~p.
+
+\bibitem{bib:03}
+\selectlanguageifdefined{english}
+Happel~J., Brenner~H. Low {R}eynolds Number Hydrodynamics: with special
+  applications to particulate media. \BibDash
+\newblock Englewood Cliffs, New York~: Prentice-Hall, 1965. \BibDash
+\newblock 553~p.
+
+\bibitem{bib:04}
+\selectlanguageifdefined{english}
+Ivanov~I.I., Petrov~P.P. Article title~//
+  \href{https://doi.org/10.0000/S197600000000000}{\BibEmph{Journal of Fluid
+  Mechanics}}. \BibDash
+\newblock 1976. \BibDash
+\newblock Vol.~17, no.~5. \BibDash
+\newblock P.~50--55.
+
+\bibitem{bib:05}
+\selectlanguageifdefined{english}
+Happel~J., Brenner~H. Low {R}eynolds Number Hydrodynamics: with special
+  applications to particulate media. \BibDash
+\newblock Englewood Cliffs, New York~: Prentice-Hall, 1965. \BibDash
+\newblock 553~p.
+
+\bibitem{bib:06}
+\selectlanguageifdefined{english}
+Smith~John. An Analysis of Example~: Phd thesis~; University of Example.
+  \BibDash
+\newblock Example City, CA, 2022. \BibDash June. \BibDash
+\newblock Available at \url{https://example.com/thesis.pdf}.
+
+\bibitem{bib:07}
+\selectlanguageifdefined{english}
+Lesk~Michael, Kernighan~Brian. Computer Typesetting of Technical Journals on
+  {UNIX}~// Proceedings of American Federation of Information Processing
+  Societies: 1977 National Computer Conference. \BibDash
+\newblock Dallas, Texas. \BibDash
+\newblock 1977. \BibDash
+\newblock P.~879--888.
+
+\bibitem{bib:08}
+\selectlanguageifdefined{english}
+Happel~J., Brenner~H. Low {R}eynolds Number Hydrodynamics: with special
+  applications to particulate media. \BibDash
+\newblock Englewood Cliffs, New York~: Prentice-Hall, 1965. \BibDash
+\newblock 553~p.
+
+\end{thebibliography}

@@ -49,7 +49,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, Wps_0, T, T_0, cell
     if i == j == 0:
         # if T[i, j] + 273.15 < Tm:
         K2 = ti.exp(alpha_R * (1.0 / (T[i, j] + 273.15) - reverse_Tm))
-        print(T[i, j], K2, Wp[i, j] - (1.0 - Wp[i, j]) / (K2 - 1.0))
+        print(T[i, j], new_Wps[i, j], 1 / K2)
 
 
 @ti.func
@@ -82,6 +82,6 @@ def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
 
     # if T + 273.15 < Tm:
     K2 = ti.exp(alpha_R * (1.0 / (T + 273.15) - reverse_Tm))
-    new_Wps = Wp - (1.0 - Wp) / (K2 - 1.0)
+    new_Wps = Wp / K2
 
     return new_Wps
