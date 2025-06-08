@@ -210,7 +210,7 @@ class Solver:
         ti.loop_config(serialize=True)
         for i in ti.ndrange(self.n_wells):
             saturation_well(self.wells[i], self.m, self.new_s)
-            wps_wp_wells(self.wells[i], self.m, self.S, self.Wo, self.Wp, self.Wps, self.new_wp)
+            wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wp)
             temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
     @ti.kernel
