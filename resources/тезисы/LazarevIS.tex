@@ -10,8 +10,6 @@
 \usepackage{amssymb,amsmath,amsfonts}
 \usepackage[T2A]{fontenc}
 \usepackage[english,russian]{babel}
-\usepackage{graphicx}
-\usepackage{epstopdf}
 
 \let\chapter\section
 \sloppy
@@ -36,7 +34,7 @@
 
 
 \begin{abstract}
-В данной работе рассматривается задача двухфазной неизотермической фильтрации. В рамках моделирования нефть рассматривается как смесь двух несмешивающихся с водой углеводородных составляющих "нефти" и "парафина". Для прогнозирования кристаллизации парафина применяется теория идеального раствора бинарной смеси. Для уравнений, определяющих динамику изменения пористости и проницаемости, используются зависимости, основанные на функции распределения пор по размерам. Особое внимание уделяется процессам осаждения частиц в пористой среде и их срыва со стенок пор. Представлено сопоставление результатов моделирования с экспериментальными данными.
+	В данной работе рассматривается задача двухфазной неизотермической фильтрации. В рамках моделирования нефть рассматривается как смесь двух несмешивающихся с водой углеводородных составляющих "нефти" и "парафина". Для прогнозирования кристаллизации парафина применяется теория идеального раствора бинарной смеси. Для уравнений, определяющих динамику изменения пористости и проницаемости, используются зависимости, основанные на функции распределения пор по размерам. Особое внимание уделяется процессам осаждения частиц в пористой среде и их срыва со стенок пор. Представлено сопоставление результатов моделирования с экспериментальными данными.
 \end{abstract}
 
 \noindent
@@ -46,11 +44,29 @@
 
 \vspace{1em}
 \hrule
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\vspace{1em}
+{\subsection*{\normalsize Введение}}
+В процессе разработки нефтегазовых месторождений температурные изменения, вызванные технологическими воздействиями, могут существенно влиять на физико-химические свойства пластовых флюидов. Особенно актуальной проблемой становится выделение парафина из нефти. Парафин выпадает в осадок, образуя дисперсные частицы, оседающие на поверхности пор. Это приводит к ухудшению фильтрационно-емкостных характеристик коллектора. В частности, кольматация пор парафином уменьшает пористость и проницаемость, а также увеличивает скин-фактора, что снижает продуктивность скважин. На это указывают многие исследования, связанные с анализом керна методом компьютерной томографии \cite{bib:01}. Таким образом, учет тепловых и химических факторов является неотъемлемой частью проектирования разработки месторождений. 
+
 \vspace{2em}
+{\subsection*{\normalsize Закон сохранения массы}}
+В рассматриваемой модели присутствуют две фазы и три псевдокомпонента. Нефть и вода представляют собой две отдельные не смешивающиеся фазы. В качестве трех псевдокомпонентов выступают нефть, вода и парафин. Предполагается, что жидкости несжимаемы, а также что между водной и нефтяной фазами не происходит массообмен. Поэтому уравнения баланса масс записываются для каждой фазы отдельно. Учитывая сделанные допущения, уравнения баланса массы для воды и нефти, имеют следующую структуру:
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+$$
+\frac{\partial }{\partial t}\left (m \rho_w S_w \right ) + \nabla\left ( \rho_w \mathbf{U_w} \right ) = q_w \rho_w,
+$$
 
-Примеры набора формул
+$$
+\frac{\partial }{\partial t}\left (w_o  m \rho_o S_o \right ) + \nabla\left ( w_o  \rho_o \mathbf{U_o} \right ) = w_o q_o \rho_o.
+$$
+
+Псевдокомпонент парафина может быть частично растворен в нефтяной фазе, взвешен в нефтяной фазе в виде частиц и отложен в поровом пространстве. Уравнение баланса массы парафина в этом случае запишется в виде:
+
+\vspace{2em}
+{\subsection*{\normalsize Закон сохранения энергии}}
+Какой-то большой текст.
 
 \begin{equation}\label{eq1}
 \int_{0}^{1} f(x)\, dx = 0,
@@ -82,17 +98,9 @@ $$
 
 \medskip
 
-Пример оформления рисунков (рис.~\ref{fig:01}).
-
-\begin{figure}[h]
- \centering
- \includegraphics[width=0.4\linewidth]{pict.eps}
- \caption{Подпись рисунка}
- \label{fig:01}
-\end{figure}
 
 Ссылки на книгу \cite{bib:01,bib:02}, на статью \cite{bib:03,bib:04}, на
-диссертацию \cite{bib:05,bib:06}, на тезисы \cite{bib:07,bib:08}.
+диссертацию \cite{bib:05}.
 
 Пример указания на поддержку научных фондов (отделять от основного текста
 командой \verb!\medskip!):
@@ -124,7 +132,7 @@ I.S.~Lazarev, A.I.~Nikiforov
 }
 
 \begin{abstract}
-This paper considers the problem of two-phase non-isothermal filtration. In the framework of modelling oil is considered as a mixture of two immiscible with water hydrocarbon components "oil" and "paraffin". The ideal solution theory of the binary mixture is applied to predict paraffin crystallisation. Dependences based on the pore size distribution function are used for equations determining the dynamics of porosity and permeability changes. Particular attention is paid to the processes of particle deposition in the porous medium and their disruption from the pore walls. Comparison of modelling results with experimental data is presented.
+	This paper considers the problem of two-phase non-isothermal filtration. In the framework of modelling oil is considered as a mixture of two immiscible with water hydrocarbon components "oil" and "paraffin". The ideal solution theory of the binary mixture is applied to predict paraffin crystallisation. Dependences based on the pore size distribution function are used for equations determining the dynamics of porosity and permeability changes. Particular attention is paid to the processes of particle deposition in the porous medium and their disruption from the pore walls. Comparison of modelling results with experimental data is presented.
 \end{abstract}
 
 \textit{Keywords:} paraffin, filtration, dispersed particles, colmatisation, suffosion, porosity, permeability, damage.
