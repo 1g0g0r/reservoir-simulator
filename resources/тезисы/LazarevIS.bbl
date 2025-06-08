@@ -22,40 +22,4 @@ O.A.~Adeyanju, L.O.~Oyekunle. Simulation of paraffin deposition in petroleum
 \newblock Vol.~2, no.~3. \BibDash
 \newblock P.~1--18.
 
-\bibitem{bib:02}
-\selectlanguageifdefined{english}
-Sh.~Wang, F.~Civan. Model-Assisted Analysis of Simultaneous Paraffin and
-  Asphaltene Deposition in Laboratory Core Tests~//
-  \href{https://doi.org/10.1115/1.1924466}{\BibEmph{J. Energy Resour.
-  Technol.}} \BibDash
-\newblock 2005. \BibDash
-\newblock Vol. 127, no.~4. \BibDash
-\newblock P.~318--322.
-
-\bibitem{bib:03}
-\selectlanguageifdefined{english}
-Nikiforov~A.I.~Sadovnikov~R.V., G.A.~Nikiforov. Modeling of Paraffin Deposition
-  During Oil Production by Cold Water Injection~//
-  \href{https://doi.org/10.1134/S199508022208025X}{\BibEmph{Lobachevskii J.
-  Math}}. \BibDash
-\newblock 2022. \BibDash
-\newblock Vol.~43, no.~5. \BibDash
-\newblock P.~1178--1183.
-
-\bibitem{bib:04}
-\selectlanguageifdefined{english}
-Ivanov~I.I., Petrov~P.P. Article title~//
-  \href{https://doi.org/10.0000/S197600000000000}{\BibEmph{Journal of Fluid
-  Mechanics}}. \BibDash
-\newblock 1976. \BibDash
-\newblock Vol.~17, no.~5. \BibDash
-\newblock P.~50--55.
-
-\bibitem{bib:05}
-\selectlanguageifdefined{english}
-Happel~J., Brenner~H. Low {R}eynolds Number Hydrodynamics: with special
-  applications to particulate media. \BibDash
-\newblock Englewood Cliffs, New York~: Prentice-Hall, 1965. \BibDash
-\newblock 553~p.
-
 \end{thebibliography}
