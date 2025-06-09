@@ -18,5 +18,5 @@ TODO_list.txt
 *.aux
 *.blg
 *.bbl
-*.synctex
+*.synctex.gz
 *.gz
