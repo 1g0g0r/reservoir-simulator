@@ -7,7 +7,7 @@ alpha_R = alpha / R
 
 
 @ti.func
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, Wps_0, T, T_0, cells_Wp_eq, new_Wp, new_Wps) -> None:
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, cells_Wp_eq, new_Wp, new_Wps) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -24,6 +24,8 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, Wps_0, T, T_0, cell
         Водонасыщенность, [-]
     S_0: taichi.field(Nx, Ny)
         Водонасыщенность на прошлом временном слое, [-]
+    Wo: taichi.field(Nx, Ny)
+        Концентрация нефтяного компонента в нефти, [-]
     Wp: taichi.field(Nx, Ny)
         Концентрация растворенного парафина, [-]
     T: taichi.field(Nx, Ny)
@@ -35,8 +37,8 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, Wps_0, T, T_0, cell
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    Wps_i   = Wps[i, j]
-    Wps_0_i = Wps_0[i, j]  # _get_Wps(Wp_0[i, j], Wps_0[i, j], T_0[i, j])
+    Wps_i   = _get_Wps(Wo[i, j], Wp[i, j], Wps[i, j], T[i, j])
+    Wps_0_i = _get_Wps(Wo[i, j], Wp[i, j], Wps[i, j], T_0[i, j])
 
     _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
             - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
@@ -44,12 +46,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wp_0, Wps, Wps_0, T, T_0, cell
             + cells_Wp_eq[i, j] / volume + ro_p * qp[i, j])
 
     new_Wp[i, j] = ti.max(_new_Wp, 0.0)
-    new_Wps[i, j] = ti.max(_get_Wps(Wp[i, j], Wps[i, j], T[i, j]), 0.0)
-
-    if i == j == 0:
-        # if T[i, j] + 273.15 < Tm:
-        K2 = ti.exp(alpha_R * (1.0 / (T[i, j] + 273.15) - reverse_Tm))
-        print(T[i, j], new_Wps[i, j], 1 / K2)
+    new_Wps[i, j] = new_Wps[i, j] = ti.max(1.0 - Wo[i, j] - new_Wp[i, j], 0.0)
 
 
 @ti.func
@@ -76,12 +73,12 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
 
 
 @ti.func
-def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
+def _get_Wps(Wo: data_type, Wp: data_type, Wps: data_type, T: data_type) -> data_type:
     """Моделирование процесса кристаллизации парафина."""
     new_Wps = Wps
 
-    # if T + 273.15 < Tm:
-    K2 = ti.exp(alpha_R * (1.0 / (T + 273.15) - reverse_Tm))
-    new_Wps = Wp / K2
+    # exact_solution = alpha_R * Tm / (alpha_R + Tm * ti.log(border))
+    if Wp > 1e-6 and T > 0.94 * Tm:
+        new_Wps = Wp * ti.exp(alpha_R * (1.0 / T - reverse_Tm))
 
     return new_Wps
