@@ -14,3 +14,7 @@ TODO_list.txt
 *.html
 *.log
 *.asv
+
+#*.aux
+#*.blg
+#*.syntex.gz
