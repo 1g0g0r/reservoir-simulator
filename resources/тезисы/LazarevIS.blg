@@ -8,44 +8,44 @@ Reallocating 'wiz_functions' (item size: 4) to 6000 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
 Database file #1: LazarevIS.bib
 Reallocating 'singl_function' (item size: 4) to 100 items.
-You've used 1 entry,
+You've used 5 entries,
             5657 wiz_defined-function locations,
-            1588 strings with 14502 characters,
-and the built_in function-call counts, 456 in all, are:
-= -- 53
-> -- 9
-< -- 3
-+ -- 3
-- -- 2
-* -- 26
-:= -- 53
-add.period$ -- 5
-call.type$ -- 1
+            1617 strings with 15198 characters,
+and the built_in function-call counts, 2319 in all, are:
+= -- 298
+> -- 41
+< -- 13
++ -- 14
+- -- 9
+* -- 135
+:= -- 229
+add.period$ -- 24
+call.type$ -- 5
 change.case$ -- 0
 chr.to.int$ -- 0
-cite$ -- 1
-duplicate$ -- 21
-empty$ -- 44
-format.name$ -- 2
-if$ -- 114
+cite$ -- 5
+duplicate$ -- 119
+empty$ -- 236
+format.name$ -- 9
+if$ -- 630
 int.to.chr$ -- 0
-int.to.str$ -- 1
+int.to.str$ -- 5
 missing$ -- 0
-newline$ -- 22
-num.names$ -- 3
-pop$ -- 4
+newline$ -- 49
+num.names$ -- 15
+pop$ -- 24
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 0
-skip$ -- 18
+skip$ -- 108
 stack$ -- 0
-substring$ -- 15
-swap$ -- 17
-text.length$ -- 2
+substring$ -- 127
+swap$ -- 99
+text.length$ -- 8
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 0
 warning$ -- 0
-while$ -- 3
-width$ -- 2
-write$ -- 31
+while$ -- 15
+width$ -- 6
+write$ -- 95
