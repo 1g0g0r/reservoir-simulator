@@ -1,7 +1,7 @@
 import taichi as ti
 
 from paraphin import r1, r2
-from paraphin.constants import data_type, Nr, dt, ro_p, D, g, gamma, betta, Diff, Lk, Cf, Delta
+from paraphin.constants import data_type, Nr, dt, ro_p, D, g, gamma, betta, Diff, Lk, Cf, S_max, Delta
 
 """
 Lk: float
@@ -26,6 +26,7 @@ b_D_3 = 6.0 * betta / D / D / D
 cf_D2 = Cf * D * D * g / 18.0
 Diff_2 = 2.0 * Diff * Diff / Lk
 D_2_gamma = D * 0.5 / gamma
+So_max = 1.0 - S_max
 
 
 @ti.func
@@ -59,7 +60,7 @@ def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_n
     """
     # Тк при Wps=0 цикл не имеет смысла
     if Wps[i, j] > 1e-6:
-        So = (1.0 - S[i, j])
+        So = 1.0 - S[i, j] - So_max
         for ij in ti.ndrange(Nr):
             um = Um_r2[i, j] * r2[ij]
             uc = u_c(r=r1[ij], mu=mu_o[i, j], ro=ro_p)
