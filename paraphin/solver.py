@@ -139,12 +139,12 @@ class Solver:
                     self.k_mult[i, j] = 1.0
 
                     # свойства флюидов
-                    self.mu_o[i, j] = mu_o
-                    self.mu_w[i, j] = mu_w
-                    self.C_w[i, j] = c_w
-                    self.C_o[i, j] = c_o
-                    self.C_f[i, j] = c_f
-                    self.C_p[i, j] = c_p
+                    self.mu_o[i, j] = calc_mu_o(init_T)
+                    self.mu_w[i, j] = calc_mu_w(init_T)
+                    self.C_w[i, j] = calc_c_w(init_T)
+                    self.C_o[i, j] = calc_c_o(init_T)
+                    self.C_f[i, j] = calc_c_f(init_T)
+                    self.C_p[i, j] = calc_c_p(init_T)
 
                     # Поля данный нового временного слоя
                     self.new_wps[i, j] = init_Wps
@@ -230,7 +230,7 @@ class Solver:
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
-                # self._update_mu_and_c_temp(i, j)
+                self._update_mu_and_c_temp(i, j)
 
 
     @ti.func
@@ -292,10 +292,11 @@ class Solver:
             'Pressure':    self.p.to_numpy(),
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
-            'Wp':          self.Wp.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
             'm mult':      self.m_mult.to_numpy(),
             'k mult':      self.k_mult.to_numpy(),
+            'mu_o':        self.mu_o.to_numpy(),
+            'mu_w':        self.mu_w.to_numpy(),
             'plots':       {'fi_o': fi_0,
                             'fi': self.fi.to_numpy()[0, 0],
                             # 'dfi': fi_0 - self.fi.to_numpy()[0, 0],
@@ -306,10 +307,10 @@ class Solver:
             'Other params': {
                 'Wps [0,0]':  self.Wps.to_numpy()[0,0],
                 'Wp [0,0]': self.Wp.to_numpy()[0,0],
-                'Wp [0,0] + Wps [0,0]': self.Wp.to_numpy()[0,0]+self.Wps.to_numpy()[0,0],
                 'k_mult [0,0]':  self.k_mult.to_numpy()[0,0],
                 'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
-                'qp [0,0]': self.qp.to_numpy()[0,0],
+                'mu_o [0,0]': self.mu_o.to_numpy()[0,0],
+                'mu_w [0,0]': self.mu_w.to_numpy()[0,0],
             }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
