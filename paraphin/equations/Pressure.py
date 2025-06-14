@@ -37,29 +37,17 @@ def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ind
     wells: taichi.field(n_wells)
         Массив скважин
     """
-    _fill_matrix_and_rhs(Wo, m, m_0, k, S, mu_o, mu_w, data, rhs)
-    _adding_wells(wells, Wo, data, rhs, k)
+    _fill_matrix_and_rhs(m, m_0, k, S, mu_o, mu_w, data, rhs)
+    _adding_wells(wells, data, rhs, k)
 
     A_csc = csc_matrix((data.to_numpy(), (rows_indices, cols_indices)), shape=(N, N))
-    # solution = splu(A_csc).solve(rhs.to_numpy())
-    solution = spsolve(A_csc, rhs.to_numpy())
-
+    solution = spsolve(A_csc, rhs.to_numpy())  # splu(A_csc).solve(rhs.to_numpy())
     p.from_numpy(solution.reshape((Ny, Nx)).T)
 
 
 @ti.kernel
-def _adding_wells(wells: ti.template(), Wo: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray(), k: ti.template()):
-    """Добавление скважин в уравнение давления"""
-    ti.loop_config(serialize=True)
-    for i in ti.ndrange(wells.shape[0]):
-        temp_data = Wo[wells[i].i, wells[i].j] * wells[i].q[2] / wells[i].dp_k * k[wells[i].i, wells[i].j]
-        data[wells[i].idx_mat] -= temp_data
-        rhs[wells[i].idx_rhs] -= temp_data * wells[i].p
-
-
-@ti.kernel
-def _fill_matrix_and_rhs(Wo: ti.template(), m: ti.template(), m_0: ti.template(), k: ti.template(), S: ti.template(),
-                         mu_o: ti.template(), mu_w: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
+def _fill_matrix_and_rhs(m: ti.template(), m_0: ti.template(), k: ti.template(), S: ti.template(), mu_o: ti.template(),
+                         mu_w: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
     """Сборка матрицы уравнения давления"""
     num = 0
     for i in ti.ndrange(Nx):
@@ -70,8 +58,8 @@ def _fill_matrix_and_rhs(Wo: ti.template(), m: ti.template(), m_0: ti.template()
             for qq in ti.static(ti.ndrange(4)):
                 i1, j1, hij, areaij = arr[qq]
                 if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                    val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                               k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+                    val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
                     data[num] = val
                     p_sum -= val
                     num += 1
@@ -80,34 +68,44 @@ def _fill_matrix_and_rhs(Wo: ti.template(), m: ti.template(), m_0: ti.template()
             num += 1
 
             # rhs
-            rhs[idx] = Wo[i, j] * (m[i, j] - m_0[i, j]) / dt * volume
-
-            # if i != 0:  # i - 1, j, hx, hy*h
-            #     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-            #                                k[i-1, j], S[i-1, j], mu_o[i-1, j], mu_w[i-1, j]) * hy * h / hx
-            #     data[num] = val
-            #     p_sum -= val
-            #     num += 1
-            # if i != Nx - 1:  # i + 1, j, hx, hy*h
-            #     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-            #                                k[i + 1, j], S[i + 1, j], mu_o[i + 1, j], mu_w[i + 1, j]) * hy * h / hx
-            #     data[num] = val
-            #     p_sum -= val
-            #     num += 1
-            # if j != 0:  # i, j - 1, hy, hx*h
-            #     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-            #                                k[i, j - 1], S[i, j - 1], mu_o[i, j - 1], mu_w[i, j - 1]) * hx * h / hy
-            #     data[num] = val
-            #     p_sum -= val
-            #     num += 1
-            # if j != Ny - 1:  # i, j + 1, hy, hx*h
-            #     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-            #                                k[i, j + 1], S[i, j + 1], mu_o[i, j + 1], mu_w[i, j + 1]) * hx * h / hy
-            #     data[num] = val
-            #     p_sum -= val
-            #     num += 1
-
+            rhs[idx] = (m[i, j] - m_0[i, j]) / dt * volume
     """
     В этом же цикле обновлять поля данных. 
     Использовать поля Wo, Wo_0, m, m_0, k, S с нового временного слоя (префикс new_) 
     """
+
+
+@ti.kernel
+def _adding_wells(wells: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray(), k: ti.template()):
+    """Добавление скважин в уравнение давления"""
+    ti.loop_config(serialize=True)
+    for i in ti.ndrange(wells.shape[0]):
+        temp_data = wells[i].q[2] / wells[i].dp_k * k[wells[i].i, wells[i].j]
+        data[wells[i].idx_mat] -= temp_data
+        rhs[wells[i].idx_rhs] -= temp_data * wells[i].p
+
+
+# if i != 0:  # i - 1, j, hx, hy*h
+#     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+#                                k[i-1, j], S[i-1, j], mu_o[i-1, j], mu_w[i-1, j]) * hy * h / hx
+#     data[num] = val
+#     p_sum -= val
+#     num += 1
+# if i != Nx - 1:  # i + 1, j, hx, hy*h
+#     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+#                                k[i + 1, j], S[i + 1, j], mu_o[i + 1, j], mu_w[i + 1, j]) * hy * h / hx
+#     data[num] = val
+#     p_sum -= val
+#     num += 1
+# if j != 0:  # i, j - 1, hy, hx*h
+#     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+#                                k[i, j - 1], S[i, j - 1], mu_o[i, j - 1], mu_w[i, j - 1]) * hx * h / hy
+#     data[num] = val
+#     p_sum -= val
+#     num += 1
+# if j != Ny - 1:  # i, j + 1, hy, hx*h
+#     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+#                                k[i, j + 1], S[i, j + 1], mu_o[i, j + 1], mu_w[i, j + 1]) * hx * h / hy
+#     data[num] = val
+#     p_sum -= val
+#     num += 1
