@@ -75,7 +75,7 @@ def u_r(So: data_type, wps: data_type, um: data_type, uc: data_type, r: data_typ
 
     Parameters
     ----------
-    So: taichi.field(Nx, Ny)
+    So: float
         Нефтенасыщенность, [-]
     wps: float
         Объемная концентрация взвешенных частиц парафина, [м3/м3]
@@ -111,7 +111,7 @@ def u_b(So: data_type, um: data_type, wps: data_type, fi: data_type, r: data_typ
 
     Parameters
     ----------
-    So: taichi.field(Nx, Ny)
+    So: float
         Нефтенасыщенность, [-]
     um: float
         Средняя скорость жидкости в капилляре, [м/с]

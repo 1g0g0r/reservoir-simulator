@@ -44,7 +44,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 		Перетоки нефти в ячейках, [Па*м]
 	"""
 	lam = m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * ((1.0 - Wps[i, j]) * K_o + Wps[i, j] * K_p)) + (1.0 - m[i, j]) * K_f
-	T_Co = ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j]
+	Co = ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j]
 	wps_wp = ro_o * Wp[i, j] + ro_p * Wps[i, j]
 
 	arr = [[i + 1, j, hx, hy * h], [i - 1, j, hx, hy * h], [i, j + 1, hy, hx * h], [i, j - 1, hy, hx * h]]
@@ -54,7 +54,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 		if (0 <= i1 < Nx) and (0 <= j1 < Ny):
 			# TODO придумать, как объединить вычисление слагаемых вверх по потоку
 			wps_wp_ij = ro_o * Wp[i1, j1] + ro_p * Wps[i1, j1]
-			T_Co_ij = ro_o * C_o[i1, j1] * (1.0 - Wps[i1, j1]) + ro_p * Wps[i1, j1] * C_p[i1, j1]
+			Co_ij = ro_o * C_o[i1, j1] * (1.0 - Wps[i1, j1]) + ro_p * Wps[i1, j1] * C_p[i1, j1]
 			lam_ij = m[i1, j1] * (S[i1, j1] * K_w + (1.0 - S[i1, j1]) * ((1.0 - Wps[i1, j1]) * K_o +
 																		 Wps[i1, j1]* K_p)) + (1.0 - m[i1, j1]) * K_f
 			value = (p[i1, j1] - p[i, j]) * areaij / hij * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
@@ -69,7 +69,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 			_s += up_k_w
 			_t += mid(lam, lam_ij) * areaij * (T[i1, j1] - T[i, j]) / hij
 			_t += C_w[i, j] * ro_w * up_t * up_k_w
-			_t += mid(T_Co, T_Co_ij) * up_t * up_k_o
+			_t += mid(Co, Co_ij) * up_t * up_k_o
 
 	cells_S_eq[i, j] = _s
 	cells_Wp_eq[i, j] = _wp
