@@ -1,3 +1,4 @@
+"""Решение уравнения давления: сборка матрицы (МКО и решение СЛАУ)."""
 import taichi as ti
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import spsolve

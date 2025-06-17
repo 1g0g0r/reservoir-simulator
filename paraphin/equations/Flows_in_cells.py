@@ -1,3 +1,4 @@
+"""Вычисление перетоков массы и энергии при решении методом конечных объемов на прямоугольной сетке."""
 import taichi as ti
 
 from paraphin.constants import Nx, Ny, hx, hy, h, K_o, K_f, K_w, K_p, ro_w, ro_o, ro_p

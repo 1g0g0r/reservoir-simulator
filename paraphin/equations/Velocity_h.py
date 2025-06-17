@@ -1,3 +1,4 @@
+"""Вычисление скоростей и толщины осадочного слоя в ячейке."""
 import taichi as ti
 
 from paraphin import r1, r2

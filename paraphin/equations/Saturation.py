@@ -1,3 +1,4 @@
+"""Решение уравнения водонасыщенности по явной схеме."""
 import taichi as ti
 
 from paraphin.constants import dt, volume

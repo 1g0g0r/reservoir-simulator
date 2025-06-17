@@ -1,3 +1,4 @@
+"""Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме."""
 import taichi as ti
 
 from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type

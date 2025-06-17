@@ -1,3 +1,4 @@
+"""Решение уравнения концентрации взвешенных частиц парафина по явной схеме."""
 import taichi as ti
 
 from paraphin import r1, r2, r3, r4, r5, r6
@@ -42,15 +43,12 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
     if Wps[i, j] > 1e-6:
         # Вычисление изменения пористости и проницаемости пласта
         qp1, qp2, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
-        new_qp[i, j] = m[i, j] * Wps[i, j] * qp2 / r2fi  # m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
+        new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
         m_mult[i, j] = r2fi / integr_r2_fi0
         k_mult[i, j] = r4fi / integr_r4_fi0
 
         # Обновление функции пор по размерам
         _update_fi(new_fi, fi, Ur, Ub, i, j)
-
-        # if i == j == 0:
-        #     print(qp1 / r2fi)
 
 
 @ti.func

@@ -313,6 +313,7 @@ class Solver:
                 'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
                 'mu_o [0,0]': self.mu_o.to_numpy()[0,0],
                 'mu_w [0,0]': self.mu_w.to_numpy()[0,0],
+                'qp [0,0]': self.qp.to_numpy()[0,0],
             }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:

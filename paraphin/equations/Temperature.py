@@ -1,3 +1,4 @@
+"""Решение уравнения температуры по явной схеме."""
 import taichi as ti
 
 from paraphin.constants import Nx, Ny, dt, volume, ro_w, ro_f, ro_o, ro_p
