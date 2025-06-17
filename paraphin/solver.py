@@ -80,6 +80,7 @@ class Solver:
         # Вспомогательные поля класса
         self._i_img = 0
         self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)
+        self.p_np = np.zeros((Nx, Ny))
         self.rows_indices = np.ndarray
         self.cols_indices = np.ndarray
         results_path.mkdir(parents=True, exist_ok=True)
@@ -184,7 +185,7 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        calc_pressure(self.p, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.rows_indices, self.cols_indices)
+        calc_pressure(self.p, self.p_np, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.rows_indices, self.cols_indices)
 
     @ti.kernel
     def _update_wells_data(self):
@@ -202,7 +203,7 @@ class Solver:
         self._wells_loop()         # Учет скважин в уравнениях
         if self._paraphin:
             # Средняя скорость в капилляре * r^2
-            self._Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p.to_numpy()), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
+            self._Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p_np), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
 
     @ti.kernel

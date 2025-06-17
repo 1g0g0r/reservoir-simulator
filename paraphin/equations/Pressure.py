@@ -14,12 +14,14 @@ rhs = ti.ndarray(data_type, shape=N)
 data = ti.ndarray(data_type, shape=NN)
 
 
-def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_indices) -> None:
+def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_indices):
     """Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
     Parameters
     ----------
     p: taichi.field(Nx, Ny)
+        Давление, [Па]
+    p_np: numpy.ndarray(Nx, Ny)
         Давление, [Па]
     Wo: taichi.field(Nx, Ny)
         Объемная доля масляного компонента в нефти, [-]
@@ -43,7 +45,10 @@ def calc_pressure(p, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ind
 
     A_csc = csc_matrix((data.to_numpy(), (rows_indices, cols_indices)), shape=(N, N))
     solution = spsolve(A_csc, rhs.to_numpy())  # splu(A_csc).solve(rhs.to_numpy())
-    p.from_numpy(solution.reshape((Ny, Nx)).T)
+    # TODO попробовать вызывать скомпилированные модули без проверок
+
+    p_np[:] = solution.reshape((Ny, Nx)).T
+    p.from_numpy(p_np)
 
 
 @ti.kernel
