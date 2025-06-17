@@ -1,7 +1,7 @@
 import taichi as ti
 
-from paraphin.constants import data_type, ro_w, ro_p, ro_o
-from paraphin.utils.phase_f import pf_o, pf_w
+from paraphin.constants import data_type
+from .phase_f import pf_o, pf_w
 
 
 @ti.func

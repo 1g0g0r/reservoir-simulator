@@ -20,7 +20,7 @@ kal_to_J = 4.1868
 outputs_path = Path.cwd() / 'outputs'
 results_path = outputs_path / 'results'
 logs_path = outputs_path / '.log'
-js_path = Path.cwd() / 'paraphin' / 'utils' / 'plotly_script.js'
+js_path = Path.cwd() / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
 
 # Параметры сетки
 Nr = 31          # Число узлов сетки радиусов капилляров

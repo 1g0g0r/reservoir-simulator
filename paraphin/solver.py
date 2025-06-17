@@ -6,13 +6,13 @@ import psutil
 import taichi as ti
 
 from paraphin import r1, r3, r4, r5, r6, fi_0
-from paraphin.constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, init_k, init_S,
-                                init_m, init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, eta, h, dt,
-                                day_to_sec, mu_o, mu_w, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
-from paraphin.equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
-                                temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
-from paraphin.utils import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p, preprocess_matrix_and_wells
-from paraphin.well import WellStruct, upd_q_and_eta
+from .constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, init_k, init_S, init_m, init_p,
+                        init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, eta, h, dt, day_to_sec, mu_o, mu_w,
+                        c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
+from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
+                        temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
+from .utils import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p, preprocess_matrix_and_wells
+from .well import WellStruct, upd_q_and_eta
 
 
 @ti.data_oriented

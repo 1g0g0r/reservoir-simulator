@@ -1,7 +1,7 @@
 import numpy as np
 import taichi as ti
 
-from paraphin.constants import data_type, Nx, Ny, Nr
+from .constants import data_type, Nx, Ny, Nr
 
 N = Nx * Ny  # размер матрицы
 NN = (Nx - 2) * (Ny - 2) * 5 + (Nx-2) * 8 + (Ny-2) * 8 + 12  # количество ненулевых элементов в матрице давления

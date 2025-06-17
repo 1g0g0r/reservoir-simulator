@@ -5,15 +5,14 @@ import plotly.graph_objects as go
 
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
-                                day_to_sec, CONTOUR_PLOT, init_Wp)
-from paraphin.utils import read_pkl_files
+                                day_to_sec, CONTOUR_PLOT)
+from .read_data_files import read_pkl_files
 
 
 def show_plot(data, name: str = 'map'):
     x = np.linspace(X_min + hx/2, X_max - hx/2, Nx)
     y = np.linspace(Y_min + hy/2, Y_max - hy/2, Ny)
 
-    # Создаем тепловую карту
     fig = go.Figure(data=go.Heatmap(
         x=x,
         y=y,
@@ -30,7 +29,6 @@ def show_plot(data, name: str = 'map'):
         height=800
     )
 
-    # Отображаем график
     if __name__ == '__main__':
         fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs='plotly_script.js')
     else:
