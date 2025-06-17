@@ -1,5 +1,6 @@
-import taichi as ti
+"""Предобработка матрицы уравнения давления и правой части и инициализация данных скважин."""
 import numpy as np
+import taichi as ti
 
 from paraphin import NN
 from paraphin.constants import Nx, Ny, hx, hy, h
@@ -23,7 +24,13 @@ def preprocess_matrix_and_wells(wells, wells_buffer, p, S, k, mu_o, mu_w):
 
     _update_wells_data(wells, p, S, k, mu_o, mu_w)
 
-    return rows_indices_np, cols_indices_np, wells
+    sorted_indices = np.lexsort((rows_indices_np, cols_indices_np))
+    cols_sorted = cols_indices_np[sorted_indices]
+    rows_sorted = rows_indices_np[sorted_indices].astype(np.intc, copy=False)
+    _, cols_ptr = np.unique(cols_sorted, return_index=True)
+    cols_ptr = np.append(cols_ptr, len(cols_sorted)).astype(np.intc, copy=False)
+
+    return sorted_indices, rows_sorted, cols_ptr, wells
 
 
 @ti.kernel

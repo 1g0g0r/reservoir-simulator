@@ -83,6 +83,8 @@ class Solver:
         self.p_np = np.zeros((Nx, Ny))
         self.rows_indices = np.ndarray
         self.cols_indices = np.ndarray
+        self.sort_mask = np.ndarray
+        self.cols_ptr = np.ndarray
         results_path.mkdir(parents=True, exist_ok=True)
 
         if LOGGING:
@@ -104,7 +106,7 @@ class Solver:
         def _well_processing():
             self._wells_names = [i['name'] for i in self._wells_buffer]
             self.wells = WellStruct.field(shape=self.n_wells)
-            self.rows_indices, self.cols_indices, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
+            self.sort_mask, self.rows_indices, self.cols_ptr, self.wells = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
 
         @ti.kernel
         def _calc_integrals(fi_o: ti.types.ndarray()):
@@ -185,7 +187,7 @@ class Solver:
 
     def _update_p(self) -> None:
         """Обновление давления."""
-        calc_pressure(self.p, self.p_np, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.rows_indices, self.cols_indices)
+        calc_pressure(self.p, self.p_np, self.Wo, self.m, self.m_0, self.k, self.S, self.mu_o, self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask)
 
     @ti.kernel
     def _update_wells_data(self):
@@ -231,7 +233,7 @@ class Solver:
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
-                self._update_mu_and_c_temp(i, j)
+                # self._update_mu_and_c_temp(i, j)
 
 
     @ti.func

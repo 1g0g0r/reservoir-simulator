@@ -1,7 +1,9 @@
 """Решение уравнения давления: сборка матрицы (МКО и решение СЛАУ)."""
 import taichi as ti
+
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg._dsolve.linsolve import _superlu
 
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
@@ -14,7 +16,7 @@ rhs = ti.ndarray(data_type, shape=N)
 data = ti.ndarray(data_type, shape=NN)
 
 
-def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_indices):
+def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask):
     """Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
     Parameters
@@ -43,10 +45,9 @@ def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, co
     _fill_matrix_and_rhs(m, m_0, k, S, mu_o, mu_w, data, rhs)
     _adding_wells(wells, data, rhs, k)
 
-    A_csc = csc_matrix((data.to_numpy(), (rows_indices, cols_indices)), shape=(N, N))
-    solution = spsolve(A_csc, rhs.to_numpy())  # splu(A_csc).solve(rhs.to_numpy())
-    # TODO попробовать вызывать скомпилированные модули без проверок
-
+    # A_csc = csc_matrix((data.to_numpy(), (rows_indices, cols_indices)), shape=(N, N))
+    # solution = spsolve(A_csc, rhs.to_numpy())  # splu(A_csc).solve(rhs.to_numpy())
+    solution, _ = _superlu.gssv(N, NN, data.to_numpy()[sort_mask], rows_indices, cols_ptr, rhs.to_numpy(), 1, {'ColPerm': None})
     p_np[:] = solution.reshape((Ny, Nx)).T
     p.from_numpy(p_np)
 
