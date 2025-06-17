@@ -34,7 +34,7 @@ area = hx * hy
 volume = area * h
 
 # Параметры времени задачи
-Time_end = day_to_sec * 365 * 2.0
+Time_end = day_to_sec * 365 * 1.0
 dt = day_to_sec / 1e2  # шаг дискретизации по времени
 
 # Параметры скважин

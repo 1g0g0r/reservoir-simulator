@@ -88,8 +88,12 @@ def _visualize_fields(input_data):
                     trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name, yaxis='y2',
                                          hovertemplate="x: %{x} день<br>y: %{y}<br>")]
                 else:
-                    trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
-                                         hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
+                    if 'Q' in _name:
+                        trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name,
+                                            hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
+                    else:
+                        trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
+                                             hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
                 wells_plots += 1
         elif name == 'Other params':
             for _name, _val in field.items():

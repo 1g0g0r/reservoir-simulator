@@ -282,9 +282,11 @@ class Solver:
             name = self._wells_names[i]
             well = self.wells[i]
             q_value = well.q
+            Q_value = well.Q
             wells_data.update({
                 f'{name}_oil': q_value[0], f'{name}_water': q_value[1],
-                f'{name}_total': q_value[2], f'{name}_eta': well.eta
+                f'{name}_total': q_value[2], f'{name}_eta': well.eta,
+                f'{name}_Q_oil': Q_value[0], f'{name}_Q_water': Q_value[1], f'{name}_Q_total': Q_value[2],
             })
 
         data = {

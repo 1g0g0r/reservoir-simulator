@@ -1,19 +1,20 @@
 import taichi as ti
 
-from paraphin.constants import data_type
+from paraphin.constants import data_type, dt
 from paraphin.utils import pf_w, pf_o, Buckley_Leverett
 
 WellStruct = ti.types.struct(
 	i = ti.i32,
 	j = ti.i32,
+	idx_rhs = ti.i32,
+	idx_mat = ti.i32,
 	rw = data_type,
 	p = data_type,
 	T = data_type,
 	is_injector = ti.i32,
 	productivity_mult = data_type,
 	q = ti.types.vector(3, data_type),
-	idx_rhs = ti.i32,
-	idx_mat = ti.i32,
+	Q = ti.types.vector(3, data_type),
 	eta = data_type,
 	dp_k = data_type
 )
@@ -36,5 +37,9 @@ def upd_q_and_eta(well, p, S, k, mu_o, mu_w) -> WellStruct:
 		well.eta = Buckley_Leverett(S[well.i, well.j], mu_w[well.i, well.j], mu_o[well.i, well.j])
 
 	well.q[2] = well.q[0] + well.q[1]
+
+	well.Q[0] += well.q[0] * dt
+	well.Q[1] += well.q[1] * dt
+	well.Q[2] += well.q[2] * dt
 
 	return well
