@@ -11,7 +11,7 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init
                         c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
-from .utils import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p, preprocess_matrix_and_wells
+from .utils import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p, preprocess_matrix_and_wells, calc_Um_r2
 from .well import WellStruct, upd_q_and_eta
 
 
@@ -203,9 +203,6 @@ class Solver:
         self._update_wells_data()  # Обновление дебетов скважин
         self._equations_loop()     # Решение уравнений по явной схеме
         self._wells_loop()         # Учет скважин в уравнениях
-        if self._paraphin:
-            # Средняя скорость в капилляре * r^2
-            self._Um_r2.from_numpy(np.linalg.norm(np.gradient(self.p_np), axis=0) / self.mu_o.to_numpy() * 0.125 / eta)
 
 
     @ti.kernel
@@ -226,6 +223,8 @@ class Solver:
                 temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.cells_T_eq, self.new_t)
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
+                    # Средняя скорость в капилляре * r^2
+                    calc_Um_r2(i, j, self.p, self._Um_r2, self.mu_o)
                     # Обновление концентраций парафина
                     wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
