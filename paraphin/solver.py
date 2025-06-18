@@ -144,10 +144,10 @@ class Solver:
                     # свойства флюидов
                     self.mu_o[i, j] = calc_mu_o(init_T)
                     self.mu_w[i, j] = calc_mu_w(init_T)
-                    self.C_w[i, j] = calc_c_w(init_T)
-                    self.C_o[i, j] = calc_c_o(init_T)
-                    self.C_f[i, j] = calc_c_f(init_T)
-                    self.C_p[i, j] = calc_c_p(init_T)
+                    self.C_w[i, j] = c_w  # calc_c_w(init_T)
+                    self.C_o[i, j] = c_o  # calc_c_o(init_T)
+                    self.C_f[i, j] = c_f  # calc_c_f(init_T)
+                    self.C_p[i, j] = c_p  # calc_c_p(init_T)
 
                     # Поля данный нового временного слоя
                     self.new_wps[i, j] = init_Wps
@@ -232,7 +232,7 @@ class Solver:
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
                 # ---пересчет свойств флюидов из-за изменения температуры---
-                # self._update_mu_and_c_temp(i, j)
+                self._update_mu_and_c_temp(i, j)
 
 
     @ti.func
