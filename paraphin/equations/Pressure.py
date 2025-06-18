@@ -1,19 +1,19 @@
 """Решение уравнения давления: сборка матрицы (МКО и решение СЛАУ)."""
+import numpy as np
 import taichi as ti
-
-from scipy.sparse import csc_matrix
-from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg._dsolve.linsolve import _superlu
+from taichi._kernels import ndarray_to_ext_arr, ext_arr_to_tensor
 
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
 from paraphin.utils import mid_Ko_Kw
 
-# from scipy.sparse.linalg import splu
 # from pypardiso import spsolve
 
 rhs = ti.ndarray(data_type, shape=N)
+rhs_np = np.zeros(N, dtype=np.float64)
 data = ti.ndarray(data_type, shape=NN)
+data_np = np.zeros(NN, dtype=np.float64)
 
 
 def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask):
@@ -45,11 +45,13 @@ def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, co
     _fill_matrix_and_rhs(m, m_0, k, S, mu_o, mu_w, data, rhs)
     _adding_wells(wells, data, rhs, k)
 
-    # A_csc = csc_matrix((data.to_numpy(), (rows_indices, cols_indices)), shape=(N, N))
-    # solution = spsolve(A_csc, rhs.to_numpy())  # splu(A_csc).solve(rhs.to_numpy())
-    solution, _ = _superlu.gssv(N, NN, data.to_numpy()[sort_mask], rows_indices, cols_ptr, rhs.to_numpy(), 1, {'ColPerm': None})
-    p_np[:] = solution.reshape((Ny, Nx)).T
-    p.from_numpy(p_np)
+    ndarray_to_ext_arr(data, data_np)  # data.to_numpy()
+    ndarray_to_ext_arr(rhs, rhs_np)  # rhs.to_numpy()
+    np.take(data_np, sort_mask, out=data_np)  # data.to_numpy()[sort_mask]
+
+    solution, _ = _superlu.gssv(N, NN, data_np, rows_indices, cols_ptr, rhs_np, 1, {'ColPerm': None})
+    np.copyto(p_np, solution.reshape((Ny, Nx)).T)
+    ext_arr_to_tensor(p_np, p)  # p.from_numpy(p_np)
 
 
 @ti.kernel
@@ -76,6 +78,8 @@ def _fill_matrix_and_rhs(m: ti.template(), m_0: ti.template(), k: ti.template(),
 
             # rhs
             rhs[idx] = (m[i, j] - m_0[i, j]) / dt * volume
+
+    # TODO хотелка по ускорению
     """
     В этом же цикле обновлять поля данных. 
     Использовать поля Wo, Wo_0, m, m_0, k, S с нового временного слоя (префикс new_) 
