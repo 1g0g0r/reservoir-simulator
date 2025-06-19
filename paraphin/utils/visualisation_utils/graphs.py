@@ -17,6 +17,9 @@ def create_diplom_graphs():
 
     Z1 = data['Saturation'][-1]
     Z2 = data['Saturation'][-1] * 1.2
+    start_val = 0,
+    end_val = 1,
+    step = 0.1,
 
     fig.add_trace(go.Contour(
         x=x_mesh,
@@ -26,7 +29,9 @@ def create_diplom_graphs():
         contours=dict(
             coloring='lines',
             showlabels=True,
-            size=0.1,  # Шаг изолиний
+            start=start_val,
+            end=end_val,
+            size=step,
         ),
         line=dict(width=2, dash='dash'),
         colorscale=[[0, 'black'], [1, 'black']],
@@ -42,7 +47,9 @@ def create_diplom_graphs():
         contours=dict(
             coloring='lines',
             showlabels=True,
-            size=0.1,  # Шаг изолиний
+            start=start_val,
+            end=end_val,
+            size=step,
         ),
         line=dict(width=2),
         colorscale=[[0, 'red'], [1, 'red']],
@@ -55,7 +62,7 @@ def create_diplom_graphs():
         yaxis_title='Y',
         height=600,
         width=600,
-        showlegend=True,
+        showlegend=False,
         legend=dict(
             x=1.05,
             y=0.5,
