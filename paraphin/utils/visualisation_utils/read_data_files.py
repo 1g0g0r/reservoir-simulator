@@ -1,3 +1,4 @@
+"""Модуль читает файлы расчета в формате .pkl и преобразовывает в удобный формат."""
 import re
 from pickle import dump, load, PickleError
 

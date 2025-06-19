@@ -1,3 +1,4 @@
+"""Модуль визуализации решения."""
 from __future__ import annotations
 
 import numpy as np
@@ -8,31 +9,8 @@ from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, resu
                                 day_to_sec, CONTOUR_PLOT)
 from .read_data_files import read_pkl_files
 
-
-def show_plot(data, name: str = 'map'):
-    x = np.linspace(X_min + hx/2, X_max - hx/2, Nx)
-    y = np.linspace(Y_min + hy/2, Y_max - hy/2, Ny)
-
-    fig = go.Figure(data=go.Heatmap(
-        x=x,
-        y=y,
-        z=data,
-        colorscale='Jet'
-    ))
-
-    # Настраиваем отображение графика
-    fig.update_layout(
-        title=f'Поле данных {name}',
-        xaxis_title='X',
-        yaxis_title='Y',
-        width=800,
-        height=800
-    )
-
-    if __name__ == '__main__':
-        fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs='plotly_script.js')
-    else:
-        fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs=js_path)
+x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
+y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 
 
 def visualize_solution():
@@ -51,8 +29,6 @@ def _visualize_fields(input_data):
     """Создание анимации полей данных и параметров скважин."""
     wells_plots = 0
     aver_param_plots = 0
-    x = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
-    y = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 
     time = input_data['Time'] / day_to_sec
     n_times = len(time)
@@ -66,7 +42,7 @@ def _visualize_fields(input_data):
         trace = []
         if name == 'Pressure':
             if CONTOUR_PLOT:
-                trace = [go.Contour(x=x, y=y, z=field / bar_to_pa, colorscale='Jet', name=name,
+                trace = [go.Contour(x=x_mesh, y=y_mesh, z=field / bar_to_pa, colorscale='Jet', name=name,
                                     zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>",
                                     contours=dict(
@@ -75,7 +51,7 @@ def _visualize_fields(input_data):
                                         labelfont=dict(size=12, color='black')
                                     ))]
             else:
-                trace = [go.Heatmap(x=x, y=y, z=field / bar_to_pa, colorscale='Jet', name=name,
+                trace = [go.Heatmap(x=x_mesh, y=y_mesh, z=field / bar_to_pa, colorscale='Jet', name=name,
                                     zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")]
         elif name == 'Wells':
@@ -103,7 +79,7 @@ def _visualize_fields(input_data):
             z_max = np.max(field)
             z_min = np.min(field)
             if CONTOUR_PLOT:
-                trace = [go.Contour(x=x, y=y, z=field, colorscale='Jet', name=name, zmin=z_min, zmax=z_max,
+                trace = [go.Contour(x=x_mesh, y=y_mesh, z=field, colorscale='Jet', name=name, zmin=z_min, zmax=z_max,
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
                                     contours=dict(
                                         coloring='fill',
@@ -111,7 +87,7 @@ def _visualize_fields(input_data):
                                         labelfont=dict(size=12, color='black')
                                     ))]
             else:
-                trace = [go.Heatmap(x=x, y=y, z=field, zmin=z_min, zmax=z_max,
+                trace = [go.Heatmap(x=x_mesh, y=y_mesh, z=field, zmin=z_min, zmax=z_max,
                                     colorscale='Jet', name=name,  # colorscale='bluered'
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
         data_fields += trace
@@ -247,15 +223,37 @@ def _visualize_plots(plots_data):
     return fig
 
 
+def show_plot(data, name: str = 'map'):
+    """Визуализация поля данных."""
+    fig = go.Figure(data=go.Heatmap(
+        x=x_mesh,
+        y=y_mesh,
+        z=data,
+        colorscale='Jet'
+    ))
+
+    # Настраиваем отображение графика
+    fig.update_layout(
+        title=f'Поле данных {name}',
+        xaxis_title='X',
+        yaxis_title='Y',
+        width=800,
+        height=800
+    )
+
+    if __name__ == '__main__':
+        fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs='plotly_script.js')
+    else:
+        fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs=js_path)
+
+
 if __name__ == '__main__':
     Nx, Ny = 128, 128
     ones = np.ones((Nx, Ny))
     n_times = 50
     time = np.linspace(0, 50, n_times)
 
-    x = np.linspace(X_min, X_max, Nx)
-    y = np.linspace(Y_min, Y_max, Ny)
-    X, Y = np.meshgrid(x, y)
+    X, Y = np.meshgrid(x_mesh, y_mesh)
 
     data = {
         'Time': time,

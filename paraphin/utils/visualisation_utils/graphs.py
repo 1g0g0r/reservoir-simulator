@@ -1,33 +1,66 @@
+from pickle import load
+
 import numpy as np
 import plotly.graph_objects as go
 
+from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, hx, hy, results_path
 
-z_min = min(np.min(Z1), np.min(Z2))
-z_max = max(np.max(Z1), np.max(Z2))
-levels = np.linspace(z_min, z_max, num=10)  # 10 уровней
+x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
+y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 
 
-fig = go.Figure()
+def create_diplom_graphs():
+    with open(results_path / 'processed_data.pkl', 'rb') as file:
+        _, data = load(file)
 
-# Первая трасса (например, синие изолинии)
-fig.add_trace(go.Contour(
-    x=x, y=y, z=Z1,
-    colorscale='Blues',
-    contours=dict(levels=levels),
-    showscale=False  # Отключить цветовую шкалу для первой трассы
-))
+    fig = go.Figure()
 
-# Вторая трасса (например, красные изолинии)
-fig.add_trace(go.Contour(
-    x=x, y=y, z=Z2,
-    colorscale='Reds',
-    contours=dict(levels=levels),
-    showscale=True  # Включить цветовую шкалу для второй трассы
-))
+    Z1 = data['Saturation'][-1]
+    Z2 = data['Saturation'][-1] * 1.2
 
-fig.update_layout(
-    title="Изолинии двух полей с совпадающими уровнями",
-    xaxis_title="X", yaxis_title="Y",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-)
-fig.show()
+    fig.add_trace(go.Contour(
+        x=x_mesh,
+        y=y_mesh,
+        z=Z1,
+        name='Первый',
+        contours=dict(
+            coloring='lines',
+            showlabels=True,
+            size=0.1,  # Шаг изолиний
+        ),
+        line=dict(width=2, dash='dash'),
+        colorscale=[[0, 'black'], [1, 'black']],
+        showscale=False,
+        showlegend=True
+    ))
+
+    fig.add_trace(go.Contour(
+        x=x_mesh,
+        y=y_mesh,
+        z=Z2,
+        name='Второй',
+        contours=dict(
+            coloring='lines',
+            showlabels=True,
+            size=0.1,  # Шаг изолиний
+        ),
+        line=dict(width=2),
+        colorscale=[[0, 'red'], [1, 'red']],
+        showscale=False,
+        showlegend=True
+    ))
+
+    fig.update_layout(
+        xaxis_title='X',
+        yaxis_title='Y',
+        height=600,
+        width=600,
+        showlegend=True,
+        legend=dict(
+            x=1.05,
+            y=0.5,
+            bgcolor='rgba(255,255,255,0.7)'
+        )
+    )
+
+    fig.show()
