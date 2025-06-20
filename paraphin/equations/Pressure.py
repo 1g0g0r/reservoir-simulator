@@ -49,6 +49,7 @@ def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, co
     ndarray_to_ext_arr(rhs, rhs_np)  # rhs.to_numpy()
     np.take(data_np, sort_mask, out=data_np)  # data.to_numpy()[sort_mask]
 
+    # TODO рассмотреть возможность решения СЛАУ внутри taichi
     solution, _ = _superlu.gssv(N, NN, data_np, rows_indices, cols_ptr, rhs_np, 1, {'ColPerm': None})
     np.copyto(p_np, solution.reshape((Ny, Nx)).T)
     ext_arr_to_tensor(p_np, p)  # p.from_numpy(p_np)

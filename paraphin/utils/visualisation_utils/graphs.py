@@ -17,9 +17,9 @@ def create_diplom_graphs():
 
     Z1 = data['Saturation'][-1]
     Z2 = data['Saturation'][-1] * 1.2
-    start_val = 0,
-    end_val = 1,
-    step = 0.1,
+    start_val = 0
+    end_val = 1
+    step = 0.1
 
     fig.add_trace(go.Contour(
         x=x_mesh,
