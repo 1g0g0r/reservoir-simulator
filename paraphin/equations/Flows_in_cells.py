@@ -28,9 +28,9 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 	m: taichi.field(Nx, Ny)
         Пористость, [-]
     Wp: taichi.field(Nx, Ny)
-        Объемная доля растворенного парафина в нефти, [-]
+        Массовая доля растворенного парафина в нефти, [-]
     Wps: taichi.field(Nx, Ny)
-        Объемная доля взвешенного парафина в нефти, [-]
+        Массовая доля взвешенного парафина в нефти, [-]
     C_o: taichi.field(Nx, Ny)
         Теплоемкость нефти, [Дж/(кг*C)]
     C_w: taichi.field(Nx, Ny)

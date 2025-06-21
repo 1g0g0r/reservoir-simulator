@@ -85,12 +85,13 @@ alpha = 0.1426 * MW * (Tm + 273.15) * kal_to_J  # Скрытая теплота 
 init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
 init_Wp  = 0.05
-init_Wps = 0.00
+init_Wps = 0.0
 init_k   = 0.2 * darcy_to_m2  # [м^2]
 init_m   = 0.2
 init_T   = 70  # [C]
 init_qp  = 0.0
 init_h_sloy = 0.0
+geological_reserves = (X_max - X_min) * (Y_max - Y_min) * h * (1.0 - init_S)  # геологические запасы пласта
 
 # Проверка числа Куранта
 _re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
@@ -105,4 +106,4 @@ if Courant_num > 0.8:
 #     dt = 0.01 * round(dt / day_to_sec, 5) * day_to_sec
 #     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 50  # шаг по времени для сохранения результатов
+sol_time_step = dt * 10  # шаг по времени для сохранения результатов

@@ -43,3 +43,17 @@ def upd_q_and_eta(well, p, S, k, mu_o, mu_w) -> WellStruct:
 	well.Q[2] += well.q[2] * dt
 
 	return well
+
+@ti.func
+def calc_well_mult(well, S, k, mu_o, mu_w) -> float:
+	"""Вычисление множителя дебета скважины."""
+	ret = 0.0
+	mult = well.productivity_mult * k[well.i, well.j]
+
+	if well.is_injector == 1:
+		ret = mult / mu_w[well.i, well.j]
+	else:
+		ret = mult * (pf_o(S[well.i, well.j]) / mu_o[well.i, well.j] +
+					  pf_w(S[well.i, well.j]) / mu_w[well.i, well.j])
+
+	return ret

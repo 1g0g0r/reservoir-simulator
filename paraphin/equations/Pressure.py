@@ -7,26 +7,27 @@ from taichi._kernels import ndarray_to_ext_arr, ext_arr_to_tensor
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
 from paraphin.utils import mid_Ko_Kw
+from paraphin.well import calc_well_mult
 
 # from pypardiso import spsolve
 
-rhs = ti.ndarray(data_type, shape=N)
-rhs_np = np.zeros(N, dtype=np.float64)
-data = ti.ndarray(data_type, shape=NN)
+rhs     = ti.ndarray(data_type, shape=N)
+rhs_np  = np.zeros(N, dtype=np.float64)
+data    = ti.ndarray(data_type, shape=NN)
 data_np = np.zeros(NN, dtype=np.float64)
 
 
-def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask):
+def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask):
     """Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
     Parameters
     ----------
     p: taichi.field(Nx, Ny)
         Давление, [Па]
-    p_np: numpy.ndarray(Nx, Ny)
-        Давление, [Па]
     Wo: taichi.field(Nx, Ny)
-        Объемная доля масляного компонента в нефти, [-]
+        Массовая доля масляного компонента в нефти, [-]
+    Wo_0: taichi.field(Nx, Ny)
+        Массовая доля масляного компонента в нефти на прошлом временном слое, [-]
     m: taichi.field(Nx, Ny)
         Пористость, [-]
     m_0: taichi.field(Nx, Ny)
@@ -35,6 +36,8 @@ def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, co
         Проницаемость, [м^2]
     S: taichi.field(Nx, Ny)
         Водонасыщенность, [-]
+    S_0: taichi.field(Nx, Ny)
+        Водонасыщенность на прошлом временном слое, [-]
     mu_o: taichi.field(Nx, Ny)
         Вязкость нефти, [Па*с]
     mu_w: taichi.field(Nx, Ny)
@@ -42,8 +45,8 @@ def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, co
     wells: taichi.field(n_wells)
         Массив скважин
     """
-    _fill_matrix_and_rhs(m, m_0, k, S, mu_o, mu_w, data, rhs)
-    _adding_wells(wells, data, rhs, k)
+    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
+    _adding_wells(wells, data, rhs, S, k, mu_o, mu_w)
 
     ndarray_to_ext_arr(data, data_np)  # data.to_numpy()
     ndarray_to_ext_arr(rhs, rhs_np)  # rhs.to_numpy()
@@ -51,13 +54,13 @@ def calc_pressure(p, p_np, Wo, m, m_0, k, S, mu_o, mu_w, wells, rows_indices, co
 
     # TODO рассмотреть возможность решения СЛАУ внутри taichi
     solution, _ = _superlu.gssv(N, NN, data_np, rows_indices, cols_ptr, rhs_np, 1, {'ColPerm': None})
-    np.copyto(p_np, solution.reshape((Ny, Nx)).T)
-    ext_arr_to_tensor(p_np, p)  # p.from_numpy(p_np)
+    ext_arr_to_tensor(solution.reshape((Nx, Ny)).T, p)  # p.from_numpy(solution.reshape((Nx, Ny)).T)
 
 
 @ti.kernel
-def _fill_matrix_and_rhs(m: ti.template(), m_0: ti.template(), k: ti.template(), S: ti.template(), mu_o: ti.template(),
-                         mu_w: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
+def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(), k: ti.template(),
+                         S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
+                         data: ti.types.ndarray(), rhs: ti.types.ndarray()):
     """Сборка матрицы уравнения давления"""
     num = 0
     for i in ti.ndrange(Nx):
@@ -78,7 +81,7 @@ def _fill_matrix_and_rhs(m: ti.template(), m_0: ti.template(), k: ti.template(),
             num += 1
 
             # rhs
-            rhs[idx] = (m[i, j] - m_0[i, j]) / dt * volume
+            rhs[idx] = ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
     # TODO хотелка по ускорению
     """
@@ -88,13 +91,15 @@ def _fill_matrix_and_rhs(m: ti.template(), m_0: ti.template(), k: ti.template(),
 
 
 @ti.kernel
-def _adding_wells(wells: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray(), k: ti.template()):
+def _adding_wells(wells: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray(),
+                  S: ti.template(), k: ti.template(), mu_o: ti.template(), mu_w: ti.template()):
     """Добавление скважин в уравнение давления"""
     ti.loop_config(serialize=True)
     for i in ti.ndrange(wells.shape[0]):
-        temp_data = wells[i].q[2] / wells[i].dp_k * k[wells[i].i, wells[i].j]
-        data[wells[i].idx_mat] -= temp_data
-        rhs[wells[i].idx_rhs] -= temp_data * wells[i].p
+        well = wells[i]
+        temp_data = calc_well_mult(well, S, k, mu_o, mu_w)
+        data[well.idx_mat] -= temp_data
+        rhs[well.idx_rhs] -= temp_data * well.p
 
 
 # if i != 0:  # i - 1, j, hx, hy*h
