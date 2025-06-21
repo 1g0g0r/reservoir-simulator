@@ -231,25 +231,33 @@ class Solver:
                     calc_velocitys_h(i, j, self.S, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
-                # ---пересчет свойств флюидов из-за изменения температуры---
-                self._update_mu_and_c_temp(i, j)
 
 
     @ti.func
     def _update_mu_and_c_temp(self, i, j) -> None:
-        self.mu_o[i, j] = calc_mu_o(self.T[i, j])
-        self.mu_w[i, j] = calc_mu_w(self.T[i, j])
-        self.C_w[i, j]  = calc_c_w(self.T[i, j])
-        self.C_o[i, j]  = calc_c_o(self.T[i, j])
-        self.C_f[i, j]  = calc_c_f(self.T[i, j])
-        self.C_p[i, j]  = calc_c_p(self.T[i, j])
+        self.mu_o[i, j] = calc_mu_o(self.new_t[i, j])
+        self.mu_w[i, j] = calc_mu_w(self.new_t[i, j])
+        self.C_w[i, j]  = c_w  # calc_c_w(self.T[i, j])
+        self.C_o[i, j]  = c_o  # calc_c_o(self.T[i, j])
+        self.C_f[i, j]  = c_f  # calc_c_f(self.T[i, j])
+        self.C_p[i, j]  = c_p  # calc_c_p(self.T[i, j])
 
 
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
+        Q_oil = 0.0
+        for i in ti.ndrange(self.n_wells):
+            # Обновление дебита и обводненности скважины
+            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.new_s, self.k_mult, self.mu_o, self.mu_w)
+            if self.wells[i].is_injector == 0:
+                Q_oil += self.wells[1].Q[0]
+
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
+                # ---пересчет свойств флюидов из-за изменения температуры---
+                self._update_mu_and_c_temp(i, j)
+
                 self.S_0[i, j] = self.S[i, j]
                 self.S[i, j]   = self.new_s[i, j]
                 self.T_0[i, j] = self.T[i, j]
@@ -272,13 +280,6 @@ class Solver:
                         self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
                         self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
                         self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
-
-        Q_oil = 0.0
-        for i in ti.ndrange(self.n_wells):
-            # Обновление дебита и обводненности скважины
-            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
-            if self.wells[i].is_injector == 0:
-                Q_oil += self.wells[1].Q[0]
 
         # Вычисление КИН
         self.KIN[None] = Q_oil / geological_reserves
@@ -324,7 +325,7 @@ class Solver:
                 'Wps [0,0]':  self.Wps.to_numpy()[0,0], 'Wp [0,0]': self.Wp.to_numpy()[0,0],
                 'k_mult [0,0]':  self.k_mult.to_numpy()[0,0], 'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
                 # 'mu_o [0,0]': self.mu_o.to_numpy()[0,0], 'mu_w [0,0]': self.mu_w.to_numpy()[0,0],
-                # 'qp [0,0]': self.qp.to_numpy()[0,0],
+                'qp [0,0]': self.qp.to_numpy()[0,0],
             }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:

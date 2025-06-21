@@ -18,10 +18,10 @@ def visualize_solution():
     _n_times, input_data = read_pkl_files()
     print('Временных слоев:', _n_times)
 
-    fig_plots = _visualize_plots(input_data)
+    # fig_plots = _visualize_plots(input_data)
     fig_fields = _visualize_fields(input_data)
 
-    fig_plots.show()
+    # fig_plots.show()
     fig_fields.show()
 
 
