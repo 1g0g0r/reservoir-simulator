@@ -51,6 +51,7 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0
                                      ro_o * C_o[i,j] * Wps[i,j])) + (1.0 - m[i,j]) * ro_f * C_f[i,j]) * volume / dt
 
     new_T[i, j] = T[i, j] + (cells_T_eq[i, j] - derivative_add + qp[i, j] * ro_p * C_p[i, j] * volume) / multiplier
+    # TODO убрать нафиг множитель qp[i, j] * ro_p * C_p[i, j] * volume 😊😊😊
 
 
 @ti.func

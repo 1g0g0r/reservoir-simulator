@@ -184,7 +184,7 @@ class Solver:
         self._swap_time_steps()
 
         # Запись данных в файл
-        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= 0.97:
             self._save_results(t)
             self._i_img += 1
 
@@ -309,20 +309,16 @@ class Solver:
             # 'Pressure':    self.p.to_numpy(),
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
-            'Wps':         self.Wps.to_numpy(),
-            'm mult':      self.m_mult.to_numpy(),
-            'k mult':      self.k_mult.to_numpy(),
+            # 'Wps':         self.Wps.to_numpy(),
+            # 'm mult':      self.m_mult.to_numpy(),
+            # 'k mult':      self.k_mult.to_numpy(),
             # 'mu_o':        self.mu_o.to_numpy(),
             # 'mu_w':        self.mu_w.to_numpy(),
-            'plots':       {'fi_o': fi_0,
-                            'fi': self.fi.to_numpy()[0, 0],
-                            # 'dfi': fi_0 - self.fi.to_numpy()[0, 0],
-                            # 'Ub': self.Ub.to_numpy()[0, 0],
-                            # 'Ur': self.Ur.to_numpy()[0, 0],
-                            },
+            # 'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[0, 0]},
             'Wells':       wells_data,
             'Other params': {
-                'Wps [0,0]':  self.Wps.to_numpy()[0,0], 'Wp [0,0]': self.Wp.to_numpy()[0,0], 'Wo [0,0]': self.Wo.to_numpy()[0,0],
+                # 'Wps [0,0]':  self.Wps.to_numpy()[0,0], 'Wp [0,0]': self.Wp.to_numpy()[0,0],
+                'Wo [0,0]': self.Wo.to_numpy()[0,0], 'KIN': self.KIN[None],
                 'k_mult [0,0]':  self.k_mult.to_numpy()[0,0], 'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
                 # 'mu_o [0,0]': self.mu_o.to_numpy()[0,0], 'mu_w [0,0]': self.mu_w.to_numpy()[0,0],
                 # 'qp [0,0]': self.qp.to_numpy()[0,0],

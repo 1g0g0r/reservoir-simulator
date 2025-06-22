@@ -33,7 +33,8 @@ def _visualize_fields(input_data):
     time = input_data['Time'] / day_to_sec
     n_times = len(time)
     del input_data['Time']
-    del input_data['plots']
+    if 'plots' in input_data.keys():
+        del input_data['plots']
 
     # Создаем графики
     n_fields = len(input_data)

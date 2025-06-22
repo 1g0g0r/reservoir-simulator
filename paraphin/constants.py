@@ -24,7 +24,7 @@ js_path = Path.cwd() / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_sc
 
 # Параметры сетки
 Nr = 31          # Число узлов сетки радиусов капилляров
-Nx, Ny = 25, 25  # Число узлов сетки по x и y
+Nx, Ny = 60, 60  # Число узлов сетки по x и y
 X_min, X_max = 0., 200.  # Длина пласта, [м]
 Y_min, Y_max = 0., 200.  # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx
@@ -34,8 +34,8 @@ area = hx * hy
 volume = area * h
 
 # Параметры времени задачи
-Time_end = day_to_sec * 365 * 1.0
-dt = day_to_sec / 1e2  # шаг дискретизации по времени
+Time_end = day_to_sec * 365 * 5.0
+dt = day_to_sec / 5e2  # шаг дискретизации по времени
 
 # Параметры скважин
 rw = 0.1              # Радиус скважин, [м]
@@ -106,4 +106,4 @@ if Courant_num > 0.8:
 #     dt = 0.01 * round(dt / day_to_sec, 5) * day_to_sec
 #     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 50  # шаг по времени для сохранения результатов
+sol_time_step = dt * 1000  # шаг по времени для сохранения результатов
