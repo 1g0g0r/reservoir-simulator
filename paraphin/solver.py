@@ -189,26 +189,18 @@ class Solver:
             self._i_img += 1
 
 
+    def _process_time_step(self):
+        """Метод IMPES: явный по насыщенности неявный по давлению."""
+        self._update_p()        # Обновление давления
+        self._equations_loop()  # Решение уравнений по явной схеме
+        self._wells_loop()      # Учет скважин в уравнениях
+
+
     def _update_p(self) -> None:
         """Обновление давления."""
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o,
                       self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask)
 
-
-    def _process_time_step(self):
-        """Метод IMPES: явный по насыщенности неявный по давлению."""
-        self._update_p()           # Обновление давления
-        self._equations_loop()     # Решение уравнений по явной схеме
-        self._wells_loop()         # Учет скважин в уравнениях
-
-
-    @ti.kernel
-    def _wells_loop(self):
-        ti.loop_config(serialize=True)
-        for i in ti.ndrange(self.n_wells):
-            saturation_well(self.wells[i], self.m, self.new_s)
-            wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wp)
-            temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
     @ti.kernel
     def _equations_loop(self):
@@ -220,7 +212,7 @@ class Solver:
                 # ---решение гидродинамики---
                 flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.m_mult, self.new_s)
-                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.cells_T_eq, self.new_t)
+                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.qp, self.cells_T_eq, self.new_t)
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Средняя скорость в капилляре * r^2
@@ -230,13 +222,21 @@ class Solver:
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self.S, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
+                    # calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
+
+    @ti.kernel
+    def _wells_loop(self):
+        ti.loop_config(serialize=True)
+        for i in ti.ndrange(self.n_wells):
+            saturation_well(self.wells[i], self.m_mult, self.new_s)
+            wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wp)
+            temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
 
     @ti.func
     def _update_mu_and_c_temp(self, i, j) -> None:
-        self.mu_o[i, j] = calc_mu_o(self.new_t[i, j])
-        self.mu_w[i, j] = calc_mu_w(self.new_t[i, j])
+        self.mu_o[i, j] = calc_mu_o(self.T[i, j])
+        self.mu_w[i, j] = calc_mu_w(self.T[i, j])
         self.C_w[i, j]  = c_w  # calc_c_w(self.T[i, j])
         self.C_o[i, j]  = c_o  # calc_c_o(self.T[i, j])
         self.C_f[i, j]  = c_f  # calc_c_f(self.T[i, j])
@@ -247,12 +247,6 @@ class Solver:
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
         Q_oil = 0.0
-        for i in ti.ndrange(self.n_wells):
-            # Обновление дебита и обводненности скважины
-            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.new_s, self.k_mult, self.mu_o, self.mu_w)
-            if self.wells[i].is_injector == 0:
-                Q_oil += self.wells[1].Q[0]
-
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
                 # ---пересчет свойств флюидов из-за изменения температуры---
@@ -265,7 +259,7 @@ class Solver:
 
                 if self._paraphin:
                     self.Wo_0[i, j]  = self.Wo[i, j]
-                    self.Wo[i, j]    = 1.0 - self.new_wp[i, j] - self.new_wps[i, j]
+                    self.Wo[i, j]    = ti.min(1.0 - self.new_wp[i, j] - self.new_wps[i, j], 1)
                     self.Wp_0[i, j]  = self.Wp[i, j]
                     self.Wp[i, j]    = self.new_wp[i, j]
                     self.Wps_0[i, j] = self.Wps[i, j]
@@ -280,6 +274,12 @@ class Solver:
                         self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
                         self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
                         self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
+
+        for i in ti.ndrange(self.n_wells):
+            # Обновление дебита и обводненности скважины
+            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
+            if self.wells[i].is_injector == 0:
+                Q_oil += self.wells[1].Q[0]
 
         # Вычисление КИН
         self.KIN[None] = Q_oil / geological_reserves
@@ -306,14 +306,14 @@ class Solver:
 
         data = {
             'Time':        t,
-            'Pressure':    self.p.to_numpy(),
+            # 'Pressure':    self.p.to_numpy(),
             'Saturation':  self.S.to_numpy(),
             'Temperature': self.T.to_numpy(),
             'Wps':         self.Wps.to_numpy(),
             'm mult':      self.m_mult.to_numpy(),
             'k mult':      self.k_mult.to_numpy(),
-            'mu_o':        self.mu_o.to_numpy(),
-            'mu_w':        self.mu_w.to_numpy(),
+            # 'mu_o':        self.mu_o.to_numpy(),
+            # 'mu_w':        self.mu_w.to_numpy(),
             'plots':       {'fi_o': fi_0,
                             'fi': self.fi.to_numpy()[0, 0],
                             # 'dfi': fi_0 - self.fi.to_numpy()[0, 0],
@@ -322,10 +322,10 @@ class Solver:
                             },
             'Wells':       wells_data,
             'Other params': {
-                'Wps [0,0]':  self.Wps.to_numpy()[0,0], 'Wp [0,0]': self.Wp.to_numpy()[0,0],
+                'Wps [0,0]':  self.Wps.to_numpy()[0,0], 'Wp [0,0]': self.Wp.to_numpy()[0,0], 'Wo [0,0]': self.Wo.to_numpy()[0,0],
                 'k_mult [0,0]':  self.k_mult.to_numpy()[0,0], 'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
                 # 'mu_o [0,0]': self.mu_o.to_numpy()[0,0], 'mu_w [0,0]': self.mu_w.to_numpy()[0,0],
-                'qp [0,0]': self.qp.to_numpy()[0,0],
+                # 'qp [0,0]': self.qp.to_numpy()[0,0],
             }
         }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:

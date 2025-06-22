@@ -81,7 +81,8 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
             num += 1
 
             # rhs
-            rhs[idx] = ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+            # FIXME ЧТО У ВАС ЗДЕСЬ ПРОИСХОДИТ ????
+            rhs[idx] = 0.0  #((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
     # TODO хотелка по ускорению
     """

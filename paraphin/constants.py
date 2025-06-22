@@ -25,8 +25,8 @@ js_path = Path.cwd() / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_sc
 # Параметры сетки
 Nr = 31          # Число узлов сетки радиусов капилляров
 Nx, Ny = 25, 25  # Число узлов сетки по x и y
-X_min, X_max = 0., 250.  # Длина пласта, [м]
-Y_min, Y_max = 0., 250.  # Ширина пласта, [м]
+X_min, X_max = 0., 200.  # Длина пласта, [м]
+Y_min, Y_max = 0., 200.  # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx
 hy = (Y_max - Y_min) / Ny
 h = 1.0  # Толщина пласта, [м]
@@ -83,7 +83,7 @@ alpha = 0.1426 * MW * (Tm + 273.15) * kal_to_J  # Скрытая теплота 
 
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
-init_S   = S_min
+init_S   = 0.0
 init_Wp  = 0.05
 init_Wps = 0.0
 init_k   = 0.2 * darcy_to_m2  # [м^2]
@@ -106,4 +106,4 @@ if Courant_num > 0.8:
 #     dt = 0.01 * round(dt / day_to_sec, 5) * day_to_sec
 #     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 10  # шаг по времени для сохранения результатов
+sol_time_step = dt * 50  # шаг по времени для сохранения результатов

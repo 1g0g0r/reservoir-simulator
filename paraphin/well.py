@@ -1,6 +1,6 @@
 import taichi as ti
 
-from .constants import data_type, dt, init_k
+from .constants import data_type, dt
 from .utils.math_utils import pf_w, pf_o, Buckley_Leverett
 
 WellStruct = ti.types.struct(
@@ -16,15 +16,15 @@ WellStruct = ti.types.struct(
 	q = ti.types.vector(3, data_type),
 	Q = ti.types.vector(3, data_type),
 	eta = data_type,
-	dp_k = data_type
+	dp = data_type
 )
 
 
 @ti.func
-def upd_q_and_eta(well, p, S, k_mult, mu_o, mu_w) -> WellStruct:
+def upd_q_and_eta(well, p, S, k, mu_o, mu_w) -> WellStruct:
 	"""Вычисление дебета скважины."""
-	well.dp_k = (p[well.i, well.j] - well.p) * k_mult[well.i, well.j] * init_k
-	mult = well.dp_k * well.productivity_mult
+	well.dp = p[well.i, well.j] - well.p
+	mult = well.dp * well.productivity_mult * k[well.i, well.j]
 
 	if well.is_injector == 1:
 		well.q[0] = 0.0

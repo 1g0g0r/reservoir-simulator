@@ -27,17 +27,17 @@ def saturation_equation(i, j, S, m, m_0, cells_S_eq, m_mult, new_S) -> None:
 
 
 @ti.func
-def saturation_well(well, m, new_S) -> None:
+def saturation_well(well, m_mult, new_S) -> None:
     """Учет скважины в уравнении водонасыщенности.
 
     Parameters
     ----------
     well: Well
         Объект класса скважина
-    m: taichi.field(Nx, Ny)
-        Пористость, [-]
+    m_mult: taichi.field(Nx, Ny)
+        Множитель пористости, [-]
     new_S: taichi.field(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """
     i, j = well.i, well.j
-    new_S[i, j] -= dt * well.q[1] / m[i, j] / volume
+    new_S[i, j] -= dt * well.q[1] / (m_mult[i, j] * init_m) / volume

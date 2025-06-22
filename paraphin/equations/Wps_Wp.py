@@ -1,7 +1,7 @@
 """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме."""
 import taichi as ti
 
-from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type
+from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type, init_Wp, init_T
 
 reverse_Tm = 1.0 / Tm
 alpha_R = alpha / R
@@ -38,37 +38,41 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    _new_Wp = 0.0
-    Wps_i   = _get_Wps(Wo[i, j], Wp[i, j], Wps[i, j], T[i, j])
-    Wps_0_i = _get_Wps(Wo[i, j], Wp[i, j], Wps[i, j], T_0[i, j])
+    if T[i, j] < init_T * 0.985:
+        if Wp[i, j] > 1e-6:
+            Wps_i  = _get_Wps(Wp[i, j], Wps[i, j], T[i, j])
+            Wps_0_i  = _get_Wps(Wp[i, j], Wps[i, j], T_0[i, j])
 
-    if Wp[i, j] > 1e-6:
-        _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
-                - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
-                - ro_p * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
-                + cells_Wp_eq[i, j] / volume + ro_p * qp[i, j])
+            _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
+                    - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
+                    - ro_o * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
+                    + cells_Wp_eq[i, j] / volume + ro_p * qp[i, j])
 
-    new_Wp[i, j]  = ti.max(_new_Wp, 0.0)
-    new_Wps[i, j] = ti.max(Wps_i, 0.0)
+            colmatation = qp[i, j] * ro_p * dt / (m[i, j] * (1 - S[i, j]) * ro_o)
+            new_Wp[i, j] = ti.max(_new_Wp, 0.0)
+            new_Wps[i, j] = ti.max(init_Wp - new_Wp[i, j] + colmatation , 0.0)
+
+        else:
+            colmatation = qp[i, j] * ro_p * dt / (m[i, j] * (1 - S[i, j]) * ro_o)
+            new_Wp[i, j] = 0.0
+            new_Wps[i, j] = Wps[i, j] + colmatation
 
 
 @ti.func
-def _get_Wps(Wo: data_type, Wp: data_type, Wps: data_type, T: data_type) -> data_type: # , qp: data_type, m: data_type, S: data_type
+def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
     """Моделирование процесса кристаллизации парафина."""
     new_Wps = Wps
 
     # exact_solution = alpha_R * Tm / (alpha_R + Tm * ti.log(border))
-    if Wp > 1e-6 and T > 0.94 * Tm:
+    if Wp > 1e-6 and T > 0.92 * Tm:
         new_Wps = Wp * ti.exp(alpha_R * (1.0 / T - reverse_Tm))
-
-    # new_Wps -= qp * ro_p * dt / (m * (1 - S) * ((1 - Wps) * ro_o + Wps * ro_p))
 
     return new_Wps
 
 
 @ti.func
 def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
-    """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
+    """Вычисление массовой доли взвешенных частиц (Wps) и растворенного парафина (Wp) парафина в нефти по явной схеме.
 
     Parameters
     ----------
@@ -86,4 +90,4 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j
-    new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)
+    new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_o) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)
