@@ -77,6 +77,8 @@ def _visualize_fields(input_data):
                                      hovertemplate="x: %{x}<br>y: %{y}<br>")]  # xaxis='x2',
                 aver_param_plots += 1
         else:
+            if name in ['Time', 'Saturation', 'Temperature', 'Wps', 'm mult', 'k mult', 'mu_o', 'mu_w' ]:
+                continue
             z_max = np.max(field)
             z_min = np.min(field)
             if CONTOUR_PLOT:
