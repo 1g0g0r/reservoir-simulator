@@ -10,7 +10,6 @@ TempFiles/
 outputs/
 TODO_list.txt
 ~*
-*.pkl
 *.html
 *.log
 *.asv

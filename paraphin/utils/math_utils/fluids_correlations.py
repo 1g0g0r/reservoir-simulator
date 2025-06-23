@@ -1,12 +1,12 @@
 import taichi as ti
 
-from paraphin.constants import data_type
+from paraphin.constants import data_type, R
 
 
 @ti.func
-def calc_mu_o(t: data_type) -> data_type:  # types.f32
-    """Вязкость нефти, [Pa*c] Уравнение Аррениуса"""
-    return 0.001 * ti.exp(5000 / 8.314 / (t + 273.15))
+def calc_mu_o(t: data_type) -> data_type:
+    """Вязкость нефти, [Pa*c] Уравнение Аррениуса."""
+    return 0.001 * ti.exp(5000 / R / (t + 273.15))
 
 
 @ti.func
@@ -44,3 +44,34 @@ def calc_c_p(t: data_type) -> data_type:
 # water 0.58 + 0.001(t-20)
 # paraphin 0.25 + 0.0007(t-20)
 # formation 2.5 + 0.0008(t-20)
+
+if __name__ == '__main__':
+    import plotly.graph_objects as go
+    n = 100
+    t_arr = ti.field(dtype=data_type, shape=n)
+    f_o = ti.field(dtype=data_type, shape=n)
+    f_w = ti.field(dtype=data_type, shape=n)
+
+    @ti.kernel
+    def calc_data():
+        for i in range(0, n):
+            t = 70 * i / n
+            t_arr[i] = t
+            f_o[i] = calc_mu_o(t)
+            f_w[i] = calc_mu_w(t)
+
+    calc_data()
+
+    fig = go.Figure()  # width=4
+    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=f_o.to_numpy(), mode='lines', name='вязкость нефти', line=dict(color='red')))
+    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='вязкость воды', line=dict(color='blue')))
+    # fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy()/(f_w.to_numpy()+mu_w/mu_o*f_o.to_numpy()), mode='lines', name='БЛ', line=dict(color='black')))
+
+    fig.update_layout(plot_bgcolor='white',
+                      xaxis=dict(showgrid=True, gridcolor='lightgray', linecolor='black', linewidth=2),
+                      yaxis=dict(showgrid=True, gridcolor='lightgray', linecolor='black', linewidth=2),
+                      xaxis_title="T, °C",
+                      yaxis_title="μ, Па∙с"
+                      )
+    fig.write_image("mu.svg", width=750, height=500, engine='kaleido')
+    fig.show()
