@@ -8,12 +8,12 @@
 **/__pycache__/
 TempFiles/
 outputs/
+!outputs/сет_сход/
 TODO_list.txt
 ~*
 *.html
 *.log
 *.asv
-!outputs/сет_сход/
 
 *.aux
 *.blg

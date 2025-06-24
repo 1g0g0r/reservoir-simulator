@@ -40,6 +40,8 @@ def _visualize_fields(input_data):
     n_fields = len(input_data)
     data_fields = []
     for name, field in input_data.items():
+        # if name in ['Pressure', 'Wps', 'm mult', 'k mult', 'mu_o', 'mu_w']:
+        #     continue
         trace = []
         if name == 'Pressure':
             if CONTOUR_PLOT:
@@ -77,15 +79,13 @@ def _visualize_fields(input_data):
                                      hovertemplate="x: %{x}<br>y: %{y}<br>")]  # xaxis='x2',
                 aver_param_plots += 1
         else:
-            if name in ['Time', 'Saturation', 'Temperature', 'Wps', 'm mult', 'k mult', 'mu_o', 'mu_w' ]:
-                continue
             z_max = np.max(field)
             z_min = np.min(field)
             if CONTOUR_PLOT:
                 trace = [go.Contour(x=x_mesh, y=y_mesh, z=field, colorscale='Jet', name=name, zmin=z_min, zmax=z_max,
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
                                     contours=dict(
-                                        coloring='fill',
+                                        coloring='fill',  # 'lines',
                                         showlabels=True,
                                         labelfont=dict(size=12, color='black')
                                     ))]

@@ -7,7 +7,7 @@ import taichi as ti
 data_type = ti.f64
 ti.init(arch=ti.cpu, default_fp=data_type)  # , kernel_profiler=True
 LOGGING = False
-CONTOUR_PLOT = False
+CONTOUR_PLOT = True
 
 # Перевод единиц измерения
 day_to_sec = 86400.0
@@ -83,7 +83,7 @@ alpha = 0.1426 * MW * (Tm + 273.15) * kal_to_J  # Скрытая теплота 
 
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
-init_S   = 0.0
+init_S   = S_min
 init_Wp  = 0.0
 init_Wps = 0.0
 init_k   = 0.2 * darcy_to_m2  # [м^2]
@@ -91,7 +91,8 @@ init_m   = 0.2
 init_T   = 70  # [C]
 init_qp  = 0.0
 init_h_sloy = 0.0
-geological_reserves = (X_max - X_min) * (Y_max - Y_min) * h * (1.0 - init_S)  # геологические запасы пласта
+porous_volume = (X_max - X_min) * (Y_max - Y_min) * h
+geological_reserves = porous_volume * (1.0 - init_S) * init_m  # геологические запасы пласта
 
 # Проверка числа Куранта
 _re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
