@@ -256,7 +256,7 @@ class Solver:
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
                 # ---пересчет свойств флюидов из-за изменения температуры---
-                # self._update_mu_and_c_temp(i, j)
+                self._update_mu_and_c_temp(i, j)
 
                 self.S_0[i, j] = self.S[i, j]
                 self.S[i, j]   = self.new_s[i, j]
@@ -271,8 +271,8 @@ class Solver:
                     self.Wps_0[i, j] = self.Wps[i, j]
                     self.Wps[i, j]   = self.new_wps[i, j]
                     self.k[i, j]     = init_k * self.k_mult[i, j]
-                    self.m[i, j]     = init_m * self.m_mult[i, j]
                     self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
+                    self.m[i, j]     = init_m * self.m_mult[i, j]
                     self.qp[i, j]    = self.new_qp[i, j]
 
                     for ij in ti.ndrange(Nr):
