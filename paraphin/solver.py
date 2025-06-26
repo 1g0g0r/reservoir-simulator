@@ -184,7 +184,7 @@ class Solver:
         self._swap_time_steps()
 
         # Запись данных в файл
-        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end):  # or t >= day_to_sec * 1679.:  # self.wells[1].eta >= 0.97:
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= 0.98: # or t >= day_to_sec * 1679.:
             self._save_results(t)
             self._i_img += 1
 

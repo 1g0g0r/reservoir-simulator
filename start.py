@@ -28,9 +28,9 @@ def solve():
         for t in pbar:
             solution.upd_time_step(t)
             pbar.set_postfix(день=t / day_to_sec)
-            # if t >= day_to_sec * 1679.:  #solution.wells[1].eta >= 0.97:
-            #     print('KIN:', solution.KIN)
-            #     break
+            if solution.wells[1].eta >= 0.98:  # t >= day_to_sec * 1679.:  #
+                print('KIN:', solution.KIN)
+                break
             # ti.profiler.print_kernel_profiler_info()
 
 
