@@ -14,8 +14,8 @@ def mid(x: data_type, y: data_type) -> data_type:
 def mid_Ko_Kw(k_i: data_type, s_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
               k_j: data_type, s_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
     """mid(Ko + Kw)_ij"""
-    x = K_o(k_i, s_i, mu_o_i) + K_w(k_i, s_i, mu_w_i)
-    y = K_o(k_j, s_j, mu_o_j) + K_w(k_j, s_j, mu_w_j)
+    x = _K_o(k_i, s_i, mu_o_i) + _K_w(k_i, s_i, mu_w_i)
+    y = _K_o(k_j, s_j, mu_o_j) + _K_w(k_j, s_j, mu_w_j)
 
     return 2.0 * x * y / (x + y)
 
@@ -27,9 +27,9 @@ def up_kw(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
     ret = 0.0
 
     if p_i >= p_j:
-        ret = K_w(k_i, s_i, mu_w_i) / (K_w(k_i, s_i, mu_w_i) + K_o(k_i, s_i, mu_o_i))
+        ret = _K_w(k_i, s_i, mu_w_i) / (_K_w(k_i, s_i, mu_w_i) + _K_o(k_i, s_i, mu_o_i))
     else:
-        ret = K_w(k_j, s_j, mu_w_j) / (K_w(k_j, s_j, mu_w_j) + K_o(k_j, s_j, mu_o_j))
+        ret = _K_w(k_j, s_j, mu_w_j) / (_K_w(k_j, s_j, mu_w_j) + _K_o(k_j, s_j, mu_o_j))
 
     return ret
 
@@ -41,9 +41,9 @@ def up_ko(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
     ret = 0.0
 
     if p_i >= p_j:
-        ret = K_o(k_i, s_i, mu_o_i) / (K_w(k_i, s_i, mu_w_i) + K_o(k_i, s_i, mu_o_i))
+        ret = _K_o(k_i, s_i, mu_o_i) / (_K_w(k_i, s_i, mu_w_i) + _K_o(k_i, s_i, mu_o_i))
     else:
-        ret = K_o(k_j, s_j, mu_o_j) / (K_w(k_j, s_j, mu_w_j) + K_o(k_j, s_j, mu_o_j))
+        ret = _K_o(k_j, s_j, mu_o_j) / (_K_w(k_j, s_j, mu_w_j) + _K_o(k_j, s_j, mu_o_j))
 
     return ret
 
@@ -62,13 +62,13 @@ def up_T(p_i: data_type, T_i: data_type, p_j: data_type, T_j: data_type) -> data
 
 
 @ti.func
-def K_o(k: data_type, s: data_type, mu_o: data_type) -> data_type:
+def _K_o(k: data_type, s: data_type, mu_o: data_type) -> data_type:
     """Фазовая проницаемость нефти."""
     return k * pf_o(s) / mu_o
 
 
 @ti.func
-def K_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
+def _K_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
     """Фазовая проницаемость воды."""
     return k * pf_w(s) / mu_w
 
