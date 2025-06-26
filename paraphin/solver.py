@@ -191,25 +191,15 @@ class Solver:
 
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
-        self._update_p()           # Обновление давления
-        self._update_wells_data()  # Обновление дебетов скважин
-        self._equations_loop()     # Решение уравнений по явной схеме
-        self._wells_loop()         # Учет скважин в уравнениях
+        self._update_p()        # Обновление давления
+        self._equations_loop()  # Решение уравнений по явной схеме
+        self._wells_loop()      # Учет скважин в уравнениях
 
 
     def _update_p(self) -> None:
         """Обновление давления."""
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o,
                       self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask)
-
-
-    @ti.kernel
-    def _update_wells_data(self):
-        """Обновление дебетов и обводненности скважин."""
-        ti.loop_config(serialize=True)  # parallelize=1
-        for i in ti.ndrange(self.n_wells):
-            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
-
 
     @ti.kernel
     def _equations_loop(self):
@@ -258,7 +248,7 @@ class Solver:
         Q_oil = 0.0
         # Обновление дебита и обводненности скважин
         for i in ti.ndrange(self.n_wells):
-            # self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
+            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
             if self.wells[i].is_injector == 0:
                 Q_oil += self.wells[1].Q[0]
 

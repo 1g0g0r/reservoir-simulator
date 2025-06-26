@@ -80,7 +80,8 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
             num += 1
 
             # rhs
-            rhs[idx] = ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+            # FIXME ЧТО У ВАС ЗДЕСЬ ПРОИСХОДИТ ????
+            rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
     # TODO хотелка по ускорению
     """
@@ -95,32 +96,6 @@ def _adding_wells(wells: ti.template(), data: ti.types.ndarray(), rhs: ti.types.
     ti.loop_config(serialize=True)
     for i in ti.ndrange(wells.shape[0]):
         well = wells[i]
-        temp_data = well.q[2] / well.dp  # calc_well_mult(well, S, k, mu_o, mu_w)
+        temp_data = well.q[2] / well.dp  # _deprecated_calc_well_mult(well, S, k, mu_o, mu_w)
         data[well.idx_mat] -= temp_data
         rhs[well.idx_rhs] -= temp_data * well.p
-
-
-# if i != 0:  # i - 1, j, hx, hy*h
-#     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-#                                k[i-1, j], S[i-1, j], mu_o[i-1, j], mu_w[i-1, j]) * hy * h / hx
-#     data[num] = val
-#     p_sum -= val
-#     num += 1
-# if i != Nx - 1:  # i + 1, j, hx, hy*h
-#     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-#                                k[i + 1, j], S[i + 1, j], mu_o[i + 1, j], mu_w[i + 1, j]) * hy * h / hx
-#     data[num] = val
-#     p_sum -= val
-#     num += 1
-# if j != 0:  # i, j - 1, hy, hx*h
-#     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-#                                k[i, j - 1], S[i, j - 1], mu_o[i, j - 1], mu_w[i, j - 1]) * hx * h / hy
-#     data[num] = val
-#     p_sum -= val
-#     num += 1
-# if j != Ny - 1:  # i, j + 1, hy, hx*h
-#     val = Wo[i, j] * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-#                                k[i, j + 1], S[i, j + 1], mu_o[i, j + 1], mu_w[i, j + 1]) * hx * h / hy
-#     data[num] = val
-#     p_sum -= val
-#     num += 1

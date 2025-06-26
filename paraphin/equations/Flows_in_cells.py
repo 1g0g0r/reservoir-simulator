@@ -68,6 +68,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 
 			_wp += up_k_o * mid(wps_wp, wps_wp_ij)
 			_s += up_k_w
+			# TODO брать вверх по потоку
 			_t += mid(lam, lam_ij) * areaij * (T[i1, j1] - T[i, j]) / hij
 			_t += C_w[i, j] * ro_w * up_t * up_k_w
 			_t += mid(Co, Co_ij) * up_t * up_k_o
