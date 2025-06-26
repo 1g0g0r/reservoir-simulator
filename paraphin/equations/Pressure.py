@@ -7,7 +7,6 @@ from taichi._kernels import ndarray_to_ext_arr, ext_arr_to_tensor
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
 from paraphin.utils import mid_Ko_Kw
-from paraphin.well import calc_well_mult
 
 # from pypardiso import spsolve
 
@@ -46,7 +45,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
         Массив скважин
     """
     _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
-    _adding_wells(wells, data, rhs, S, k, mu_o, mu_w)
+    _adding_wells(wells, data, rhs)
 
     ndarray_to_ext_arr(data, data_np)  # data.to_numpy()
     ndarray_to_ext_arr(rhs, rhs_np)  # rhs.to_numpy()
@@ -81,8 +80,7 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
             num += 1
 
             # rhs
-            # FIXME ЧТО У ВАС ЗДЕСЬ ПРОИСХОДИТ ????
-            rhs[idx] = 0.0  #((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+            rhs[idx] = ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
     # TODO хотелка по ускорению
     """
@@ -92,13 +90,12 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
 
 
 @ti.kernel
-def _adding_wells(wells: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray(),
-                  S: ti.template(), k: ti.template(), mu_o: ti.template(), mu_w: ti.template()):
+def _adding_wells(wells: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
     """Добавление скважин в уравнение давления"""
     ti.loop_config(serialize=True)
     for i in ti.ndrange(wells.shape[0]):
         well = wells[i]
-        temp_data = calc_well_mult(well, S, k, mu_o, mu_w)
+        temp_data = well.q[2] / well.dp  # calc_well_mult(well, S, k, mu_o, mu_w)
         data[well.idx_mat] -= temp_data
         rhs[well.idx_rhs] -= temp_data * well.p
 

@@ -7,7 +7,7 @@ from paraphin.constants import Nx, Ny, hx, hy, h
 from paraphin.well import upd_q_and_eta
 
 
-def preprocess_matrix_and_wells(wells, wells_buffer):
+def preprocess_matrix_and_wells(wells, wells_buffer, p, S, k, mu_o, mu_w):
     """Препроцессинг профиля матрицы уравнения давления и обработка массива скважин."""
     rows_indices = ti.field(ti.i32, shape=NN)
     cols_indices = ti.field(ti.i32, shape=NN)
@@ -23,6 +23,8 @@ def preprocess_matrix_and_wells(wells, wells_buffer):
         wells[i].idx_rhs = wells[i].i + wells[i].j * Nx
         wells[i].idx_mat = np.where(np.logical_and(rows_indices_np == wells[i].idx_rhs, diagonal))[0][0]
 
+    _update_wells_data(wells, p, S, k, mu_o, mu_w)
+
     sorted_indices = np.lexsort((rows_indices_np, cols_indices_np))
     cols_sorted = cols_indices_np[sorted_indices]
     rows_sorted = rows_indices_np[sorted_indices].astype(np.intc, copy=False)
@@ -30,6 +32,14 @@ def preprocess_matrix_and_wells(wells, wells_buffer):
     cols_ptr = np.append(cols_ptr, len(cols_sorted)).astype(np.intc, copy=False)
 
     return sorted_indices, rows_sorted, cols_ptr, wells
+
+
+@ti.kernel
+def _update_wells_data(wells: ti.template(), p: ti.template(), S: ti.template(), k: ti.template(), mu_o: ti.template(), mu_w: ti.template()):
+    """Обновление дебетов и обводненности скважин."""
+    ti.loop_config(serialize=True)
+    for i in ti.ndrange(wells.shape[0]):
+        wells[i] = upd_q_and_eta(wells[i], p, S, k, mu_o, mu_w)
 
 
 @ti.kernel
