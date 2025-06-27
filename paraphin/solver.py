@@ -45,6 +45,7 @@ class Solver:
         self.Wp_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.Wps   = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти, [-]
         self.Wps_0 = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.Wps_dep = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.k     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Проницаемость, [м^2]
         self.m     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Пористость, [-]
         self.m_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
@@ -272,6 +273,7 @@ class Solver:
                     self.k[i, j]     = init_k * self.k_mult[i, j]
                     self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
                     self.m[i, j]     = init_m * self.m_mult[i, j]
+                    self.Wps_dep[i, j] = self.Wps_dep[i, j] + self.qp[i, j] * dt
                     self.qp[i, j]    = self.new_qp[i, j]
 
                     for ij in ti.ndrange(Nr):
@@ -300,7 +302,7 @@ class Solver:
             wells_data.update({
                 f'{name}_oil': q_value[0], f'{name}_water': q_value[1],
                 f'{name}_total': q_value[2], f'{name}_eta': well.eta,
-                # f'{name}_Q_oil': Q_value[0], f'{name}_Q_water': Q_value[1], f'{name}_Q_total': Q_value[2],
+                f'{name}_Q_oil': Q_value[0], f'{name}_Q_water': Q_value[1], f'{name}_Q_total': Q_value[2],
             })
         if self._paraphin:
             data = {
@@ -309,6 +311,7 @@ class Solver:
                 'Saturation':  self.S.to_numpy(),
                 'Temperature': self.T.to_numpy(),
                 'Wps':         self.Wps.to_numpy(),
+                'Wps dep':     self.Wps_dep.to_numpy(),
                 'm mult':      self.m_mult.to_numpy(),
                 'k mult':      self.k_mult.to_numpy(),
                 'mu_o':        self.mu_o.to_numpy(),

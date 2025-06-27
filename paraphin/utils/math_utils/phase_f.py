@@ -1,6 +1,6 @@
 import taichi as ti
 
-from paraphin.constants import S_min, S_max, n_power, data_type, js_path, mu_w, mu_o
+from paraphin.constants import S_min, S_max, n_power, data_type, mu_w, mu_o
 
 
 @ti.func
@@ -65,16 +65,18 @@ if __name__ == '__main__':
     calc_data()
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_o.to_numpy(), mode='lines', name='нефть', line=dict(color='red')))
-    fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='вода', line=dict(color='blue')))
-    # fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy()/(f_w.to_numpy()+mu_w/mu_o*f_o.to_numpy()), mode='lines', name='БЛ', line=dict(color='black')))
+    fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_o.to_numpy(), mode='lines', name='ОФП нефти',
+                             line=dict(color='red', width=3)))
+    fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='ОФП воды',
+                             line=dict(color='blue', width=3)))
+    # fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy()/(f_w.to_numpy()+mu_w/mu_o*f_o.to_numpy()),
+    #                          mode='lines', name='БЛ', line=dict(color='black', width=3)))
 
-    fig.update_layout(plot_bgcolor='white',
+    fig.update_layout(plot_bgcolor='white', width=750, height=350, margin=dict(t=0, b=0),
                       xaxis=dict(showgrid=True, gridcolor='lightgray', linecolor='black', linewidth=2),
                       yaxis=dict(showgrid=True, gridcolor='lightgray', linecolor='black', linewidth=2),
-                      xaxis_title="S",
-                      yaxis_title="f"
-                      )
-    fig.update_yaxes(range=[0, 1])
-    fig.write_image("ofp.svg", width=750, height=500, engine='kaleido')
+                      xaxis_title="S", yaxis_title="f")
+
+    fig.update_yaxes(range=[-0.005, 1.01])
+    # fig.write_image("ofp.svg", width=750, height=350)
     fig.show()
