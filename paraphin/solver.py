@@ -333,7 +333,8 @@ class Solver:
                 'mu_w': self.mu_w.to_numpy(),
                 'Wells': wells_data,
                 'Other params': {
-                    'mu_o [0,0]': self.mu_o.to_numpy()[0, 0], 'mu_w [0,0]': self.mu_w.to_numpy()[0, 0]
+                    'mu_o [0,0]': self.mu_o.to_numpy()[0, 0], 'mu_w [0,0]': self.mu_w.to_numpy()[0, 0],
+                    'KIN': self.KIN[None],
                 }
             }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
