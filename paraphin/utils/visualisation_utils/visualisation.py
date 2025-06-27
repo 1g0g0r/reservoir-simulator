@@ -40,8 +40,8 @@ def _visualize_fields(input_data):
     n_fields = len(input_data)
     data_fields = []
     for name, field in input_data.items():
-        # if name in ['Pressure', 'Wps', 'm mult', 'k mult', 'mu_o', 'mu_w']:
-        #     continue
+        if name in ['Pressure', 'Wps', 'm mult', 'k mult', 'mu_o', 'mu_w']:
+            continue
         trace = []
         if name == 'Pressure':
             if CONTOUR_PLOT:

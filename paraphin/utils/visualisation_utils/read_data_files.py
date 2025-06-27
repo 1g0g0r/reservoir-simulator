@@ -6,17 +6,17 @@ import numpy as np
 
 from paraphin.constants import results_path
 
-_processed_data_path = results_path / f'processed_data.pkl'
 
 
-def read_pkl_files() -> (int, dict):
+def read_pkl_files(name: str = 'processed_data.pkl') -> (int, dict):
     """Считывает содержимое всех бинарных файлов расширения .pkl"""
     def extract_number(_path):
         numbers = re.findall(r'\d+', _path.stem)  # Находим все числа в имени файла
         return int(numbers[0]) if numbers else 0
 
+    _processed_data_path = results_path / name
     data = {}
-    files_paths = [path for path in results_path.glob('*.pkl') if path != _processed_data_path]  # Все файлы формата pkl
+    files_paths = [path for path in results_path.glob('*.pkl') if 'processed_data' not in path.name]  # Все файлы формата pkl
     n_files = len(files_paths)
 
     # Если данные уже визуализировались, то открывается файл обработанных данных
