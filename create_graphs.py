@@ -1,5 +1,5 @@
-from paraphin.utils import create_diplom_graphs
+from paraphin.utils import create_graphs_and_maps
 
 
 if __name__ == '__main__':
-	create_diplom_graphs()
+	create_graphs_and_maps()
