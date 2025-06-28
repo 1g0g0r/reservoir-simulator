@@ -30,8 +30,9 @@ def create_graphs_and_maps():
     for _setings in fields_settings:
         _field_vis(idx, data, data_wp, path, *_setings)
 
-    plots_settings = [['Producer_oil', 'q, m^3 / сут'], ['Producer_water', 'q, m^3 / сут'], ['Producer_eta', ' '],
-                      ['Injector_Q_total', 'Q, m^3'], ['Injector_water', 'q, m^3 / сут']]
+    plots_settings = [['Producer_oil', 'Producer_water', '$$q,\\: \\frac{м^3}{сут}$$'], 
+                      ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
+                      ['Producer_Q_oil','Producer_Q_water', '$$Q,\\: м^3$$']]
     for _settings in plots_settings:
         _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
 
@@ -42,30 +43,58 @@ def create_graphs_and_maps():
     print('Done!')
 
 
-def _plot_vis(time, data, data_wp, path, name_plot, y_axis_title):
+def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
     """Процедура строит векторные графики показателей работы скважин."""
     fig = go.Figure()
 
-    if 'eta' in name_plot:
-        # fig.update_yaxes(range=[-0.005, 1.01])
-        plot_data = np.abs(data[name_plot])
-        plot_data_wp = np.abs(data_wp[name_plot])
+    if 'eta' in name_plot1 or 'Q' in name_plot1:
+        plot_data1 = np.abs(data[name_plot1])
+        plot_data_wp1 = np.abs(data_wp[name_plot1])
     else:
-        plot_data = np.abs(data[name_plot]) * day_to_sec
-        plot_data_wp = np.abs(data_wp[name_plot]) * day_to_sec
+        plot_data1 = np.abs(data[name_plot1]) * day_to_sec
+        plot_data_wp1 = np.abs(data_wp[name_plot1]) * day_to_sec
+
+    if 'Q' not in name_plot1:
+        plot_data2 = np.abs(data[name_plot2]) * day_to_sec
+        plot_data_wp2 = np.abs(data_wp[name_plot2]) * day_to_sec
+    else:
+        plot_data2 = np.abs(data[name_plot2])
+        plot_data_wp2 = np.abs(data_wp[name_plot2])
+
+    if 'eta' in name_plot1:
+        fig.add_trace(go.Scatter(
+            x=time, y=plot_data_wp1, yaxis='y2',
+            mode='lines', name='Wp=5%',
+            line=dict(color='black', width=3), showlegend=True
+        ))
+        fig.add_trace(go.Scatter(
+            x=time, y=plot_data1,yaxis='y2',
+            mode='lines', name='Wp=0%',
+            line=dict(color='red', width=3, dash='dash'), showlegend=True
+        ))
+        fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title='$$\\eta, \\: д. ед.$$', domain=[0.0, 0.5]))
+    else:
+        fig.add_trace(go.Scatter(
+            x=time, y=plot_data_wp1,
+            mode='lines', name='Wp=5%',
+            line=dict(color='black', width=3), showlegend=True
+        ))
+        fig.add_trace(go.Scatter(
+            x=time, y=plot_data1,
+            mode='lines', name='Wp=0%',
+            line=dict(color='red', width=3, dash='dash'), showlegend=True
+        ))
 
     fig.add_trace(go.Scatter(
-        x=time, y=plot_data_wp,
-        mode='lines', name='Wp=5%',
-        line=dict(color='black', width=3), showlegend=True
+        x=time, y=plot_data_wp2,
+        mode='lines', line=dict(color='black', width=3), showlegend=False
     ))
     fig.add_trace(go.Scatter(
-        x=time, y=plot_data,
-        mode='lines', name='Wp=0%',
-        line=dict(color='red', width=3, dash='dash'), showlegend=True
+        x=time, y=plot_data2,
+        mode='lines', line=dict(color='red', width=3, dash='dash'), showlegend=False
     ))
     fig = _plots_params(fig, 't, сут', y_axis_title)
-    fig.write_image(path / f"{name_plot}.svg", width=700, height=600)
+    fig.write_image(path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
 
 
 def _field_vis(idx, data, data_wp, path, field_name, start, end, step):
@@ -91,7 +120,8 @@ def _field_vis(idx, data, data_wp, path, field_name, start, end, step):
             start=start, end=end, size=step,
         ),
         line=dict(width=3, dash='dash'), colorscale=[[0, 'red'], [1, 'red']],
-        showscale=False, showlegend=True
+        showscale=False,
+        # showlegend=True
     ))
 
     fig = _plots_params(fig, 'X', 'Y')
@@ -127,7 +157,7 @@ def _plots_params(fig, x_axis_title, y_axis_title):
             bgcolor='rgba(255,255,255,0.7)'
         ),
         margin=dict(t=0, b=0),
-        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, zeroline=True, zerolinecolor='black', zerolinewidth=1),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
         yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
     )
 
@@ -136,5 +166,6 @@ def _plots_params(fig, x_axis_title, y_axis_title):
         x0=0, y0=0, x1=1, y1=1,
         line=dict(color="black", width=1)
     )
+    fig.add_hline( y=0, line=dict(color='black', width=1))
 
     return fig

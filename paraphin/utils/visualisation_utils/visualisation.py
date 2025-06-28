@@ -15,7 +15,7 @@ y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 
 def visualize_solution():
     """Визуализация данных расчета."""
-    _n_times, input_data = read_pkl_files('(wp5 20)processed_data.pkl')
+    _n_times, input_data = read_pkl_files('(wp5 60)processed_data.pkl')
     print('Временных слоев:', _n_times)
 
     fig_plots = _visualize_plots(input_data)
@@ -185,7 +185,7 @@ def _visualize_plots(plots_data):
 
     fig.update_layout(
         plot_bgcolor='white', margin=dict(t=0, b=0),
-        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, zeroline=True, zerolinewidth=1, zerolinecolor='black'),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
         yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
         yaxis2=dict(side="right", overlaying="y"),
         legend=dict(x=1.05, y=0.5)
@@ -195,6 +195,7 @@ def _visualize_plots(plots_data):
         x0=0, y0=0, x1=1, y1=1,
         line=dict(color="black", width=1)
     )
+    fig.add_hline( y=0, line=dict(color='black', width=1))
 
     # Настраиваем ползунок
     steps = [{}] * n_times

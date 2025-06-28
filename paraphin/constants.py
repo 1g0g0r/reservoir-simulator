@@ -18,7 +18,7 @@ kal_to_J = 4.1868
 
 # Пути проекта
 outputs_path = Path.cwd() / 'outputs'
-results_path = outputs_path / 'results'  # wp0 60
+results_path = outputs_path / 'results'  # wp5 60
 logs_path = outputs_path / '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
 
