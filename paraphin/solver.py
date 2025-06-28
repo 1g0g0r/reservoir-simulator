@@ -137,6 +137,7 @@ class Solver:
                     self.Wp[i, j]   = init_Wp
                     self.Wp_0[i, j] = init_Wp
                     self.Wps[i, j]  = init_Wps
+                    self.Wps_dep[i, j] = 0.0
                     self.k[i, j]    = init_k
                     self.m[i, j]    = init_m
                     self.m_0[i, j]  = init_m
@@ -229,7 +230,7 @@ class Solver:
         ti.loop_config(serialize=True)
         for i in ti.ndrange(self.n_wells):
             saturation_well(self.wells[i], self.m_mult, self.new_s)
-            wps_wp_wells(self.wells[i], self.m, self.S, self.Wp, self.Wps, self.new_wp)
+            wps_wp_wells(self.wells[i], self.m, self.S, self.T, self.Wp, self.Wps, self.new_wp)
             temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
 
@@ -273,7 +274,7 @@ class Solver:
                     self.k[i, j]     = init_k * self.k_mult[i, j]
                     self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
                     self.m[i, j]     = init_m * self.m_mult[i, j]
-                    self.Wps_dep[i, j] = self.Wps_dep[i, j] + self.qp[i, j] * dt
+                    self.Wps_dep[i, j] = self.Wps_dep[i, j] - self.qp[i, j] * dt
                     self.qp[i, j]    = self.new_qp[i, j]
 
                     for ij in ti.ndrange(Nr):
@@ -310,12 +311,15 @@ class Solver:
                 'Pressure':    self.p.to_numpy(),
                 'Saturation':  self.S.to_numpy(),
                 'Temperature': self.T.to_numpy(),
+                'Wo':          self.Wo.to_numpy(),
+                'Wp':          self.Wp.to_numpy(),
                 'Wps':         self.Wps.to_numpy(),
                 'Wps dep':     self.Wps_dep.to_numpy(),
+                'qp':          self.qp.to_numpy(),
                 'm mult':      self.m_mult.to_numpy(),
                 'k mult':      self.k_mult.to_numpy(),
-                'mu_o':        self.mu_o.to_numpy(),
-                'mu_w':        self.mu_w.to_numpy(),
+                # 'mu_o':        self.mu_o.to_numpy(),
+                # 'mu_w':        self.mu_w.to_numpy(),
                 'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[0, 0]},
                 'Wells':       wells_data,
                 'Other params': {

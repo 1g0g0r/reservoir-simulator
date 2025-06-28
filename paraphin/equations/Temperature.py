@@ -81,8 +81,8 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
         Температура на новом временном слое, [С]
     """
     i, j = well.i, well.j
-    Twell = 0.0
 
+    Twell = 0.0
     if well.is_injector == 1:  # Если скважина нагнетательная, то учитывается ее температура
         Twell = well.T
     else:
@@ -96,9 +96,10 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
 
     # if well.is_injector == 1:  # Если скважина нагнетательная, то учитывается ее температура
     #     multiplier = (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
-    #                                 ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j]) * volume / dt
+    #                                                                              ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j]) * volume / dt
     #
     #     new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[Nx - 1, Ny - 1] * ro_w * well.q[1]) / multiplier * well.T
+    #
     # else:  # Если скважина добывающая, то температура определяется температурой в соседних ячейках
     #     t_aver = 0.0
     #     num = 0
@@ -111,3 +112,4 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
     #             num += 1
     #
     #     new_T[i, j] = t_aver / num
+    #

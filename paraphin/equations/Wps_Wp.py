@@ -38,7 +38,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
     new_Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
-    if T[i, j] < init_T * 0.985:
+    if T[i, j] < init_T * 0.95:
         if Wp[i, j] > 1e-6:
             Wps_i  = _get_Wps(Wp[i, j], Wps[i, j], T[i, j])
             Wps_0_i  = _get_Wps(Wp[i, j], Wps[i, j], T_0[i, j])
@@ -55,7 +55,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
         else:
             colmatation = qp[i, j] * ro_p * dt / (m[i, j] * (1 - S[i, j]) * ro_o)
             new_Wp[i, j] = 0.0
-            new_Wps[i, j] = Wps[i, j] + colmatation
+            new_Wps[i, j] = ti.max(Wps[i, j] + colmatation, 0)
 
 
 @ti.func
@@ -64,14 +64,14 @@ def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
     new_Wps = Wps
 
     # exact_solution = alpha_R * Tm / (alpha_R + Tm * ti.log(border))
-    if Wp > 1e-6 and T > 0.92 * Tm:
+    if Wp > 1e-6 and T > 0.9 * Tm:
         new_Wps = Wp * ti.exp(alpha_R * (1.0 / T - reverse_Tm))
 
     return new_Wps
 
 
 @ti.func
-def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
+def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp) -> None:
     """Вычисление массовой доли взвешенных частиц (Wps) и растворенного парафина (Wp) парафина в нефти по явной схеме.
 
     Parameters
@@ -90,4 +90,5 @@ def wps_wp_wells(well, m, S, Wp, Wps, new_Wp) -> None:
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j
-    new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_o) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)
+    if T[i, j] < init_T * 0.95:
+        new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_o) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)

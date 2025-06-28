@@ -39,10 +39,11 @@ def _visualize_fields(input_data):
     # Создаем графики
     n_fields = len(input_data)
     data_fields = []
-    names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps dep', 'Wells']  # 'Other params'
+    # names_fields = ['Saturation', 'Temperature', 'Wells', 'Other params']
+    # names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params']
     for name, field in input_data.items():
-        if name not in names_fields:  # ['Pressure', 'Wps', 'm mult', 'k mult', 'mu_o', 'mu_w']:
-            continue
+        # if name not in names_fields:
+        #     continue
         trace = []
         if name == 'Pressure':
             if CONTOUR_PLOT:
@@ -139,7 +140,7 @@ def _visualize_fields(input_data):
                 direction="down",
                 buttons=[dict(args=[{"visible": visibility[i]}],
                               label=name,
-                              method="update") for i, name in enumerate(names_fields)],
+                              method="update") for i, name in enumerate(input_data.keys())],
                 pad={"r": 10, "t": 10},
                 showactive=True,
                 x=1.35,  # Положение по горизонтали (справа от графика)

@@ -1,8 +1,8 @@
 """Вычисление перетоков массы и энергии при решении методом конечных объемов на прямоугольной сетке."""
 import taichi as ti
 
-from paraphin.constants import Nx, Ny, hx, hy, h, K_o, K_f, K_w, K_p, ro_w, ro_o, ro_p
-from paraphin.utils import up_kw, up_ko, mid_Ko_Kw, mid, up_T
+from paraphin.constants import Nx, Ny, hx, hy, h, ro_w, ro_o, ro_p
+from paraphin.utils import up_kw, up_ko, mid_Ko_Kw, mid, up_T, up_wp, up_lam
 
 
 @ti.func
@@ -44,9 +44,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 	cells_Wp_eq: taichi.field(Nx, Ny)
 		Перетоки нефти в ячейках, [Па*м]
 	"""
-	lam = m[i, j] * (S[i, j] * K_w + (1.0 - S[i, j]) * ((1.0 - Wps[i, j]) * K_o + Wps[i, j] * K_p)) + (1.0 - m[i, j]) * K_f
-	Co = ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j]
-	wps_wp = ro_o * Wp[i, j] + ro_p * Wps[i, j]
+	Co = ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_o * Wps[i, j] * C_o[i, j]
 
 	arr = [[i + 1, j, hx, hy * h], [i - 1, j, hx, hy * h], [i, j + 1, hy, hx * h], [i, j - 1, hy, hx * h]]
 	_s, _wp, _t = 0.0, 0.0, 0.0
@@ -54,10 +52,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 		i1, j1, hij, areaij = arr[idx]
 		if (0 <= i1 < Nx) and (0 <= j1 < Ny):
 			# TODO придумать, как объединить вычисление слагаемых вверх по потоку
-			wps_wp_ij = ro_o * Wp[i1, j1] + ro_p * Wps[i1, j1]
 			Co_ij = ro_o * C_o[i1, j1] * (1.0 - Wps[i1, j1]) + ro_p * Wps[i1, j1] * C_p[i1, j1]
-			lam_ij = m[i1, j1] * (S[i1, j1] * K_w + (1.0 - S[i1, j1]) * ((1.0 - Wps[i1, j1]) * K_o +
-																		 Wps[i1, j1]* K_p)) + (1.0 - m[i1, j1]) * K_f
 			value = (p[i1, j1] - p[i, j]) * areaij / hij * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
 																	 k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
 			up_k_w = up_kw(k[i, j], S[i, j], p[i, j], mu_o[i, j], mu_w[i, j],
@@ -66,10 +61,10 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 						   k[i1, j1], S[i1, j1], p[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * value
 			up_t = up_T(p[i, j], T[i, j], p[i1, j1], T[i1, j1])
 
-			_wp += up_k_o * mid(wps_wp, wps_wp_ij)
+			_wp += up_k_o * up_wp(p[i, j], Wp[i, j], Wps[i, j], p[i1, j1], Wp[i1, j1], Wps[i1, j1])
 			_s += up_k_w
-			# TODO брать вверх по потоку
-			_t += mid(lam, lam_ij) * areaij * (T[i1, j1] - T[i, j]) / hij
+			_t += (T[i1, j1] - T[i, j]) * areaij / hij * up_lam(p[i, j], S[i, j], m[i, j], Wps[i, j],
+																p[i1, j1], S[i1, j1], m[i1, j1], Wps[i1, j1])
 			_t += C_w[i, j] * ro_w * up_t * up_k_w
 			_t += mid(Co, Co_ij) * up_t * up_k_o
 
