@@ -3,7 +3,7 @@ from pickle import load
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, hx, hy, results_path, bar_to_pa, day_to_sec
+from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, hx, hy, results_path, bar_to_pa, day_to_sec, S_min
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
 y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
@@ -12,10 +12,10 @@ y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 def create_graphs_and_maps():
     path = results_path.parent / 'pictures'
 
-    with open(results_path / '(wp0 40)processed_data.pkl', 'rb') as file:
+    with open(results_path.parent / 'data' / '(wp0 40)processed_data.pkl', 'rb') as file:
         _, data = load(file)
 
-    with open(results_path / '(wp5 40)processed_data.pkl', 'rb') as file:
+    with open(results_path.parent / 'data' / '(wp5 40)processed_data.pkl', 'rb') as file:
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
@@ -24,15 +24,16 @@ def create_graphs_and_maps():
 
     idx_end = len(data_wp['Time']) - 1
     idx_sat = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
-    idx = idx_sat
+    idx = idx_end
 
-    fields_settings = [['Pressure', 50, 150, 2], ['Saturation', 0, 1, 0.03], ['Temperature', 25, 70, 5]]
+    fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.01, 1, 0.04], ['Temperature', 25, 70, 5]]
     for _setings in fields_settings:
         _field_vis(idx, data, data_wp, path, *_setings)
 
-    plots_names = ['Producer_oil', 'Producer_water', 'Producer_eta', 'Injector_total']
-    for name in plots_names:
-        _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, name)
+    plots_settings = [['Producer_oil', 'q, m^3 / сут'], ['Producer_water', 'q, m^3 / сут'], ['Producer_eta', ' '],
+                      ['Injector_Q_total', 'Q, m^3'], ['Injector_water', 'q, m^3 / сут']]
+    for _settings in plots_settings:
+        _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
 
     # maps = ['m mult', 'k mult']  # , 'Wps_dep'
     # for name in  maps:
@@ -41,7 +42,7 @@ def create_graphs_and_maps():
     print('Done!')
 
 
-def _plot_vis(time, data, data_wp, path, name_plot):
+def _plot_vis(time, data, data_wp, path, name_plot, y_axis_title):
     """Процедура строит векторные графики показателей работы скважин."""
     fig = go.Figure()
 
@@ -63,8 +64,7 @@ def _plot_vis(time, data, data_wp, path, name_plot):
         mode='lines', name='Wp=0%',
         line=dict(color='red', width=3, dash='dash'), showlegend=True
     ))
-
-    fig = _plots_params(fig, 't, сут', 'q, m^3 / сут')
+    fig = _plots_params(fig, 't, сут', y_axis_title)
     fig.write_image(path / f"{name_plot}.svg", width=700, height=600)
 
 
@@ -127,7 +127,7 @@ def _plots_params(fig, x_axis_title, y_axis_title):
             bgcolor='rgba(255,255,255,0.7)'
         ),
         margin=dict(t=0, b=0),
-        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, zeroline=True, zerolinecolor='black', zerolinewidth=1),
         yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
     )
 

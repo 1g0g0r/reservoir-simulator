@@ -15,13 +15,13 @@ y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 
 def visualize_solution():
     """Визуализация данных расчета."""
-    _n_times, input_data = read_pkl_files('(wp5 40)processed_data.pkl')  # 'wp5_processed_data.pkl'
+    _n_times, input_data = read_pkl_files('(wp5 20)processed_data.pkl')
     print('Временных слоев:', _n_times)
 
-    # fig_plots = _visualize_plots(input_data)
+    fig_plots = _visualize_plots(input_data)
     fig_fields = _visualize_fields(input_data)
 
-    # fig_plots.show()
+    fig_plots.show()
     fig_fields.show()
 
 
@@ -184,9 +184,16 @@ def _visualize_plots(plots_data):
     fig = go.Figure(data=data_fields)
 
     fig.update_layout(
-        # xaxis2=dict(autorange="reversed", overlaying='x'),
+        plot_bgcolor='white', margin=dict(t=0, b=0),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, zeroline=True, zerolinewidth=1, zerolinecolor='black'),
+        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
         yaxis2=dict(side="right", overlaying="y"),
-        legend=dict(x=1.05, y=1.0)
+        legend=dict(x=1.05, y=0.5)
+    )
+    fig.add_shape(
+        type="rect", xref="paper", yref="paper",
+        x0=0, y0=0, x1=1, y1=1,
+        line=dict(color="black", width=1)
     )
 
     # Настраиваем ползунок

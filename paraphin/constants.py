@@ -18,13 +18,13 @@ kal_to_J = 4.1868
 
 # Пути проекта
 outputs_path = Path.cwd() / 'outputs'
-results_path = outputs_path / 'results'
+results_path = outputs_path / 'results'  # wp0 60
 logs_path = outputs_path / '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
 
 # Параметры сетки
 Nr = 31          # Число узлов сетки радиусов капилляров
-Nx, Ny = 20, 20  # Число узлов сетки по x и y
+Nx, Ny = 60, 60  # Число узлов сетки по x и y
 X_min, X_max = 0., 200.  # Длина пласта, [м]
 Y_min, Y_max = 0., 200.  # Ширина пласта, [м]
 hx = (X_max - X_min) / Nx
@@ -34,8 +34,8 @@ area = hx * hy
 volume = area * h
 
 # Параметры времени задачи
-Time_end = day_to_sec * 365 * 5.0
-dt = day_to_sec / 5e1  # шаг дискретизации по времени
+Time_end = day_to_sec * 365 * 5.5
+dt = day_to_sec / 5e2  # шаг дискретизации по времени
 
 # Параметры скважин
 rw = 0.1              # Радиус скважин, [м]
@@ -84,15 +84,15 @@ alpha = 0.1426 * MW * (Tm + 273.15) * kal_to_J  # Скрытая теплота 
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
-init_Wp  = 0.05
+init_Wp  = 0.0
 init_Wps = 0.
 init_k   = 0.2 * darcy_to_m2  # [м^2]
 init_m   = 0.2
 init_T   = 70  # [C]
 init_qp  = 0.0
 init_h_sloy = 0.0
-porous_volume = (X_max - X_min) * (Y_max - Y_min) * h
-geological_reserves = porous_volume * (1.0 - init_S) * init_m  # геологические запасы пласта
+porous_volume = (X_max - X_min) * (Y_max - Y_min) * h * init_m
+geological_reserves = porous_volume * (1.0 - init_S)  # геологические запасы пласта
 
 # Проверка числа Куранта
 _re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
