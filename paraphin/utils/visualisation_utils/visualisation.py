@@ -15,7 +15,7 @@ y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 
 def visualize_solution():
     """Визуализация данных расчета."""
-    _n_times, input_data = read_pkl_files('wp5_processed_data.pkl')
+    _n_times, input_data = read_pkl_files('(wp5 40)processed_data.pkl')  # 'wp5_processed_data.pkl'
     print('Временных слоев:', _n_times)
 
     # fig_plots = _visualize_plots(input_data)
@@ -39,9 +39,10 @@ def _visualize_fields(input_data):
     # Создаем графики
     n_fields = len(input_data)
     data_fields = []
+    names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps dep', 'Wells']  # 'Other params'
     for name, field in input_data.items():
-        # if name in ['Pressure', 'Wps', 'm mult', 'k mult', 'mu_o', 'mu_w']:
-        #     continue
+        if name not in names_fields:  # ['Pressure', 'Wps', 'm mult', 'k mult', 'mu_o', 'mu_w']:
+            continue
         trace = []
         if name == 'Pressure':
             if CONTOUR_PLOT:
@@ -138,7 +139,7 @@ def _visualize_fields(input_data):
                 direction="down",
                 buttons=[dict(args=[{"visible": visibility[i]}],
                               label=name,
-                              method="update") for i, name in enumerate(input_data.keys())],
+                              method="update") for i, name in enumerate(names_fields)],
                 pad={"r": 10, "t": 10},
                 showactive=True,
                 x=1.35,  # Положение по горизонтали (справа от графика)

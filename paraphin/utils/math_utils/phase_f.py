@@ -73,10 +73,15 @@ if __name__ == '__main__':
     #                          mode='lines', name='БЛ', line=dict(color='black', width=3)))
 
     fig.update_layout(plot_bgcolor='white', width=750, height=350, margin=dict(t=0, b=0),
-                      xaxis=dict(showgrid=True, gridcolor='lightgray', linecolor='black', linewidth=2),
-                      yaxis=dict(showgrid=True, gridcolor='lightgray', linecolor='black', linewidth=2),
+                      xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
+                      yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
                       xaxis_title="S", yaxis_title="f")
+    fig.add_shape(
+        type="rect", xref="paper", yref="paper",
+        x0=0, y0=0, x1=1, y1=1,
+        line=dict(color="black", width=1)
+    )
 
     fig.update_yaxes(range=[-0.005, 1.01])
-    # fig.write_image("ofp.svg", width=750, height=350)
+    fig.write_image("ofp.svg", width=750, height=350)
     fig.show()

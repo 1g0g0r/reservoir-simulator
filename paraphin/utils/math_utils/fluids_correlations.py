@@ -64,15 +64,15 @@ if __name__ == '__main__':
 
     calc_data()
 
-    fig = go.Figure()  # width=4
-    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=f_o.to_numpy(), mode='lines', name='вязкость нефти',
-                             line=dict(color='red', width=3)))
-    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='вязкость воды',
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='формула 15.1',
                              line=dict(color='blue', width=3)))
+    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=f_o.to_numpy(), mode='lines', name='формула 15.2',
+                             line=dict(color='red', width=3)))
 
     fig.update_layout(plot_bgcolor='white', width=750, height=350, margin=dict(t=0, b=0),
-                      xaxis=dict(showgrid=True, gridcolor='lightgray', linecolor='black', linewidth=2),
-                      yaxis=dict(showgrid=True, gridcolor='lightgray', linecolor='black', linewidth=2),
+                      xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
+                      yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
                       xaxis_title="T, °C",
                       yaxis_title="μ, Па∙с"
                       )
@@ -82,5 +82,5 @@ if __name__ == '__main__':
         line=dict(color="black", width=1)
     )
 
-    # fig.write_image("mu.svg", width=750, height=350)
+    fig.write_image("mu.svg", width=750, height=350)
     fig.show()
