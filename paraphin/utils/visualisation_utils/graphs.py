@@ -3,7 +3,8 @@ from pickle import load
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, hx, hy, results_path, bar_to_pa, day_to_sec, S_min
+from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, hx, hy, results_path, bar_to_pa, day_to_sec, S_min, \
+    init_T
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
 y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
@@ -12,25 +13,26 @@ y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 def create_graphs_and_maps():
     path = results_path.parent / 'pictures'
 
-    with open(results_path.parent / 'data' / '(wp0 40)processed_data.pkl', 'rb') as file:
+    with open(results_path.parent / 'data' / '(wp0 60)processed_data.pkl', 'rb') as file:
         _, data = load(file)
 
-    with open(results_path.parent / 'data' / '(wp5 40)processed_data.pkl', 'rb') as file:
+    with open(results_path.parent / 'data' / '(wp5 60)processed_data.pkl', 'rb') as file:
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
     data_wp['Pressure'] /= bar_to_pa
+    data['Time'] /=day_to_sec
     data_wp['Time'] /=day_to_sec
 
     idx_end = len(data_wp['Time']) - 1
     idx_sat = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
     idx = idx_end
 
-    fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.01, 1, 0.04], ['Temperature', 25, 70, 5]]
-    for _setings in fields_settings:
-        _field_vis(idx, data, data_wp, path, *_setings)
+    # fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.03], ['Temperature', 25*1.001, init_T*0.99, 10]]
+    # for _setings in fields_settings:
+    #     _field_vis(idx, data, data_wp, path, *_setings)
 
-    plots_settings = [['Producer_oil', 'Producer_water', '$$q,\\: \\frac{м^3}{сут}$$'], 
+    plots_settings = [['Producer_oil', 'Producer_water', '$$q,\\: \\frac{м^3}{сут}$$'],
                       ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
                       ['Producer_Q_oil','Producer_Q_water', '$$Q,\\: м^3$$']]
     for _settings in plots_settings:
@@ -120,28 +122,27 @@ def _field_vis(idx, data, data_wp, path, field_name, start, end, step):
             start=start, end=end, size=step,
         ),
         line=dict(width=3, dash='dash'), colorscale=[[0, 'red'], [1, 'red']],
-        showscale=False,
-        # showlegend=True
+        showscale=False, showlegend=True
     ))
 
     fig = _plots_params(fig, 'X', 'Y')
     fig.write_image(path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
 
 
-def _create_map(idx, data_wp, path, field_name):
+def _create_map(idx, data_wp, path, field_name, start, end, step):
     fig = go.Figure()
 
     field = data_wp[field_name][idx]
 
-    fig.add_trace(
-        go.Contour(x=x_mesh, y=y_mesh, z=field, colorscale='Jet', name=field_name,
-                   contours=dict(
-                       coloring='fill',  # 'lines',
-                       showlabels=True,
-                       labelfont=dict(size=12, color='black')
-                   )
-        )
-    )
+    fig.add_trace(go.Contour(
+        x=x_mesh, y=y_mesh, z=field, name='Wp=5%',
+        contours=dict(
+            coloring='lines', showlabels=True,
+            start=start, end=end, size=step,
+        ),
+        line=dict(width=3), colorscale=[[0, 'black'], [1, 'black']],
+        showscale=False, showlegend=True
+    ))
 
     fig = _plots_params(fig, 'X', 'Y')
     fig.write_image(path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
@@ -151,11 +152,8 @@ def _plots_params(fig, x_axis_title, y_axis_title):
     """Настройки внешнего вида графиков."""
     fig.update_layout(
         plot_bgcolor='white', xaxis_title=x_axis_title, yaxis_title=y_axis_title,
-        height=500, width=600, showlegend=True,
-        legend=dict(
-            x=1.05, y=0.5,
-            bgcolor='rgba(255,255,255,0.7)'
-        ),
+        height=500, width=600, showlegend=False,
+        # legend=dict(x=1.05, y=0.5, bgcolor='rgba(255,255,255,0.7)'),
         margin=dict(t=0, b=0),
         xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
         yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
