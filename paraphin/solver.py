@@ -7,7 +7,7 @@ import taichi as ti
 
 from paraphin import r1, r3, r4, r5, r6, fi_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, init_k, init_S, init_m, init_p,
-                        init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, mu_o, mu_w,
+                        init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, mu_o, mu_w, ro_p, ro_o,
                         c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re, geological_reserves)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
@@ -274,7 +274,7 @@ class Solver:
                     self.k[i, j]     = init_k * self.k_mult[i, j]
                     self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
                     self.m[i, j]     = init_m * self.m_mult[i, j]
-                    self.Wps_dep[i, j] = self.Wps_dep[i, j] - self.qp[i, j] * dt
+                    self.Wps_dep[i, j] = self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p / ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p)
                     self.qp[i, j]    = self.new_qp[i, j]
 
                     for ij in ti.ndrange(Nr):

@@ -82,9 +82,9 @@ def up_lam(p_i: data_type, S_i: data_type, m_i: data_type, Wps_i: data_type,
     ret = 0.0
 
     if p_i >= p_j:
-        ret = m_i * (S_i * K_w + (1.0 - S_i) * ((1.0 - Wps_i) * K_o + Wps_i * K_o)) + (1.0 - m_i) * K_f
+        ret = m_i * (S_i * K_w + (1.0 - S_i) * ((1.0 - Wps_i) * K_o + Wps_i * K_p)) + (1.0 - m_i) * K_f
     else:
-        ret =  m_j * (S_j * K_w + (1.0 - S_j) * ((1.0 - Wps_j) * K_o + Wps_j * K_o)) + (1.0 - m_j) * K_f
+        ret =  m_j * (S_j * K_w + (1.0 - S_j) * ((1.0 - Wps_j) * K_o + Wps_j * K_p)) + (1.0 - m_j) * K_f
 
     return ret
 

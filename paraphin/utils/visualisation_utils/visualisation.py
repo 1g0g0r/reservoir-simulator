@@ -12,13 +12,18 @@ from .read_data_files import read_pkl_files
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
 y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 
+names_converter = {
+    'fi': '$$\\varphi$$',
+    'fi_o': '$$\\varphi_0$$'
+}
+
 
 def visualize_solution():
     """Визуализация данных расчета."""
-    _n_times, input_data = read_pkl_files('(wp5 60)processed_data.pkl')
+    _n_times, input_data = read_pkl_files()  # '(wp5 20)processed_data.pkl'
     print('Временных слоев:', _n_times)
 
-    fig_plots = _visualize_plots(input_data)
+    fig_plots = _visualize_plots_fi(input_data)
     fig_fields = _visualize_fields(input_data)
 
     fig_plots.show()
@@ -103,7 +108,7 @@ def _visualize_fields(input_data):
     fig.update_layout(
         # xaxis2=dict(autorange="reversed", overlaying='x'),
         yaxis2=dict(side="right", overlaying="y"),
-        legend=dict(x=1.05, y=1.0)
+        legend=dict(x=1.05, y=1.0), plot_bgcolor='white',
     )
 
     # Создаем массив отображаемых данных (все False, а на диагонали True)
@@ -149,7 +154,7 @@ def _visualize_fields(input_data):
                 yanchor="middle"  # Привязка по вертикали
             ),
         ],
-        sliders=sliders,
+        sliders=sliders, plot_bgcolor='white',
         width=1000,  # Устанавливаем ширину фигуры
         height=800  # Устанавливаем высоту фигуры
     )
@@ -166,7 +171,7 @@ def _visualize_fields(input_data):
     return fig
 
 
-def _visualize_plots(plots_data):
+def _visualize_plots_fi(plots_data):
     """Создание графиков зависящих от радиусов пор"""
     time = plots_data['Time'] / day_to_sec
     data = plots_data['plots']
@@ -176,19 +181,25 @@ def _visualize_plots(plots_data):
 
     # Создаем базовый график с первой строкой
     for _name, _val in data.items():
-        if _name in ['Ur', 'Ub']:
-            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, yaxis='y2', hovertemplate="x: %{x}<br>y: %{y}<br>")]
+        if _name in ['Ur', 'Ub']:  # 'markers+lines'
+            data_fields += [go.Scatter(x=r, y=_val[0], mode='lines', name=_name, yaxis='y2',
+                                       hovertemplate="x: %{x}<br>y: %{y}<br>", line=dict(width=3))]
         else:
-            data_fields += [go.Scatter(x=r, y=_val[0], mode='markers+lines', name=_name, hovertemplate="x: %{x}<br>y: %{y}<br>")]
+            data_fields += [go.Scatter(x=r, y=_val[0], mode='lines', name=names_converter[_name],
+                                       hovertemplate="x: %{x}<br>y: %{y}<br>", line=dict(width=4))]
 
     fig = go.Figure(data=data_fields)
 
     fig.update_layout(
+        xaxis_title='r, м', yaxis_title=names_converter['fi'],
         plot_bgcolor='white', margin=dict(t=0, b=0),
-        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
-        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
+        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
         yaxis2=dict(side="right", overlaying="y"),
-        legend=dict(x=1.05, y=0.5)
+        legend=dict(
+            x=1.01, y=0.8,
+            font=dict(size=18)
+        )
     )
     fig.add_shape(
         type="rect", xref="paper", yref="paper",

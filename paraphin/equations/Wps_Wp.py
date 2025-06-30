@@ -45,15 +45,15 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
 
             _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
                     - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
-                    - ro_o * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
+                    - ro_p * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt
                     + cells_Wp_eq[i, j] / volume + ro_p * qp[i, j])
 
-            colmatation = qp[i, j] * ro_p * dt / (m[i, j] * (1 - S[i, j]) * ro_o)
+            colmatation = qp[i, j] * dt * ro_p / ((1.0-Wps[i,j]) * ro_o + Wps[i,j] * ro_p)
             new_Wp[i, j] = ti.max(_new_Wp, 0.0)
             new_Wps[i, j] = ti.max(init_Wp - new_Wp[i, j] + colmatation , 0.0)
 
         else:
-            colmatation = qp[i, j] * ro_p * dt / (m[i, j] * (1 - S[i, j]) * ro_o)
+            colmatation = qp[i, j] * dt * ro_p / ((1.0-Wps[i,j]) * ro_o + Wps[i,j] * ro_p)
             new_Wp[i, j] = 0.0
             new_Wps[i, j] = ti.max(Wps[i, j] + colmatation, 0)
 
@@ -91,4 +91,4 @@ def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp) -> None:
     """
     i, j = well.i, well.j
     if T[i, j] < init_T * 0.95:
-        new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_o) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)
+        new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)

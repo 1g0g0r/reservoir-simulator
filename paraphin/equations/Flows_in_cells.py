@@ -44,7 +44,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 	cells_Wp_eq: taichi.field(Nx, Ny)
 		Перетоки нефти в ячейках, [Па*м]
 	"""
-	Co = ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_o * Wps[i, j] * C_o[i, j]
+	Co = ro_o * C_o[i, j] * (1.0 - Wps[i, j]) + ro_p * Wps[i, j] * C_p[i, j]
 
 	arr = [[i + 1, j, hx, hy * h], [i - 1, j, hx, hy * h], [i, j + 1, hy, hx * h], [i, j - 1, hy, hx * h]]
 	_s, _wp, _t = 0.0, 0.0, 0.0
