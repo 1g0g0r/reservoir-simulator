@@ -23,13 +23,13 @@ def visualize_solution():
     _n_times, input_data = read_pkl_files('(wp5 40)processed_data.pkl')  #
     print('Временных слоев:', _n_times)
 
-    fig_fields = _visualize_fields(input_data)
+    # fig_fields = _visualize_fields(input_data)
 
     if 'plots' in input_data.keys():
         fig_plots = _visualize_plots_fi(input_data)
         fig_plots.show()
 
-    fig_fields.show()
+    # fig_fields.show()
 
 def _visualize_fields(input_data):
     """Создание анимации полей данных и параметров скважин."""
@@ -49,8 +49,8 @@ def _visualize_fields(input_data):
     # names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params']
     names_fields = ['m mult', 'Wells', 'Other params']
     for name, field in input_data.items():
-        # if name not in names_fields:
-        #     continue
+        if name not in names_fields:
+            continue
         trace = []
         if name == 'Pressure':
             if CONTOUR_PLOT:
@@ -147,7 +147,7 @@ def _visualize_fields(input_data):
                 direction="down",
                 buttons=[dict(args=[{"visible": visibility[i]}],
                               label=name,
-                              method="update") for i, name in enumerate(input_data.keys())],  # names_fields
+                              method="update") for i, name in enumerate(names_fields)],  # names_fields  input_data.keys()
                 pad={"r": 10, "t": 10},
                 showactive=True,
                 x=1.35,  # Положение по горизонтали (справа от графика)
