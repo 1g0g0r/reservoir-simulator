@@ -61,7 +61,7 @@ def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_n
     """
     # Тк при Wps=0 цикл не имеет смысла
     if Wps[i, j] > 1e-6:
-        So = 1.0 - S[i, j] - So_max
+        So = 1.0 - S[i, j] # - So_max
         for ij in ti.ndrange(Nr):
             um = Um_r2[i, j] * r2[ij]
             uc = u_c(r=r1[ij], mu=mu_o[i, j], ro=ro_p)

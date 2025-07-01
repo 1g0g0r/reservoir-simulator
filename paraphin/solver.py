@@ -272,9 +272,10 @@ class Solver:
                     self.Wps_0[i, j] = self.Wps[i, j]
                     self.Wps[i, j]   = self.new_wps[i, j]
                     self.k[i, j]     = init_k * self.k_mult[i, j]
-                    self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
                     self.m[i, j]     = init_m * self.m_mult[i, j]
-                    self.Wps_dep[i, j] = self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p / ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p)
+                    self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
+                    self.Wps_dep[i, j] = ti.max(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
+                                                ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
                     self.qp[i, j]    = self.new_qp[i, j]
 
                     for ij in ti.ndrange(Nr):
@@ -320,14 +321,14 @@ class Solver:
                 'k mult':      self.k_mult.to_numpy(),
                 # 'mu_o':        self.mu_o.to_numpy(),
                 # 'mu_w':        self.mu_w.to_numpy(),
-                'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[0, 0]},
+                'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[1, 1]},
                 'Wells':       wells_data,
                 'Other params': {
-                    'Wps [0,0]':  self.Wps.to_numpy()[0,0], 'Wp [0,0]': self.Wp.to_numpy()[0,0],
-                    'Wo [0,0]': self.Wo.to_numpy()[0,0], 'KIN': self.KIN[None],
-                    'k_mult [0,0]':  self.k_mult.to_numpy()[0,0], 'm_mult [0,0]': self.m_mult.to_numpy()[0,0],
-                    'mu_o [0,0]': self.mu_o.to_numpy()[0,0], 'mu_w [0,0]': self.mu_w.to_numpy()[0,0],
-                    'qp [0,0]': self.qp.to_numpy()[0,0],
+                    'Wps [1,1]':  self.Wps.to_numpy()[1,1], 'Wp [1,1]': self.Wp.to_numpy()[1,1],
+                    'Wo [1,1]': self.Wo.to_numpy()[1,1], 'KIN': self.KIN[None],
+                    'k_mult [1,1]':  self.k_mult.to_numpy()[1,1], 'm_mult [1,1]': self.m_mult.to_numpy()[1,1],
+                    'mu_o [1,1]': self.mu_o.to_numpy()[1,1], 'mu_w [1,1]': self.mu_w.to_numpy()[1,1],
+                    'qp [1,1]': self.qp.to_numpy()[1,1],
                 }
             }
         else:
@@ -340,7 +341,7 @@ class Solver:
                 'mu_w': self.mu_w.to_numpy(),
                 'Wells': wells_data,
                 'Other params': {
-                    'mu_o [0,0]': self.mu_o.to_numpy()[0, 0], 'mu_w [0,0]': self.mu_w.to_numpy()[0, 0],
+                    'mu_o [1,1]': self.mu_o.to_numpy()[1, 1], 'mu_w [1,1]': self.mu_w.to_numpy()[1, 1],
                     'KIN': self.KIN[None],
                 }
             }

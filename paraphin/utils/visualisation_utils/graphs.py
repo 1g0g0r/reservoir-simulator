@@ -13,10 +13,10 @@ y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 def create_graphs_and_maps():
     path = results_path.parent / 'pictures'
 
-    with open(results_path.parent / 'data' / '(wp0 60)processed_data.pkl', 'rb') as file:
+    with open(results_path.parent / 'data' / '0_processed_data.pkl', 'rb') as file:
         _, data = load(file)
 
-    with open(results_path.parent / 'data' / '(wp5 60)processed_data.pkl', 'rb') as file:
+    with open(results_path.parent / 'data' / '5_processed_data.pkl', 'rb') as file:
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
@@ -28,9 +28,9 @@ def create_graphs_and_maps():
     idx_sat = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
     idx = idx_end
 
-    # fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.03], ['Temperature', 25*1.001, init_T*0.99, 10]]
-    # for _setings in fields_settings:
-    #     _field_vis(idx, data, data_wp, path, *_setings)
+    fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.05], ['Temperature', 25*1.001, init_T*0.99, 10]]
+    for _setings in fields_settings:
+        _field_vis(idx, data, data_wp, path, *_setings)
 
     plots_settings = [['Producer_oil', 'Producer_water', '$$q,\\: \\frac{м^3}{сут}$$'],
                       ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
@@ -38,9 +38,11 @@ def create_graphs_and_maps():
     for _settings in plots_settings:
         _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
 
-    # maps = ['m mult', 'k mult']  # , 'Wps_dep'
-    # for name in  maps:
-    #     _create_map(idx, data_wp, path, name)
+    maps = ['m mult', 'k mult']  # , 'Wps_dep'
+    maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
+            ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
+    for _maps_setings in maps:
+        _create_map(idx, data_wp, path, *_maps_setings)
 
     print('Done!')
 
@@ -135,16 +137,22 @@ def _create_map(idx, data_wp, path, field_name, start, end, step):
     field = data_wp[field_name][idx]
 
     fig.add_trace(go.Contour(
-        x=x_mesh, y=y_mesh, z=field, name='Wp=5%',
+        x=x_mesh, y=y_mesh, z=field,
         contours=dict(
-            coloring='lines', showlabels=True,
-            start=start, end=end, size=step,
+            coloring='fill', showlabels=True,
+            # start=start, end=end, size=step,
         ),
-        line=dict(width=3), colorscale=[[0, 'black'], [1, 'black']],
-        showscale=False, showlegend=True
+        colorscale='Jet',
+        showscale=True, showlegend=False
     ))
+    fig.update_layout(
+        plot_bgcolor='white', xaxis_title='X', yaxis_title='Y',
+        height=500, width=600, showlegend=True,
+        margin=dict(t=0, b=0),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
+        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
+    )
 
-    fig = _plots_params(fig, 'X', 'Y')
     fig.write_image(path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
 
 
@@ -155,8 +163,8 @@ def _plots_params(fig, x_axis_title, y_axis_title):
         height=500, width=600, showlegend=False,
         # legend=dict(x=1.05, y=0.5, bgcolor='rgba(255,255,255,0.7)'),
         margin=dict(t=0, b=0),
-        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
-        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=16)),
+        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=22)),
     )
 
     fig.add_shape(
