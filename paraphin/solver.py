@@ -274,7 +274,7 @@ class Solver:
                     self.k[i, j]     = init_k * self.k_mult[i, j]
                     self.m[i, j]     = init_m * self.m_mult[i, j]
                     self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
-                    self.Wps_dep[i, j] = ti.max(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
+                    self.Wps_dep[i, j] = ti.min(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
                                                 ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
                     self.qp[i, j]    = self.new_qp[i, j]
 

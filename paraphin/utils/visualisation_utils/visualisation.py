@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 import plotly.graph_objects as go
+from copy import deepcopy
 
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
@@ -20,22 +21,23 @@ names_converter = {
 
 def visualize_solution():
     """Визуализация данных расчета."""
-    _n_times, input_data = read_pkl_files('(wp5 40)processed_data.pkl')  #
+    _n_times, input_data = read_pkl_files()  #'(wp5 40)processed_data.pkl'
     print('Временных слоев:', _n_times)
 
-    # fig_fields = _visualize_fields(input_data)
+    fig_fields = _visualize_fields(input_data)
 
     if 'plots' in input_data.keys():
         fig_plots = _visualize_plots_fi(input_data)
         fig_plots.show()
 
-    # fig_fields.show()
+    fig_fields.show()
 
-def _visualize_fields(input_data):
+def _visualize_fields(data):
     """Создание анимации полей данных и параметров скважин."""
     wells_plots = 0
     aver_param_plots = 0
 
+    input_data = deepcopy(data)
     time = input_data['Time'] / day_to_sec
     n_times = len(time)
     del input_data['Time']
@@ -47,10 +49,10 @@ def _visualize_fields(input_data):
     data_fields = []
     # names_fields = ['Saturation', 'Temperature', 'Wells', 'Other params']
     # names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params']
-    names_fields = ['m mult', 'Wells', 'Other params']
+    names_fields = ['mu_o', 'mu_w', 'qp']
     for name, field in input_data.items():
-        if name not in names_fields:
-            continue
+        # if name in names_fields:
+        #     continue
         trace = []
         if name == 'Pressure':
             if CONTOUR_PLOT:
@@ -147,7 +149,7 @@ def _visualize_fields(input_data):
                 direction="down",
                 buttons=[dict(args=[{"visible": visibility[i]}],
                               label=name,
-                              method="update") for i, name in enumerate(names_fields)],  # names_fields  input_data.keys()
+                              method="update") for i, name in enumerate(input_data.keys())],  # names_fields  input_data.keys()
                 pad={"r": 10, "t": 10},
                 showactive=True,
                 x=1.35,  # Положение по горизонтали (справа от графика)

@@ -19,10 +19,10 @@ names_converter = {
 def create_graphs_and_maps():
     path = outputs_path / 'pictures'
 
-    with open(outputs_path / 'data' / '0_processed_data.pkl', 'rb') as file:
+    with open(outputs_path / 'data' / '_0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
         _, data = load(file)
 
-    with open(outputs_path / 'data' / '5_processed_data.pkl', 'rb') as file:
+    with open(outputs_path / 'data' / '_5_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
@@ -30,27 +30,27 @@ def create_graphs_and_maps():
     data['Time'] /=day_to_sec
     data_wp['Time'] /=day_to_sec
 
-    idx_end = len(data_wp['Time']) - 1
-    idx_sat = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
-    idx = idx_end
+    idx_end = len(data['Time']) - 1
+    idx_sat = np.argwhere(data['Wells']['Producer_eta'] != 0)[0][0]
+    idx = idx_sat
 
-    vis_fi(data_wp)
+    # vis_fi(data_wp)
 
-    # fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.05], ['Temperature', 25*1.001, init_T*0.99, 10]]
-    # for _setings in fields_settings:
-    #     _field_vis(idx, data, data_wp, path, *_setings)
-    #
-    # plots_settings = [['Producer_oil', 'Producer_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-    #                   ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-    #                   ['Producer_Q_oil','Producer_Q_water', '$$Q,\\: м^3$$']]
-    # for _settings in plots_settings:
-    #     _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
-    #
-    # maps = ['m mult', 'k mult']  # , 'Wps_dep'
-    # maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
-    #         ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
-    # for _maps_setings in maps:
-    #     _create_map(idx, data_wp, path, *_maps_setings)
+    fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.05], ['Temperature', 25*1.001, init_T*0.99, 10]]
+    for _setings in fields_settings:
+        _field_vis(idx, data, data_wp, path, *_setings)
+
+    plots_settings = [['Producer_oil', 'Producer_water', '$$q,\\: \\frac{м^3}{сут}$$'],
+                      ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
+                      ['Producer_Q_oil','Producer_Q_water', '$$Q,\\: м^3$$']]
+    for _settings in plots_settings:
+        _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
+
+    maps = ['m mult', 'k mult']  # , 'Wps_dep'
+    maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
+            ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
+    for _maps_setings in maps:
+        _create_map(idx, data_wp, path, *_maps_setings)
 
     print('Done!')
 
