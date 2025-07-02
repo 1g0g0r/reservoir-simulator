@@ -7,8 +7,8 @@ from paraphin import r
 from paraphin.constants import (Nx, Ny, X_max, X_min, Y_min, Y_max, hx, hy, outputs_path, bar_to_pa, day_to_sec,
                                 S_min, init_T)
 
-x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
-y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
+x_mesh = np.linspace(X_min, X_max, Nx)
+y_mesh = np.linspace(Y_min, Y_max, Ny)
 
 names_converter = {
     'fi': '$$\\varphi$$',
@@ -19,26 +19,29 @@ names_converter = {
 def create_graphs_and_maps():
     path = outputs_path / 'pictures'
 
-    with open(outputs_path / 'data' / '_0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
+    with open(outputs_path / 'data' / 'wp0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
         _, data = load(file)
 
-    with open(outputs_path / 'data' / '_5_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
+    with open(outputs_path / 'data' / 'new_wp5_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
     data_wp['Pressure'] /= bar_to_pa
-    data['Time'] /=day_to_sec
-    data_wp['Time'] /=day_to_sec
+    data['Time'] /= day_to_sec
+    data_wp['Time'] /= day_to_sec
 
+    idx_end_wp = len(data_wp['Time']) - 1
+    idx_sat_wp = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
     idx_end = len(data['Time']) - 1
     idx_sat = np.argwhere(data['Wells']['Producer_eta'] != 0)[0][0]
+    idx_wp = idx_sat_wp
     idx = idx_sat
 
     # vis_fi(data_wp)
 
-    fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.05], ['Temperature', 25*1.001, init_T*0.99, 10]]
+    fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.03], ['Temperature', 25*1.001, init_T*0.99, 10]]
     for _setings in fields_settings:
-        _field_vis(idx, data, data_wp, path, *_setings)
+        _field_vis(idx, idx_wp, data, data_wp, path, *_setings)
 
     plots_settings = [['Producer_oil', 'Producer_water', '$$q,\\: \\frac{м^3}{сут}$$'],
                       ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
@@ -50,7 +53,7 @@ def create_graphs_and_maps():
     maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
             ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
     for _maps_setings in maps:
-        _create_map(idx, data_wp, path, *_maps_setings)
+        _create_map(idx_wp, data_wp, path, *_maps_setings)
 
     print('Done!')
 
@@ -109,11 +112,11 @@ def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
     fig.write_image(path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
 
 
-def _field_vis(idx, data, data_wp, path, field_name, start, end, step):
+def _field_vis(idx, idx_wp, data, data_wp, path, field_name, start, end, step):
     """Процедура строит векторные графики изолиний полей данных."""
     fig = go.Figure()
 
-    field_wp = data_wp[field_name][idx]
+    field_wp = data_wp[field_name][idx_wp]
     field = data[field_name][idx]
 
     fig.add_trace(go.Contour(
@@ -139,10 +142,10 @@ def _field_vis(idx, data, data_wp, path, field_name, start, end, step):
     fig.write_image(path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
 
 
-def _create_map(idx, data_wp, path, field_name, start, end, step):
+def _create_map(idx_wp, data_wp, path, field_name, start, end, step):
     fig = go.Figure()
 
-    field = data_wp[field_name][idx]
+    field = data_wp[field_name][idx_wp]
 
     fig.add_trace(go.Contour(
         x=x_mesh, y=y_mesh, z=field,
@@ -161,7 +164,7 @@ def _create_map(idx, data_wp, path, field_name, start, end, step):
         yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
     )
 
-    fig.write_image(path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
+    fig.write_image(path / f"{field_name}_{round(data_wp['Time'][idx_wp], 2)}.svg", width=700, height=600)
 
 
 def _plots_params(fig, x_axis_title, y_axis_title):
@@ -181,6 +184,7 @@ def _plots_params(fig, x_axis_title, y_axis_title):
         line=dict(color="black", width=1)
     )
     fig.add_hline( y=0, line=dict(color='black', width=1))
+
 
     return fig
 
