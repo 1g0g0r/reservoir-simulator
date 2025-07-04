@@ -7,7 +7,7 @@ from copy import deepcopy
 
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
-                                day_to_sec, CONTOUR_PLOT)
+                                day_to_sec, CONTOUR_PLOT, S_max)
 from .read_data_files import read_pkl_files
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
@@ -44,15 +44,19 @@ def _visualize_fields(data):
     if 'plots' in input_data.keys():
         del input_data['plots']
 
-    # Создаем графики
-    n_fields = len(input_data)
-    data_fields = []
     # names_fields = ['Saturation', 'Temperature', 'Wells', 'Other params']
     # names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params']
-    names_fields = ['mu_o', 'mu_w', 'qp']
+    skip_fields = ['Pressure', 'Wo', 'Wp', 'm mult','mu_o', 'mu_w', 'qp']
+
+    # Создаем графики
+    _f_names = [name for name in input_data.keys() if name not in skip_fields]
+    n_fields = len(_f_names)
+    data_fields = []
     for name, field in input_data.items():
-        # if name in names_fields:
-        #     continue
+        if name in skip_fields:
+            continue
+        if name == 'Wps':
+            field *= (S_max - input_data['Saturation'])
         trace = []
         if name == 'Pressure':
             if CONTOUR_PLOT:
@@ -149,7 +153,7 @@ def _visualize_fields(data):
                 direction="down",
                 buttons=[dict(args=[{"visible": visibility[i]}],
                               label=name,
-                              method="update") for i, name in enumerate(input_data.keys())],  # names_fields  input_data.keys()
+                              method="update") for i, name in enumerate(_f_names)],
                 pad={"r": 10, "t": 10},
                 showactive=True,
                 x=1.35,  # Положение по горизонтали (справа от графика)
