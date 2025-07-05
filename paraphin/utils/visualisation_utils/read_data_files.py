@@ -11,7 +11,8 @@ from paraphin.constants import results_path
 def read_pkl_files(name: str = 'processed_data.pkl') -> (int, dict):
     """Считывает содержимое всех бинарных файлов расширения .pkl"""
     def extract_number(_path):
-        numbers = re.findall(r'\d+', _path.stem)  # Находим все числа в имени файла
+        """Находим все числа в имени файла"""
+        numbers = re.findall(r'\d+', _path.stem)
         return int(numbers[0]) if numbers else 0
 
     _processed_data_path = results_path / name

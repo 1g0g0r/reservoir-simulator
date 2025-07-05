@@ -3,26 +3,19 @@ from pickle import load
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin import r
-from paraphin.constants import (Nx, Ny, X_max, X_min, Y_min, Y_max, hx, hy, outputs_path, bar_to_pa, day_to_sec,
-                                S_min, init_T)
+from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec, S_min, init_T
 
 x_mesh = np.linspace(X_min, X_max, Nx)
 y_mesh = np.linspace(Y_min, Y_max, Ny)
-
-names_converter = {
-    'fi': '$$\\varphi$$',
-    'fi_o': '$$\\varphi_0$$'
-}
 
 
 def create_graphs_and_maps():
     path = outputs_path / 'pictures'
 
-    with open(outputs_path / 'data' / 'wp0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
+    with open(outputs_path / 'data' / 'wp0_0507_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
         _, data = load(file)
 
-    with open(outputs_path / 'data' / 'new_wp5_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
+    with open(outputs_path / 'data' / 'wp5_0507_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
@@ -37,8 +30,6 @@ def create_graphs_and_maps():
     idx_wp = idx_sat_wp
     idx = idx_sat
 
-    # vis_fi(data_wp)
-
     fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.03], ['Temperature', 25*1.001, init_T*0.99, 10]]
     for _setings in fields_settings:
         _field_vis(idx, idx_wp, data, data_wp, path, *_setings)
@@ -49,7 +40,6 @@ def create_graphs_and_maps():
     for _settings in plots_settings:
         _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
 
-    maps = ['m mult', 'k mult']  # , 'Wps_dep'
     maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
             ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
     for _maps_setings in maps:
@@ -187,72 +177,3 @@ def _plots_params(fig, x_axis_title, y_axis_title):
 
 
     return fig
-
-
-def vis_fi(data):
-    """Создание графиков зависящих от радиусов пор"""
-    path = outputs_path / 'fi'
-    times = data['Time']
-    data = data['plots']
-
-    n_times = len(times)
-
-    for ii in range(n_times):
-        data_fields = []
-        for _name, _val in data.items():
-            data_fields += [go.Scatter(x=r, y=_val[ii], mode='lines', name=names_converter[_name],  # 'markers+lines'
-                                       hovertemplate="x: %{x}<br>y: %{y}<br>", line=dict(width=4))]
-
-        fig = go.Figure(data=data_fields)
-
-        fig.update_layout(
-            xaxis_title='r, м', yaxis_title=names_converter['fi'],
-            plot_bgcolor='white', margin=dict(t=0, b=0),
-            xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
-            yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
-            yaxis2=dict(side="right", overlaying="y"),
-            legend=dict(
-                x=1.01, y=0.8,
-                font=dict(size=18)
-            )
-        )
-        fig.add_shape(
-            type="rect", xref="paper", yref="paper",
-            x0=0, y0=0, x1=1, y1=1,
-            line=dict(color="black", width=1)
-        )
-        fig.add_hline(y=0, line=dict(color='black', width=1))
-
-        # # Настраиваем ползунок
-        # steps = [{}] * n_times
-        # for i in range(n_times):
-        #     steps[i] = dict(
-        #         method='update',
-        #         args=[
-        #             {'y': [j[i] for j in data.values()]},
-        #         ],
-        #         label=f'{times[i]} день'
-        #     )
-        #
-        # sliders = [dict(
-        #     active=ii,
-        #     currentvalue={'prefix': 'Время: '},
-        #     steps=steps
-        # )]
-
-        # # Настраиваем макет
-        # fig.update_layout(
-        #     sliders=sliders,
-        #     height=600
-        # )
-
-        # # Дополнительные настройки отображения
-        # fig.update_traces(
-        #     marker=dict(
-        #         size=8,
-        #         line=dict(width=1)
-        #     )
-        # )
-
-        fig.write_image(path / f'{times[ii]}.svg', width=750, height=350)
-
