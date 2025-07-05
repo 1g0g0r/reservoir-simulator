@@ -307,6 +307,8 @@ class Solver:
                 f'{name}_Q_oil': Q_value[0], f'{name}_Q_water': Q_value[1], f'{name}_Q_total': Q_value[2],
             })
         if self._paraphin:
+            x_idx = int(Nx / 2)
+            y_idx = int(Ny / 2)
             data = {
                 'Time':        t,
                 'Pressure':    self.p.to_numpy(),
@@ -321,14 +323,15 @@ class Solver:
                 'k mult':      self.k_mult.to_numpy(),
                 # 'mu_o':        self.mu_o.to_numpy(),
                 # 'mu_w':        self.mu_w.to_numpy(),
-                'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[1, 1]},
+                'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[x_idx, y_idx]},
                 'Wells':       wells_data,
                 'Other params': {
-                    'Wps [1,1]':  self.Wps.to_numpy()[1,1], 'Wp [1,1]': self.Wp.to_numpy()[1,1],
-                    'Wo [1,1]': self.Wo.to_numpy()[1,1], 'KIN': self.KIN[None],
-                    'k_mult [1,1]':  self.k_mult.to_numpy()[1,1], 'm_mult [1,1]': self.m_mult.to_numpy()[1,1],
-                    'mu_o [1,1]': self.mu_o.to_numpy()[1,1], 'mu_w [1,1]': self.mu_w.to_numpy()[1,1],
-                    'qp [1,1]': self.qp.to_numpy()[1,1],
+                    f'Wps [{x_idx},{y_idx}]':  self.Wps.to_numpy()[x_idx,y_idx],
+                    f'Wp [{x_idx},{y_idx}]': self.Wp.to_numpy()[x_idx,y_idx],
+                    f'Wo [{x_idx,y_idx}]': self.Wo.to_numpy()[x_idx,y_idx], 'KIN': self.KIN[None],
+                    f'k_mult [{x_idx},{y_idx}]':  self.k_mult.to_numpy()[x_idx,y_idx],
+                    f'm_mult [{x_idx},{y_idx}]': self.m_mult.to_numpy()[x_idx,y_idx],
+                    f'qp [{x_idx},{y_idx}]': self.qp.to_numpy()[x_idx,y_idx],
                 }
             }
         else:
@@ -341,7 +344,6 @@ class Solver:
                 'mu_w': self.mu_w.to_numpy(),
                 'Wells': wells_data,
                 'Other params': {
-                    'mu_o [1,1]': self.mu_o.to_numpy()[1, 1], 'mu_w [1,1]': self.mu_w.to_numpy()[1, 1],
                     'KIN': self.KIN[None],
                 }
             }
