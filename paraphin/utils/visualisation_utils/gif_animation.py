@@ -9,7 +9,8 @@ from PIL import Image
 from joblib import Parallel, delayed
 
 from paraphin import r
-from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec, S_min, init_T, Twater
+from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec, S_min, init_T, \
+    Twater, init_Wp
 
 x_mesh = np.linspace(X_min, X_max, Nx)
 y_mesh = np.linspace(Y_min, Y_max, Ny)
@@ -18,6 +19,7 @@ names_converter = {
     'fi': '$$\\varphi$$',
     'fi_o': '$$\\varphi_0$$'
 }
+
 isolines_settings = {
     'Saturation': [S_min*1.02, 1, 0.03],
     'Temperature': [Twater*1.001, init_T*0.99, 10],
@@ -25,11 +27,10 @@ isolines_settings = {
 
 
 def create_gif():
-
-    with open(outputs_path / 'data' / 'wp0_0507_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
+    with open(outputs_path / 'data' / 'wp0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
         _, data = load(file)
 
-    with open(outputs_path / 'data' / 'wp5_0507_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
+    with open(outputs_path / 'data' / 'wp5_0607_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
@@ -39,11 +40,11 @@ def create_gif():
 
     fields_settings = [
         # ['fi', 'r, м', names_converter['fi']],
-        ['Saturation', 'X, м', 'Y, м'],
+        # ['Saturation', 'X, м', 'Y, м'],
         # ['Temperature', 'X, м', 'Y, м'],
         # ['m mult', 'X, м', 'Y, м'],
         # ['k mult', 'X, м', 'Y, м'],
-        # ['Wps dep', 'X, м', 'Y, м']
+        ['Wps dep', 'X, м', 'Y, м']
     ]
 
     for _settings in fields_settings:
@@ -56,6 +57,9 @@ def create_gif():
 def crating_pictures(skip_steps, data, data_wp, name, x_axis_name, y_axis_name):
     """Создание картинок нестационарных полей задачи."""
     (outputs_path / name).mkdir(parents=True, exist_ok=True)
+    for file_path in (outputs_path / name).glob(f'*.png'):  # Перебор всех файлов .pkl
+        file_path.unlink()
+
     times = data['Time']
     n_times = len(times)
 
@@ -118,7 +122,7 @@ def create_gif_from_png(name, duration=200, loop=0):
         raise FileNotFoundError(f"PNG файлы не найдены в папке: {name}")
 
     # Открываем все изображения
-    images = [Image.open(f) for f in png_files]
+    images = [Image.open(f) for f in png_files]  # png_files[:77]+png_files[77::10]
 
     # Сохраняем как анимированный GIF
     images[0].save(
@@ -134,12 +138,28 @@ def create_gif_from_png(name, duration=200, loop=0):
 
 def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
     _fig.data = []
-    isolines = isolines_settings[_name]
     if _name == 'fi':
         for _name, _val in _data_wp['plots'].items():
             _fig.add_trace(go.Scatter(x=r, y=_val[_ii], mode='lines', name=names_converter[_name],  # 'markers+lines'
                                      hovertemplate="x: %{x}<br>y: %{y}<br>", line=dict(width=4)))
+    elif _name in ['Wps dep', 'k mult', 'm mult']:
+        if _name == 'Wps dep':
+            z_min = 0.0
+            z_max = init_Wp
+        else:
+            z_min = 0.5
+            z_max = 1.0
+        _fig.add_trace(go.Contour(
+            x=x_mesh, y=y_mesh, z=_data_wp[_name][_ii], zmin=z_min, zmax=z_max,
+            contours=dict(
+                coloring='fill', showlabels=True,
+                # start=start, end=end, size=step,
+            ),
+            colorscale='Jet',
+            showscale=True, showlegend=False
+        ))
     else:
+        isolines = isolines_settings[_name]
         _fig.add_trace(go.Contour(
             x=x_mesh, y=y_mesh, z=_data_wp[_name][_ii],
             contours=dict(
