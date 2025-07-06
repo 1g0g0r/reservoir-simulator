@@ -48,7 +48,7 @@ def create_gif():
     ]
 
     for _settings in fields_settings:
-        crating_pictures(1, data, data_wp, *_settings)
+        crating_pictures(10, data, data_wp, *_settings)
         create_gif_from_png(_settings[0], duration=100, loop=0)
 
     print('Done!')
@@ -147,8 +147,11 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
             z_min = 0.0
             z_max = init_Wp
         else:
-            z_min = 0.5
             z_max = 1.0
+            if _name == 'k mult':
+                z_min = 0.65
+            else:
+                z_min = 0.75
         _fig.add_trace(go.Contour(
             x=x_mesh, y=y_mesh, z=_data_wp[_name][_ii], zmin=z_min, zmax=z_max,
             contours=dict(
