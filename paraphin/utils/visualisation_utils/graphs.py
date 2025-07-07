@@ -12,10 +12,10 @@ y_mesh = np.linspace(Y_min, Y_max, Ny)
 def create_graphs_and_maps():
     path = outputs_path / 'pictures'
 
-    with open(outputs_path / 'data' / 'wp0_0507_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
+    with open(outputs_path / 'data' / 'wp0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
         _, data = load(file)
 
-    with open(outputs_path / 'data' / 'wp5_0507_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
+    with open(outputs_path / 'data' / 'wp5_0607_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
@@ -66,29 +66,29 @@ def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
         plot_data2 = np.abs(data[name_plot2])
         plot_data_wp2 = np.abs(data_wp[name_plot2])
 
-    if 'eta' in name_plot1:
-        fig.add_trace(go.Scatter(
-            x=time, y=plot_data_wp1, yaxis='y2',
-            mode='lines', name='Wp=5%',
-            line=dict(color='black', width=3), showlegend=True
-        ))
-        fig.add_trace(go.Scatter(
-            x=time, y=plot_data1,yaxis='y2',
-            mode='lines', name='Wp=0%',
-            line=dict(color='red', width=3, dash='dash'), showlegend=True
-        ))
-        fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title='$$\\eta, \\: д. ед.$$', domain=[0.0, 0.5]))
-    else:
-        fig.add_trace(go.Scatter(
-            x=time, y=plot_data_wp1,
-            mode='lines', name='Wp=5%',
-            line=dict(color='black', width=3), showlegend=True
-        ))
-        fig.add_trace(go.Scatter(
-            x=time, y=plot_data1,
-            mode='lines', name='Wp=0%',
-            line=dict(color='red', width=3, dash='dash'), showlegend=True
-        ))
+    # if 'eta' in name_plot1:
+    fig.add_trace(go.Scatter(
+        x=time, y=plot_data_wp1, yaxis='y2',
+        mode='lines', name='Wp=5%',
+        line=dict(color='black', width=3), showlegend=True
+    ))
+    fig.add_trace(go.Scatter(
+        x=time, y=plot_data1, yaxis='y2',
+        mode='lines', name='Wp=0%',
+        line=dict(color='red', width=3, dash='dash'), showlegend=True
+    ))
+    fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title='$$\\eta, \\: д. ед.$$', domain=[0.0, 0.5]))
+    # else:
+    #     fig.add_trace(go.Scatter(
+    #         x=time, y=plot_data_wp1,
+    #         mode='lines', name='Wp=5%',
+    #         line=dict(color='black', width=3), showlegend=True
+    #     ))
+    #     fig.add_trace(go.Scatter(
+    #         x=time, y=plot_data1,
+    #         mode='lines', name='Wp=0%',
+    #         line=dict(color='red', width=3, dash='dash'), showlegend=True
+    #     ))
 
     fig.add_trace(go.Scatter(
         x=time, y=plot_data_wp2,
