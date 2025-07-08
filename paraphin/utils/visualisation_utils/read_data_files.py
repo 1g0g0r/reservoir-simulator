@@ -41,6 +41,7 @@ def read_pkl_files(name: str = 'processed_data.pkl') -> (int, dict):
     for file_path in sorted_paths[1:]:
         try:
             with open(file_path, 'rb') as f:
+                # TODO распараллелить цикл по файлам
                 for name, file_data in load(f).items():
                     if name in ['Wells', 'Other params', 'plots']:
                         for _name, _val in file_data.items():
@@ -51,7 +52,7 @@ def read_pkl_files(name: str = 'processed_data.pkl') -> (int, dict):
             print(f"Ошибка при чтении файла {file_path.name}: {e}")
 
     # Сохранение обработанных данных
-    with open(_processed_data_path, 'wb') as f:
+    with open(results_path / 'processed_data.pkl', 'wb') as f:
         dump([n_files, data], f)
 
     return n_files, data

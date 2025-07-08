@@ -34,11 +34,14 @@ def visualize_solution():
 
 def _visualize_fields(data):
     """Создание анимации полей данных и параметров скважин."""
+    input_data = deepcopy(data)
     wells_plots = 0
     aver_param_plots = 0
 
-    input_data = deepcopy(data)
     time = input_data['Time'] / day_to_sec
+    input_data['Pressure'] /= bar_to_pa
+    input_data['Wps'] *= (S_max - input_data['Saturation'])
+
     n_times = len(time)
     del input_data['Time']
     if 'plots' in input_data.keys():
@@ -55,24 +58,9 @@ def _visualize_fields(data):
     for name, field in input_data.items():
         if name in skip_fields:
             continue
-        if name == 'Wps':
-            field *= (S_max - input_data['Saturation'])
+
         trace = []
-        if name == 'Pressure':
-            if CONTOUR_PLOT:
-                trace = [go.Contour(x=x_mesh, y=y_mesh, z=field / bar_to_pa, colorscale='Jet', name=name,
-                                    zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
-                                    hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>",
-                                    contours=dict(
-                                        coloring='fill',
-                                        showlabels=True,
-                                        labelfont=dict(size=12, color='black')
-                                    ))]
-            else:
-                trace = [go.Heatmap(x=x_mesh, y=y_mesh, z=field / bar_to_pa, colorscale='Jet', name=name,
-                                    zmin=np.min(field) / bar_to_pa, zmax=np.max(field) / bar_to_pa,
-                                    hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z} Bar<extra></extra>")]
-        elif name == 'Wells':
+        if  name == 'Wells':
             for _name, _val in field.items():
                 if np.all(np.isclose(_val, 0.0)) or np.all(np.isclose(_val, 1.0)):
                     continue
@@ -97,7 +85,7 @@ def _visualize_fields(data):
             z_max = np.max(field)
             z_min = np.min(field)
             if CONTOUR_PLOT:
-                trace = [go.Contour(x=x_mesh, y=y_mesh, z=field, colorscale='Jet', name=name, zmin=z_min, zmax=z_max,
+                trace = [go.Contour(x=x_mesh, y=y_mesh, z=field[0], colorscale='Jet', name=name, zmin=z_min, zmax=z_max,
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>",
                                     contours=dict(
                                         coloring='fill',  # 'lines',
@@ -105,7 +93,7 @@ def _visualize_fields(data):
                                         labelfont=dict(size=12, color='black')
                                     ))]
             else:
-                trace = [go.Heatmap(x=x_mesh, y=y_mesh, z=field, zmin=z_min, zmax=z_max,
+                trace = [go.Heatmap(x=x_mesh, y=y_mesh, z=field[0], zmin=z_min, zmax=z_max,
                                     colorscale='Jet', name=name,  # colorscale='bluered'
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
         data_fields += trace
@@ -129,12 +117,13 @@ def _visualize_fields(data):
         visibility[n_fields - 1, n_fields - 1] = False
 
     # Добавляем слайдеры для изменения данных
+    # TODO распараллелить цикл по времени
     steps = [{}] * n_times
     for i in range(n_times):
         steps[i] = dict(
             method="update",
             args=[{
-                "z": [j.z[i] for j in data_fields if j.plotly_name in ['contour', 'heatmap']]
+                "z": [input_data[j.name][i] for j in data_fields if j.plotly_name in ['contour', 'heatmap']]
             }],
             label=f'{round(time[i], 5)} день'
         )
@@ -217,6 +206,7 @@ def _visualize_plots_fi(plots_data):
     fig.add_hline( y=0, line=dict(color='black', width=1))
 
     # Настраиваем ползунок
+    # TODO распараллелить цикл по времени
     steps = [{}] * n_times
     for i in range(n_times):
         steps[i] = dict(
@@ -277,25 +267,3 @@ def show_plot(data, name: str = 'map'):
         fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs='plotly_script.js')
     else:
         fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs=js_path)
-
-
-if __name__ == '__main__':
-    Nx, Ny = 128, 128
-    ones = np.ones((Nx, Ny))
-    n_times = 50
-    time = np.linspace(0, 50, n_times)
-
-    X, Y = np.meshgrid(x_mesh, y_mesh)
-
-    data = {
-        'Time': time,
-        'Pressure': np.array([np.cos(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
-        'Temperature': np.array([np.sin(X ** 2 + Y ** 2) + i * 0.01 * np.random.randn(Nx, Ny) for i in range(n_times)]),
-        'Saturation': np.array([ones + np.diag(ones.diagonal()) * i * 10 for i in range(n_times)]),
-        'Wells': {
-            'inj': np.array([i * i for i in time]),
-            'prod': np.array([i * 5 for i in time])
-        }
-    }
-
-    visualize_solution(data)
