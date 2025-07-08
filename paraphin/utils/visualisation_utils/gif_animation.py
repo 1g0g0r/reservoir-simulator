@@ -9,11 +9,14 @@ from PIL import Image
 from joblib import Parallel, delayed
 
 from paraphin import r
-from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec, S_min, init_T, \
-    Twater, init_Wp
+from paraphin.constants import (Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec,
+                                S_min, init_T, Twater, init_Wp)
 
 x_mesh = np.linspace(X_min, X_max, Nx)
 y_mesh = np.linspace(Y_min, Y_max, Ny)
+
+data_path = outputs_path / 'data'
+gif_path = outputs_path / 'gif'
 
 names_converter = {
     'fi': '$$\\varphi$$',
@@ -27,10 +30,10 @@ isolines_settings = {
 
 
 def create_gif():
-    with open(outputs_path / 'data' / 'wp0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
+    with open(data_path / 'wp0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
         _, data = load(file)
 
-    with open(outputs_path / 'data' / 'wp5_0607_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
+    with open(data_path / 'wp5_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
         _, data_wp = load(file)
 
     data['Pressure'] /= bar_to_pa
@@ -56,8 +59,8 @@ def create_gif():
 
 def crating_pictures(skip_steps, data, data_wp, name, x_axis_name, y_axis_name):
     """Создание картинок нестационарных полей задачи."""
-    (outputs_path / name).mkdir(parents=True, exist_ok=True)
-    for file_path in (outputs_path / name).glob(f'*.png'):  # Перебор всех файлов .pkl
+    (gif_path / name).mkdir(parents=True, exist_ok=True)
+    for file_path in (gif_path / name).glob(f'*.png'):  # Перебор всех файлов .pkl
         file_path.unlink()
 
     times = data['Time']
@@ -115,7 +118,7 @@ def create_gif_from_png(name, duration=200, loop=0):
         numbers = re.findall(r'\d+', _path)
         return int(numbers[0]) if numbers else 0
 
-    file_pattern = os.path.join(outputs_path / name, "*.png")
+    file_pattern = os.path.join(gif_path / name, "*.png")
     png_files = sorted(glob.glob(file_pattern), key=extract_number)
 
     if not png_files:
@@ -126,7 +129,7 @@ def create_gif_from_png(name, duration=200, loop=0):
 
     # Сохраняем как анимированный GIF
     images[0].save(
-        outputs_path / f'{name}.gif',
+        gif_path / f'{name}.gif',
         format="GIF",
         append_images=images[1:],
         save_all=True,
@@ -191,6 +194,6 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
     # Дополнительные настройки отображения
     if _name == 'fi':
         _fig.update_traces(marker=dict(size=8, line=dict(width=1)))
-        _fig.write_image(outputs_path / _name / f'{_times[_ii]}.png', width=750, height=350)
+        _fig.write_image(gif_path / _name / f'{_times[_ii]}.png', width=750, height=350)
     else:
-        _fig.write_image(outputs_path / _name / f'{_times[_ii]}.png', width=700, height=600)
+        _fig.write_image(gif_path / _name / f'{_times[_ii]}.png', width=700, height=600)
