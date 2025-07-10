@@ -30,7 +30,7 @@
   <div style="border-top: 5px dashed red; width: 50px;"></div>
   <pre style="font-weight: bold; margin: 0; padding: 0;"> — Массовая доля растворенного парафина 0% </pre>
 </div>
-<br>
+
 <div style="display: inline-flex; align-items: center; white-space: nowrap; font-size: 18px;">
   <div style="border-top: 5px solid black; width: 50px;"></div>
   <pre style="font-weight: bold; margin: 0; padding: 0;"> — Массовая доля растворенного парафина 5% </pre>
