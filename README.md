@@ -49,7 +49,7 @@
 ![Функция пор по размерам](resources/gif/fi.gif)
 
 ## Множитель пористости
-![Множитель пористости](resources\gif\m mult.gif)
+![Множитель пористости](resources/gif/m mult.gif)
 
 ## Множитель проницаемости
-![Множитель проницаемости](resources\gif\k mult.gif)
+![Множитель проницаемости](resources/gif/k mult.gif)
