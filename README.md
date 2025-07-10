@@ -26,8 +26,9 @@
 <hr style="border: 2px black;">
 
 # <u> Результаты </u>
-<span style="color:red">─ ─ ─ ─</span> — <strong>Массовая доля растворенного парафина 0%</strong><br>
-<span style="color:black">─────</span> — <strong>Массовая доля растворенного парафина 5%</strong>
+<span style="color:#FF0000">╌╌╌╌╌</span> — Массовая доля растворенного парафина 0%<br>
+<span style="color:#000000">━━━━━</span> — Массовая доля растворенного парафина 5% 
+
 
 ## Поле насыщенности
 ![Водонасыщенность](resources/gif/Saturation.gif)

@@ -43,11 +43,11 @@ def create_gif():
 
     fields_settings = [
         # ['fi', 'r, м', names_converter['fi']],
-        # ['Saturation', 'X, м', 'Y, м'],
-        # ['Temperature', 'X, м', 'Y, м'],
+        ['Saturation', 'X, м', 'Y, м'],
+        ['Temperature', 'X, м', 'Y, м'],
         # ['m mult', 'X, м', 'Y, м'],
         # ['k mult', 'X, м', 'Y, м'],
-        ['Wps dep', 'X, м', 'Y, м']
+        # ['Wps dep', 'X, м', 'Y, м']
     ]
 
     for _settings in fields_settings:
@@ -73,7 +73,7 @@ def crating_pictures(skip_steps, data, data_wp, name, x_axis_name, y_axis_name):
         steps[i] = dict(
             method='update',
             args=[{'y': []}],
-            label=f'{times[i]} день'
+            label=f'{round(times[i], 3)} день'
         )
     fig = go.Figure()
 
@@ -124,10 +124,9 @@ def create_gif_from_png(name, duration=200, loop=0):
     if not png_files:
         raise FileNotFoundError(f"PNG файлы не найдены в папке: {name}")
 
-    # Открываем все изображения
     images = [Image.open(f) for f in png_files]  # png_files[:77]+png_files[77::10]
 
-    # Сохраняем как анимированный GIF
+    # Сохранение анимацию в формате GIF
     images[0].save(
         gif_path / f'{name}.gif',
         format="GIF",
