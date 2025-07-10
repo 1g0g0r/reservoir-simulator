@@ -40,13 +40,13 @@
 ![Водонасыщенность](resources/gif/Saturation.gif)
 
 ## Поле температуры
-![Температура](resources\gif\Temperature.gif)
+![Температура](resources/gif/Temperature.gif)
 
 ## Массовая доля выпавшего парафина
-![Массовая доля выпавшего парафина](resources\gif\Wps dep.gif)
+![Массовая доля выпавшего парафина](resources/gif/Wps dep.gif)
 
 ## Функция пор по размерам
-![Функция пор по размерам](resources\gif\fi.gif)
+![Функция пор по размерам](resources/gif/fi.gif)
 
 ## Множитель пористости
 ![Множитель пористости](resources\gif\m mult.gif)
