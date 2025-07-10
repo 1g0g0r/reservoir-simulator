@@ -36,13 +36,13 @@
 ![Температура](resources/gif/Temperature.gif)
 
 ## Массовая доля выпавшего парафина
-![Массовая доля выпавшего парафина](resources/gif/Wps dep.gif)
+![Массовая доля выпавшего парафина](resources/gif/Wps_dep.gif)
 
 ## Функция пор по размерам
 ![Функция пор по размерам](resources/gif/fi.gif)
 
 ## Множитель пористости
-![Множитель пористости](resources/gif/m mult.gif)
+![Множитель пористости](resources/gif/m_mult.gif)
 
 ## Множитель проницаемости
-![Множитель проницаемости](resources/gif/k mult.gif)
+![Множитель проницаемости](resources/gif/k_mult.gif)
