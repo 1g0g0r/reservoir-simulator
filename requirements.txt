@@ -1,6 +1,7 @@
 joblib
 numpy
-kaleido
+pillow
+kaleido==0.*
 plotly
 psutil
 scipy
