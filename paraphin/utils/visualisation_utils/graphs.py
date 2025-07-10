@@ -66,7 +66,6 @@ def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
         plot_data2 = np.abs(data[name_plot2])
         plot_data_wp2 = np.abs(data_wp[name_plot2])
 
-    # if 'eta' in name_plot1:
     fig.add_trace(go.Scatter(
         x=time, y=plot_data_wp1, yaxis='y2',
         mode='lines', name='Wp=5%',
@@ -78,17 +77,6 @@ def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
         line=dict(color='red', width=3, dash='dash'), showlegend=True
     ))
     fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title='$$\\eta, \\: д. ед.$$', domain=[0.0, 0.5]))
-    # else:
-    #     fig.add_trace(go.Scatter(
-    #         x=time, y=plot_data_wp1,
-    #         mode='lines', name='Wp=5%',
-    #         line=dict(color='black', width=3), showlegend=True
-    #     ))
-    #     fig.add_trace(go.Scatter(
-    #         x=time, y=plot_data1,
-    #         mode='lines', name='Wp=0%',
-    #         line=dict(color='red', width=3, dash='dash'), showlegend=True
-    #     ))
 
     fig.add_trace(go.Scatter(
         x=time, y=plot_data_wp2,
@@ -174,6 +162,5 @@ def _plots_params(fig, x_axis_title, y_axis_title):
         line=dict(color="black", width=1)
     )
     fig.add_hline( y=0, line=dict(color='black', width=1))
-
 
     return fig

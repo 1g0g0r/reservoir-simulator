@@ -1,11 +1,10 @@
 """Модуль читает файлы расчета в формате .pkl и преобразовывает в удобный формат."""
 import re
-from pickle import dump, load, PickleError
+from pickle import dump, load
 
 import numpy as np
 
 from paraphin.constants import results_path
-
 
 
 def read_pkl_files(name: str = 'processed_data.pkl') -> (int, dict):
@@ -24,35 +23,34 @@ def read_pkl_files(name: str = 'processed_data.pkl') -> (int, dict):
     if _processed_data_path.exists():
         with open(_processed_data_path, 'rb') as f:
             _n_files, _data = load(f)
-
             if _n_files == n_files or n_files == 0:
                 return _n_files, _data
 
-    # Сортировка данных расчета по времени
-    sorted_paths = sorted(files_paths, key=extract_number)
+    sorted_paths = sorted(files_paths, key=extract_number)  # Сортировка данных расчета по времени
 
     with open(sorted_paths[0], 'rb') as f:
         for name, file_data in load(f).items():
-            if name in ['Wells', 'Other params', 'plots']:
-                data[name] = {_name: np.array([_val]) for _name, _val in file_data.items()}
+            if name in ['Wells', 'Other params']:
+                data[name] = {_name: np.zeros(n_files) for _name, _val in file_data.items()}
+            elif name == 'plots':
+                data[name] = {_name: np.zeros((n_files, len(_val))) for _name, _val in file_data.items()}
+            elif name == 'Time':
+                data[name] = np.zeros(n_files)
             else:
-                data[name] = np.array([file_data])
+                nx, ny = file_data.shape
+                data[name] = np.zeros((n_files, nx, ny))
 
-    for file_path in sorted_paths[1:]:
-        try:
-            with open(file_path, 'rb') as f:
-                # TODO распараллелить цикл по файлам
-                for name, file_data in load(f).items():
-                    if name in ['Wells', 'Other params', 'plots']:
-                        for _name, _val in file_data.items():
-                            data[name][_name] = np.concatenate((data[name][_name],  [file_data[_name]]), axis=0)
-                    else:
-                        data[name] = np.concatenate((data[name], [file_data]), axis=0)
-        except (PickleError, EOFError) as e:
-            print(f"Ошибка при чтении файла {file_path.name}: {e}")
+    for idx, file_path in enumerate(sorted_paths):
+        with open(file_path, 'rb') as f:
+            for name, file_data in load(f).items():
+                if name in ['Wells', 'Other params', 'plots']:
+                    for _name, _val in file_data.items():
+                        data[name][_name][idx] = file_data[_name]
+                else:
+                    data[name][idx] = file_data
 
-    # Сохранение обработанных данных
-    with open(results_path / 'processed_data.pkl', 'wb') as f:
+    with open(results_path / 'processed_data.pkl', 'wb') as f:  # Сохранение обработанных данных
         dump([n_files, data], f)
 
     return n_files, data
+

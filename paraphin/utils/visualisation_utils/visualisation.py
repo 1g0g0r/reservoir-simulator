@@ -1,9 +1,11 @@
 """Модуль визуализации решения."""
 from __future__ import annotations
 
+from copy import deepcopy
+
 import numpy as np
 import plotly.graph_objects as go
-from copy import deepcopy
+from joblib import Parallel, delayed
 
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
@@ -117,7 +119,6 @@ def _visualize_fields(data):
         visibility[n_fields - 1, n_fields - 1] = False
 
     # Добавляем слайдеры для изменения данных
-    # TODO распараллелить цикл по времени
     steps = [{}] * n_times
     for i in range(n_times):
         steps[i] = dict(
@@ -206,7 +207,6 @@ def _visualize_plots_fi(plots_data):
     fig.add_hline( y=0, line=dict(color='black', width=1))
 
     # Настраиваем ползунок
-    # TODO распараллелить цикл по времени
     steps = [{}] * n_times
     for i in range(n_times):
         steps[i] = dict(

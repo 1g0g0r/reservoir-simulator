@@ -58,7 +58,23 @@ def create_gif():
 
 
 def crating_pictures(skip_steps, data, data_wp, name, x_axis_name, y_axis_name):
-    """Создание картинок нестационарных полей задачи."""
+    """Создание картинок нестационарных полей задачи.
+
+    Parameters:
+    -----------
+    skip_steps: int
+        Параметр разрежения массива времени (поля данные визуализируется с шагом skip_steps по массиву времени)
+    data: np.ndarray(Nx, Ny)
+        Поле данных без растворенного парафина
+    data_wp: np.ndarray(Nx, Ny)
+        Поле данных с растворенным парафином
+    name: str
+        Название поля данных
+    x_axis_name: str
+        Подпись оси x
+    y_axis_name: str
+        Подпись оси y
+    """
     (gif_path / name).mkdir(parents=True, exist_ok=True)
     for file_path in (gif_path / name).glob(f'*.png'):  # Перебор всех файлов .pkl
         file_path.unlink()
@@ -68,7 +84,6 @@ def crating_pictures(skip_steps, data, data_wp, name, x_axis_name, y_axis_name):
 
     # Настраиваем ползунок
     steps = [{}] * n_times
-
     for i in range(n_times):
         steps[i] = dict(
             method='update',
@@ -101,7 +116,7 @@ def crating_pictures(skip_steps, data, data_wp, name, x_axis_name, y_axis_name):
     )
 
 
-def create_gif_from_png(name, duration=200, loop=0):
+def create_gif_from_png(name, duration=100, loop=0):
     """Создание анимированный GIF из набора PNG изображений.
 
     Parameters:
@@ -139,6 +154,25 @@ def create_gif_from_png(name, duration=200, loop=0):
 
 
 def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
+    """Создание картинки двумерного поля данных в формате png.
+
+    Parameters:
+    ---------
+    _ii: int
+        Индекс отображаемого поля данных
+    _fig: plotly.figure
+        Фигура plotly с настроенными параметрами отображения
+    _name: str
+        Название поля данных
+    _data: np.ndarray(Nx, Ny)
+        Поле данных без растворенного парафина
+    _data_wp: np.ndarray(Nx, Ny)
+        Поле данных с растворенным парафином
+    _steps: list
+        Данные слайдера по времени
+    _times: np.ndarray
+        Массив времени
+    """
     _fig.data = []
     if _name == 'fi':
         for _name, _val in _data_wp['plots'].items():
