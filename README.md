@@ -26,15 +26,8 @@
 <hr style="border: 2px black;">
 
 # <u> Результаты </u>
-<div style="display: inline-flex; align-items: center; white-space: nowrap; font-size: 18px;">
-  <div style="border-top: 5px dashed red; width: 50px;"></div>
-  <pre style="font-weight: bold; margin: 0; padding: 0;"> — Массовая доля растворенного парафина 0% </pre>
-</div>
-
-<div style="display: inline-flex; align-items: center; white-space: nowrap; font-size: 18px;">
-  <div style="border-top: 5px solid black; width: 50px;"></div>
-  <pre style="font-weight: bold; margin: 0; padding: 0;"> — Массовая доля растворенного парафина 5% </pre>
-</div>
+<span style="color:red">─ ─ ─ ─</span> — <strong>Массовая доля растворенного парафина 0%</strong><br>
+<span style="color:black">─────</span> — <strong>Массовая доля растворенного парафина 5%</strong>
 
 ## Поле насыщенности
 ![Водонасыщенность](resources/gif/Saturation.gif)
