@@ -1,8 +1,8 @@
-from pickle import load
-
+"""Создание графиков и двумерных полей в формате .svg из предобработанных данных расчета."""
 import numpy as np
 import plotly.graph_objects as go
 
+from .read_data_files import read_solution_data
 from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec, S_min, init_T
 
 x_mesh = np.linspace(X_min, X_max, Nx)
@@ -12,11 +12,8 @@ y_mesh = np.linspace(Y_min, Y_max, Ny)
 def create_graphs_and_maps():
     path = outputs_path / 'pictures'
 
-    with open(outputs_path / 'data' / 'wp0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
-        _, data = load(file)
-
-    with open(outputs_path / 'data' / 'wp5_0607_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
-        _, data_wp = load(file)
+    _, data = read_solution_data('wp0_processed_data.pkl')
+    _, data_wp = read_solution_data('wp5_0607_processed_data.pkl')
 
     data['Pressure'] /= bar_to_pa
     data_wp['Pressure'] /= bar_to_pa

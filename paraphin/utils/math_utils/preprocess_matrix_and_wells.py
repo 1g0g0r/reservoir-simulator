@@ -1,4 +1,4 @@
-"""Предобработка матрицы уравнения давления и правой части и инициализация данных скважин."""
+"""Предобработка матрицы уравнения давления и инициализация данных скважин."""
 import numpy as np
 import taichi as ti
 
@@ -23,7 +23,7 @@ def preprocess_matrix_and_wells(wells, wells_buffer, p, S, k, mu_o, mu_w):
         wells[i].idx_rhs = wells[i].i + wells[i].j * Nx
         wells[i].idx_mat = np.where(np.logical_and(rows_indices_np == wells[i].idx_rhs, diagonal))[0][0]
 
-    _update_wells_data(wells, p, S, k, mu_o, mu_w)
+    # _update_wells_data(wells, p, S, k, mu_o, mu_w)
 
     sorted_indices = np.lexsort((rows_indices_np, cols_indices_np))
     cols_sorted = cols_indices_np[sorted_indices]

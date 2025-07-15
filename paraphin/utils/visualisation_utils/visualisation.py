@@ -1,16 +1,15 @@
-"""Модуль визуализации решения."""
+"""Создание интерактивной визуализации решения в формате .html."""
 from __future__ import annotations
 
 from copy import deepcopy
 
 import numpy as np
 import plotly.graph_objects as go
-from joblib import Parallel, delayed
 
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
-                                day_to_sec, CONTOUR_PLOT, S_max)
-from .read_data_files import read_pkl_files
+                                day_to_sec, CONTOUR_PLOT, S_max, init_Wp)
+from .read_data_files import read_solution_data
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
 y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
@@ -23,7 +22,7 @@ names_converter = {
 
 def visualize_solution():
     """Визуализация данных расчета."""
-    _n_times, input_data = read_pkl_files()  #'(wp5 40)processed_data.pkl'
+    _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')  #'(wp5 40)processed_data.pkl'
     print('Временных слоев:', _n_times)
 
     fig_fields = _visualize_fields(input_data)
@@ -34,6 +33,7 @@ def visualize_solution():
 
     fig_fields.show()
 
+
 def _visualize_fields(data):
     """Создание анимации полей данных и параметров скважин."""
     input_data = deepcopy(data)
@@ -42,11 +42,11 @@ def _visualize_fields(data):
 
     time = input_data['Time'] / day_to_sec
     input_data['Pressure'] /= bar_to_pa
-    input_data['Wps'] *= (S_max - input_data['Saturation'])
 
     n_times = len(time)
     del input_data['Time']
     if 'plots' in input_data.keys():
+        input_data['Wps'] *= (S_max - input_data['Saturation'])
         del input_data['plots']
 
     # names_fields = ['Saturation', 'Temperature', 'Wells', 'Other params']

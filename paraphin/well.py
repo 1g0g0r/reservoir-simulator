@@ -46,7 +46,7 @@ def upd_q_and_eta(well, p, S, k, mu_o, mu_w) -> WellStruct:
 
 
 @ti.func
-def _deprecated_calc_well_mult(well, S, k, mu_o, mu_w) -> float:
+def calc_well_mult(well, S, k, mu_o, mu_w) -> float:
 	"""Вычисление множителя дебета скважины."""
 	ret = 0.0
 	mult = well.productivity_mult * k[well.i, well.j]

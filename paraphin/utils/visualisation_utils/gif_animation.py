@@ -1,13 +1,14 @@
+"""Создание анимаций формата .gif из предобработанных данных расчета."""
 import glob
 import os
 import re
-from pickle import load
 
 import numpy as np
 import plotly.graph_objects as go
 from PIL import Image
 from joblib import Parallel, delayed
 
+from .read_data_files import read_solution_data
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec,
                                 S_min, init_T, Twater, init_Wp)
@@ -15,7 +16,6 @@ from paraphin.constants import (Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path
 x_mesh = np.linspace(X_min, X_max, Nx)
 y_mesh = np.linspace(Y_min, Y_max, Ny)
 
-data_path = outputs_path / 'data'
 gif_path = outputs_path / 'gif'
 
 names_converter = {
@@ -30,11 +30,8 @@ isolines_settings = {
 
 
 def create_gif():
-    with open(data_path / 'wp0_processed_data.pkl', 'rb') as file:  # 'wp0_processed_data.pkl'
-        _, data = load(file)
-
-    with open(data_path / 'wp5_processed_data.pkl', 'rb') as file:  # 'wp5_processed_data.pkl'
-        _, data_wp = load(file)
+    _, data = read_solution_data('wp0_processed_data.pkl')
+    _, data_wp = read_solution_data('wp5_processed_data.pkl')
 
     data['Pressure'] /= bar_to_pa
     data_wp['Pressure'] /= bar_to_pa

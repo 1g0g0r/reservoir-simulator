@@ -1,3 +1,4 @@
+"""Функции относительных фазовы проницаемостей флюидов."""
 import taichi as ti
 
 from paraphin.constants import S_min, S_max, n_power, data_type, mu_w, mu_o

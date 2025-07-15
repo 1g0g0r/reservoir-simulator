@@ -1,3 +1,4 @@
+"""Зависимости псевдокомпонентов задачи от температуры."""
 import taichi as ti
 
 from paraphin.constants import data_type, R

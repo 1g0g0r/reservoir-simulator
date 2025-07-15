@@ -1,17 +1,22 @@
+"""Класс содержит алгоритм расчета и хранение данных."""
 from logging import basicConfig, INFO, getLogger
 from pickle import dump
+from sys import stdout
+from time import perf_counter
 
 import numpy as np
 import psutil
 import taichi as ti
+from tqdm import tqdm
 
 from paraphin import r1, r3, r4, r5, r6, fi_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, init_k, init_S, init_m, init_p,
-                        init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, mu_o, mu_w, ro_p, ro_o,
+                        init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, ro_p, ro_o,
                         c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re, geological_reserves)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
-                        temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells)
-from .utils import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p, preprocess_matrix_and_wells, calc_Um_r2
+                        temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
+                        calc_Um_r2)
+from .utils import calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files
 from .well import WellStruct, upd_q_and_eta
 
 
@@ -254,6 +259,7 @@ class Solver:
             if self.wells[i].is_injector == 0:
                 Q_oil += self.wells[1].Q[0]
 
+        # TODO перейти на i, j for self.p
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
                 # ---пересчет свойств флюидов из-за изменения температуры---
@@ -304,7 +310,7 @@ class Solver:
             wells_data.update({
                 f'{name}_oil': q_value[0], f'{name}_water': q_value[1],
                 f'{name}_total': q_value[2], f'{name}_eta': well.eta,
-                f'{name}_Q_oil': Q_value[0], f'{name}_Q_water': Q_value[1], f'{name}_Q_total': Q_value[2],
+                # f'{name}_Q_oil': Q_value[0], f'{name}_Q_water': Q_value[1], f'{name}_Q_total': Q_value[2],
             })
         if self._paraphin:
             x_idx = int(Nx / 2)
@@ -350,6 +356,26 @@ class Solver:
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
+
+    def start(self):
+        try:
+            times = np.linspace(0, Time_end, int(Time_end / dt + 1))
+            tt = perf_counter()
+            self.initialize()      # Задание начальных условий из файла const.py
+            self.upd_time_step(0)  # При первом запуске компилируются модули
+            print('Время компиляции:', perf_counter() - tt)
+
+            with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
+                      bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
+                for _t in pbar:
+                    self.upd_time_step(_t)
+                    pbar.set_postfix(день=_t / day_to_sec)
+                    if self.wells[1].eta >= 0.98:
+                        break
+                    # ti.profiler.print_kernel_profiler_info()
+        finally:
+            print('KIN:', self.KIN)
+            convert_pkl_files()
 
 
     def _logging_resources(self) -> None:
