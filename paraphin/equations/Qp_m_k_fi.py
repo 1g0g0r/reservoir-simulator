@@ -2,7 +2,7 @@
 import taichi as ti
 
 from paraphin import r1, r2, r3, r4, r5, r6
-from paraphin.constants import data_type, Nr, dt, D, gamma
+from paraphin.constants import data_type, Nr, dt, D, gamma, init_m, init_k
 
 D_2_gamma = D * 0.5 / gamma
 _a = ti.field(dtype=data_type, shape=Nr)
@@ -10,7 +10,7 @@ _b = ti.field(dtype=data_type, shape=Nr)
 
 
 @ti.func
-def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, new_fi, k_mult, m_mult) -> None:
+def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, new_fi, new_k, new_m) -> None:
     """Вычисление концентрации взвешенных частиц парафина по явной схеме.
 
     Parameters
@@ -35,17 +35,17 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
          Скорость отложения парафиновых отложений в общем объеме пористой породы
     new_fi: taichi.field(Nx, Ny, Nr)
         Обновленная функция распределения пор по размеру, [-]
-    m_mult: taichi.field(Nx, Ny)
-        Изменение пористости из-за влияния частиц парафина, [-]
-    k_mult: taichi.field(Nx, Ny)
-        Изменение проницаемости из-за влияния частиц парафина, [-]
+    new_m: taichi.field(Nx, Ny)
+        Новое значение пористости, [-]
+    new_k: taichi.field(Nx, Ny)
+        Новое значение проницаемости, [-]
     """
     if Wps[i, j] > 1e-6:
         # Вычисление изменения пористости и проницаемости пласта
         qp1, qp2, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
         new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
-        m_mult[i, j] = r2fi / integr_r2_fi0
-        k_mult[i, j] = r4fi / integr_r4_fi0
+        new_m[i, j] = init_m * r2fi / integr_r2_fi0
+        new_k[i, j] = init_k * r4fi / integr_r4_fi0
 
         # Обновление функции пор по размерам
         _update_fi(new_fi, fi, Ur, Ub, i, j)

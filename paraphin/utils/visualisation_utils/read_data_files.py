@@ -53,5 +53,6 @@ def convert_pkl_files():
                 else:
                     data[name][idx] = file_data
 
-    with open(data_path / f'Wp={init_Wp}_processed_data.pkl', 'wb') as f:  # Сохранение обработанных данных
+    # Сохранение обработанных данных
+    with open(data_path / f'Wp={init_Wp}_processed_data.pkl', 'wb') as f:
         dump([n_files, data], f)

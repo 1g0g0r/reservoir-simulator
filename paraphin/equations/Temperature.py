@@ -41,16 +41,23 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0
     new_T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
     """
+    # TODO перейти на t+1 временной слой для пористости и насыщенности
     derivative_add = T[i, j] * volume * (
             ro_w * C_w[i,j] * (m[i,j] * S[i,j] - m_0[i,j] * S_0[i,j]) / dt +
             ro_o * C_o[i,j] * (m[i,j] * (1.0-S[i,j]) * (1.0-Wps[i,j]) - m_0[i,j] * (1.0-S_0[i,j]) * (1.0-Wps_0[i,j])) / dt +
             ro_p * C_p[i,j] * (m[i,j] * Wps[i,j] * (1.0-S[i,j]) - m_0[i,j] * Wps_0[i,j] * (1.0-S_0[i,j])) / dt  -
             ro_f * C_f[i,j] * (m[i,j] - m_0[i,j]) / dt)
 
+
+    # TODO перейти на t+1 временной слой для пористости и насыщенности
+    # TODO мб переписать через функцию пси 👀
     multiplier = (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i,j] * (1.0 - Wps[i,j]) +
                                      ro_p * C_p[i,j] * Wps[i,j])) + (1.0 - m[i,j]) * ro_f * C_f[i,j]) * volume / dt
 
-    new_T[i, j] = T[i, j] + (cells_T_eq[i, j] - derivative_add + qp[i, j] * ro_p * C_p[i, j] * volume) / multiplier
+    new_T[i, j] = T[i, j] + (cells_T_eq[i, j] - derivative_add  + qp[i, j] * ro_p * C_p[i, j] * volume) / multiplier
+
+    if i == j == 0:
+        print(derivative_add)
 
 
 @ti.func

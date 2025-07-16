@@ -77,8 +77,8 @@ class Solver:
         self.new_wps = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.new_wp  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.new_qp  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.m_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.k_mult  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.new_k   = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.new_m   = ti.field(dtype=d_type, shape=(Nx, Ny))
 
         # Временные массивы
         self.cells_T_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
@@ -149,8 +149,6 @@ class Solver:
                     self.T[i, j]    = init_T
                     self.T_0[i, j]  = init_T
                     self.qp[i, j]   = init_qp
-                    self.m_mult[i, j] = 1.0
-                    self.k_mult[i, j] = 1.0
 
                     # свойства флюидов
                     self.mu_o[i, j] = calc_mu_o(init_T)
@@ -214,11 +212,13 @@ class Solver:
             for j in ti.ndrange(Ny):
                 if self._paraphin:
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
+                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
                 # ---решение гидродинамики---
                 flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
-                saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.m_mult, self.new_s)
+                saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)
                 temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.qp, self.cells_T_eq, self.new_t)
+
+                # TODO попробовать считать сначала кольматацию, а потом гидродинамику.
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Средняя скорость в капилляре * r^2
@@ -228,13 +228,14 @@ class Solver:
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self.S, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    # calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.k_mult, self.m_mult)
+                    # calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
 
     @ti.kernel
     def _wells_loop(self):
         ti.loop_config(serialize=True)
+        # TODO нужно как-то это перенести в процедуру решения уравнения по явной схеме
         for i in ti.ndrange(self.n_wells):
-            saturation_well(self.wells[i], self.m, self.m_mult, self.new_s)
+            saturation_well(self.wells[i], self.m, self.new_m, self.new_s)
             wps_wp_wells(self.wells[i], self.m, self.S, self.T, self.Wp, self.Wps, self.new_wp)
             temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
 
@@ -277,8 +278,8 @@ class Solver:
                     self.Wp[i, j]    = self.new_wp[i, j]
                     self.Wps_0[i, j] = self.Wps[i, j]
                     self.Wps[i, j]   = self.new_wps[i, j]
-                    self.k[i, j]     = init_k * self.k_mult[i, j]
-                    self.m[i, j]     = init_m * self.m_mult[i, j]
+                    self.k[i, j]     = self.new_k[i, j]
+                    self.m[i, j]     = self.new_m[i, j]
                     self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
                     self.Wps_dep[i, j] = ti.min(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
                                                 ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
@@ -325,8 +326,8 @@ class Solver:
                 'Wps':         self.Wps.to_numpy(),
                 'Wps dep':     self.Wps_dep.to_numpy(),
                 'qp':          self.qp.to_numpy(),
-                'm mult':      self.m_mult.to_numpy(),
-                'k mult':      self.k_mult.to_numpy(),
+                'm':           self.new_m.to_numpy(),
+                'k ':          self.new_k.to_numpy(),
                 # 'mu_o':        self.mu_o.to_numpy(),
                 # 'mu_w':        self.mu_w.to_numpy(),
                 'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[x_idx, y_idx]},
@@ -335,8 +336,8 @@ class Solver:
                     f'Wps [{x_idx},{y_idx}]':  self.Wps.to_numpy()[x_idx,y_idx],
                     f'Wp [{x_idx},{y_idx}]': self.Wp.to_numpy()[x_idx,y_idx],
                     f'Wo [{x_idx,y_idx}]': self.Wo.to_numpy()[x_idx,y_idx], 'KIN': self.KIN[None],
-                    f'k_mult [{x_idx},{y_idx}]':  self.k_mult.to_numpy()[x_idx,y_idx],
-                    f'm_mult [{x_idx},{y_idx}]': self.m_mult.to_numpy()[x_idx,y_idx],
+                    f'k [{x_idx},{y_idx}]':  self.new_k.to_numpy()[x_idx,y_idx],
+                    f'm [{x_idx},{y_idx}]': self.new_m.to_numpy()[x_idx,y_idx],
                     f'qp [{x_idx},{y_idx}]': self.qp.to_numpy()[x_idx,y_idx],
                 }
             }
@@ -408,8 +409,8 @@ class Solver:
         self.logger.info(f"Wp+Wps+Wo:   min={oil_components.min()}  max={oil_components.max()}")
 
         self.logger.info(f"qp:     min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
-        self.logger.info(f"m_mult: min={self.m_mult.to_numpy().min()}  max={self.m_mult.to_numpy().max()}")
-        self.logger.info(f"k_mult: min={self.k_mult.to_numpy().min()}  max={self.k_mult.to_numpy().max()}")
+        self.logger.info(f"m_mult: min={(init_m / self.new_m.to_numpy()).min()}  max={(init_m / self.new_m.to_numpy()).max()}")
+        self.logger.info(f"k_mult: min={(init_k / self.new_k.to_numpy()).min()}  max={(init_k / self.new_k.to_numpy()).max()}")
 
         self.logger.info(f"fi:   min={self.fi.to_numpy().min()}  max={self.fi.to_numpy().max()}")
         self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
