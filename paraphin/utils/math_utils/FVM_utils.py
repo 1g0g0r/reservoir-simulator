@@ -77,17 +77,18 @@ def up_wp(p_i: data_type, Wp_i: data_type, Wps_i: data_type,
 
 
 @ti.func
-def up_lam(p_i: data_type, S_i: data_type, m_i: data_type, Wps_i: data_type,
-           p_j: data_type, S_j: data_type, m_j: data_type, Wps_j: data_type,) -> data_type:
-    """Вычисление коэффициента теплопроводности вверх по потку. """
-    ret = 0.0
+def mid_lam(S_i: data_type, m_i: data_type, Wps_i: data_type,
+            S_j: data_type, m_j: data_type, Wps_j: data_type, ) -> data_type:
+    """Вычисление осредненного коэффициента теплопроводности."""
+    # if p_i >= p_j:
+    #     ret = m_i * (S_i * K_w + (1.0 - S_i) * ((1.0 - Wps_i) * K_o + Wps_i * K_p)) + (1.0 - m_i) * K_f
+    # else:
+    #     ret = m_j * (S_j * K_w + (1.0 - S_j) * ((1.0 - Wps_j) * K_o + Wps_j * K_p)) + (1.0 - m_j) * K_f
 
-    if p_i >= p_j:
-        ret = m_i * (S_i * K_w + (1.0 - S_i) * ((1.0 - Wps_i) * K_o + Wps_i * K_p)) + (1.0 - m_i) * K_f
-    else:
-        ret =  m_j * (S_j * K_w + (1.0 - S_j) * ((1.0 - Wps_j) * K_o + Wps_j * K_p)) + (1.0 - m_j) * K_f
+    ret_i = m_i * (S_i * K_w + (1.0 - S_i) * ((1.0 - Wps_i) * K_o + Wps_i * K_p)) + (1.0 - m_i) * K_f
+    ret_j =  m_j * (S_j * K_w + (1.0 - S_j) * ((1.0 - Wps_j) * K_o + Wps_j * K_p)) + (1.0 - m_j) * K_f
 
-    return ret
+    return mid(ret_i, ret_j)
 
 
 @ti.func

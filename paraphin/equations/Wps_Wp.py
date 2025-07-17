@@ -49,7 +49,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
                     + cells_Wp_eq[i, j] / volume + ro_p * qp[i, j])
 
             colmatation = qp[i, j] * dt * ro_p / ((1.0-Wps[i,j]) * ro_o + Wps[i,j] * ro_p)
-            new_Wp[i, j] = ti.max(_new_Wp, 0.0)
+            new_Wp[i, j] += ti.max(_new_Wp, 0.0)
             new_Wps[i, j] = ti.max(init_Wp - new_Wp[i, j] + colmatation , 0.0)
 
         else:

@@ -2,7 +2,7 @@
 import taichi as ti
 
 from paraphin.constants import Nx, Ny, hx, hy, h, ro_w, ro_o, ro_p
-from paraphin.utils import up_kw, up_ko, mid_Ko_Kw, mid, up_T, up_wp, up_lam
+from paraphin.utils import up_kw, up_ko, mid_Ko_Kw, mid, up_T, up_wp, mid_lam
 
 
 @ti.func
@@ -63,8 +63,8 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 
 			_wp += up_k_o * up_wp(p[i, j], Wp[i, j], Wps[i, j], p[i1, j1], Wp[i1, j1], Wps[i1, j1])
 			_s += up_k_w
-			_t += (T[i1, j1] - T[i, j]) * areaij / hij * up_lam(p[i, j], S[i, j], m[i, j], Wps[i, j],
-																p[i1, j1], S[i1, j1], m[i1, j1], Wps[i1, j1])
+			_t += (T[i1, j1] - T[i, j]) * areaij / hij * mid_lam(S[i, j], m[i, j], Wps[i, j],
+																 S[i1, j1], m[i1, j1], Wps[i1, j1])
 			_t += C_w[i, j] * ro_w * up_t * up_k_w
 			_t += mid(Co, Co_ij) * up_t * up_k_o
 

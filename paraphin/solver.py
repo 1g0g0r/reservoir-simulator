@@ -159,6 +159,8 @@ class Solver:
                     self.C_p[i, j] = c_p  # calc_c_p(init_T)
 
                     # Поля данный нового временного слоя
+                    self.new_m[i, j]   = init_m
+                    self.new_k[i, j]   = init_k
                     self.new_wps[i, j] = init_Wps
                     self.new_wp[i, j]  = init_Wp
 
@@ -189,55 +191,64 @@ class Solver:
         self._swap_time_steps()
 
         # Запись данных в файл
-        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= 0.98: # or t >= day_to_sec * 1679.:
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= 0.98:
             self._save_results(t)
             self._i_img += 1
 
 
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
-        self._update_p()        # Обновление давления
-        self._equations_loop()  # Решение уравнений по явной схеме
-        self._wells_loop()      # Учет скважин в уравнениях
-
-
-    def _update_p(self) -> None:
-        """Обновление давления."""
+        # Обновление давления
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o,
                       self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask)
+        # Решение уравнений по явной схеме
+        self._equations_loop()
+
 
     @ti.kernel
     def _equations_loop(self):
+        """Решение уравнений по явной схеме в цикле по ячейкам."""
+        self._update_wells_data()  # Обновление данных скважин
+        self._wells_loop()         # Учет скважин в уравнениях
+
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
-                if self._paraphin:
-                    # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
-                # ---решение гидродинамики---
-                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
-                saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)
-                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.qp, self.cells_T_eq, self.new_t)
-
-                # TODO попробовать считать сначала кольматацию, а потом гидродинамику.
                 # ---решение задачи кольматации\суффозии---
-                if self._paraphin:
-                    # Средняя скорость в капилляре * r^2
+                if self._paraphin:# Средняя скорость в капилляре * r^2
                     calc_Um_r2(i, j, self.p, self._Um_r2, self.mu_o)
                     # Обновление концентраций парафина
                     wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                     calc_velocitys_h(i, j, self.S, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                    # calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
+                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
 
-    @ti.kernel
+                # ---решение гидродинамики---
+                flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
+                saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)
+                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.qp, self.cells_T_eq, self.new_t, self.new_m, self.new_s)
+
+
+    @ti.func
     def _wells_loop(self):
         ti.loop_config(serialize=True)
-        # TODO нужно как-то это перенести в процедуру решения уравнения по явной схеме
         for i in ti.ndrange(self.n_wells):
             saturation_well(self.wells[i], self.m, self.new_m, self.new_s)
             wps_wp_wells(self.wells[i], self.m, self.S, self.T, self.Wp, self.Wps, self.new_wp)
             temperature_well(self.wells[i], self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.new_t)
+
+
+    @ti.func
+    def _update_wells_data(self):
+        """Обновление дебита и обводненности скважин."""
+        Q_oil = 0.0
+        for i in ti.ndrange(self.n_wells):
+            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
+            if self.wells[i].is_injector == 0:
+                Q_oil += self.wells[1].Q[0]
+
+        # Вычисление КИН
+        self.KIN[None] = Q_oil / geological_reserves
 
 
     @ti.func
@@ -253,13 +264,6 @@ class Solver:
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
-        Q_oil = 0.0
-        # Обновление дебита и обводненности скважин
-        for i in ti.ndrange(self.n_wells):
-            self.wells[i] = upd_q_and_eta(self.wells[i], self.p, self.S, self.k, self.mu_o, self.mu_w)
-            if self.wells[i].is_injector == 0:
-                Q_oil += self.wells[1].Q[0]
-
         # TODO перейти на i, j for self.p
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
@@ -268,14 +272,17 @@ class Solver:
 
                 self.S_0[i, j] = self.S[i, j]
                 self.S[i, j]   = self.new_s[i, j]
+                self.new_s[i, j] = 0.0
                 self.T_0[i, j] = self.T[i, j]
                 self.T[i, j]   = self.new_t[i, j]
+                self.new_t[i, j] = 0.0
 
                 if self._paraphin:
                     self.Wo_0[i, j]  = self.Wo[i, j]
-                    self.Wo[i, j]    = ti.min(1.0 - self.new_wp[i, j] - self.new_wps[i, j], 1)
+                    self.Wo[i, j]    = 1.0 - self.new_wp[i, j] - self.new_wps[i, j]
                     self.Wp_0[i, j]  = self.Wp[i, j]
                     self.Wp[i, j]    = self.new_wp[i, j]
+                    self.new_wp[i, j] = 0.0
                     self.Wps_0[i, j] = self.Wps[i, j]
                     self.Wps[i, j]   = self.new_wps[i, j]
                     self.k[i, j]     = self.new_k[i, j]
@@ -290,9 +297,6 @@ class Solver:
                         self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
                         self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
                         self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
-
-        # Вычисление КИН
-        self.KIN[None] = Q_oil / geological_reserves
 
 
     def _save_results(self, t) -> None:
@@ -352,6 +356,7 @@ class Solver:
                 'Wells': wells_data,
                 'Other params': {
                     'KIN': self.KIN[None],
+                    f'T [{0},{0}]': self.T.to_numpy()[0, 0],
                 }
             }
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
@@ -374,6 +379,8 @@ class Solver:
                     if self.wells[1].eta >= 0.98:
                         break
                     # ti.profiler.print_kernel_profiler_info()
+        except KeyboardInterrupt:
+            pass
         finally:
             print('KIN:', self.KIN)
             convert_pkl_files()

@@ -175,5 +175,5 @@ def _update_fi_deprecated(fi: ti.template(), Ur: ti.template(), Ub: ti.template(
         dr = r1[ij1] - r1[ij2]
         fi[i, j, ij] -= dt * ((Ur[i, j, ij1] * fi[i, j, ij1] - Ur[i, j, ij2] * fi[i, j, ij2]) / dr + Ub[i, j, ij])
 
-        if fi[j, i, ij] < 1e-9:
-            fi[j, i, ij] = 1e-9
+        if fi[i, j, ij] < 1e-9:
+            fi[i, j, ij] = 1e-9

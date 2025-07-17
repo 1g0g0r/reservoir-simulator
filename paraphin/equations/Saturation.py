@@ -5,7 +5,7 @@ from paraphin.constants import dt, volume, init_m
 
 
 @ti.func
-def saturation_equation(i, j, S, m, m_0, cells_S_eq, m_mult, new_S) -> None:
+def saturation_equation(i, j, S, m, m_0, cells_S_eq, new_m, new_S) -> None:
     """Вычисление водонасыщенности по явной схеме.
 
     Parameters
@@ -20,14 +20,16 @@ def saturation_equation(i, j, S, m, m_0, cells_S_eq, m_mult, new_S) -> None:
         Пористость на прошлом временном слое, [-]
     cells_S_eq: taichi.field(Nx, Ny)
         Перетоки воды в ячейках, [Па*м]
+    new_m: taichi.field(Nx, Ny)
+        Пористость на новом временном слое, [-]
     new_S: taichi.field(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """
-    new_S[i, j] = S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * cells_S_eq[i, j] / volume) / m[i, j]
+    new_S[i, j] += S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * cells_S_eq[i, j] / volume) / m[i, j]
 
 
 @ti.func
-def saturation_well(well, m, m_mult, new_S) -> None:
+def saturation_well(well, m, new_m, new_S) -> None:
     """Учет скважины в уравнении водонасыщенности.
 
     Parameters
@@ -36,8 +38,8 @@ def saturation_well(well, m, m_mult, new_S) -> None:
         Объект класса скважина
     m: taichi.field(Nx, Ny)
         Пористость, [-]
-    m_mult: taichi.field(Nx, Ny)
-        Множитель пористости, [-]
+    new_m: taichi.field(Nx, Ny)
+        Пористость на новом временном слое, [-]
     new_S: taichi.field(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """

@@ -1,11 +1,11 @@
 """Решение уравнения температуры по явной схеме."""
 import taichi as ti
 
-from paraphin.constants import Nx, Ny, dt, volume, ro_w, ro_f, ro_o, ro_p
+from paraphin.constants import dt, volume, ro_w, ro_f, ro_o, ro_p
 
 
 @ti.func
-def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0, qp, cells_T_eq, new_T) -> None:
+def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0, qp, cells_T_eq, new_T, new_m, new_S) -> None:
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -40,24 +40,16 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0
 		Сумма величин перетоков тепла в уравнении энергии
     new_T: taichi.field(Nx, Ny)
         Температура на новом временном слое, [С]
+    new_m: taichi.field(Nx, Ny)
+        Пористость на новом временном слое, [-]
+    new_S: taichi.field(Nx, Ny)
+        Водонасыщенность на новом временном слое, [-]
     """
-    # TODO перейти на t+1 временной слой для пористости и насыщенности
-    derivative_add = T[i, j] * volume * (
-            ro_w * C_w[i,j] * (m[i,j] * S[i,j] - m_0[i,j] * S_0[i,j]) / dt +
-            ro_o * C_o[i,j] * (m[i,j] * (1.0-S[i,j]) * (1.0-Wps[i,j]) - m_0[i,j] * (1.0-S_0[i,j]) * (1.0-Wps_0[i,j])) / dt +
-            ro_p * C_p[i,j] * (m[i,j] * Wps[i,j] * (1.0-S[i,j]) - m_0[i,j] * Wps_0[i,j] * (1.0-S_0[i,j])) / dt  -
-            ro_f * C_f[i,j] * (m[i,j] - m_0[i,j]) / dt)
+    psi = _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f)
+    psi_next = _psi(i, j, new_m, new_S, Wps, C_w, C_o, C_p, C_f)
+    derivative_add = T[i, j] * volume * (psi_next - psi) / dt
 
-
-    # TODO перейти на t+1 временной слой для пористости и насыщенности
-    # TODO мб переписать через функцию пси 👀
-    multiplier = (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i,j] * (1.0 - Wps[i,j]) +
-                                     ro_p * C_p[i,j] * Wps[i,j])) + (1.0 - m[i,j]) * ro_f * C_f[i,j]) * volume / dt
-
-    new_T[i, j] = T[i, j] + (cells_T_eq[i, j] - derivative_add  + qp[i, j] * ro_p * C_p[i, j] * volume) / multiplier
-
-    if i == j == 0:
-        print(derivative_add)
+    new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add  + qp[i, j] * ro_p * C_p[i, j] * volume)
 
 
 @ti.func
@@ -95,28 +87,13 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
     else:
         Twell = T[i, j]
 
-    multiplier = (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
-                                 ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j]) * volume / dt
+    multiplier = dt / _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f) / volume
 
-    new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[Nx - 1, Ny - 1] * ro_w * well.q[1]) / multiplier * Twell
+    new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[i, j] * ro_w * well.q[1]) * multiplier * Twell
 
 
-    # if well.is_injector == 1:  # Если скважина нагнетательная, то учитывается ее температура
-    #     multiplier = (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
-    #                                                                              ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j]) * volume / dt
-    #
-    #     new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[Nx - 1, Ny - 1] * ro_w * well.q[1]) / multiplier * well.T
-    #
-    # else:  # Если скважина добывающая, то температура определяется температурой в соседних ячейках
-    #     t_aver = 0.0
-    #     num = 0
-    #
-    #     arr = [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]]
-    #     for qq in ti.static(ti.ndrange(4)):
-    #         i1, j1 = arr[qq]
-    #         if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-    #             t_aver += T[i1, j1]
-    #             num += 1
-    #
-    #     new_T[i, j] = t_aver / num
-    #
+@ti.func
+def _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f):
+    # TODO уточнить энергию осевшего на порах парафина
+    return (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
+                                     ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j])
