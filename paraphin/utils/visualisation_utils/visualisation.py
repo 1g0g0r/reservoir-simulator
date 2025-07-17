@@ -29,7 +29,7 @@ def visualize_solution():
 
     if 'plots' in input_data.keys():
         fig_plots = _visualize_plots_fi(input_data)
-        fig_plots.show()
+        # fig_plots.show()
 
     fig_fields.show()
 
@@ -106,7 +106,7 @@ def _visualize_fields(data):
     fig.update_layout(
         # xaxis2=dict(autorange="reversed", overlaying='x'),
         yaxis2=dict(side="right", overlaying="y"),
-        legend=dict(x=1.05, y=1.0), plot_bgcolor='white',
+        legend=dict(x=1.05, y=1.0)
     )
 
     # Создаем массив отображаемых данных (все False, а на диагонали True)
@@ -153,6 +153,8 @@ def _visualize_fields(data):
             ),
         ],
         sliders=sliders, plot_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
+        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
         width=1000,  # Устанавливаем ширину фигуры
         height=800  # Устанавливаем высоту фигуры
     )

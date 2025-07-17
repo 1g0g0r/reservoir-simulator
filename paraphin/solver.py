@@ -326,18 +326,18 @@ class Solver:
                 'Wps':         self.Wps.to_numpy(),
                 'Wps dep':     self.Wps_dep.to_numpy(),
                 'qp':          self.qp.to_numpy(),
-                'm':           init_m / self.new_m.to_numpy(),
-                'k ':          init_k / self.new_k.to_numpy(),
+                'm':           self.new_m.to_numpy() / init_m,
+                'k ':          self.new_k.to_numpy() / init_k,
                 # 'mu_o':        self.mu_o.to_numpy(),
                 # 'mu_w':        self.mu_w.to_numpy(),
                 'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[x_idx, y_idx]},
                 'Wells':       wells_data,
                 'Other params': {
-                    f'Wps [{x_idx},{y_idx}]':  self.Wps.to_numpy()[x_idx,y_idx],
+                    f'Wps [{x_idx},{y_idx}]': self.Wps.to_numpy()[x_idx,y_idx],
                     f'Wp [{x_idx},{y_idx}]': self.Wp.to_numpy()[x_idx,y_idx],
                     f'Wo [{x_idx,y_idx}]': self.Wo.to_numpy()[x_idx,y_idx], 'KIN': self.KIN[None],
-                    f'k [{x_idx},{y_idx}]':  init_k / self.new_k.to_numpy()[x_idx,y_idx],
-                    f'm [{x_idx},{y_idx}]': init_m / self.new_m.to_numpy()[x_idx,y_idx],
+                    f'k [{x_idx},{y_idx}]': self.new_k.to_numpy()[x_idx,y_idx] / init_k,
+                    f'm [{x_idx},{y_idx}]': self.new_m.to_numpy()[x_idx,y_idx] / init_m,
                     f'qp [{x_idx},{y_idx}]': self.qp.to_numpy()[x_idx,y_idx],
                 }
             }
