@@ -54,8 +54,9 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
 
         else:
             colmatation = qp[i, j] * dt * ro_p / ((1.0-Wps[i,j]) * ro_o + Wps[i,j] * ro_p)
-            new_Wp[i, j] = 0.0
             new_Wps[i, j] = ti.max(Wps[i, j] + colmatation, 0)
+    else:
+        new_Wp[i, j] = Wp[i, j]
 
 
 @ti.func

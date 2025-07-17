@@ -51,7 +51,7 @@ def _visualize_fields(data):
 
     # names_fields = ['Saturation', 'Temperature', 'Wells', 'Other params']
     # names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params']
-    skip_fields = ['Pressure', 'Wo', 'Wp', 'm mult','mu_o', 'mu_w', 'qp']
+    skip_fields = ['Pressure', 'Wo', 'm mult','mu_o', 'mu_w', 'qp']
 
     # Создаем графики
     _f_names = [name for name in input_data.keys() if name not in skip_fields]

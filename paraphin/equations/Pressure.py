@@ -8,7 +8,6 @@ from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
 from paraphin.utils import mid_Ko_Kw
 from paraphin.well import calc_well_mult
-
 # from pypardiso import spsolve
 
 rhs     = ti.ndarray(data_type, shape=N)
@@ -45,8 +44,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
     wells: taichi.field(n_wells)
         Массив скважин
     """
-    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
-    _adding_wells(wells, data, rhs, S, k, mu_o, mu_w)
+    _build_matrix_and_rhs(wells, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
 
     ndarray_to_ext_arr(data, data_np)  # data.to_numpy()
     ndarray_to_ext_arr(rhs, rhs_np)  # rhs.to_numpy()
@@ -58,31 +56,38 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
 
 
 @ti.kernel
+def _build_matrix_and_rhs(wells: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
+                          k: ti.template(), S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
+                          data: ti.types.ndarray(), rhs: ti.types.ndarray()):
+    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
+    _adding_wells(wells, data, rhs, S, k, mu_o, mu_w)
+
+
+@ti.func
 def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(), k: ti.template(),
                          S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
                          data: ti.types.ndarray(), rhs: ti.types.ndarray()):
     """Сборка матрицы уравнения давления"""
     num = 0
-    for i in ti.ndrange(Nx):
-        for j in ti.ndrange(Ny):
-            idx = i + j * Nx
-            p_sum = 0.0
-            arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
-            for qq in ti.static(ti.ndrange(4)):
-                i1, j1, hij, areaij = arr[qq]
-                if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                    val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                    k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
-                    data[num] = val
-                    p_sum -= val
-                    num += 1
+    for i, j in S:
+        idx = i + j * Nx
+        p_sum = 0.0
+        arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
+        for qq in ti.static(ti.ndrange(4)):
+            i1, j1, hij, areaij = arr[qq]
+            if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+                data[num] = val
+                p_sum -= val
+                num += 1
 
-            data[num] = p_sum
-            num += 1
+        data[num] = p_sum
+        num += 1
 
-            # rhs
-            # FIXME ЧТО У ВАС ЗДЕСЬ ПРОИСХОДИТ ????
-            rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+        # rhs
+        # FIXME ЧТО У ВАС ЗДЕСЬ ПРОИСХОДИТ ????
+        rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
     # TODO хотелка по ускорению
     """
@@ -91,12 +96,11 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
     """
 
 
-@ti.kernel
+@ti.func
 def _adding_wells(wells: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray(), S: ti.template(),
                   k: ti.template(), mu_o: ti.template(), mu_w: ti.template()):
     """Добавление скважин в уравнение давления"""
-    ti.loop_config(serialize=True)
-    for i in ti.ndrange(wells.shape[0]):
+    for i in wells:
         well = wells[i]
         temp_data = calc_well_mult(well, S, k, mu_o, mu_w)  # well.q[2] / well.dp
         data[well.idx_mat] -= temp_data
