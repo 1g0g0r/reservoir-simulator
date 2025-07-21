@@ -10,10 +10,15 @@ from paraphin.utils import mid_Ko_Kw
 from paraphin.well import calc_well_mult
 # from pypardiso import spsolve
 
+if data_type == ti.f64:
+    np_data_type = np.float64
+else:
+    np_data_type = np.float32
+
 rhs     = ti.ndarray(data_type, shape=N)
-rhs_np  = np.zeros(N, dtype=np.float64)
+rhs_np  = np.zeros(N, dtype=np_data_type)
 data    = ti.ndarray(data_type, shape=NN)
-data_np = np.zeros(NN, dtype=np.float64)
+data_np = np.zeros(NN, dtype=np_data_type)
 
 
 def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask):
@@ -88,12 +93,6 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
         # rhs
         # FIXME ЧТО У ВАС ЗДЕСЬ ПРОИСХОДИТ ????
         rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
-
-    # TODO хотелка по ускорению
-    """
-    В этом же цикле обновлять поля данных. 
-    Использовать поля Wo, Wo_0, m, m_0, k, S с нового временного слоя (префикс new_) 
-    """
 
 
 @ti.func

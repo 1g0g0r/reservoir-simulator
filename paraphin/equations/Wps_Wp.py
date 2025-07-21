@@ -43,6 +43,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
             Wps_i  = _get_Wps(Wp[i, j], Wps[i, j], T[i, j])
             Wps_0_i  = _get_Wps(Wp[i, j], Wps[i, j], T_0[i, j])
 
+            # TODO добавить поля t+1 временного слоя
             _new_Wp = Wp[i, j] + dt / (m[i, j] * (1.0 - S[i, j]) * ro_o) * (
                     - Wp[i, j] * ro_o * (m[i, j] * (1.0 - S[i, j]) - m_0[i, j] * (1.0 - S_0[i, j])) / dt
                     - ro_p * (m[i, j] * (1.0 - S[i, j]) * Wps_i - m_0[i, j] * (1.0 - S_0[i, j]) * Wps_0_i) / dt

@@ -247,7 +247,7 @@ def _visualize_plots_fi(plots_data):
     return fig
 
 
-def show_plot(data, name: str = 'map'):
+def show_plot(data, name: str = 'map', show: bool = False):
     """Визуализация поля данных."""
     fig = go.Figure(data=go.Heatmap(
         x=x_mesh,
@@ -264,8 +264,10 @@ def show_plot(data, name: str = 'map'):
         width=800,
         height=800
     )
-
-    if __name__ == '__main__':
-        fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs='plotly_script.js')
+    if show:
+        fig.show()
     else:
-        fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs=js_path)
+        if __name__ == '__main__':
+            fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs='plotly_script.js')
+        else:
+            fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs=js_path)
