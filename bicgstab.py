@@ -21,7 +21,7 @@ class BICGSolver:
         self.debug = debug
         self.max_iter = ti.min(max_iter, Nx * Ny)
 
-        self.betta   = ti.field(dtype=data_type, shape=())
+        self.betta = ti.field(dtype=data_type, shape=())
         self.rho   = ti.field(dtype=data_type, shape=())
         self.rho_0 = ti.field(dtype=data_type, shape=())
         self.alpha = ti.field(dtype=data_type, shape=())
@@ -53,25 +53,27 @@ class BICGSolver:
 
     @ti.kernel
     def _mat_mult(self, result: ti.template(), mat: ti.template(), vector: ti.template()):
-        """Умножение матрицы на вектор."""
-        for i in vector:
-            result[i] = self._mult_row_by_vector(i, mat, vector)
-
-    @ti.func
-    def _mult_row_by_vector(self, i: int, mat: ti.template(), vector: ti.template()) -> data_type:
-        """Умножение строки пятидиагональной матрицы на вектор.
+        """Умножение пятидиагональной матрицы на вектор.
         0: i - Nx
         1: i - 1
         2: i
         3: i + 1
         4: i + Nx
         """
-        return (mat[0, i] * vector[i - Nx] + mat[1, i] * vector[i - 1] + mat[2, i] * vector[i] +
-                mat[3, i] * vector[i + 1] + mat[4, i] * vector[i + Nx])
+        for i in vector:
+            result[i] = (mat[0, i] * vector[i - Nx] + mat[1, i] * vector[i - 1] +
+                         mat[2, i] * vector[i] + mat[3, i] * vector[i + 1] +
+                         mat[4, i] * vector[i + Nx])
 
     @ti.kernel
     def _calc_err(self, array: ti.template(), mat: ti.template(), vector: ti.template(), rhs: ti.template()):
-        """Умножение матрицы на вектор решения и вычитание правой части."""
+        """Умножение матрицы на вектор решения и вычитание правой части.
+        0: i - Nx
+        1: i - 1
+        2: i
+        3: i + 1
+        4: i + Nx
+        """
         for i in self.r:
             # i -> ii + Nx*jj
             jj = i // Nx
@@ -98,7 +100,7 @@ class BICGSolver:
     def _calc_s(self):
         """Умножение матрицы на вектор."""
         for i in self.r:
-            self.s[i] = self.r[i] + self.alpha[None] * self.v[i]
+            self.s[i] = self.r[i] - self.alpha[None] * self.v[i]
 
     @ti.kernel
     def _calc_omega(self):
@@ -117,17 +119,17 @@ class BICGSolver:
         for i in self.r:
             # i -> ii + Nx*jj
             jj = i // Nx
-            ii = i - Nx * jj
-            self.x[ii, jj] += self.omega[None] * self.s[i] + self.alpha[None] * self.p[i]
+            ii = i - Nx * jj  # TODO разобраться с индексами
+            self.x[jj, ii] += self.omega[None] * self.s[i] + self.alpha[None] * self.p[i]
             new_r = self.s[i] - self.omega[None] * self.t[i]
             self.r[i] = new_r
             r_r += new_r * new_r
-        self.err[None] = ti.sqrt(r_r)  # TODO считать невязку прям честно
+        self.err[None] = ti.sqrt(r_r)
 
     def _iter_BiCGStab(self, mat: ti.template()):
         """Итерация стабилизированного метода бисопряженных градиентов."""
         self.rho[None] = self._dot_product(self.r_0, self.r)    # 1
-        self.betta = self.rho[None] / self.rho_0[None] * self.alpha[None] / self.omega[None]  # 2
+        self.betta = self.rho[None] * self.alpha[None] / self.rho_0[None] / self.omega[None]  # 2
         self._calc_p()                                          # 3
         self._mat_mult(self.v, mat, self.p)                     # 4
         self.alpha[None] = self.rho[None] / self._dot_product(self.r_0, self.v) # 5
@@ -151,11 +153,11 @@ class BICGSolver:
                 break
 
 @ti.func
-def get(_arr, _i, _j):
+def get(_arr, _i, _j=None):
     """Получение элемента массива с обработкой выхода за границы."""
     ret = 0.0
     if 0 < _i < Nx - 1 and 0 < _j < Ny - 1:
-        ret = _arr[_j, _i]  # TODO что-то с транпонированием
+            ret = _arr[_i, _j]
 
     return ret
 
@@ -209,4 +211,4 @@ x = spsolve(A_np, rhs.to_numpy())
 print(perf_counter() - tt, 'scipy solve')
 
 print(np.max(x_ti.to_numpy() - x.reshape(Nx, Ny)), np.min(x_ti.to_numpy() - x.reshape(Nx, Ny)))
-# show_plot(x_ti.to_numpy(), "Разность решений SciPy и Taichi", True)
+show_plot(x_ti.to_numpy() - x.reshape(Nx, Ny), "Разность решений SciPy и Taichi", True)
