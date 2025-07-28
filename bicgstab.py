@@ -166,7 +166,7 @@ def init_rhs(_rhs: ti.template()):
     for i in _rhs:
         jj = i // Nx
         ii = i - Nx * jj
-        if ii == Nx * 4 // 5 and jj == Ny * 2// 3:
+        if ii == Nx * 1 // 2 and jj == Ny * 1 // 2:
             _rhs[i] = 10.0
         else:
             _rhs[i] = 0.0
@@ -184,7 +184,8 @@ ti.field(ti.f64, shape=(Nx, Ny))
 # Создание и запуск решателя
 x_ti = ti.field(ti.f64, shape=(Nx, Ny))
 tt = perf_counter()
-solver = BICGSolver(solution=x_ti, eps=1e-3, max_iter=100, debug=False)
+# TODO добавить предобуславливатель ILU-факторизацию
+solver = BICGSolver(solution=x_ti, eps=1e-4, max_iter=100, debug=False)
 print(perf_counter() - tt, 'init solver')
 
 tt = perf_counter()
