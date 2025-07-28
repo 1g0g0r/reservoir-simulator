@@ -24,7 +24,7 @@ logs_path = outputs_path / '.log'
 js_path = Path.cwd() / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
 
 # Параметры сетки
-Nr = 51          # Число узлов сетки радиусов капилляров
+Nr = 31          # Число узлов сетки радиусов капилляров
 Nx, Ny = 20, 20  # Число узлов сетки по x и y
 X_min, X_max = 0., 200.  # Длина пласта, [м]
 Y_min, Y_max = 0., 200.  # Ширина пласта, [м]
