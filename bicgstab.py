@@ -185,7 +185,7 @@ ti.field(ti.f64, shape=(Nx, Ny))
 x_ti = ti.field(ti.f64, shape=(Nx, Ny))
 tt = perf_counter()
 # TODO добавить предобуславливатель ILU-факторизацию
-solver = BICGSolver(solution=x_ti, eps=1e-4, max_iter=100, debug=False)
+solver = BICGSolver(solution=x_ti, eps=1e-2, max_iter=100, debug=False)
 print(perf_counter() - tt, 'init solver')
 
 tt = perf_counter()
