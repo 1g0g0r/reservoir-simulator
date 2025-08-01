@@ -198,10 +198,16 @@ class Solver:
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Обновление давления
+        # from time import perf_counter
+        # print()
+        tt = perf_counter()
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o,
                       self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask)
+        # print(perf_counter() - tt, 'pressure')
+        # tt = perf_counter()
         # Решение уравнений по явной схеме
         self._equations_loop()
+        # print(perf_counter() - tt, 'equations')
 
 
     @ti.kernel

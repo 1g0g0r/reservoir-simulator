@@ -5,12 +5,10 @@ from scipy.sparse.linalg import spsolve
 from time import perf_counter
 
 from paraphin.utils import show_plot
-from paraphin.constants import data_type
+from paraphin import N
+from paraphin.constants import data_type, Nx, Ny
 
 ti.init(arch=ti.cpu, default_fp=ti.f64)
-
-Nx, Ny = 60, 60
-N = Nx * Ny
 
 
 @ti.data_oriented
@@ -148,64 +146,62 @@ class BICGSolver:
             if self.err[None] < self.eps and i > 0:
                 break
 
-# Инициализация коэффициентов (оператор Лапласа)
-@ti.kernel
-def init_coef(_coef: ti.template()):
-    for i, j in ti.ndrange(Nx, Ny):
-        idx = i + j * Nx
-        arr = [[i, j - 1], [i - 1, j], [i, j], [i + 1, j], [i, j + 1]]
-        for qq in ti.static(ti.ndrange(5)):
-            i1, j1 = arr[qq]
-            if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                _coef[qq, idx] = -1.0 if qq[0] != 2 else 4.0
 
+if __name__ == '__main__':
+    @ti.kernel
+    def init_coef(_coef: ti.template()):
+        """Инициализация коэффициентов (оператор Лапласа)."""
+        for i, j in ti.ndrange(Nx, Ny):
+            idx = i + j * Nx
+            arr = [[i, j - 1], [i - 1, j], [i, j], [i + 1, j], [i, j + 1]]
+            for qq in ti.static(ti.ndrange(5)):
+                i1, j1 = arr[qq]
+                if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                    _coef[qq, idx] = -1.0 if qq[0] != 2 else 4.0
 
-# Инициализация правой части (точечный источник в центре)
-@ti.kernel
-def init_rhs(_rhs: ti.template()):
-    for i in _rhs:
-        jj = i // Nx
-        ii = i - Nx * jj
-        if ii == Nx * 1 // 2 and jj == Ny * 1 // 2:
-            _rhs[i] = 10.0
-        else:
-            _rhs[i] = 0.0
+    @ti.kernel
+    def init_rhs(_rhs: ti.template()):
+        """Инициализация правой части (точечный источник в центре)."""
+        for i in _rhs:
+            jj = i // Nx
+            ii = i - Nx * jj
+            if ii == Nx * 1 // 2 and jj == Ny * 1 // 2:
+                _rhs[i] = 10.0
+            else:
+                _rhs[i] = 0.0
 
+    # Инициализация
+    coef = ti.field(ti.f64, shape=(5, N))
+    rhs = ti.field(ti.f64, shape=N)
+    init_coef(coef)
+    init_rhs(rhs)
 
-# Инициализация
-coef = ti.field(ti.f64, shape=(5, N))
-rhs = ti.field(ti.f64, shape=N)
-arr = ti.field(ti.f64, shape=N)
+    # Создание и запуск решателя
+    x_ti = ti.field(ti.f64, shape=(Nx, Ny))
+    tt = perf_counter()
+    # TODO добавить предобуславливатель ILU-факторизацию
+    solver = BICGSolver(solution=x_ti, eps=1e-3, max_iter=100, debug=False)
+    print(perf_counter() - tt, 'init solver')
 
-init_coef(coef)
-init_rhs(rhs)
+    tt = perf_counter()
+    solver.solve(coef, rhs)
+    print('t:', perf_counter() - tt, 'ti solve')
 
-ti.field(ti.f64, shape=(Nx, Ny))
-# Создание и запуск решателя
-x_ti = ti.field(ti.f64, shape=(Nx, Ny))
-tt = perf_counter()
-# TODO добавить предобуславливатель ILU-факторизацию
-solver = BICGSolver(solution=x_ti, eps=1e-2, max_iter=100, debug=False)
-print(perf_counter() - tt, 'init solver')
+    x_ti.from_numpy(np.zeros((Nx, Ny)))
+    tt = perf_counter()
+    solver.solve(coef, rhs)
+    print('t:', perf_counter() - tt, 'ti solve')
 
-tt = perf_counter()
-solver.solve(coef, rhs)
-print('t:', perf_counter() - tt, 'ti solve')
+    A = diags(coef.to_numpy(), [-Nx, -1, 0, 1, Nx], shape=(N, N), format='csr')
+    # Решение системы
+    tt = perf_counter()
+    x = spsolve(A, rhs.to_numpy())
+    print('t:', perf_counter() - tt, 'scipy solve')
 
-x_ti.from_numpy(np.zeros((Nx, Ny)))
-tt = perf_counter()
-solver.solve(coef, rhs)
-print('t:', perf_counter() - tt, 'ti solve')
+    # проверка корректности умножения матрицы вектора
+    # arr = ti.field(ti.f64, shape=N)
+    # check_solution = rhs.to_numpy()-A.dot(x_ti.to_numpy().ravel())
+    # solver._calc_err(arr, coef, x_ti, rhs)
 
-A = diags(coef.to_numpy(), [-Nx, -1, 0, 1, Nx], shape=(N, N), format='csr')
-# Решение системы
-tt = perf_counter()
-x = spsolve(A, rhs.to_numpy())
-print('t:', perf_counter() - tt, 'scipy solve')
-
-# проверка корректности умножения матрицы вектора
-# check_solution = rhs.to_numpy()-A.dot(x_ti.to_numpy().ravel())
-# solver._calc_err(arr, coef, x_ti, rhs)
-
-print(np.max(x_ti.to_numpy() - x.reshape(Nx, Ny)), np.min(x_ti.to_numpy() - x.reshape(Nx, Ny)))
-# show_plot(x_ti.to_numpy() - x.reshape(Nx, Ny), "Разность решений SciPy и Taichi", True)
+    print(np.max(x_ti.to_numpy() - x.reshape(Nx, Ny)), np.min(x_ti.to_numpy() - x.reshape(Nx, Ny)))
+    # show_plot(x_ti.to_numpy() - x.reshape(Nx, Ny), "Разность решений SciPy и Taichi", True)
