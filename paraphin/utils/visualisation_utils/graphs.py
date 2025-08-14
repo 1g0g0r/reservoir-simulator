@@ -12,8 +12,8 @@ y_mesh = np.linspace(Y_min, Y_max, Ny)
 def create_graphs_and_maps():
     path = outputs_path / 'pictures'
 
-    _, data = read_solution_data('wp0_processed_data.pkl')
-    _, data_wp = read_solution_data('wp5_0607_processed_data.pkl')
+    _, data = read_solution_data('Wp=0.0_processed_data.pkl')
+    _, data_wp = read_solution_data('Wp=0.05_processed_data.pkl')
 
     data['Pressure'] /= bar_to_pa
     data_wp['Pressure'] /= bar_to_pa
@@ -31,16 +31,16 @@ def create_graphs_and_maps():
     for _setings in fields_settings:
         _field_vis(idx, idx_wp, data, data_wp, path, *_setings)
 
-    plots_settings = [['Producer_oil', 'Producer_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-                      ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-                      ['Producer_Q_oil','Producer_Q_water', '$$Q,\\: м^3$$']]
+    plots_settings = [['Producer_oil', 'Producer_water', 'qв, м³/сут'],
+                      # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
+                      ['Producer_Q_oil','Producer_Q_water', 'Qв, м³']]
     for _settings in plots_settings:
         _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
 
-    maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
-            ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
-    for _maps_setings in maps:
-        _create_map(idx_wp, data_wp, path, *_maps_setings)
+    # maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
+    #         ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
+    # for _maps_setings in maps:
+    #     _create_map(idx_wp, data_wp, path, *_maps_setings)
 
     print('Done!')
 
@@ -73,7 +73,7 @@ def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
         mode='lines', name='Wp=0%',
         line=dict(color='red', width=3, dash='dash'), showlegend=True
     ))
-    fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title='$$\\eta, \\: д. ед.$$', domain=[0.0, 0.5]))
+    fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title='qн, м³/сут', domain=[0.0, 0.5], title_font=dict(size=24)))
 
     fig.add_trace(go.Scatter(
         x=time, y=plot_data_wp2,
@@ -149,8 +149,8 @@ def _plots_params(fig, x_axis_title, y_axis_title):
         height=500, width=600, showlegend=False,
         # legend=dict(x=1.05, y=0.5, bgcolor='rgba(255,255,255,0.7)'),
         margin=dict(t=0, b=0),
-        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=26)),
-        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=24)),
+        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=24)),
     )
 
     fig.add_shape(

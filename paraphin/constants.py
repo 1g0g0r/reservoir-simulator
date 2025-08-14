@@ -85,7 +85,7 @@ alpha = 0.1426 * MW * (Tm + 273.15) * kal_to_J  # Скрытая теплота 
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
-init_Wp  = 0.05
+init_Wp  = 0.0
 init_Wps = 0.
 init_k   = 0.2 * darcy_to_m2  # [м^2]
 init_m   = 0.2
