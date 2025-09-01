@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
                                 day_to_sec, CONTOUR_PLOT, S_max, init_Wp)
-from .read_data_files import read_solution_data
+from .read_data_files import read_solution_data, convert_pkl_files
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
 y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
@@ -22,7 +22,20 @@ names_converter = {
 
 def visualize_solution():
     """Визуализация данных расчета."""
-    _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')  #'(wp5 40)processed_data.pkl'
+    try:
+        actual_n_times = len([path for path in results_path.glob('*.pkl') if 'processed_data' not in path.name])
+        _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')  #'(wp5 40)processed_data.pkl'
+
+        # Если количество временных слоев изменилось, то заново обрабатываем данные
+        if actual_n_times != _n_times:
+            convert_pkl_files()
+            _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')
+
+    # Если файл конвертированных данных отсутствует, то сами создаем его
+    except ValueError:
+        convert_pkl_files()
+        _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')  # '(wp5 40)processed_data.pkl'
+
     print('Временных слоев:', _n_times)
 
     fig_fields = _visualize_fields(input_data)
