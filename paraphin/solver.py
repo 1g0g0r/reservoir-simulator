@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from paraphin import r1, r3, r4, r5, r6, fi_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, init_k, init_S, init_m, init_p,
-                        init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, ro_p, ro_o,
+                        init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, ro_p, ro_o, max_eta,
                         c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re, geological_reserves)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
@@ -190,7 +190,7 @@ class Solver:
         self._swap_time_steps()
 
         # Запись данных в файл
-        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= 0.98:
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
             self._save_results(t)
             self._i_img += 1
 
@@ -379,7 +379,7 @@ class Solver:
                 for _t in pbar:
                     self.upd_time_step(_t)
                     pbar.set_postfix(день=_t / day_to_sec)
-                    if self.wells[1].eta >= 0.98:
+                    if self.wells[1].eta >= max_eta:
                         break
                     # ti.profiler.print_kernel_profiler_info()
         except KeyboardInterrupt:
