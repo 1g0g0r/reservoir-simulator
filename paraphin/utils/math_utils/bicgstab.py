@@ -4,11 +4,9 @@ from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
 from time import perf_counter
 
-from paraphin.utils import show_plot
+from paraphin.utils.visualisation_utils import show_plot
 from paraphin import N
 from paraphin.constants import data_type, Nx, Ny
-
-ti.init(arch=ti.cpu, default_fp=ti.f64)
 
 
 @ti.data_oriented
@@ -16,7 +14,7 @@ class BICGSolver:
     def __init__(self, solution: ti.template, eps=1e-5, max_iter = 100, debug=False):
         self.eps = eps
         self.debug = debug
-        self.max_iter = ti.min(max_iter, Nx * Ny)
+        self.max_iter = ti.min(max_iter, N)
 
         self.rho   = ti.field(dtype=data_type, shape=())
         self.rho_0 = ti.field(dtype=data_type, shape=())
@@ -57,9 +55,8 @@ class BICGSolver:
         4: i + Nx
         """
         for i in vector:
-            result[i] = (mat[0, i] * vector[i - Nx] + mat[1, i] * vector[i - 1] +
-                         mat[2, i] * vector[i] + mat[3, i] * vector[i + 1] +
-                         mat[4, i] * vector[i + Nx])
+            result[i] = (mat[0, i] * vector[i - 1] + mat[1, i] * vector[i - Nx] +
+                         mat[2, i] * vector[i] + mat[3, i] * vector[i + Nx] + mat[4, i] * vector[i + 1])
 
     @ti.func
     def _calc_err(self, array: ti.template(), mat: ti.template(), vector: ti.template(), rhs: ti.template()):
@@ -75,9 +72,9 @@ class BICGSolver:
             # i -> jj + Nx*ii
             ii = i // Nx
             jj = i - Nx * ii
-            array[i] = rhs[i] - (mat[0, i] * vector[ii - 1, jj] + mat[1, i] * vector[ii, jj - 1] +
-                                 mat[2, i] * vector[ii, jj] + mat[3, i] * vector[ii, jj + 1] +
-                                 mat[4, i] * vector[ii + 1, jj])
+
+            array[i] = rhs[i] - (mat[0, i] * vector[ii, jj - 1] + mat[1, i] * vector[ii - 1, jj] +
+                              mat[2, i] * vector[ii, jj] + mat[3, i] * vector[ii + 1, jj] + mat[4, i] * vector[ii, jj + 1])
 
             self.err[None] += array[i] * array[i]
         self.err[None] = ti.sqrt(self.err[None])
@@ -124,7 +121,7 @@ class BICGSolver:
             self.r[i] = self.s[i] - self.omega[None] * self.t[i]
 
     @ti.kernel
-    def _iter_BiCGStab(self, mat: ti.template()):
+    def _iter_BiCGStab(self, mat: ti.template(), rhs: ti.template()):
         """Итерация стабилизированного метода бисопряженных градиентов."""
         self.rho[None] = self._dot_product(self.r_0, self.r)    # 1
         self._calc_p()                                          # 2-3
@@ -137,22 +134,26 @@ class BICGSolver:
         self.rho_0[None] = self.rho[None]
         self._calc_err(self.s, mat, self.x, rhs)
 
+    # TODO перенести это тоже внутрь ядра
     def solve(self, mat, rhs):
+        _iter = 0
         self.init(mat, rhs)
-        for i in range(self.max_iter):
-            self._iter_BiCGStab(mat)
-            if self.debug:
-                print('>>> Iter =', i, ' Error =', self.err[None])
-            if self.err[None] < self.eps and i > 0:
+        for _iter in range(self.max_iter):
+            self._iter_BiCGStab(mat, rhs)
+            if self.err[None] < self.eps and _iter > 14:
                 break
+        if self.debug:
+            print('>>> Iter =', _iter, ' Error =', self.err[None])
 
 
 if __name__ == '__main__':
+    ti.init(arch=ti.cpu, default_fp=ti.f64)
+
     @ti.kernel
     def init_coef(_coef: ti.template()):
         """Инициализация коэффициентов (оператор Лапласа)."""
         for i, j in ti.ndrange(Nx, Ny):
-            idx = i + j * Nx
+            idx = j + i * Nx
             arr = [[i, j - 1], [i - 1, j], [i, j], [i + 1, j], [i, j + 1]]
             for qq in ti.static(ti.ndrange(5)):
                 i1, j1 = arr[qq]
@@ -163,10 +164,10 @@ if __name__ == '__main__':
     def init_rhs(_rhs: ti.template()):
         """Инициализация правой части (точечный источник в центре)."""
         for i in _rhs:
-            jj = i // Nx
-            ii = i - Nx * jj
-            if ii == Nx * 1 // 2 and jj == Ny * 1 // 2:
-                _rhs[i] = 10.0
+            ii = i // Nx
+            jj = i - Nx * ii
+            if jj == Nx * 1 // 4 and ii == Ny * 2 // 5:
+                _rhs[i] = 1.0
             else:
                 _rhs[i] = 0.0
 
@@ -179,15 +180,11 @@ if __name__ == '__main__':
     # Создание и запуск решателя
     x_ti = ti.field(ti.f64, shape=(Nx, Ny))
     tt = perf_counter()
+
     # TODO добавить предобуславливатель ILU-факторизацию
-    solver = BICGSolver(solution=x_ti, eps=1e-3, max_iter=100, debug=False)
+    solver = BICGSolver(solution=x_ti, eps=1e-4, max_iter=100, debug=False)
     print(perf_counter() - tt, 'init solver')
 
-    tt = perf_counter()
-    solver.solve(coef, rhs)
-    print('t:', perf_counter() - tt, 'ti solve')
-
-    x_ti.from_numpy(np.zeros((Nx, Ny)))
     tt = perf_counter()
     solver.solve(coef, rhs)
     print('t:', perf_counter() - tt, 'ti solve')
@@ -204,4 +201,6 @@ if __name__ == '__main__':
     # solver._calc_err(arr, coef, x_ti, rhs)
 
     print(np.max(x_ti.to_numpy() - x.reshape(Nx, Ny)), np.min(x_ti.to_numpy() - x.reshape(Nx, Ny)))
+    # show_plot(x.reshape(Nx, Ny), "SciPy", True)
+    show_plot(x_ti.to_numpy(), "Taichi", True)
     # show_plot(x_ti.to_numpy() - x.reshape(Nx, Ny), "Разность решений SciPy и Taichi", True)
