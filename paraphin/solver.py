@@ -80,7 +80,7 @@ class Solver:
         self.new_k   = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.new_m   = ti.field(dtype=d_type, shape=(Nx, Ny))
 
-        # Временные массивы
+        # Временные массивы перетоков через границы ячеек
         self.cells_T_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.cells_Wp_eq = ti.field(dtype=d_type, shape=(Nx, Ny))
         self.cells_S_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
@@ -118,19 +118,20 @@ class Solver:
             self.sort_mask, self.rows_indices, self.cols_ptr, self.wells = temp_data
 
         @ti.kernel
-        def _calc_integrals(fi_o: ti.types.ndarray()):
+        def _calc_integrals():
             """Вычисление интегралов от функций r^4*fi_o(r) и r^2*fi_o(r)"""
             self.integr_r2_fi0[None] = 0.0
             self.integr_r4_fi0[None] = 0.0
-            for i in range(1, Nr):
+
+            for i in ti.ndrange((1, Nr)):
                 dr = r1[i] - r1[i - 1]
-                a = (fi_o[i - 1] * r1[i] - fi_o[i] * r1[i - 1]) / dr
-                b = (fi_o[i] - fi_o[i - 1]) / dr
+                a = (fi_0[i - 1] * r1[i] - fi_0[i] * r1[i - 1]) / dr
+                b = (fi_0[i] - fi_0[i - 1]) / dr
                 self.integr_r2_fi0[None] += (r3[i] - r3[i-1]) * a / 3 + (r4[i] - r4[i-1]) * b / 4  # r^2 * fi
                 self.integr_r4_fi0[None] += (r5[i] - r5[i-1]) * a / 5 + (r6[i] - r6[i-1]) * b / 6  # r^4 * fi
 
         @ti.kernel
-        def _initialize_params_loop(fi_o: ti.types.ndarray()):
+        def _initialize_params_loop():
             for i, j in self.p:
                 # Параметры пласта
                 self.p[i, j]    = init_p
@@ -164,20 +165,21 @@ class Solver:
                 self.new_wp[i, j]  = init_Wp
 
                 for ij in ti.ndrange(Nr):
-                    self.fi[i, j, ij]     = fi_o[ij]
-                    self.new_fi[i, j, ij] = fi_o[ij]
+                    self.fi[i, j, ij]     = fi_0[ij]
+                    self.new_fi[i, j, ij] = fi_0[ij]
                     self.h_sloy[i, j, ij] = init_h_sloy
                     self.Ur[i, j, ij] = 0.0
                     self.Ub[i, j, ij] = 0.0
 
-        _calc_integrals(fi_o=fi_0)
-        _initialize_params_loop(fi_o=fi_0)
+        _calc_integrals()
+        _initialize_params_loop()
         _wells_and_matrix_processing()
 
 
-    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = 0.0, rw: float = rw):
+    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = 0.0,
+                 rw: float = rw, mult: float = 1.0):
         """Добавление скважин в расчет"""
-        productivity_mult = 2.0 * np.pi * h / np.log(_re / rw) * 0.25
+        productivity_mult = 2.0 * np.pi * h / np.log(_re / rw) * mult
         well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), productivity_mult=productivity_mult)
         self._wells_buffer.append({'well': well, 'name': name})
         self.n_wells += 1
@@ -200,7 +202,7 @@ class Solver:
         # Обновление давления
         # from time import perf_counter
         # print()
-        tt = perf_counter()
+        # tt = perf_counter()
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o,
                       self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask)
         # print(perf_counter() - tt, 'pressure')

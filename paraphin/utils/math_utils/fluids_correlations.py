@@ -52,23 +52,23 @@ if __name__ == '__main__':
     t_0 = 20
     t_n = 70
     t_arr = ti.field(dtype=data_type, shape=n)
-    f_o = ti.field(dtype=data_type, shape=n)
-    f_w = ti.field(dtype=data_type, shape=n)
+    mu_o = ti.field(dtype=data_type, shape=n)
+    mu_w = ti.field(dtype=data_type, shape=n)
 
     @ti.kernel
     def calc_data():
         for i in range(0, n):
             t = t_0 + i * (t_n - t_0) / (n - 1)
             t_arr[i] = t
-            f_o[i] = calc_mu_o(t)
-            f_w[i] = calc_mu_w(t)
+            mu_o[i] = calc_mu_o(t)
+            mu_w[i] = calc_mu_w(t)
 
     calc_data()
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='формула 15.1',
+    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=mu_w.to_numpy(), mode='lines', name='формула 15.1',
                              line=dict(color='blue', width=3)))
-    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=f_o.to_numpy(), mode='lines', name='формула 15.2',
+    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=mu_o.to_numpy(), mode='lines', name='формула 15.2',
                              line=dict(color='red', width=3)))
 
     fig.update_layout(plot_bgcolor='white', width=750, height=350, margin=dict(t=0, b=0),
@@ -83,5 +83,5 @@ if __name__ == '__main__':
         line=dict(color="black", width=1)
     )
 
-    fig.write_image("mu.svg", width=750, height=350)
+    # fig.write_image("mu.svg", width=750, height=350)
     fig.show()

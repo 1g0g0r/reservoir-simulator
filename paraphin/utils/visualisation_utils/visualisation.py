@@ -80,7 +80,7 @@ def _visualize_fields(data):
                 if np.all(np.isclose(_val, 0.0)) or np.all(np.isclose(_val, 1.0)):
                     continue
                 if 'eta' in _name:
-                    trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name, yaxis='y2',
+                    trace += [go.Scatter(x=time, y=_val, mode='lines', name=_name, yaxis='y2',
                                          hovertemplate="x: %{x} день<br>y: %{y}<br>")]
                 else:
                     if 'Q' in _name:

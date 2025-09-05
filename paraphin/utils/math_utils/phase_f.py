@@ -84,5 +84,5 @@ if __name__ == '__main__':
     )
 
     fig.update_yaxes(range=[-0.005, 1.01])
-    fig.write_image("ofp.svg", width=750, height=350)
+    # fig.write_image("ofp.svg", width=750, height=350)
     fig.show()

@@ -8,8 +8,8 @@ def solve():
     solution = Solver()
 
     # Создание скважин
-    solution.add_well(name='Injector', i=0,    j=0,    p=Pw, rw=rw, is_injector=True, T=Twater)
-    solution.add_well(name='Producer', i=Nx-1, j=Ny-1, p=Po, rw=rw, is_injector=False)
+    solution.add_well(name='Injector', i=0,    j=0,    p=Pw, rw=rw, mult=0.25, is_injector=True, T=Twater)
+    solution.add_well(name='Producer', i=Nx-1, j=Ny-1, p=Po, rw=rw, mult=0.25, is_injector=False)
 
     solution.start()
 
