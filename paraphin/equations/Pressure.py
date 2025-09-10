@@ -2,7 +2,9 @@
 import numpy as np
 import taichi as ti
 from scipy.sparse.linalg._dsolve.linsolve import _superlu
-from taichi._kernels import ndarray_to_ext_arr, ext_arr_to_tensor
+from taichi._kernels import ext_arr_to_tensor, ndarray_to_ext_arr
+from taichi.lang.impl import grouped
+from taichi.types import ndarray_type
 
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
@@ -49,10 +51,8 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
     wells: taichi.field(n_wells)
         Массив скважин
     """
-    _build_matrix_and_rhs(wells, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
+    _build_matrix_and_rhs(wells, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, data_np, rhs_np)
 
-    ndarray_to_ext_arr(data, data_np)  # data.to_numpy()
-    ndarray_to_ext_arr(rhs, rhs_np)  # rhs.to_numpy()
     np.take(data_np, sort_mask, out=data_np)  # data.to_numpy()[sort_mask]
 
     # TODO рассмотреть возможность решения СЛАУ внутри taichi
@@ -63,9 +63,14 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
 @ti.kernel
 def _build_matrix_and_rhs(wells: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
                           k: ti.template(), S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
-                          data: ti.types.ndarray(), rhs: ti.types.ndarray()):
+                          data: ti.types.ndarray(), rhs: ti.types.ndarray(), data_np: ti.types.ndarray(), rhs_np: ti.types.ndarray()):
     _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
     _adding_wells(wells, data, rhs, S, k, mu_o, mu_w)
+
+    for I in grouped(data):
+        data_np[I] = data[I]
+    for I in grouped(rhs):
+        rhs_np[I] = rhs[I]
 
 
 @ti.func

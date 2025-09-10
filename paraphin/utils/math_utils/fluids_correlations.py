@@ -66,9 +66,9 @@ if __name__ == '__main__':
     calc_data()
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=mu_w.to_numpy(), mode='lines', name='формула 15.1',
+    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=mu_w.to_numpy(), mode='lines', name='mu_w',
                              line=dict(color='blue', width=3)))
-    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=mu_o.to_numpy(), mode='lines', name='формула 15.2',
+    fig.add_trace(go.Scatter(x=t_arr.to_numpy(), y=mu_o.to_numpy(), mode='lines', name='mu_o',
                              line=dict(color='red', width=3)))
 
     fig.update_layout(plot_bgcolor='white', width=750, height=350, margin=dict(t=0, b=0),
