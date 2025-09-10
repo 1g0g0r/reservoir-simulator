@@ -17,11 +17,12 @@ cpoise_to_Pas = 1e-3
 kal_to_J = 4.1868
 
 # Пути проекта
-outputs_path = Path.cwd() / 'outputs'
+root_folder = Path(__file__).parent.parent
+outputs_path = root_folder / 'outputs'
 results_path = outputs_path / 'results'  #  wp0 80
 data_path = outputs_path / 'data'  #  wp0 80
 logs_path = outputs_path / '.log'
-js_path = Path.cwd() / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
+js_path = root_folder / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
 
 # Параметры сетки
 Nr = 31          # Число узлов сетки радиусов капилляров

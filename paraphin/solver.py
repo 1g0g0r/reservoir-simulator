@@ -22,68 +22,68 @@ from .well import WellStruct, upd_q_and_eta
 
 @ti.data_oriented
 class Solver:
-    def __init__(self, d_type = data_type):
-        self.d_type = d_type
+    def __init__(self):
+        self.d_type = data_type
 
         # Скважины
-        self.KIN = ti.field(dtype=d_type, shape=())
+        self.KIN = ti.field(dtype=data_type, shape=())
         self.n_wells = 0
         self._wells_buffer = []
         self._wells_names = []
         self.wells = WellStruct.field(shape=1)
 
         # Свойства флюидов
-        self.mu_o = ti.field(dtype=d_type, shape=(Nx, Ny))  # Вязкость нефти, [Па*с]
-        self.mu_w = ti.field(dtype=d_type, shape=(Nx, Ny))  # Вязкость воды, [Па*с]
-        self.C_w  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость воды, [Дж*кг/C]
-        self.C_o  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость нефти, [Дж*кг/C]
-        self.C_f  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость пласта, [Дж*кг/C]
-        self.C_p  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Теплоемкость парафина, [Дж*кг/C]
+        self.mu_o = ti.field(dtype=data_type, shape=(Nx, Ny))  # Вязкость нефти, [Па*с]
+        self.mu_w = ti.field(dtype=data_type, shape=(Nx, Ny))  # Вязкость воды, [Па*с]
+        self.C_w  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость воды, [Дж*кг/C]
+        self.C_o  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость нефти, [Дж*кг/C]
+        self.C_f  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость пласта, [Дж*кг/C]
+        self.C_p  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость парафина, [Дж*кг/C]
 
         # Поля данных
-        self.p     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Давление, [Па]
-        self.S     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Водонасыщенность, [-]
-        self.S_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wo    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
-        self.Wo_0  = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
-        self.Wp    = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти, [-]
-        self.Wp_0  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wps   = ti.field(dtype=d_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти, [-]
-        self.Wps_0 = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.Wps_dep = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.k     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Проницаемость, [м^2]
-        self.m     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Пористость, [-]
-        self.m_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.T     = ti.field(dtype=d_type, shape=(Nx, Ny))  # Температура, [С]
-        self.T_0   = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.p     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Давление, [Па]
+        self.S     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Водонасыщенность, [-]
+        self.S_0   = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.Wo    = ti.field(dtype=data_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
+        self.Wo_0  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
+        self.Wp    = ti.field(dtype=data_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти, [-]
+        self.Wp_0  = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.Wps   = ti.field(dtype=data_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти, [-]
+        self.Wps_0 = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.Wps_dep = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.k     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Проницаемость, [м^2]
+        self.m     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Пористость, [-]
+        self.m_0   = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.T     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Температура, [С]
+        self.T_0   = ti.field(dtype=data_type, shape=(Nx, Ny))
 
         # Динамика образования парафина (кольматация\суффозия)
-        self.integr_r2_fi0 = ti.field(dtype=d_type, shape=())
-        self.integr_r4_fi0 = ti.field(dtype=d_type, shape=())
-        self._Um_r2  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.qp      = ti.field(dtype=d_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
-        self.fi      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.h_sloy  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.Ur      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.Ub      = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
+        self.integr_r2_fi0 = ti.field(dtype=data_type, shape=())
+        self.integr_r4_fi0 = ti.field(dtype=data_type, shape=())
+        self._Um_r2  = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.qp      = ti.field(dtype=data_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
+        self.fi      = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
+        self.h_sloy  = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
+        self.Ur      = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
+        self.Ub      = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
 
         # Поля данный нового временного слоя
-        self.new_h   = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.new_Ur  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.new_Ub  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.new_fi  = ti.field(dtype=d_type, shape=(Nx, Ny, Nr))
-        self.new_s   = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.new_t   = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.new_wps = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.new_wp  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.new_qp  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.new_k   = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.new_m   = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.new_h   = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
+        self.new_Ur  = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
+        self.new_Ub  = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
+        self.new_fi  = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
+        self.new_s   = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.new_t   = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.new_wps = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.new_wp  = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.new_qp  = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.new_k   = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.new_m   = ti.field(dtype=data_type, shape=(Nx, Ny))
 
         # Временные массивы перетоков через границы ячеек
-        self.cells_T_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.cells_Wp_eq = ti.field(dtype=d_type, shape=(Nx, Ny))
-        self.cells_S_eq  = ti.field(dtype=d_type, shape=(Nx, Ny))
+        self.cells_T_eq  = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.cells_Wp_eq = ti.field(dtype=data_type, shape=(Nx, Ny))
+        self.cells_S_eq  = ti.field(dtype=data_type, shape=(Nx, Ny))
 
         # Вспомогательные поля класса
         self._i_img = 0
