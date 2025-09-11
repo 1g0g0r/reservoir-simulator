@@ -29,7 +29,7 @@ def test():
 
 			if not np.all(np.isclose(test_data[name], calculation_data[name][:_n_test_data])):
 				arr = test_data[name]-calculation_data[name][:_n_test_data]
-				raise False
+				assert False
 
 		# Сравнение показателей работы скважины
 		for name in test_data['Wells'].keys():
@@ -38,8 +38,8 @@ def test():
 
 			if not np.all(np.isclose(test_data['Wells'][name], calculation_data['Wells'][name][:_n_test_data])):
 				arr = test_data['Wells'][name]-calculation_data['Wells'][name][:_n_test_data]
-				raise False
+				assert False
 	except:
 		std = np.std(arr)
 		rmse = np.sqrt(np.mean(arr ** 2))
-		raise print(f'Поломалось поле данных {name}. std={std}, rmse {rmse}')
+		assert False, print(f'Поломалось поле данных {name}. std={std}, rmse {rmse}')
