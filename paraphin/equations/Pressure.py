@@ -3,7 +3,6 @@ import numpy as np
 import taichi as ti
 from scipy.sparse.linalg._dsolve.linsolve import _superlu
 from taichi._kernels import ext_arr_to_tensor
-from taichi.lang.impl import grouped
 
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h, np_data_type
@@ -11,10 +10,8 @@ from paraphin.utils import mid_Ko_Kw
 from paraphin.well import calc_well_mult
 # from pypardiso import spsolve
 
-rhs     = ti.ndarray(data_type, shape=N)
-rhs_np  = np.zeros(N, dtype=np_data_type)
-data    = ti.ndarray(data_type, shape=NN)
-data_np = np.zeros(NN, dtype=np_data_type)
+rhs = np.zeros(N, dtype=np_data_type)
+data = np.zeros(NN, dtype=np_data_type)
 
 
 def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask):
@@ -45,26 +42,20 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
     wells: taichi.field(n_wells)
         Массив скважин
     """
-    _build_matrix_and_rhs(wells, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, data_np, rhs_np)
-
-    np.take(data_np, sort_mask, out=data_np)  # data.to_numpy()[sort_mask]
+    _build_matrix_and_rhs(wells, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
+    np.take(data, sort_mask, out=data)  # data.to_numpy()[sort_mask]
 
     # TODO рассмотреть возможность решения СЛАУ внутри taichi
-    solution, _ = _superlu.gssv(N, NN, data_np, rows_indices, cols_ptr, rhs_np, 1, {'ColPerm': None})
+    solution, _ = _superlu.gssv(N, NN, data, rows_indices, cols_ptr, rhs, 1, {'ColPerm': None})
     ext_arr_to_tensor(solution.reshape((Nx, Ny)).T, p)  # p.from_numpy(solution.reshape((Nx, Ny)).T)
 
 
 @ti.kernel
 def _build_matrix_and_rhs(wells: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
                           k: ti.template(), S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
-                          data: ti.types.ndarray(), rhs: ti.types.ndarray(), data_np: ti.types.ndarray(), rhs_np: ti.types.ndarray()):
-    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
-    _adding_wells(wells, data, rhs, S, k, mu_o, mu_w)
-
-    for I in grouped(data):
-        data_np[I] = data[I]
-    for I in grouped(rhs):
-        rhs_np[I] = rhs[I]
+                          data_np: ti.types.ndarray(), rhs_np: ti.types.ndarray()):
+    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data_np, rhs_np)
+    _adding_wells(wells, S, k, mu_o, mu_w, data_np, rhs_np)
 
 
 @ti.func
@@ -95,8 +86,8 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
 
 
 @ti.func
-def _adding_wells(wells: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray(), S: ti.template(),
-                  k: ti.template(), mu_o: ti.template(), mu_w: ti.template()):
+def _adding_wells(wells: ti.template(), S: ti.template(), k: ti.template(), mu_o: ti.template(),
+                  mu_w: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
     """Добавление скважин в уравнение давления"""
     for i in wells:
         well = wells[i]
