@@ -303,6 +303,29 @@ class Solver:
                     self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
 
 
+    def start(self):
+        try:
+            times = np.linspace(0, Time_end, int(Time_end / dt + 1))
+            tt = perf_counter()
+            self.initialize()      # Задание начальных условий из файла const.py
+            self.upd_time_step(0)  # При первом запуске компилируются модули
+            print('Время компиляции:', perf_counter() - tt)
+
+            with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
+                      bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
+                for _t in pbar:
+                    self.upd_time_step(_t)
+                    pbar.set_postfix(день=_t / day_to_sec)
+                    if self.wells[1].eta >= max_eta:
+                        break
+                    # ti.profiler.print_kernel_profiler_info()
+        except Exception as e:
+            pass
+        finally:
+            print('KIN:', self.KIN)
+            convert_pkl_files()
+
+
     def _save_results(self, t) -> None:
         """Сохранение полей данных в файл формата pkl."""
         if np.isclose(t, 0.0):
@@ -338,7 +361,7 @@ class Solver:
                 'k ':          self.new_k.to_numpy() / init_k,
                 # 'mu_o':        self.mu_o.to_numpy(),
                 # 'mu_w':        self.mu_w.to_numpy(),
-                'plots':       {'fi_o': fi_0, 'fi': self.fi.to_numpy()[x_idx, y_idx]},
+                'plots':       {'fi_o': fi_0.to_numpy(), 'fi': self.fi.to_numpy()[x_idx, y_idx]},
                 'Wells':       wells_data,
                 'Other params': {
                     f'Wps [{x_idx},{y_idx}]': self.Wps.to_numpy()[x_idx,y_idx],
@@ -366,29 +389,6 @@ class Solver:
         with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
             dump(data, f)
             self.logger.info("Данные записаны в файл.")
-
-
-    def start(self):
-        try:
-            times = np.linspace(0, Time_end, int(Time_end / dt + 1))
-            tt = perf_counter()
-            self.initialize()      # Задание начальных условий из файла const.py
-            self.upd_time_step(0)  # При первом запуске компилируются модули
-            print('Время компиляции:', perf_counter() - tt)
-
-            with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
-                      bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
-                for _t in pbar:
-                    self.upd_time_step(_t)
-                    pbar.set_postfix(день=_t / day_to_sec)
-                    if self.wells[1].eta >= max_eta:
-                        break
-                    # ti.profiler.print_kernel_profiler_info()
-        except KeyboardInterrupt:
-            pass
-        finally:
-            print('KIN:', self.KIN)
-            convert_pkl_files()
 
 
     def _logging_resources(self) -> None:

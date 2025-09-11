@@ -51,6 +51,19 @@ S_min = 0.18
 S_max = 0.70
 n_power = 2
 
+# Данные инициализации
+init_p   = (Pw + Po) / 2  # [Па]
+init_S   = S_min
+init_Wp  = 0.05
+init_Wps = 0.
+init_k   = 0.2 * darcy_to_m2  # [м^2]
+init_m   = 0.2
+init_T   = 70  # [C]
+init_qp  = 0.0
+init_h_sloy = 0.0
+porous_volume = (X_max - X_min) * (Y_max - Y_min) * h * init_m
+geological_reserves = porous_volume * (1.0 - init_S)  # геологические запасы пласта
+
 # Параметры флюидов
 ro_w = 1000.0  # Плотность воды, [кг/м^3]
 ro_o = 860.0   # Плотность нефти, [кг/м^3]
@@ -83,19 +96,6 @@ R     = 8.31446261815324  # Газовая постоянная, [J⋅/K/⋅mol]
 MW = 350.0  # Молекулярная масса
 Tm = 374.5 + 0.02617 * MW - 2.0172e4 / MW - 273.15 # Температура кристаллизации парафина, [C]
 alpha = 0.1426 * MW * (Tm + 273.15) * kal_to_J     # Скрытая теплота плавления парафина, [J/gram-mol]
-
-# Данные инициализации
-init_p   = (Pw + Po) / 2  # [Па]
-init_S   = S_min
-init_Wp  = 0.0
-init_Wps = 0.
-init_k   = 0.2 * darcy_to_m2  # [м^2]
-init_m   = 0.2
-init_T   = 70  # [C]
-init_qp  = 0.0
-init_h_sloy = 0.0
-porous_volume = (X_max - X_min) * (Y_max - Y_min) * h * init_m
-geological_reserves = porous_volume * (1.0 - init_S)  # геологические запасы пласта
 
 # Проверка числа Куранта
 _re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
