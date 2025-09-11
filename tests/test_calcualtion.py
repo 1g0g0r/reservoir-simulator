@@ -17,7 +17,7 @@ def test():
 	with open(test_data_path / f'Wp={init_Wp}_processed_data.pkl', 'rb') as file:
 		_n_test_data, test_data = load(file)
 
-	# solve()
+	solve()
 	_n_times, calculation_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')
 	arr = np.array([0.0])
 
