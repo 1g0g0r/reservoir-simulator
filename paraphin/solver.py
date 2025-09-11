@@ -16,7 +16,7 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                         calc_Um_r2)
-from .utils import calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files
+from .utils import calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files, save_fields
 from .well import WellStruct, upd_q_and_eta
 
 
@@ -174,6 +174,8 @@ class Solver:
         _calc_integrals()
         _initialize_params_loop()
         _wells_and_matrix_processing()
+        for file_path in results_path.glob(f'*.pkl'):  # Перебор всех файлов .pkl
+            file_path.unlink()
 
 
     def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = 0.0,
@@ -193,23 +195,17 @@ class Solver:
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
-            self._save_results(t)
+            save_fields(self, t)
             self._i_img += 1
 
 
     def _process_time_step(self):
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Обновление давления
-        # from time import perf_counter
-        # print()
-        # tt = perf_counter()
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o,
                       self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask)
-        # print(perf_counter() - tt, 'pressure')
-        # tt = perf_counter()
         # Решение уравнений по явной схеме
         self._equations_loop()
-        # print(perf_counter() - tt, 'equations')
 
 
     @ti.kernel
@@ -319,76 +315,11 @@ class Solver:
                     if self.wells[1].eta >= max_eta:
                         break
                     # ti.profiler.print_kernel_profiler_info()
-        except Exception as e:
+        except KeyboardInterrupt:
             pass
         finally:
             print('KIN:', self.KIN)
             convert_pkl_files()
-
-
-    def _save_results(self, t) -> None:
-        """Сохранение полей данных в файл формата pkl."""
-        if np.isclose(t, 0.0):
-            for file_path in results_path.glob(f'*.pkl'):  # Перебор всех файлов .pkl
-                file_path.unlink()
-            self.logger.info('Старые файлы удалены.')
-
-        wells_data = {}
-        for i in range(self.n_wells):
-            name = self._wells_names[i]
-            well = self.wells[i]
-            q_value = well.q
-            Q_value = well.Q
-            wells_data.update({
-                f'{name}_oil': q_value[0], f'{name}_water': q_value[1],
-                f'{name}_total': q_value[2], f'{name}_eta': well.eta,
-                # f'{name}_Q_oil': Q_value[0], f'{name}_Q_water': Q_value[1], f'{name}_Q_total': Q_value[2],
-            })
-        if self._paraphin:
-            x_idx = int(Nx / 2)
-            y_idx = int(Ny / 2)
-            data = {
-                'Time':        t,
-                'Pressure':    self.p.to_numpy(),
-                'Saturation':  self.S.to_numpy(),
-                'Temperature': self.T.to_numpy(),
-                'Wo':          self.Wo.to_numpy(),
-                'Wp':          self.Wp.to_numpy(),
-                'Wps':         self.Wps.to_numpy(),
-                'Wps dep':     self.Wps_dep.to_numpy(),
-                'qp':          self.qp.to_numpy(),
-                'm':           self.new_m.to_numpy() / init_m,
-                'k ':          self.new_k.to_numpy() / init_k,
-                # 'mu_o':        self.mu_o.to_numpy(),
-                # 'mu_w':        self.mu_w.to_numpy(),
-                'plots':       {'fi_o': fi_0.to_numpy(), 'fi': self.fi.to_numpy()[x_idx, y_idx]},
-                'Wells':       wells_data,
-                'Other params': {
-                    f'Wps [{x_idx},{y_idx}]': self.Wps.to_numpy()[x_idx,y_idx],
-                    f'Wp [{x_idx},{y_idx}]': self.Wp.to_numpy()[x_idx,y_idx],
-                    f'Wo [{x_idx,y_idx}]': self.Wo.to_numpy()[x_idx,y_idx], 'KIN': self.KIN[None],
-                    f'k [{x_idx},{y_idx}]': self.new_k.to_numpy()[x_idx,y_idx] / init_k,
-                    f'm [{x_idx},{y_idx}]': self.new_m.to_numpy()[x_idx,y_idx] / init_m,
-                    f'qp [{x_idx},{y_idx}]': self.qp.to_numpy()[x_idx,y_idx],
-                }
-            }
-        else:
-            data = {
-                'Time': t,
-                'Pressure': self.p.to_numpy(),
-                'Saturation': self.S.to_numpy(),
-                'Temperature': self.T.to_numpy(),
-                'mu_o': self.mu_o.to_numpy(),
-                'mu_w': self.mu_w.to_numpy(),
-                'Wells': wells_data,
-                'Other params': {
-                    'KIN': self.KIN[None],
-                    f'T [{0},{0}]': self.T.to_numpy()[0, 0],
-                }
-            }
-        with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
-            dump(data, f)
-            self.logger.info("Данные записаны в файл.")
 
 
     def _logging_resources(self) -> None:
