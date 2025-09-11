@@ -54,7 +54,7 @@ n_power = 2
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
-init_Wp  = 0.05
+init_Wp  = 0.0
 init_Wps = 0.
 init_k   = 0.2 * darcy_to_m2  # [м^2]
 init_m   = 0.2
@@ -111,3 +111,8 @@ if Courant_num > 0.8:
 #     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
 sol_time_step = dt * 10  # шаг по времени для сохранения результатов
+
+if data_type == ti.f64:
+    np_data_type = np.float64
+else:
+    np_data_type = np.float32

@@ -31,6 +31,10 @@ def convert_pkl_files():
     sorted_paths = sorted(files_paths, key=extract_number)  # Сортировка данных расчета по времени
     n_files = len(files_paths)
 
+    # Если файлов нет, то завершаем выполнение
+    if n_files == 0:
+        return None
+
     data = {}
     with open(sorted_paths[0], 'rb') as f:
         for name, file_data in load(f).items():

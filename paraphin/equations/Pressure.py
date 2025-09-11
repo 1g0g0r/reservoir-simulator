@@ -2,20 +2,14 @@
 import numpy as np
 import taichi as ti
 from scipy.sparse.linalg._dsolve.linsolve import _superlu
-from taichi._kernels import ext_arr_to_tensor, ndarray_to_ext_arr
+from taichi._kernels import ext_arr_to_tensor
 from taichi.lang.impl import grouped
-from taichi.types import ndarray_type
 
 from paraphin import N, NN
-from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h
+from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h, np_data_type
 from paraphin.utils import mid_Ko_Kw
 from paraphin.well import calc_well_mult
 # from pypardiso import spsolve
-
-if data_type == ti.f64:
-    np_data_type = np.float64
-else:
-    np_data_type = np.float32
 
 rhs     = ti.ndarray(data_type, shape=N)
 rhs_np  = np.zeros(N, dtype=np_data_type)
