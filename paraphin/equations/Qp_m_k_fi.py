@@ -117,7 +117,6 @@ def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: 
         Индексы текущей ячейки, [-]
     """
     c, d, e, f = 0.0, 0.0, 0.0, 0.0
-    # TODO переписать аппроксимацию производной по пространству и сравнить
     # Вычисление прогоночных коэффициентов
     if Ur[i, j, 0] > 0:
         d = 1.0 / dt + Ur[i, j, 0] / (r1[1] - r1[0])
@@ -128,17 +127,22 @@ def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: 
     _a[0] = -e / d
     _b[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
 
+    # TODO Надо сделать проверку решения в вольфраме. Задать функции и решить численно по данному алгоритму
     for ij in ti.ndrange((1, Nr)):
         dr = r1[ij] - r1[ij-1]
         f = fi[i, j, ij] / dt - Ub[i, j, ij]
         if Ur[i, j, ij] >= 0:
             c = - Ur[i, j, ij-1] / dr
+            # c = - Ur[i, j, ij] / dr
             d = 1.0 / dt + Ur[i, j, ij] / dr
+            # d = 1.0 / dt + (2.0 * Ur[i, j, ij] - Ur[i, j, ij-1]) / dr
             e = 0.0
         else:
             c = 0.0
             d = 1.0 / dt - Ur[i, j, ij] / dr
+            # d = 1.0 / dt - Ur[i, j, ij-1] / dr
             e = Ur[i, j, ij+1] / dr
+            # e = Ur[i, j, ij] / dr
         denominator = c * _a[ij - 1] + d
         _a[ij] = -e / denominator
         _b[ij] = (f - c * _b[ij - 1]) / denominator
@@ -153,7 +157,7 @@ def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: 
 
 @ti.func
 def _update_fi_deprecated(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int, ij: int):
-    """Обновление функции пор по размерам.
+    """Обновление функции пор по размерам по явной схеме.
 
     Parameters
     ----------
