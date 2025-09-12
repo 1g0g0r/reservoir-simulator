@@ -54,6 +54,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
 def _build_matrix_and_rhs(wells: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
                           k: ti.template(), S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
                           data_np: ti.types.ndarray(), rhs_np: ti.types.ndarray()):
+    """Сборка матрицы и правой части уравнения давления."""
     _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data_np, rhs_np)
     _adding_wells(wells, S, k, mu_o, mu_w, data_np, rhs_np)
 
@@ -62,7 +63,7 @@ def _build_matrix_and_rhs(wells: ti.template(), Wo: ti.template(), Wo_0: ti.temp
 def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(), k: ti.template(),
                          S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
                          data: ti.types.ndarray(), rhs: ti.types.ndarray()):
-    """Сборка матрицы уравнения давления"""
+    """Заполнение массивов матрицы и правой части уравнения давления."""
     num = 0
     for i, j in S:
         idx = i + j * Nx
@@ -88,7 +89,7 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
 @ti.func
 def _adding_wells(wells: ti.template(), S: ti.template(), k: ti.template(), mu_o: ti.template(),
                   mu_w: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
-    """Добавление скважин в уравнение давления"""
+    """Учет скважин в уравнение давления."""
     for i in wells:
         well = wells[i]
         temp_data = calc_well_mult(well, S, k, mu_o, mu_w)  # well.q[2] / well.dp

@@ -1,6 +1,5 @@
 """Класс содержит алгоритм расчета и хранение данных."""
 from logging import basicConfig, INFO, getLogger
-from pickle import dump
 from sys import stdout
 from time import perf_counter
 
@@ -318,7 +317,8 @@ class Solver:
         except KeyboardInterrupt:
             pass
         finally:
-            print('KIN:', self.KIN)
+            print('KIN:', round(self.KIN[None], 5))
+            print('eta:', round(self.wells[1].eta, 5))
             convert_pkl_files()
 
 
@@ -331,7 +331,7 @@ class Solver:
 
 
     def _logging_solution(self, t):
-        """Логирование полей задачи"""
+        """Логирование решения задачи."""
         if not LOGGING:
             return None
 
