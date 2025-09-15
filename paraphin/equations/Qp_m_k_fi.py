@@ -127,7 +127,7 @@ def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: 
     _a[0] = -e / d
     _b[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
 
-    # TODO Надо сделать проверку решения в вольфраме. Задать функции и решить численно по данному алгоритму
+    # TODO Надо сделать проверку решения в вольфраме
     for ij in ti.ndrange((1, Nr)):
         dr = r1[ij] - r1[ij-1]
         f = fi[i, j, ij] / dt - Ub[i, j, ij]
