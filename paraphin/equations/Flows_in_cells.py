@@ -67,9 +67,23 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 																 S[i1, j1], m[i1, j1], Wps[i1, j1])
 			_t += C_w[i, j] * ro_w * up_t * up_k_w
 			_t += mid(Co, Co_ij) * up_t * up_k_o
-		# TODO учет граничных условий
-		# else:
-		# 	pass
+
+		else:
+			# TODO для каждого случая нужно как-то обработать: температуру, насыщенность, массовую доля взвешенного парафина
+			# обрабатывать в цикле по полям данных (а может ли taichi вообще так????)
+			if i == 0:
+				# гу на левой границе
+				pass
+			elif i == Nx-1:
+				# гу на правой границе
+				pass
+			elif j == 0:
+				# гу на нижней границе
+				pass
+			elif j == Ny-1:
+				# гу на верхней границе
+				pass
+
 
 	cells_S_eq[i, j] = _s
 	cells_Wp_eq[i, j] = _wp

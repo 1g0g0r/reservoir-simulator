@@ -15,7 +15,7 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                         calc_Um_r2)
-from .utils import calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files, save_fields
+from .utils import calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files, save_fields, Bound, TypeBC
 from .well import WellStruct, upd_q_and_eta
 
 
@@ -173,12 +173,18 @@ class Solver:
         _calc_integrals()
         _initialize_params_loop()
         _wells_and_matrix_processing()
-        for file_path in results_path.glob(f'*.pkl'):  # Перебор всех файлов .pkl
+        for file_path in results_path.glob(f'*.pkl'):
             file_path.unlink()
 
 
+    def add_bc(self, bound: Bound, type_bc: TypeBC, field, value: float) -> None:
+        # 1. Исходя из bound определять ячейки, в которых задано ГУ
+        # 2. Реализовать расчетные схемы гу 1-2 рода в общем случае
+        # давление, температура, насыщенность, массовая доля взвешенного парафина
+        pass
+
     def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = 0.0,
-                 rw: float = rw, mult: float = 1.0):
+                 rw: float = rw, mult: float = 1.0) -> None:
         """Добавление скважин в расчет"""
         productivity_mult = 2.0 * np.pi * h / np.log(_re / rw) * mult
         well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), productivity_mult=productivity_mult)
