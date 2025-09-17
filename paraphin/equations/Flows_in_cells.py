@@ -67,6 +67,9 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 																 S[i1, j1], m[i1, j1], Wps[i1, j1])
 			_t += C_w[i, j] * ro_w * up_t * up_k_w
 			_t += mid(Co, Co_ij) * up_t * up_k_o
+		# TODO учет граничных условий
+		# else:
+		# 	pass
 
 	cells_S_eq[i, j] = _s
 	cells_Wp_eq[i, j] = _wp

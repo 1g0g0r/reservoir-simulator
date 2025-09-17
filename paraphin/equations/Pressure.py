@@ -77,6 +77,9 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
                 data[num] = val
                 p_sum -= val
                 num += 1
+            # TODO учет граничных условий
+            # else:
+            # 	pass
 
         data[num] = p_sum
         num += 1
