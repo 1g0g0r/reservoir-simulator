@@ -77,7 +77,7 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 			elif i == Nx-1:
 				# гу на правой границе
 				pass
-			elif j == 0:
+			if j == 0:
 				# гу на нижней границе
 				pass
 			elif j == Ny-1:
