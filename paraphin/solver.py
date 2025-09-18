@@ -177,7 +177,9 @@ class Solver:
             file_path.unlink()
 
 
-    def add_bc(self, bound: Bound, type_bc: TypeBC, field, value: float) -> None:
+    def add_bc(self, field, bound: Bound, type_bc: TypeBC, value: float) -> None:
+        """Учет граничных условий для полей данных."""
+        # Для хранения граничных условий создать словарь со значениями по умолчанию и модифицировать его)
         # 1. Исходя из bound определять ячейки, в которых задано ГУ
         # 2. Реализовать расчетные схемы гу 1-2 рода в общем случае
         # давление, температура, насыщенность, массовая доля взвешенного парафина
@@ -185,7 +187,7 @@ class Solver:
 
     def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = 0.0,
                  rw: float = rw, mult: float = 1.0) -> None:
-        """Добавление скважин в расчет"""
+        """Добавление скважин в расчет."""
         productivity_mult = 2.0 * np.pi * h / np.log(_re / rw) * mult
         well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), productivity_mult=productivity_mult)
         self._wells_buffer.append({'well': well, 'name': name})

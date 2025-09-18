@@ -51,7 +51,6 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 	for idx in ti.static(ti.ndrange(4)):
 		i1, j1, hij, areaij = arr[idx]
 		if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-			# TODO придумать, как объединить вычисление слагаемых вверх по потоку
 			Co_ij = ro_o * C_o[i1, j1] * (1.0 - Wps[i1, j1]) + ro_p * Wps[i1, j1] * C_p[i1, j1]
 			value = (p[i1, j1] - p[i, j]) * areaij / hij * mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
 																	 k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1])
@@ -69,19 +68,16 @@ def flows_in_cells(i, j, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cell
 			_t += mid(Co, Co_ij) * up_t * up_k_o
 
 		else:
-			# TODO для каждого случая нужно как-то обработать: температуру, насыщенность, массовую доля взвешенного парафина
-			# обрабатывать в цикле по полям данных (а может ли taichi вообще так????)
-			if i == 0:
-				# гу на левой границе
+			# TODO аналогичные фокусы с давлением
+			if i == 0:	# гу на левой границе
+				# _s = apply_bc(type, bound, S, val)
+				# _t = apply_bc(type, bound, T, val)
 				pass
-			elif i == Nx-1:
-				# гу на правой границе
+			elif i == Nx-1:	 # гу на правой границе
 				pass
-			if j == 0:
-				# гу на нижней границе
+			if j == 0:	# гу на нижней границе
 				pass
-			elif j == Ny-1:
-				# гу на верхней границе
+			elif j == Ny-1:	 # гу на верхней границе
 				pass
 
 
