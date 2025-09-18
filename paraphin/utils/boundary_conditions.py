@@ -4,8 +4,8 @@ import taichi as ti
 
 
 class TypeBC(Enum):
-	Dirichlet: str
-	Neyman: str
+	Dirichlet: str  # 1
+	Neyman: str     # 0
 
 
 class Bound(Enum):
@@ -20,13 +20,19 @@ def apply_bc(type: TypeBC, bound: Bound, data_field: ti.template(), value):
 	pass
 
 
-MyStruct = ti.types.struct(
-    oil=ti.f32,
-    water=ti.f32,
-    total=ti.f32,
-    eta=ti.f32
+DataFields = ti.types.struct(
+    Pressure    = ti.types.struct(type=ti.i32, value=ti.f32),
+    Saturation  = ti.types.struct(type=ti.i32, value=ti.f32),
+    Temperature = ti.types.struct(type=ti.i32, value=ti.f32)
+)
+
+Boundary = ti.types.struct(
+    Left   = DataFields,
+    Right  = DataFields,
+    Bottom = DataFields,
+    Top	   = DataFields
 )
 
 # Создание поля структур
-n_fields = 3  # давление/насыщенность/температура
-wells = MyStruct.field(shape=(n_fields,))
+ffields = Boundary()
+print()
