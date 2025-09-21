@@ -35,4 +35,5 @@ Boundary = ti.types.struct(
 
 # Создание поля структур
 ffields = Boundary()
+
 print()
