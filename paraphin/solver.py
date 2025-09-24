@@ -9,9 +9,9 @@ import taichi as ti
 from tqdm import tqdm
 
 from paraphin import r1, r3, r4, r5, r6, fi_0
-from .constants import (data_type, Nx, Ny, Nr, rw, results_path, logs_path, init_T, init_k, init_S, init_m, init_p,
-                        init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, ro_p, ro_o, max_eta,
-                        c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re, geological_reserves)
+from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs_path, init_T, init_k, init_S, init_m,
+                        init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, ro_p, ro_o,
+                        max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re, geological_reserves)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                         calc_Um_r2)
@@ -92,6 +92,7 @@ class Solver:
         self.sort_mask = np.ndarray
         self.cols_ptr = np.ndarray
         results_path.mkdir(parents=True, exist_ok=True)
+        data_path.mkdir(parents=True, exist_ok=True)
 
         if LOGGING:
             basicConfig(
