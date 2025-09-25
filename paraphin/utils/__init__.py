@@ -1,5 +1,5 @@
 """Модуль содержит вспомогательные методы математической части кода и методы визуализации."""
-from .boundary_conditions import Bound, TypeBC
+from .boundary_conditions import Bound, TypeBC, DataField, add_bc, apply_bc, get_bound
 from .save_data_fields import save_fields
 
 from .math_utils import (mid_Ko_Kw, mid, up_ko, up_kw, up_T, up_wp, mid_lam, preprocess_matrix_and_wells,

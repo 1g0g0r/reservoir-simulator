@@ -15,7 +15,8 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                         calc_Um_r2)
-from .utils import calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files, save_fields, Bound, TypeBC
+from .utils import (calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files, save_fields,
+                    Bound, TypeBC, DataField, add_bc)
 from .well import WellStruct, upd_q_and_eta
 
 
@@ -24,12 +25,13 @@ class Solver:
     def __init__(self):
         self.d_type = data_type
 
-        # Скважины
+        # Граничные условия и скважины
         self.KIN = ti.field(dtype=data_type, shape=())
         self.n_wells = 0
         self._wells_buffer = []
         self._wells_names = []
         self.wells = WellStruct.field(shape=1)
+        self.boundary_conditions = ti.field(dtype=data_type, shape=(4, 3, 2))  # Граница -> Поле -> Тип, Значение
 
         # Свойства флюидов
         self.mu_o = ti.field(dtype=data_type, shape=(Nx, Ny))  # Вязкость нефти, [Па*с]
@@ -178,13 +180,10 @@ class Solver:
             file_path.unlink()
 
 
-    def add_bc(self, field, bound: Bound, type_bc: TypeBC, value: float) -> None:
+    def add_bc(self, field: DataField, bound: Bound, type_bc: TypeBC, value: float) -> None:
         """Учет граничных условий для полей данных."""
-        # Для хранения граничных условий создать словарь со значениями по умолчанию и модифицировать его)
-        # 1. Исходя из bound определять ячейки, в которых задано ГУ
-        # 2. Реализовать расчетные схемы гу 1-2 рода в общем случае
-        # давление, температура, насыщенность, массовая доля взвешенного парафина
-        pass
+        add_bc(self.boundary_conditions, bound.value, field.value, type_bc.value, value)
+
 
     def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = 0.0,
                  rw: float = rw, mult: float = 1.0) -> None:
@@ -235,7 +234,7 @@ class Solver:
                 calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
 
             # ---решение гидродинамики---
-            flows_in_cells(i, j, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
+            flows_in_cells(i, j, self.boundary_conditions, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
             saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)
             temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.qp, self.cells_T_eq, self.new_t, self.new_m, self.new_s)
 
@@ -318,11 +317,11 @@ class Solver:
             with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
                       bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
                 for _t in pbar:
+                    # ti.profiler.print_kernel_profiler_info()
                     self.upd_time_step(_t)
                     pbar.set_postfix(день=_t / day_to_sec)
                     if self.wells[1].eta >= max_eta:
                         break
-                    # ti.profiler.print_kernel_profiler_info()
         except KeyboardInterrupt:
             pass
         finally:
