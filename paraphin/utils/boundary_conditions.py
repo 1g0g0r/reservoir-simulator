@@ -48,13 +48,13 @@ def apply_bc(boundary_conditions: ti.template(), bound: ti.int32, data_field_idx
 def get_bound(i: ti.int32, j: ti.int32) -> ti.int32:
     """Определение границы области по индексу ячейки."""
     bound = 0
-    if i < 0:         # левая граница
+    if j < 0:         # левая граница
         bound = 0
-    elif i > Nx - 1:  # правая граница
+    elif j > Ny - 1:  # правая граница
         bound = 1
-    elif j < 0:       # нижняя граница
+    elif i < 0:       # нижняя граница
         bound = 2
-    elif j > Ny - 1:  # верхняя граница
+    elif i > Nx - 1:  # верхняя граница
         bound = 3
 
     return bound

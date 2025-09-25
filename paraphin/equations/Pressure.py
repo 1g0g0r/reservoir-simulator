@@ -56,6 +56,7 @@ def _build_matrix_and_rhs(wells: ti.template(), Wo: ti.template(), Wo_0: ti.temp
                           data_np: ti.types.ndarray(), rhs_np: ti.types.ndarray()):
     """Сборка матрицы и правой части уравнения давления."""
     _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data_np, rhs_np)
+    # TODO учесть ГУ на границе для давления
     _adding_wells(wells, S, k, mu_o, mu_w, data_np, rhs_np)
 
 

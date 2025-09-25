@@ -58,13 +58,15 @@ def _visualize_fields(data):
 
     n_times = len(time)
     del input_data['Time']
+    if len(input_data['Wells']) == 0: del input_data['Wells']
+
     if 'plots' in input_data.keys():
         input_data['Wps'] *= (S_max - input_data['Saturation'])
         del input_data['plots']
 
     # names_fields = ['Saturation', 'Temperature', 'Wells', 'Other params']
     # names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params']
-    skip_fields = ['Pressure', 'Wo', 'm mult','mu_o', 'mu_w', 'qp']
+    skip_fields = ['Wo', 'm mult','mu_o', 'mu_w', 'qp']
 
     # Создаем графики
     _f_names = [name for name in input_data.keys() if name not in skip_fields]
@@ -75,7 +77,7 @@ def _visualize_fields(data):
             continue
 
         trace = []
-        if  name == 'Wells':
+        if name == 'Wells':
             for _name, _val in field.items():
                 if np.all(np.isclose(_val, 0.0)) or np.all(np.isclose(_val, 1.0)):
                     continue

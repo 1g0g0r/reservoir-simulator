@@ -114,7 +114,8 @@ class Solver:
     def initialize(self):
         def _wells_and_matrix_processing():
             self._wells_names = [i['name'] for i in self._wells_buffer]
-            self.wells = WellStruct.field(shape=self.n_wells)
+            if self.n_wells > 0:
+                self.wells = WellStruct.field(shape=self.n_wells)
 
             temp_data = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
             self.sort_mask, self.rows_indices, self.cols_ptr, self.wells = temp_data
