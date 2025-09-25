@@ -7,7 +7,7 @@ from paraphin.constants import Nx, Ny, hx, hy, h
 from paraphin.well import upd_q_and_eta
 
 
-def preprocess_matrix_and_wells(wells, wells_buffer, p, S, k, mu_o, mu_w):
+def preprocess_matrix_and_wells(wells, wells_buffer):
     """Препроцессинг профиля матрицы уравнения давления и обработка массива скважин."""
     rows_indices = ti.field(ti.i32, shape=NN)
     cols_indices = ti.field(ti.i32, shape=NN)
@@ -44,6 +44,7 @@ def _get_rows_cols(row_indices: ti.template(), col_indices: ti.template()):
             idx = i + j * Nx
             # matrix
             arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
+            # TODO здеся тоже надо собирать матрицу с учетов ГУ
             for qq in ti.static(ti.ndrange(4)):
                 i1, j1, hij, areaij = arr[qq]
                 if (0 <= i1 < Nx) and (0 <= j1 < Ny):

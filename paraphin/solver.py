@@ -117,7 +117,7 @@ class Solver:
             if self.n_wells > 0:
                 self.wells = WellStruct.field(shape=self.n_wells)
 
-            temp_data = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
+            temp_data = preprocess_matrix_and_wells(self.wells, self._wells_buffer)
             self.sort_mask, self.rows_indices, self.cols_ptr, self.wells = temp_data
 
         @ti.kernel
@@ -211,7 +211,7 @@ class Solver:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Обновление давления
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o,
-                      self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask)
+                      self.mu_w, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask, self.boundary_conditions)
         # Решение уравнений по явной схеме
         self._equations_loop()
 

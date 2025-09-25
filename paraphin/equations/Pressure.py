@@ -6,7 +6,7 @@ from taichi._kernels import ext_arr_to_tensor
 
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h, np_data_type
-from paraphin.utils import mid_Ko_Kw
+from paraphin.utils import mid_Ko_Kw, apply_bc, get_bound
 from paraphin.well import calc_well_mult
 # from pypardiso import spsolve
 
@@ -14,7 +14,7 @@ rhs = np.zeros(N, dtype=np_data_type)
 data = np.zeros(NN, dtype=np_data_type)
 
 
-def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask):
+def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask, boundary_condition):
     """Сборка матрицы и решение СЛАУ уравнения давления (МКО)
 
     Parameters
@@ -41,29 +41,36 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
         Вязкость воды, [Па*с]
     wells: taichi.field(n_wells)
         Массив скважин
+    rows_indices: ti.ndarray(NN)
+        Массив строк разреженной матрицы
+    cols_ptr: ti.ndarray(NN)
+        Массив столбцов разреженной матрицы
+    sort_mask: ti.ndarray(NN)
+        Массив перестановки элементов матрицы из стандартной расположения в csc формат
+    boundary_condition: ti.field(4, 3, 2)
+        Граничные условия: Граница -> Поле -> Тип, Значение
     """
-    _build_matrix_and_rhs(wells, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs)
+    _build_matrix_and_rhs(wells, p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, boundary_condition)
     np.take(data, sort_mask, out=data)  # data.to_numpy()[sort_mask]
 
-    # TODO рассмотреть возможность решения СЛАУ внутри taichi
     solution, _ = _superlu.gssv(N, NN, data, rows_indices, cols_ptr, rhs, 1, {'ColPerm': None})
     ext_arr_to_tensor(solution.reshape((Nx, Ny)).T, p)  # p.from_numpy(solution.reshape((Nx, Ny)).T)
 
 
 @ti.kernel
-def _build_matrix_and_rhs(wells: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
+def _build_matrix_and_rhs(wells: ti.template(), p: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
                           k: ti.template(), S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
-                          data_np: ti.types.ndarray(), rhs_np: ti.types.ndarray()):
+                          data_np: ti.types.ndarray(), rhs_np: ti.types.ndarray(), boundary_condition: ti.template()):
     """Сборка матрицы и правой части уравнения давления."""
-    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data_np, rhs_np)
+    _fill_matrix_and_rhs(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data_np, rhs_np, boundary_condition)
     # TODO учесть ГУ на границе для давления
     _adding_wells(wells, S, k, mu_o, mu_w, data_np, rhs_np)
 
 
 @ti.func
-def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(), k: ti.template(),
-                         S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
-                         data: ti.types.ndarray(), rhs: ti.types.ndarray()):
+def _fill_matrix_and_rhs(p: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
+                         k: ti.template(), S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
+                         data: ti.types.ndarray(), rhs: ti.types.ndarray(), boundary_conditions: ti.template()):
     """Заполнение массивов матрицы и правой части уравнения давления."""
     num = 0
     for i, j in S:
@@ -73,14 +80,19 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
         for qq in ti.static(ti.ndrange(4)):
             i1, j1, hij, areaij = arr[qq]
             if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
-                data[num] = val
-                p_sum -= val
-                num += 1
-            # TODO учет граничных условий
-            # else:
-            # 	pass
+                p_ij, S_ij = p[i1, j1], S[i1, j1]
+            else:
+                bound = get_bound(i1, j1)
+                i1, j1, hij = i, j, hij * 0.5
+                # TODO учесть p_ij !!!!!!!!!!!
+                p_ij = apply_bc(boundary_conditions, bound, 0, p, i, j, hij)
+                S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
+
+            val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                            k[i1, j1], S_ij, mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+            data[num] = val
+            p_sum -= val
+            num += 1
 
         data[num] = p_sum
         num += 1
