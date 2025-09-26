@@ -50,7 +50,7 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
     boundary_condition: ti.field(4, 3, 2)
         Граничные условия: Граница -> Поле -> Тип, Значение
     """
-    _build_matrix_and_rhs(wells, p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, boundary_condition)
+    _build_matrix_and_rhs(wells, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, boundary_condition)
     np.take(data, sort_mask, out=data)  # data.to_numpy()[sort_mask]
 
     solution, _ = _superlu.gssv(N, NN, data, rows_indices, cols_ptr, rhs, 1, {'ColPerm': None})
@@ -58,17 +58,16 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indice
 
 
 @ti.kernel
-def _build_matrix_and_rhs(wells: ti.template(), p: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
+def _build_matrix_and_rhs(wells: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
                           k: ti.template(), S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
                           data_np: ti.types.ndarray(), rhs_np: ti.types.ndarray(), boundary_condition: ti.template()):
     """Сборка матрицы и правой части уравнения давления."""
-    _fill_matrix_and_rhs(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data_np, rhs_np, boundary_condition)
-    # TODO учесть ГУ на границе для давления
+    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data_np, rhs_np, boundary_condition)
     _adding_wells(wells, S, k, mu_o, mu_w, data_np, rhs_np)
 
 
 @ti.func
-def _fill_matrix_and_rhs(p: ti.template(), Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
+def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(), m_0: ti.template(),
                          k: ti.template(), S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
                          data: ti.types.ndarray(), rhs: ti.types.ndarray(), boundary_conditions: ti.template()):
     """Заполнение массивов матрицы и правой части уравнения давления."""
@@ -76,36 +75,39 @@ def _fill_matrix_and_rhs(p: ti.template(), Wo: ti.template(), Wo_0: ti.template(
     for i, j in S:
         idx = i + j * Nx
         p_sum = 0.0
+        rhs[idx] = 0.0
         arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
         for qq in ti.static(ti.ndrange(4)):
             i1, j1, hij, areaij = arr[qq]
             if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                p_ij, S_ij = p[i1, j1], S[i1, j1]
+                val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                              k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+                data[num] = val
+                p_sum -= val
+                num += 1
             else:
                 bound = get_bound(i1, j1)
-                i1, j1, hij = i, j, hij * 0.5
-                # TODO учесть p_ij !!!!!!!!!!!
-                p_ij = apply_bc(boundary_conditions, bound, 0, p, i, j, hij)
-                S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
-
-            val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                            k[i1, j1], S_ij, mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
-            data[num] = val
-            p_sum -= val
-            num += 1
+                if boundary_conditions[bound, 0, 0] == 1: # Дирихле
+                    i1, j1, hij = i, j, hij * 0.5
+                    S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
+                    val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S_ij, mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+                    rhs[idx] -= boundary_conditions[bound, 0, 1] * val
+                    p_sum -= val
+                else:  # Нейман
+                    rhs[idx] -= boundary_conditions[bound, 0, 1]
 
         data[num] = p_sum
         num += 1
 
-        # rhs
-        # FIXME ЧТО У ВАС ЗДЕСЬ ПРОИСХОДИТ ????
-        rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+        rhs[idx] += 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
 
 @ti.func
 def _adding_wells(wells: ti.template(), S: ti.template(), k: ti.template(), mu_o: ti.template(),
                   mu_w: ti.template(), data: ti.types.ndarray(), rhs: ti.types.ndarray()):
     """Учет скважин в уравнение давления."""
+    # TODO добавить возможность делать расчет при заданном дебете
     for i in wells:
         well = wells[i]
         temp_data = calc_well_mult(well, S, k, mu_o, mu_w)  # well.q[2] / well.dp
