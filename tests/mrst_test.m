@@ -32,14 +32,16 @@ rho_w = 1000 * kilogram/meter^3;
 rho_o = 860 * kilogram/meter^3;
                             % [вода, нефть]
 fluid = initSimpleADIFluid('phases', 'WO', ...
-                           'mu', [mu_w, mu_o], ...
-                           'rho',[rho_w, rho_o]);
+                           'mu', [mu_o, mu_w], ...
+                           'rho',[rho_o, rho_w]);
 relperm = struct('type', 'corey', ...
-                 'params', struct('nw', 2, 'no', 2, 'swr', 0.2, 'sor', 0.3));
+                 'params', struct('nw', 2, 'no', 2, 'swr', 0.3, 'sor', 0.2));
 
 % Создание модели с явным указанием relperm
 model = TwoPhaseOilWaterModel(G, rock, fluid, 'relperm', relperm);
 
+% 1. Вернуть базовый решатель
+% 2. Добавить ГУ на границе
 %% Add wells
 rw = 0.1;
 p_inj  = 150 * barsa();
@@ -58,7 +60,7 @@ init_sol = initResSol(G, p_prod, [0.8, 0.2]);
 
 %% Start calculation
 dt = 1 * day;
-t_end = 100 * day;
+t_end = 400 * day;
 dt_pict = 2500 * dt;
 
 %% Start simulation
@@ -72,38 +74,43 @@ q_prod = -cellfun(@(ws) ws(2).qTs, wellsData);
 Qo_prod = cumsum(q_prod * dt);
 eta    = cellfun(@(ws) ws(2).ocut, wellsData);
 
-step = int32(dt_pict / dt);
-end_idx = int32(length(times));
-for i = unique([1:step:end_idx, end_idx])
-    t = times(i);
-    p_arr = reshape(fieldData{i, 1}.pressure/barsa(), [nx, ny, nz]);
-    s_arr = reshape(fieldData{i, 1}.s(:, 2), [nx, ny, nz]);
 
-    figure    
-    % двумерные p(x,y) и s(x,y)
-    subplot(1, 2, 1);
-    [C, h] = contourf(x_coord, y_coord, p_arr, n_isolines);
-    clabel(C, h, 'FontSize', 5, 'Color', 'k');  
-    title(['P(x, y) в  ', num2str(t),  ' сут'])  
-    colorbar; 
-    xlabel('X, метры');
-    ylabel('Y, метры');
-    sp = subplot(1, 2, 2);
-    contourf(x_coord, y_coord, s_arr.', n_isolines)
-    title(['S(x, y) в  ', num2str(t),  ' сут'])  
-    colorbar; 
-    colormap(sp, sat_colormap)
-    xlabel('X, метры');
-    ylabel('Y, метры');
-end
+% ctrl R - comment
+% ctrl T - uncomment
+
+% step = int32(dt_pict / dt);
+% end_idx = int32(length(times));
+% for i = unique([1:step:end_idx, end_idx])
+%     t = times(i);
+%     p_arr = reshape(fieldData{i, 1}.pressure/barsa(), [nx, ny, nz]);
+%     s_arr = reshape(fieldData{i, 1}.s(:, 2), [nx, ny, nz]);
+% 
+%     figure    
+%     % двумерные p(x,y) и s(x,y)
+%     subplot(1, 2, 1);
+%     [C, h] = contourf(x_coord, y_coord, p_arr, n_isolines);
+%     clabel(C, h, 'FontSize', 5, 'Color', 'k');  
+%     title(['P(x, y) в  ', num2str(t),  ' сут'])  
+%     colorbar; 
+%     xlabel('X, метры');
+%     ylabel('Y, метры');
+%     sp = subplot(1, 2, 2);
+%     contourf(x_coord, y_coord, s_arr.', n_isolines)
+%     title(['S(x, y) в  ', num2str(t),  ' сут'])  
+%     colorbar; 
+%     colormap(sp, sat_colormap)
+%     xlabel('X, метры');
+%     ylabel('Y, метры');
+% end
 
 q_prod = q_prod * day();
 q_inj = q_inj * day();
 
 figure;
 plot(times, q_prod, 'LineWidth', 2); 
-plot(times, q_inj, '--', 'LineWidth', 2); 
 hold on;
+plot(times, q_inj, '--', 'LineWidth', 2); 
+hold off;
 xlabel('t, дни');
 ylabel('q, м^3/сут');
 title('График дебета скважины');
