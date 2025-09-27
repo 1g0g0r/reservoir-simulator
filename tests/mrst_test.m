@@ -72,16 +72,6 @@ q_prod = -cellfun(@(ws) ws(2).qTs, wellsData);
 Qo_prod = cumsum(q_prod * dt);
 eta    = cellfun(@(ws) ws(2).ocut, wellsData);
 
-re = 0.14 * sqrt(hx*hx + hy*hy);
-q_mult = 2.0 * pi * k * Lz / log(re/rw);  
-s_array_inj = cellfun(@(ws) ws.s(1,1), fieldData);
-s_array_prod = cellfun(@(ws) ws.s(nx * ny, 1), fieldData);
-p_array_inj = cellfun(@(ws) (ws.pressure(1,1)-p_inj), fieldData);
-p_array_prod = cellfun(@(ws) (ws.pressure(nx * ny, 1)-p_prod), fieldData);
-peaceman_q_w = -p_array_inj .* (q_mult / mu_o);
-peaceman_q_o = p_array_prod .* (q_mult / mu_w);
-
-
 step = int32(dt_pict / dt);
 end_idx = int32(length(times));
 for i = unique([1:step:end_idx, end_idx])
@@ -109,27 +99,13 @@ end
 
 q_prod = q_prod * day();
 q_inj = q_inj * day();
-peaceman_q_o = peaceman_q_o * day();
-peaceman_q_w = peaceman_q_w * day();
 
 figure;
 plot(times, q_prod, 'LineWidth', 2); 
+plot(times, q_inj, '--', 'LineWidth', 2); 
 hold on;
-plot(times, peaceman_q_o, '--', 'LineWidth', 2); 
 xlabel('t, дни');
 ylabel('q, м^3/сут');
-legend('reference', 'peaceman');
-title('График дебета добывающей скважины');
+title('График дебета скважины');
 grid on;
-
-figure;
-plot(times, q_inj, 'LineWidth', 2); 
-hold on;
-plot(times, peaceman_q_w, '--', 'LineWidth', 2); 
-xlabel('t, дни');
-ylabel('q, м^3/сут');
-legend('reference', 'peaceman');
-title('График приемистости нагнетательной скважины');
-grid on;
-
 
