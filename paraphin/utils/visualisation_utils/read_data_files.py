@@ -51,7 +51,7 @@ def convert_pkl_files():
 
     # Обработка бинарных файлов формата .pkl
     Parallel(n_jobs=-1, backend='threading')(
-        delayed(process_single_file)(idx, data, file_path) for idx, file_path in enumerate(sorted_paths)
+        delayed(_process_single_file)(idx, data, file_path) for idx, file_path in enumerate(sorted_paths)
     )
 
     # Сохранение обработанных данных
@@ -59,7 +59,7 @@ def convert_pkl_files():
         dump([n_files, data], f)
 
 
-def process_single_file(idx, data, file_path):
+def _process_single_file(idx, data, file_path):
     """Обработка одного файла."""
     with open(file_path, 'rb') as f:
         try:
@@ -69,5 +69,5 @@ def process_single_file(idx, data, file_path):
                         data[name][_name][idx] = file_data[_name]
                 else:
                     data[name][idx] = file_data
-        except Exception:
+        except EOFError:
             pass
