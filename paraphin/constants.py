@@ -47,14 +47,14 @@ Po = 50 * bar_to_pa   # Давление на добывающей скважи�
 Twater = 25           # Температура нагнетаемой воды, [С]
 
 # Параметры ОФП
-S_min = 0.18
-S_max = 0.70
+S_min = 0.0  # 0.18
+S_max = 1.0  # 0.70
 n_power = 2
 
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
-init_Wp  = 0.05
+init_Wp  = 0.0
 init_Wps = 0.0
 init_k   = 0.2 * darcy_to_m2  # [м^2]
 init_m   = 0.2

@@ -11,7 +11,7 @@ from tqdm import tqdm
 from paraphin import r1, r3, r4, r5, r6, fi_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs_path, init_T, init_k, init_S, init_m,
                         init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, ro_p, ro_o,
-                        max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re, geological_reserves)
+                        max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re, geological_reserves, mu_o, mu_w)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                         calc_Um_r2)
@@ -117,7 +117,7 @@ class Solver:
             if self.n_wells > 0:
                 self.wells = WellStruct.field(shape=self.n_wells)
 
-            temp_data = preprocess_matrix_and_wells(self.wells, self._wells_buffer)
+            temp_data = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
             self.sort_mask, self.rows_indices, self.cols_ptr, self.wells = temp_data
 
         @ti.kernel
@@ -264,8 +264,8 @@ class Solver:
 
     @ti.func
     def _update_mu_and_c_temp(self, i, j) -> None:
-        self.mu_o[i, j] = calc_mu_o(self.T[i, j])
-        self.mu_w[i, j] = calc_mu_w(self.T[i, j])
+        self.mu_o[i, j] = mu_o # calc_mu_o(self.T[i, j])
+        self.mu_w[i, j] = mu_w # calc_mu_w(self.T[i, j])
         self.C_w[i, j]  = c_w  # calc_c_w(self.T[i, j])
         self.C_o[i, j]  = c_o  # calc_c_o(self.T[i, j])
         self.C_f[i, j]  = c_f  # calc_c_f(self.T[i, j])
@@ -275,6 +275,8 @@ class Solver:
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
+
+        self._update_wells_data()  # Обновление данных скважин
         for i, j in self.p:
             self._update_mu_and_c_temp(i, j)  #  пересчет свойств флюидов из-за изменения температуры
 
