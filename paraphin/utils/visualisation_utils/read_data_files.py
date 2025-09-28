@@ -3,6 +3,7 @@ import re
 from pickle import dump, load
 
 import numpy as np
+from joblib import Parallel, delayed
 
 from paraphin.constants import results_path, data_path, init_Wp
 
@@ -48,15 +49,25 @@ def convert_pkl_files():
                 nx, ny = file_data.shape
                 data[name] = np.zeros((n_files, nx, ny))
 
-    for idx, file_path in enumerate(sorted_paths):
-        with open(file_path, 'rb') as f:
+    # Обработка бинарных файлов формата .pkl
+    Parallel(n_jobs=-1, backend='threading')(
+        delayed(process_single_file)(idx, data, file_path) for idx, file_path in enumerate(sorted_paths)
+    )
+
+    # Сохранение обработанных данных
+    with open(data_path / f'Wp={init_Wp}_processed_data.pkl', 'wb') as f:
+        dump([n_files, data], f)
+
+
+def process_single_file(idx, data, file_path):
+    """Обработка одного файла."""
+    with open(file_path, 'rb') as f:
+        try:
             for name, file_data in load(f).items():
                 if name in ['Wells', 'Other params', 'plots']:
                     for _name, _val in file_data.items():
                         data[name][_name][idx] = file_data[_name]
                 else:
                     data[name][idx] = file_data
-
-    # Сохранение обработанных данных
-    with open(data_path / f'Wp={init_Wp}_processed_data.pkl', 'wb') as f:
-        dump([n_files, data], f)
+        except Exception:
+            pass
