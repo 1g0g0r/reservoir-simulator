@@ -266,8 +266,8 @@ class Solver:
 
     @ti.func
     def _update_mu_and_c_temp(self, i, j) -> None:
-        self.mu_o[i, j] = mu_o # calc_mu_o(self.T[i, j])
-        self.mu_w[i, j] = mu_w # calc_mu_w(self.T[i, j])
+        self.mu_o[i, j] = calc_mu_o(self.T[i, j])
+        self.mu_w[i, j] = calc_mu_w(self.T[i, j])
         self.C_w[i, j]  = c_w  # calc_c_w(self.T[i, j])
         self.C_o[i, j]  = c_o  # calc_c_o(self.T[i, j])
         self.C_f[i, j]  = c_f  # calc_c_f(self.T[i, j])

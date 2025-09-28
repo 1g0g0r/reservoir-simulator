@@ -69,10 +69,10 @@ def save_fields(solver, t: float):
             'Saturation': S_np,
             'Temperature': T_np,
             'Wells': wells_data,
-            'Other params': {
-            	'KIN': solver.KIN[None],
-            	f'T [{0},{0}]': T_np[0, 0],
-            }
+            # 'Other params': {
+            # 	'KIN': solver.KIN[None],
+            # 	f'T [{0},{0}]': T_np[0, 0],
+            # }
         }
 
     with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
