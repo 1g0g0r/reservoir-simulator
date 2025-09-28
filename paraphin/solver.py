@@ -117,8 +117,8 @@ class Solver:
             if self.n_wells > 0:
                 self.wells = WellStruct.field(shape=self.n_wells)
 
-            temp_data = preprocess_matrix_and_wells(self.wells, self._wells_buffer, self.p, self.S, self.k, self.mu_o, self.mu_w)
-            self.sort_mask, self.rows_indices, self.cols_ptr, self.wells = temp_data
+            self.sort_mask, self.rows_indices, self.cols_ptr, self.wells = (
+                preprocess_matrix_and_wells(self.wells, self._wells_buffer))
 
         @ti.kernel
         def _calc_integrals():
@@ -177,6 +177,8 @@ class Solver:
         _calc_integrals()
         _initialize_params_loop()
         _wells_and_matrix_processing()
+
+        # Очищение папки со старыми результатами
         for file_path in results_path.glob(f'*.pkl'):
             file_path.unlink()
 
@@ -275,8 +277,6 @@ class Solver:
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
-
-        self._update_wells_data()  # Обновление данных скважин
         for i, j in self.p:
             self._update_mu_and_c_temp(i, j)  #  пересчет свойств флюидов из-за изменения температуры
 

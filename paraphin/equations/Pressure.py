@@ -110,7 +110,6 @@ def _adding_wells(wells: ti.template(), S: ti.template(), k: ti.template(), mu_o
     # TODO добавить возможность делать расчет при заданном дебете
     for i in wells:
         well = wells[i]
-        # temp_data = calc_well_mult(well, S, k, mu_o, mu_w)  # well.q[2] / well.dp
-        temp_data = well.q[2] / well.dp
+        temp_data = calc_well_mult(well, S, k, mu_o, mu_w)  # well.q[2] / well.dp
         data[well.idx_mat] -= temp_data
         rhs[well.idx_rhs] -= temp_data * well.p

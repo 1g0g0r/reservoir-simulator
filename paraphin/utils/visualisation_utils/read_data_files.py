@@ -54,13 +54,18 @@ def convert_pkl_files():
         delayed(_process_single_file)(idx, data, file_path) for idx, file_path in enumerate(sorted_paths)
     )
 
+    # Удаление последнего элемента данных, если была ошибка чтения
+    if np.isclose(data['Time'][-1], 0.0):
+        for name, file_data in data.items():
+            data[name] = np.delete(file_data, -1)
+
     # Сохранение обработанных данных
     with open(data_path / f'Wp={init_Wp}_processed_data.pkl', 'wb') as f:
         dump([n_files, data], f)
 
 
 def _process_single_file(idx, data, file_path):
-    """Обработка одного файла."""
+    """Обработка одного файла исходных данных."""
     with open(file_path, 'rb') as f:
         try:
             for name, file_data in load(f).items():
