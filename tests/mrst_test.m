@@ -3,8 +3,8 @@ mrstModule add incomp ad-core ad-blackoil
 
 
 %% Geometry
-Lx = 250; Ly = 250; Lz = 1;
-nx = 10; ny = 10; nz = 1;
+Lx = 200; Ly = 200; Lz = 1;
+nx = 20; ny = 20; nz = 1;
 hx = Lx / nx; hy = Ly / ny;
 G = cartGrid([nx, ny, nz], [Lx, Ly, Lz]);
 G = computeGeometry(G);
@@ -26,6 +26,9 @@ m = 0.2;
 rock = makeRock(G, k, m);
 
 %% Define constant properties for viscosity and density
+Sw_min = 0.0;
+Sw_max = 1.0;
+alpha = 2;
 mu_w = 1 * centi*poise;
 mu_o = 5 * centi*poise;
 rho_w = 1000 * kilogram/meter^3;
@@ -33,12 +36,14 @@ rho_o = 860 * kilogram/meter^3;
                             % [вода, нефть]
 fluid = initSimpleADIFluid('phases', 'WO', ...
                            'mu', [mu_o, mu_w], ...
-                           'rho',[rho_o, rho_w]);
-relperm = struct('type', 'corey', ...
-                 'params', struct('nw', 2, 'no', 2, 'swr', 0.3, 'sor', 0.2));
+                           'rho',[rho_o, rho_w], ...
+                           'n',  [alpha, alpha]);
+% relperm = struct('type', 'corey', ...
+%                  'params', struct('nw', alpha, 'no', alpha));  % 'swr',
+%                  1-Sw_max, 'sor', Sw_min
 
 % Создание модели с явным указанием relperm
-model = TwoPhaseOilWaterModel(G, rock, fluid, 'relperm', relperm);
+model = TwoPhaseOilWaterModel(G, rock, fluid);  % , 'relperm', relperm
 
 % 1. Вернуть базовый решатель
 % 2. Добавить ГУ на границе
@@ -49,18 +54,18 @@ p_prod = 50 * barsa();
 
 W = verticalWell([], G, rock, 1, 1, [],...
                  'Type', 'bhp', 'Val', p_inj, ...
-                 'Radius', rw,  'Comp_i', [0, 1]);
+                 'Radius', rw, 'InnerProduct', 'ip_tpf', 'Comp_i', [0, 1]);
 
 W = verticalWell(W, G, rock, nx, ny, [],...
                  'Type', 'bhp' , 'Val', p_prod, ...
-                 'Radius', rw, 'Comp_i', [1, 0]);
+                 'Radius', rw, 'InnerProduct', 'ip_tpf', 'Comp_i', [1, 0]);
 
 %% Create a initialized state and set initial saturation to phase 1.
-init_sol = initResSol(G, p_prod, [0.8, 0.2]);
+init_sol = initResSol(G, p_prod, [Sw_max, Sw_min]);
 
 %% Start calculation
 dt = 1 * day;
-t_end = 400 * day;
+t_end = 60 * day;
 dt_pict = 2500 * dt;
 
 %% Start simulation
@@ -116,3 +121,10 @@ ylabel('q, м^3/сут');
 title('График дебета скважины');
 grid on;
 
+
+figure;
+plot(times, eta, 'LineWidth', 2); 
+xlabel('t, дни');
+ylabel('eta');
+title('График обводненности скважины');
+grid on;
