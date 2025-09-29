@@ -70,7 +70,6 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
     for i, j in S:
         idx = j + i * Nx
         p_sum = 0.0
-        # TODO переписать цикл по ячейкам
         arr = [[0, i, j - 1, hy, hx*h], [1, i - 1, j, hx, hy*h], [3, i + 1, j, hx, hy*h], [4, i, j + 1, hy, hx*h]]
         for qq in ti.static(ti.ndrange(4)):
             idx_mat, i1, j1, hij, areaij = arr[qq]
@@ -82,7 +81,6 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
 
         matrix[2, idx] = p_sum
 
-        # FIXME ЧТО У ВАС ЗДЕСЬ ПРОИСХОДИТ ????
         rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
 

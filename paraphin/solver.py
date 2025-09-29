@@ -299,7 +299,7 @@ class Solver:
                 self.Wps[i, j]   = self.new_wps[i, j]
                 self.k[i, j]     = self.new_k[i, j]
                 self.m[i, j]     = self.new_m[i, j]
-                self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной
+                self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной (вернуть производные и подвигать изменение дебета)
                 self.Wps_dep[i, j] = ti.min(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
                                             ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
                 self.qp[i, j]    = self.new_qp[i, j]
