@@ -116,6 +116,8 @@ class Solver:
             self._wells_names = [i['name'] for i in self._wells_buffer]
             if self.n_wells > 0:
                 self.wells = WellStruct.field(shape=self.n_wells)
+            else:
+                self.wells[1].eta = 0.0
 
             self.sort_mask, self.rows_indices, self.cols_ptr, self.wells = (
                 preprocess_matrix_and_wells(self.wells, self._wells_buffer))

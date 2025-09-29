@@ -39,7 +39,7 @@ def apply_bc(boundary_conditions: ti.template(), bound: ti.int32, data_field_idx
     if bc_type == 1:  # Дирихле (1 рода)
         ret = bc_value
     else:             # Неймана (2 рода)
-        ret = data_field[i, j] - bc_value * h
+        ret = data_field[i, j] + bc_value * h
 
     return ret
 

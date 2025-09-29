@@ -27,7 +27,7 @@ def up_kw(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
     """Значение берется вверх по потоку: up(kw / (ko + kw)"""
     ret = 0.0
 
-    if p_i >= p_j:
+    if p_i > p_j:
         ret = _K_w(k_i, s_i, mu_w_i) / (_K_w(k_i, s_i, mu_w_i) + _K_o(k_i, s_i, mu_o_i))
     else:
         ret = _K_w(k_j, s_j, mu_w_j) / (_K_w(k_j, s_j, mu_w_j) + _K_o(k_j, s_j, mu_o_j))
@@ -41,7 +41,7 @@ def up_ko(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_
     """Значение берется вверх по потоку: up(ko / (ko + kw)"""
     ret = 0.0
 
-    if p_i >= p_j:
+    if p_i > p_j:
         ret = _K_o(k_i, s_i, mu_o_i) / (_K_w(k_i, s_i, mu_w_i) + _K_o(k_i, s_i, mu_o_i))
     else:
         ret = _K_o(k_j, s_j, mu_o_j) / (_K_w(k_j, s_j, mu_w_j) + _K_o(k_j, s_j, mu_o_j))
@@ -54,7 +54,7 @@ def up_T(p_i: data_type, T_i: data_type, p_j: data_type, T_j: data_type) -> data
     """Значение берется вверх по потоку: up(kw / (ko + kw)"""
     ret = 0.0
 
-    if p_i >= p_j:
+    if p_i > p_j:
         ret = T_i
     else:
         ret = T_j
@@ -68,7 +68,7 @@ def up_wp(p_i: data_type, Wp_i: data_type, Wps_i: data_type,
     """Вычисление взвешенного и растворенного парафина вверх по потку. """
     ret = 0.0
 
-    if p_i >= p_j:
+    if p_i > p_j:
         ret = ro_o * Wp_i + ro_p * Wps_i
     else:
         ret = ro_o * Wp_j + ro_p * Wps_j
