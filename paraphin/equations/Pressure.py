@@ -87,15 +87,15 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
                 num += 1
             else:
                 bound = get_bound(i1, j1)
+                i1, j1, hij = i, j, hij * 0.5
+                S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
+                val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                k[i1, j1], S_ij, mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
                 if boundary_conditions[bound, 0, 0] == 1: # Дирихле
-                    i1, j1, hij = i, j, hij * 0.5
-                    S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
-                    val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                    k[i1, j1], S_ij, mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
                     rhs[idx] -= boundary_conditions[bound, 0, 1] * val
                     p_sum -= val
                 else:  # Нейман
-                    rhs[idx] -= boundary_conditions[bound, 0, 1]
+                    rhs[idx] -= boundary_conditions[bound, 0, 1] * val
 
         data[num] = p_sum
         num += 1
