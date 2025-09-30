@@ -16,17 +16,9 @@ darcy_to_m2 = 9.869233e-13
 cpoise_to_Pas = 1e-3
 kal_to_J = 4.1868
 
-# Пути проекта
-root_folder = Path(__file__).parent.parent
-outputs_path = root_folder / 'outputs'
-results_path = outputs_path / 'results'  #  wp0 80
-data_path = outputs_path / 'data'  #  wp0 80
-logs_path = outputs_path / '.log'
-js_path = root_folder / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
-
 # Параметры сетки
 Nr = 31          # Число узлов сетки радиусов капилляров
-Nx, Ny = 20, 20  # Число узлов сетки по x и y
+Nx, Ny = 60, 60  # Число узлов сетки по x и y
 X_min, X_max = 0., 200.  # Длина пласта, [м]
 Y_min, Y_max = 0., 200.  # Ширина пласта, [м]
 h = 1.0  # Толщина пласта, [м]
@@ -37,7 +29,7 @@ volume = area * h
 
 # Параметры времени задачи
 Time_end = day_to_sec * 365 * 6.0  # Время моделирования
-dt = day_to_sec / 1e1  # Шаг дискретизации по времени
+dt = day_to_sec / 5e2  # Шаг дискретизации по времени
 max_eta = 0.98         # Предельная обводненность
 
 # Параметры скважин
@@ -47,8 +39,8 @@ Po = 50 * bar_to_pa   # Давление на добывающей скважи�
 Twater = 25           # Температура нагнетаемой воды, [С]
 
 # Параметры ОФП
-S_min = 0.0  # 0.18
-S_max = 1.0  # 0.70
+S_min = 0.18
+S_max = 0.70
 n_power = 2
 
 # Данные инициализации
@@ -116,3 +108,11 @@ if data_type == ti.f64:
     np_data_type = np.float64
 else:
     np_data_type = np.float32
+
+# Пути проекта
+root_folder = Path(__file__).parent.parent
+outputs_path = root_folder / 'outputs'
+results_path = outputs_path / f'results_wp={init_Wp}'
+data_path = outputs_path / 'data'
+logs_path = outputs_path / '.log'
+js_path = root_folder / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
