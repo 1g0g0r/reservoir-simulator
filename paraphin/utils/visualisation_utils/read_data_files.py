@@ -25,8 +25,8 @@ def convert_pkl_files():
     """Считывает содержимое всех бинарных файлов расширения .pkl"""
     def extract_number(_path):
         """Находим все числа в имени файла"""
-        numbers = re.findall(r'\d+', _path.stem)
-        return int(numbers[0]) if numbers else 0
+        numbers = re.findall(r'\d+(?:\.\d+)?', _path.stem)
+        return float(numbers[0]) if numbers else 0
 
     files_paths = [path for path in results_path.glob('*.pkl') if 'processed_data' not in path.name]  # Все файлы формата pkl
     sorted_paths = sorted(files_paths, key=extract_number)  # Сортировка данных расчета по времени
