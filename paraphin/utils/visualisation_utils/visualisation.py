@@ -86,6 +86,7 @@ def _visualize_fields(data):
                                          hovertemplate="x: %{x} день<br>y: %{y}<br>")]
                 else:
                     if 'Q' in _name:
+                        # TODO для накопов сделать отдельную страничку
                         trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name,
                                             hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
                     else:
