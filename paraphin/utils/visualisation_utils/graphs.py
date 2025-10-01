@@ -11,6 +11,7 @@ y_mesh = np.linspace(Y_min, Y_max, Ny)
 
 def create_graphs_and_maps():
     path = outputs_path / 'pictures'
+    path.mkdir(parents=True, exist_ok=True)
 
     _, data = read_solution_data('Wp=0.0_processed_data.pkl')
     _, data_wp = read_solution_data('Wp=0.05_processed_data.pkl')
@@ -33,7 +34,8 @@ def create_graphs_and_maps():
 
     plots_settings = [['Producer_oil', 'Producer_water', 'qв, м³/сут'],
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-                      ['Producer_Q_oil','Producer_Q_water', 'Qв, м³']]
+                      ['Producer_Q_oil','Producer_Q_water', 'Qв, м³']
+                      ]
     for _settings in plots_settings:
         _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
 

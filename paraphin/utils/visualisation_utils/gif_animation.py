@@ -30,8 +30,8 @@ isolines_settings = {
 
 
 def create_gif():
-    _, data = read_solution_data('wp0_processed_data.pkl')
-    _, data_wp = read_solution_data('wp5_processed_data.pkl')
+    _, data = read_solution_data('Wp=0.0_processed_data.pkl')
+    _, data_wp = read_solution_data('Wp=0.05_processed_data.pkl')
 
     data['Pressure'] /= bar_to_pa
     data_wp['Pressure'] /= bar_to_pa
@@ -127,8 +127,8 @@ def create_gif_from_png(name, duration=100, loop=0):
     """
     def extract_number(_path):
         """Находим все числа в имени файла"""
-        numbers = re.findall(r'\d+', _path)
-        return int(numbers[0]) if numbers else 0
+        numbers = re.findall(r'\d+(?:\.\d+)?', _path)
+        return float(numbers[0]) if numbers else 0
 
     file_pattern = os.path.join(gif_path / name, "*.png")
     png_files = sorted(glob.glob(file_pattern), key=extract_number)
@@ -175,13 +175,13 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
         for _name, _val in _data_wp['plots'].items():
             _fig.add_trace(go.Scatter(x=r, y=_val[_ii], mode='lines', name=names_converter[_name],  # 'markers+lines'
                                      hovertemplate="x: %{x}<br>y: %{y}<br>", line=dict(width=4)))
-    elif _name in ['Wps dep', 'k mult', 'm mult']:
+    elif _name in ['Wps dep', 'k', 'm']:
         if _name == 'Wps dep':
             z_min = 0.0
             z_max = init_Wp
         else:
             z_max = 1.0
-            if _name == 'k mult':
+            if _name == 'k':
                 z_min = 0.65
             else:
                 z_min = 0.75
