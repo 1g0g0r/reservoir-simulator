@@ -29,7 +29,7 @@ def save_fields(solver, t: float):
         wells_data.update({
             f'{well_name}_oil': q_value[0], f'{well_name}_water': q_value[1],
             f'{well_name}_total': q_value[2], f'{well_name}_eta': well.eta,
-            f'{well_name}_Q_oil': Q_value[0], f'{well_name}_Q_water': Q_value[1], f'{well_name}_Q_total': Q_value[2]
+            # f'{well_name}_Q_oil': Q_value[0], f'{well_name}_Q_water': Q_value[1], f'{well_name}_Q_total': Q_value[2]
         })
 
     if solver._paraphin:

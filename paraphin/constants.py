@@ -29,7 +29,7 @@ volume = area * h
 
 # Параметры времени задачи
 Time_end = day_to_sec * 365 * 6.0  # Время моделирования
-dt = day_to_sec / 1e1  # Шаг дискретизации по времени
+dt = day_to_sec / 4e1  # Шаг дискретизации по времени
 max_eta = 0.98         # Предельная обводненность
 
 # Параметры скважин
@@ -102,7 +102,7 @@ if Courant_num > 0.8:
 #     dt = 0.01 * round(dt / day_to_sec, 5) * day_to_sec
 #     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 20  # шаг по времени для сохранения результатов
+sol_time_step = dt * 50  # шаг по времени для сохранения результатов
 
 if data_type == ti.f64:
     np_data_type = np.float64
