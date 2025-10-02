@@ -67,21 +67,22 @@ def _fill_matrix_and_rhs(Wo: ti.template(), Wo_0: ti.template(), m: ti.template(
                          S: ti.template(), S_0: ti.template(), mu_o: ti.template(), mu_w: ti.template(),
                          matrix: ti.template(), rhs: ti.template()):
     """Сборка матрицы уравнения давления"""
-    for i, j in S:
-        idx = j + i * Nx
-        p_sum = 0.0
-        arr = [[0, i, j - 1, hy, hx*h], [1, i - 1, j, hx, hy*h], [3, i + 1, j, hx, hy*h], [4, i, j + 1, hy, hx*h]]
-        for qq in ti.static(ti.ndrange(4)):
-            idx_mat, i1, j1, hij, areaij = arr[qq]
-            if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
-                matrix[idx_mat, idx] = val
-                p_sum -= val
+    for i in ti.ndrange(Nx):
+        for j in ti.ndrange(Ny):
+            idx = j + i * Nx
+            p_sum = 0.0
+            arr = [[0, i, j - 1, hy, hx*h], [1, i - 1, j, hx, hy*h], [3, i + 1, j, hx, hy*h], [4, i, j + 1, hy, hx*h]]
+            for qq in ti.static(ti.ndrange(4)):
+                idx_mat, i1, j1, hij, areaij = arr[qq]
+                if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                    val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
+                                    k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
+                    matrix[idx_mat, idx] = val
+                    p_sum -= val
 
-        matrix[2, idx] = p_sum
+            matrix[2, idx] = p_sum
 
-        rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+            rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
 
 @ti.func

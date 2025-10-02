@@ -152,13 +152,14 @@ if __name__ == '__main__':
     @ti.kernel
     def init_coef(_coef: ti.template()):
         """Инициализация коэффициентов (оператор Лапласа)."""
-        for i, j in ti.ndrange(Nx, Ny):
-            idx = j + i * Nx
-            arr = [[i, j - 1], [i - 1, j], [i, j], [i + 1, j], [i, j + 1]]
-            for qq in ti.static(ti.ndrange(5)):
-                i1, j1 = arr[qq]
-                if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                    _coef[qq, idx] = -1.0 if qq[0] != 2 else 4.0
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
+                idx = j + i * Nx
+                arr = [[i, j - 1], [i - 1, j], [i, j], [i + 1, j], [i, j + 1]]
+                for qq in ti.static(ti.ndrange(5)):
+                    i1, j1 = arr[qq]
+                    if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+                        _coef[qq, idx] = -1.0 if qq[0] != 2 else 4.0
 
     @ti.kernel
     def init_rhs(_rhs: ti.template()):

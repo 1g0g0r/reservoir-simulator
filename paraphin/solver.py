@@ -137,44 +137,45 @@ class Solver:
 
         @ti.kernel
         def _initialize_params_loop():
-            for i, j in self.p:
-                # Параметры пласта
-                self.p[i, j]    = init_p
-                self.S[i, j]    = init_S
-                self.S_0[i, j]  = init_S
-                self.Wo[i, j]   = 1.0 - init_Wp - init_Wps
-                self.Wo_0[i, j] = self.Wo[i, j]
-                self.Wp[i, j]   = init_Wp
-                self.Wp_0[i, j] = init_Wp
-                self.Wps[i, j]  = init_Wps
-                self.Wps_dep[i, j] = 0.0
-                self.k[i, j]    = init_k
-                self.m[i, j]    = init_m
-                self.m_0[i, j]  = init_m
-                self.T[i, j]    = init_T
-                self.T_0[i, j]  = init_T
-                self.qp[i, j]   = init_qp
+            for i in ti.ndrange(Nx):
+                for j in ti.ndrange(Ny):
+                    # Параметры пласта
+                    self.p[i, j]    = init_p
+                    self.S[i, j]    = init_S
+                    self.S_0[i, j]  = init_S
+                    self.Wo[i, j]   = 1.0 - init_Wp - init_Wps
+                    self.Wo_0[i, j] = self.Wo[i, j]
+                    self.Wp[i, j]   = init_Wp
+                    self.Wp_0[i, j] = init_Wp
+                    self.Wps[i, j]  = init_Wps
+                    self.Wps_dep[i, j] = 0.0
+                    self.k[i, j]    = init_k
+                    self.m[i, j]    = init_m
+                    self.m_0[i, j]  = init_m
+                    self.T[i, j]    = init_T
+                    self.T_0[i, j]  = init_T
+                    self.qp[i, j]   = init_qp
 
-                # свойства флюидов
-                self.mu_o[i, j] = calc_mu_o(init_T)
-                self.mu_w[i, j] = calc_mu_w(init_T)
-                self.C_w[i, j] = c_w  # calc_c_w(init_T)
-                self.C_o[i, j] = c_o  # calc_c_o(init_T)
-                self.C_f[i, j] = c_f  # calc_c_f(init_T)
-                self.C_p[i, j] = c_p  # calc_c_p(init_T)
+                    # свойства флюидов
+                    self.mu_o[i, j] = calc_mu_o(init_T)
+                    self.mu_w[i, j] = calc_mu_w(init_T)
+                    self.C_w[i, j] = c_w  # calc_c_w(init_T)
+                    self.C_o[i, j] = c_o  # calc_c_o(init_T)
+                    self.C_f[i, j] = c_f  # calc_c_f(init_T)
+                    self.C_p[i, j] = c_p  # calc_c_p(init_T)
 
-                # Поля данный нового временного слоя
-                self.new_m[i, j]   = init_m
-                self.new_k[i, j]   = init_k
-                self.new_wps[i, j] = init_Wps
-                self.new_wp[i, j]  = init_Wp
+                    # Поля данный нового временного слоя
+                    self.new_m[i, j]   = init_m
+                    self.new_k[i, j]   = init_k
+                    self.new_wps[i, j] = init_Wps
+                    self.new_wp[i, j]  = init_Wp
 
-                for ij in ti.ndrange(Nr):
-                    self.fi[i, j, ij]     = fi_0[ij]
-                    self.new_fi[i, j, ij] = fi_0[ij]
-                    self.h_sloy[i, j, ij] = init_h_sloy
-                    self.Ur[i, j, ij] = 0.0
-                    self.Ub[i, j, ij] = 0.0
+                    for ij in ti.ndrange(Nr):
+                        self.fi[i, j, ij]     = fi_0[ij]
+                        self.new_fi[i, j, ij] = fi_0[ij]
+                        self.h_sloy[i, j, ij] = init_h_sloy
+                        self.Ur[i, j, ij] = 0.0
+                        self.Ub[i, j, ij] = 0.0
 
         _calc_integrals()
         _initialize_params_loop()
@@ -226,22 +227,23 @@ class Solver:
         self._update_wells_data()  # Обновление данных скважин
         self._wells_loop()         # Учет скважин в уравнениях
 
-        for i, j in self.p:
-            # ---решение задачи кольматации\суффозии---
-            if self._paraphin:
-                # Средняя скорость в капилляре * r^2
-                calc_Um_r2(i, j, self.p, self._Um_r2, self.mu_o)
-                # Обновление концентраций парафина
-                wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
-                # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
-                calc_velocitys_h(i, j, self.S, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
-                # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
+                # ---решение задачи кольматации\суффозии---
+                if self._paraphin:
+                    # Средняя скорость в капилляре * r^2
+                    calc_Um_r2(i, j, self.p, self._Um_r2, self.mu_o)
+                    # Обновление концентраций парафина
+                    wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
+                    # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
+                    calc_velocitys_h(i, j, self.S, self._Um_r2, self.Wps, self.mu_o, self.fi, self.h_sloy, self.Ur, self.new_h, self.new_Ur, self.new_Ub)
+                    # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
+                    calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
 
-            # ---решение гидродинамики---
-            flows_in_cells(i, j, self.boundary_conditions, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
-            saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)
-            temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.qp, self.cells_T_eq, self.new_t, self.new_m, self.new_s)
+                # ---решение гидродинамики---
+                flows_in_cells(i, j, self.boundary_conditions, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
+                saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)
+                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.qp, self.cells_T_eq, self.new_t, self.new_m, self.new_s)
 
 
     @ti.func
@@ -279,36 +281,37 @@ class Solver:
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
-        for i, j in self.p:
-            self._update_mu_and_c_temp(i, j)  #  пересчет свойств флюидов из-за изменения температуры
+        for i in ti.ndrange(Nx):
+            for j in ti.ndrange(Ny):
+                self._update_mu_and_c_temp(i, j)  #  пересчет свойств флюидов из-за изменения температуры
 
-            self.S_0[i, j] = self.S[i, j]
-            self.S[i, j]   = self.new_s[i, j]
-            self.new_s[i, j] = 0.0
-            self.T_0[i, j] = self.T[i, j]
-            self.T[i, j]   = self.new_t[i, j]
-            self.new_t[i, j] = 0.0
+                self.S_0[i, j] = self.S[i, j]
+                self.S[i, j]   = self.new_s[i, j]
+                self.new_s[i, j] = 0.0
+                self.T_0[i, j] = self.T[i, j]
+                self.T[i, j]   = self.new_t[i, j]
+                self.new_t[i, j] = 0.0
 
-            if self._paraphin:
-                self.Wo_0[i, j]  = self.Wo[i, j]
-                self.Wo[i, j]    = 1.0 - self.new_wp[i, j] - self.new_wps[i, j]
-                self.Wp_0[i, j]  = self.Wp[i, j]
-                self.Wp[i, j]    = self.new_wp[i, j]
-                self.new_wp[i, j] = 0.0  # FIXME из-за этого ломается кольматация на позднем времени
-                self.Wps_0[i, j] = self.Wps[i, j]
-                self.Wps[i, j]   = self.new_wps[i, j]
-                self.k[i, j]     = self.new_k[i, j]
-                self.m[i, j]     = self.new_m[i, j]
-                self.m_0[i, j]   = self.m[i, j]  # TODO разобраться с производной (вернуть производные и подвигать изменение дебета)
-                self.Wps_dep[i, j] = ti.min(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
-                                            ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
-                self.qp[i, j]    = self.new_qp[i, j]
+                if self._paraphin:
+                    self.Wo_0[i, j]  = self.Wo[i, j]
+                    self.Wo[i, j]    = 1.0 - self.new_wp[i, j] - self.new_wps[i, j]
+                    self.Wp_0[i, j]  = self.Wp[i, j]
+                    self.Wp[i, j]    = self.new_wp[i, j]
+                    self.new_wp[i, j] = 0.0  # FIXME из-за этого ломается кольматация на позднем времени
+                    self.Wps_0[i, j] = self.Wps[i, j]
+                    self.Wps[i, j]   = self.new_wps[i, j]
+                    self.k[i, j]     = self.new_k[i, j]
+                    self.m[i, j]     = self.new_m[i, j]
+                    self.m_0[i, j]   = self.m[i, j]  # TODO разобраться с производной (вернуть производные и подвигать изменение дебета)
+                    self.Wps_dep[i, j] = ti.min(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
+                                                ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
+                    self.qp[i, j]    = self.new_qp[i, j]
 
-                for ij in ti.ndrange(Nr):
-                    self.fi[i, j, ij]     = self.new_fi[i, j, ij]
-                    self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
-                    self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
-                    self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
+                    for ij in ti.ndrange(Nr):
+                        self.fi[i, j, ij]     = self.new_fi[i, j, ij]
+                        self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
+                        self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
+                        self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
 
 
     def start(self):
