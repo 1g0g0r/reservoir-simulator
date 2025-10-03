@@ -91,5 +91,5 @@ def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp) -> None:
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j
-    if T[i, j] < init_T * 0.95:
+    if T[i, j] < init_T * 0.95 and Wp[i, j] > 1e-6:
         new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)
