@@ -16,8 +16,7 @@ from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, satu
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                         calc_Um_r2)
 from .utils import (calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files, save_fields,
-                    Bound, TypeBC, DataField, add_bc)
-from .utils.well import WellStruct, upd_q_and_eta
+                    Bound, TypeBC, DataField, add_bc, WellStruct, upd_q_and_eta)
 
 
 @ti.data_oriented
