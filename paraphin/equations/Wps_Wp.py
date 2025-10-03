@@ -3,6 +3,8 @@ import taichi as ti
 
 from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type, init_Wp, init_T
 
+min_Wp_bound = 1e-6
+
 reverse_Tm = 1.0 / Tm
 alpha_R = alpha / R
 
@@ -39,7 +41,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     if T[i, j] < init_T * 0.95:
-        if Wp[i, j] > 1e-6:
+        if Wp[i, j] > min_Wp_bound:
             Wps_i  = _get_Wps(Wp[i, j], Wps[i, j], T[i, j])
             Wps_0_i  = _get_Wps(Wp[i, j], Wps[i, j], T_0[i, j])
 
@@ -65,7 +67,7 @@ def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
     new_Wps = Wps
 
     # exact_solution = alpha_R * Tm / (alpha_R + Tm * ti.log(border))
-    if Wp > 1e-6 and T > 0.9 * Tm:
+    if Wp > min_Wp_bound and T > 0.9 * Tm:
         new_Wps = Wp * ti.exp(alpha_R * (1.0 / T - reverse_Tm))
 
     return new_Wps
@@ -91,5 +93,5 @@ def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp) -> None:
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j
-    if T[i, j] < init_T * 0.95 and Wp[i, j] > 1e-6:
+    if T[i, j] < init_T * 0.95 and Wp[i, j] > min_Wp_bound:
         new_Wp[i, j] -= well.q[0] * (Wp[i, j] * ro_o + Wps[i, j] * ro_p) * dt / (m[i, j] * (1.0 - S[i, j]) * ro_o * volume)
