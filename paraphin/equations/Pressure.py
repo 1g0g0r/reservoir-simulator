@@ -7,7 +7,7 @@ from taichi._kernels import ext_arr_to_tensor
 from paraphin import N, NN
 from paraphin.constants import data_type, Nx, Ny, hx, hy, dt, volume, h, np_data_type
 from paraphin.utils import mid_Ko_Kw, apply_bc, get_bound
-from paraphin.well import calc_well_mult
+from paraphin.utils.well import calc_well_mult
 # from pypardiso import spsolve
 
 rhs = np.zeros(N, dtype=np_data_type)

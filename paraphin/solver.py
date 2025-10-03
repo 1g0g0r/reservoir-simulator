@@ -17,7 +17,7 @@ from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, satu
                         calc_Um_r2)
 from .utils import (calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_pkl_files, save_fields,
                     Bound, TypeBC, DataField, add_bc)
-from .well import WellStruct, upd_q_and_eta
+from .utils.well import WellStruct, upd_q_and_eta
 
 
 @ti.data_oriented
@@ -325,7 +325,6 @@ class Solver:
             with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
                       bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
                 for _t in pbar:
-                    # ti.profiler.print_kernel_profiler_info()
                     self.upd_time_step(_t)
                     pbar.set_postfix(день=_t / day_to_sec)
                     if self.wells[1].eta >= max_eta:
@@ -335,6 +334,7 @@ class Solver:
         finally:
             print('KIN:', round(self.KIN[None], 5))
             print('eta:', round(self.wells[1].eta, 5))
+            # ti.profiler.print_kernel_profiler_info()
             convert_pkl_files()
 
 
