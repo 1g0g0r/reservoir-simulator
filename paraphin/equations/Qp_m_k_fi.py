@@ -4,6 +4,8 @@ import taichi as ti
 from paraphin import r1, r2, r3, r4, r5, r6
 from paraphin.constants import data_type, Nr, dt, D, gamma, init_m, init_k
 
+min_Wps_bound = 1e-6
+
 D_2_gamma = D * 0.5 / gamma
 _a = ti.field(dtype=data_type, shape=Nr)
 _b = ti.field(dtype=data_type, shape=Nr)
@@ -40,7 +42,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
     new_k: taichi.field(Nx, Ny)
         Новое значение проницаемости, [-]
     """
-    if Wps[i, j] > 1e-6:
+    if Wps[i, j] > min_Wps_bound:
         # Вычисление изменения пористости и проницаемости пласта
         qp1, qp2, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
         new_qp[i, j] = m[i, j] * (2.0 * qp1 + Wps[i, j] * qp2) / r2fi
