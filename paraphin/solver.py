@@ -280,37 +280,36 @@ class Solver:
     @ti.kernel
     def _swap_time_steps(self):
         """Обновление полей данных на новом временном слое."""
-        for i in ti.ndrange(Nx):
-            for j in ti.ndrange(Ny):
-                self._update_mu_and_c_temp(i, j)  #  пересчет свойств флюидов из-за изменения температуры
+        for i, j in self.p:
+            self._update_mu_and_c_temp(i, j)  #  пересчет свойств флюидов из-за изменения температуры
 
-                self.S_0[i, j] = self.S[i, j]
-                self.S[i, j]   = self.new_s[i, j]
-                self.new_s[i, j] = 0.0
-                self.T_0[i, j] = self.T[i, j]
-                self.T[i, j]   = self.new_t[i, j]
-                self.new_t[i, j] = 0.0
+            self.S_0[i, j] = self.S[i, j]
+            self.S[i, j]   = self.new_s[i, j]
+            self.new_s[i, j] = 0.0
+            self.T_0[i, j] = self.T[i, j]
+            self.T[i, j]   = self.new_t[i, j]
+            self.new_t[i, j] = 0.0
 
-                if self._paraphin:
-                    self.Wo_0[i, j]  = self.Wo[i, j]
-                    self.Wo[i, j]    = 1.0 - self.new_wp[i, j] - self.new_wps[i, j]
-                    self.Wp_0[i, j]  = self.Wp[i, j]
-                    self.Wp[i, j]    = self.new_wp[i, j]
-                    self.new_wp[i, j] = 0.0
-                    self.Wps_0[i, j] = self.Wps[i, j]
-                    self.Wps[i, j]   = self.new_wps[i, j]
-                    self.k[i, j]     = self.new_k[i, j]
-                    self.m[i, j]     = self.new_m[i, j]
-                    self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной (вернуть производные и подвигать изменение дебета)
-                    self.Wps_dep[i, j] = ti.min(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
-                                                ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
-                    self.qp[i, j]    = self.new_qp[i, j]
+            if self._paraphin:
+                self.Wo_0[i, j]  = self.Wo[i, j]
+                self.Wo[i, j]    = 1.0 - self.new_wp[i, j] - self.new_wps[i, j]
+                self.Wp_0[i, j]  = self.Wp[i, j]
+                self.Wp[i, j]    = self.new_wp[i, j]
+                self.new_wp[i, j] = 0.0
+                self.Wps_0[i, j] = self.Wps[i, j]
+                self.Wps[i, j]   = self.new_wps[i, j]
+                self.k[i, j]     = self.new_k[i, j]
+                self.m[i, j]     = self.new_m[i, j]
+                self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной (вернуть производные и подвигать изменение дебета)
+                self.Wps_dep[i, j] = ti.min(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
+                                            ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
+                self.qp[i, j]    = self.new_qp[i, j]
 
-                    for ij in ti.ndrange(Nr):
-                        self.fi[i, j, ij]     = self.new_fi[i, j, ij]
-                        self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
-                        self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
-                        self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
+                for ij in ti.ndrange(Nr):
+                    self.fi[i, j, ij]     = self.new_fi[i, j, ij]
+                    self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
+                    self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
+                    self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
 
 
     def start(self):
