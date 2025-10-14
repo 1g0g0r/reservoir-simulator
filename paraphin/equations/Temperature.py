@@ -1,7 +1,7 @@
 """Решение уравнения температуры по явной схеме."""
 import taichi as ti
 
-from paraphin.constants import dt, volume, ro_w, ro_f, ro_o, ro_p
+from paraphin.constants import dt, volume, ro_w, ro_f, ro_o, ro_p, Twater
 
 
 @ti.func
@@ -97,3 +97,17 @@ def _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f):
     # TODO уточнить энергию осевшего на порах парафина
     return (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
                                      ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j])
+
+
+@ti.func
+def _get_top_bottom_heat_losses():
+    """Вычисление потерь тепла через кровлю и подошву пласта по методу Ловерье."""
+    t_loss = 0.0
+
+    ksi = 4.0 * lam / (V_o * C_o * rho_o + V_o * C_o * rho_o) / h
+    teta = 4.0 * lam * t / (C_f * rho_f) / h / h
+
+    if teta > ksi:
+        t_loss = (Twater - T_init) * ti.erfc(ksi / ti.sqrt((C_f * rho_f)/(C * rho) * (teta-ksi)) * 0.5)
+
+    return t_loss
