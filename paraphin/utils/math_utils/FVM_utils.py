@@ -101,11 +101,3 @@ def _K_o(k: data_type, s: data_type, mu_o: data_type) -> data_type:
 def _K_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
     """Фазовая проницаемость воды."""
     return k * pf_w(s) / mu_w
-
-
-@ti.func
-def get(_arr, _i, _j):
-    """Получение элемента массива с обработкой выхода за границы."""
-    i = ti.min(ti.max(_i, 0), Nx - 1)
-    j = ti.min(ti.max(_j, 0), Ny - 1)
-    return _arr[i, j]
