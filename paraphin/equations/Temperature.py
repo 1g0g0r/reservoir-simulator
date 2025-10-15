@@ -101,7 +101,7 @@ def _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f):
 
 
 @ti.func
-def _top_bottom_heat_losses(i, j, t, k, S, C_o, C_w, C_f, grad_p):
+def _top_bottom_heat_losses(i, j, t, k, S, mu_o, mu_w, C_o, C_w, C_f, grad_p):
     """Вычисление потерь тепла через кровлю и подошву пласта по методу Ловерье.
 
     Parameters
@@ -133,6 +133,6 @@ def _top_bottom_heat_losses(i, j, t, k, S, C_o, C_w, C_f, grad_p):
 
     if teta > ksi:
         # C * ro - горные породы вне пласта
-        t_loss = (Twater - init_T) * ti.erfc(ksi / ti.sqrt((C_f * ro_f)/(C * ro) * (teta-ksi)) * 0.5)
+        t_loss = (Twater - init_T) * ti.erfc(ksi / ti.sqrt((C_f * ro_f) / (C_ff * ro_ff) * (teta-ksi)) * 0.5)
 
     return t_loss
