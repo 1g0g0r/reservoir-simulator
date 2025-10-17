@@ -1,12 +1,13 @@
 """Решение уравнения температуры по явной схеме."""
 import taichi as ti
 
-from paraphin.constants import dt, volume, h, ro_w, ro_f, ro_o, ro_p, Twater, init_T
+from paraphin.constants import dt, volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, Twater, init_T, c_ff
 from paraphin.utils.math_utils.FVM_utils import _K_w, _K_o
 
 
 @ti.func
-def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0, qp, cells_T_eq, new_T, new_m, new_S) -> None:
+def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0, qp,
+                         cells_T_eq, new_T, new_m, new_S) -> None:
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -124,15 +125,15 @@ def _top_bottom_heat_losses(i, j, t, k, S, mu_o, mu_w, C_o, C_w, C_f, grad_p):
         Градиент давления в центрах ячеек, [Па/м]
     """
     t_loss = 0.0
+    # TODO вычислять градиент давления, а из него считать скорости
     V_o = grad_p[i, j] * _K_o(k[i, j], S[i, j], mu_o[i, j])
     V_w = grad_p[i, j] * _K_w(k[i, j], S[i, j], mu_w[i, j])
 
-    # TODO вычислять градиент давления, а из него считать скорости
     ksi = 4.0 * lam / (V_o * C_o * ro_o + V_w * C_w * ro_w) / h
     teta = 4.0 * lam * t / (C_f * ro_f) / h / h
 
     if teta > ksi:
         # C * ro - горные породы вне пласта
-        t_loss = (Twater - init_T) * ti.erfc(ksi / ti.sqrt((C_f * ro_f) / (C_ff * ro_ff) * (teta-ksi)) * 0.5)
+        t_loss = (Twater - init_T) * ti.erfc(ksi / ti.sqrt((C_f * ro_f) / (c_ff * ro_ff) * (teta-ksi)) * 0.5)
 
     return t_loss
