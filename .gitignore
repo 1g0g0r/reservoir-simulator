@@ -8,11 +8,11 @@
 **/__pycache__/
 TempFiles/
 outputs/
-TODO_list.txt
 ~*
 *.html
 *.log
 *.asv
+#TODO_list.txt
 
 *.aux
 *.blg

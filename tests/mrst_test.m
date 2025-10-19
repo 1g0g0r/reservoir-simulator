@@ -46,7 +46,12 @@ fluid = initSimpleADIFluid('phases', 'WO', ...
 model = TwoPhaseOilWaterModel(G, rock, fluid);  % , 'relperm', relperm
 
 % 1. Вернуть базовый решатель
-% 2. Добавить ГУ на границе
+
+%% Impose boundary conditions
+% bc = fluxside([], G, 'LEFT', 1*meter^3/day());
+% bc = pside(bc, G, 'RIGHT', 0);
+% bc_pressure = pside([], G, 'LEFT', 1*atm());
+
 %% Add wells
 rw = 0.1;
 p_inj  = 150 * barsa();
