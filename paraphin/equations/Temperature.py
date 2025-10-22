@@ -129,6 +129,7 @@ def _top_bottom_heat_losses(i, j, t, k, S, mu_o, mu_w, C_o, C_w, C_f, grad_p):
     V_o = grad_p[i, j] * _K_o(k[i, j], S[i, j], mu_o[i, j])
     V_w = grad_p[i, j] * _K_w(k[i, j], S[i, j], mu_w[i, j])
 
+    # lam - теплопроводность пласта
     ksi = 4.0 * lam / (V_o * C_o * ro_o + V_w * C_w * ro_w) / h
     teta = 4.0 * lam * t / (C_f * ro_f) / h / h
 
