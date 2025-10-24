@@ -125,7 +125,7 @@ def _top_bottom_heat_losses(i, j, t, k, S, mu_o, mu_w, C_o, C_w, C_f, grad_p):
         Градиент давления в центрах ячеек, [Па/м]
     """
     t_loss = 0.0
-    # TODO вычислять градиент давления, а из него считать скорости
+    # TODO вычислять скорости
     V_o = grad_p[i, j] * _K_o(k[i, j], S[i, j], mu_o[i, j])
     V_w = grad_p[i, j] * _K_w(k[i, j], S[i, j], mu_w[i, j])
 
