@@ -2,7 +2,7 @@
 import numpy as np
 import taichi as ti
 from taichi.lang.impl import grouped
-from pickle import dump
+from pickle import dump, HIGHEST_PROTOCOL
 
 from paraphin import fi_0_np
 from paraphin.constants import Nx, Ny, Nr, results_path, init_k, init_m, day_to_sec, np_data_type
@@ -76,7 +76,7 @@ def save_fields(solver, t: float):
         }
 
     with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as file:
-        dump(data, file)
+        dump(data, file,protocol=HIGHEST_PROTOCOL)
         solver.logger.info("Данные записаны в файл.")
 
 
