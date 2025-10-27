@@ -75,8 +75,8 @@ def save_fields(solver, t: float):
             # }
         }
 
-    with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as f:
-        dump(data, f)
+    with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as file:
+        dump(data, file)
         solver.logger.info("Данные записаны в файл.")
 
 
