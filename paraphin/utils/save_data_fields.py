@@ -51,11 +51,11 @@ def save_fields(solver, t: float):
             'k': new_k_np / init_k,
             'plots': {'fi_o': fi_0_np, 'fi': fi_np},
             'Wells': wells_data,
-            # 'Other params': {
-            #     'KIN': solver.KIN[None],
-            #     f'T [{x_idx},{y_idx}]': Wps_np[x_idx, y_idx],
-            #
-            # }
+            'Other params': {
+                'KIN': solver.KIN[None],
+                f'T [{x_idx},{y_idx}]': T_np[x_idx, y_idx],
+
+            }
         }
     else:
         _loop(solver, p_np, S_np, T_np)

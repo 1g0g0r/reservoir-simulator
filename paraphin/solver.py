@@ -88,7 +88,7 @@ class Solver:
         self.cells_S_eq  = ti.field(dtype=data_type, shape=(Nx, Ny))
 
         # Вспомогательные поля класса
-        self._t = 0.0
+        self._t = ti.field(dtype=data_type, shape=())
         self._i_img = 0
         self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)
         self.rows_indices = np.ndarray
@@ -203,19 +203,20 @@ class Solver:
         self.n_wells += 1
 
 
-    def upd_time_step(self) -> None:
+    def upd_time_step(self, t: float) -> None:
         """Решение задачи на текущем временном слое."""
+        self._t[None] = t
         self._process_time_step()
-        self._logging_solution(self._t)
+        self._logging_solution(t)
         self._swap_time_steps()
 
         # Запись данных в файл
-        if self._t >= self._i_img * sol_time_step or np.isclose(self._t, Time_end) or self.wells[1].eta >= max_eta:
-            save_fields(self, self._t)
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
+            save_fields(self, t)
             self._i_img += 1
 
 
-    def _process_time_step(self):
+    def _process_time_step(self) -> None:
         """Метод IMPES: явный по насыщенности неявный по давлению."""
         # Обновление давления
         calc_pressure(self.p, self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o,
@@ -246,7 +247,7 @@ class Solver:
                 # ---решение гидродинамики---
                 flows_in_cells(i, j, self.boundary_conditions, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)
-                temperature_equation(i, j, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_ff, self.C_p, self.Wps, self.qp, self.cells_T_eq, self._t, self.k, self.mu_o, self.mu_w, self.grad_p, self.new_t, self.new_m, self.new_s)
+                temperature_equation(i, j, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_ff, self.C_p, self.Wps, self.qp, self.cells_T_eq, self._t[None], self.k, self.mu_o, self.mu_w, self.grad_p, self.new_t, self.new_m, self.new_s)
 
 
     @ti.func
@@ -316,19 +317,19 @@ class Solver:
                     self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
 
 
-    def start(self):
+    def start(self) -> None:
         try:
             times = np.linspace(0, Time_end, int(Time_end / dt + 1))
             tt = perf_counter()
-            self.initialize()      # Задание начальных условий из файла const.py
-            self.upd_time_step()  # При первом запуске компилируются модули
+            self.initialize()        # Задание начальных условий из файла const.py
+            self.upd_time_step(0.0)  # При первом запуске компилируются модули
             print('Время компиляции:', perf_counter() - tt)
 
             with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
                       bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
-                for self._t in pbar:
-                    self.upd_time_step()
-                    pbar.set_postfix(день=self._t / day_to_sec)
+                for _t in pbar:
+                    self.upd_time_step(_t)
+                    pbar.set_postfix(день=_t / day_to_sec)
                     if self.wells[1].eta >= max_eta:
                         break
         except KeyboardInterrupt:
