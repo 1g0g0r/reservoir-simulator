@@ -33,8 +33,8 @@ def save_fields(solver, t: float):
         })
 
     if solver._paraphin:
-        x_idx = int(Nx / 2)
-        y_idx = int(Ny / 2)
+        x_idx = 0  # int(Nx / 2)
+        y_idx = 0  # int(Ny / 2)
         _loop_with_paraphin_data(solver, x_idx, y_idx, fi_np, p_np, S_np, T_np, Wo_np, Wp_np,
                                  Wps_np, Wps_dep_np, qp_np, new_m_np, new_k_np)
         data = {
@@ -51,15 +51,11 @@ def save_fields(solver, t: float):
             'k': new_k_np / init_k,
             'plots': {'fi_o': fi_0_np, 'fi': fi_np},
             'Wells': wells_data,
-            # 'Other params': {
-            #   'KIN': solver.KIN[None],
-            # 	f'Wps [{x_idx},{y_idx}]': Wps_np[x_idx, y_idx],
-            # 	f'Wp [{x_idx},{y_idx}]': Wp_np[x_idx, y_idx],
-            # 	f'Wo [{x_idx, y_idx}]': Wo_np[x_idx, y_idx],
-            # 	f'k [{x_idx},{y_idx}]': new_k_np[x_idx, y_idx] / init_k,
-            # 	f'm [{x_idx},{y_idx}]': new_m_np[x_idx, y_idx] / init_m,
-            # 	f'qp [{x_idx},{y_idx}]': qp_np[x_idx, y_idx]
-            # }
+            'Other params': {
+                'KIN': solver.KIN[None],
+                f'T [{x_idx},{y_idx}]': Wps_np[x_idx, y_idx],
+
+            }
         }
     else:
         _loop(solver, p_np, S_np, T_np)

@@ -11,7 +11,7 @@ from tqdm import tqdm
 from paraphin import r1, r3, r4, r5, r6, fi_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs_path, init_T, init_k, init_S, init_m,
                         init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, h, dt, day_to_sec, ro_p, ro_o,
-                        max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, _re, geological_reserves, mu_o, mu_w)
+                        max_eta, c_o, c_w, c_p, c_f, c_ff, sol_time_step, Time_end, LOGGING, _re, geological_reserves, mu_o, mu_w)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
                         temperature_equation, wps_wp_equation, wps_wp_wells, calc_velocitys_h, flows_in_cells,
                         calc_Um_r2)
@@ -38,6 +38,7 @@ class Solver:
         self.C_w  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость воды, [Дж*кг/C]
         self.C_o  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость нефти, [Дж*кг/C]
         self.C_f  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость пласта, [Дж*кг/C]
+        self.C_ff = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость окружающих пород пласта, [Дж*кг/C]
         self.C_p  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость парафина, [Дж*кг/C]
 
         # Поля данных
@@ -60,6 +61,7 @@ class Solver:
         # Динамика образования парафина (кольматация\суффозия)
         self.integr_r2_fi0 = ti.field(dtype=data_type, shape=())
         self.integr_r4_fi0 = ti.field(dtype=data_type, shape=())
+        self.grad_p  = ti.field(dtype=data_type, shape=(Nx, Ny))
         self._Um_r2  = ti.field(dtype=data_type, shape=(Nx, Ny))
         self.qp      = ti.field(dtype=data_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
         self.fi      = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
@@ -86,6 +88,7 @@ class Solver:
         self.cells_S_eq  = ti.field(dtype=data_type, shape=(Nx, Ny))
 
         # Вспомогательные поля класса
+        self._t = 0.0
         self._i_img = 0
         self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)
         self.rows_indices = np.ndarray
@@ -160,8 +163,9 @@ class Solver:
                     self.mu_w[i, j] = calc_mu_w(init_T)
                     self.C_w[i, j] = c_w  # calc_c_w(init_T)
                     self.C_o[i, j] = c_o  # calc_c_o(init_T)
-                    self.C_f[i, j] = c_f  # calc_c_f(init_T)
                     self.C_p[i, j] = c_p  # calc_c_p(init_T)
+                    self.C_f[i, j] = c_f  # calc_c_f(init_T)
+                    self.C_ff[i, j] = c_ff
 
                     # Поля данный нового временного слоя
                     self.new_m[i, j]   = init_m
@@ -199,15 +203,15 @@ class Solver:
         self.n_wells += 1
 
 
-    def upd_time_step(self, t: float) -> None:
+    def upd_time_step(self) -> None:
         """Решение задачи на текущем временном слое."""
         self._process_time_step()
-        self._logging_solution(t)
+        self._logging_solution(self._t)
         self._swap_time_steps()
 
         # Запись данных в файл
-        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
-            save_fields(self, t)
+        if self._t >= self._i_img * sol_time_step or np.isclose(self._t, Time_end) or self.wells[1].eta >= max_eta:
+            save_fields(self, self._t)
             self._i_img += 1
 
 
@@ -231,7 +235,7 @@ class Solver:
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Средняя скорость в капилляре * r^2
-                    calc_Um_r2(i, j, self.p, self._Um_r2, self.mu_o)
+                    calc_Um_r2(i, j, self.p, self.grad_p, self._Um_r2, self.mu_o)
                     # Обновление концентраций парафина
                     wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
@@ -242,7 +246,7 @@ class Solver:
                 # ---решение гидродинамики---
                 flows_in_cells(i, j, self.boundary_conditions, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)
-                temperature_equation(i, j, self.T, self.m, self.m_0, self.S, self.S_0, self.C_o, self.C_w, self.C_f, self.C_p, self.Wps, self.Wps_0, self.qp, self.cells_T_eq, self.new_t, self.new_m, self.new_s)
+                temperature_equation(i, j, self.T, self.m, self.S, self.C_o, self.C_w, self.C_f, self.C_ff, self.C_p, self.Wps, self.qp, self.cells_T_eq, self._t, self.k, self.mu_o, self.mu_w, self.grad_p, self.new_t, self.new_m, self.new_s)
 
 
     @ti.func
@@ -317,14 +321,14 @@ class Solver:
             times = np.linspace(0, Time_end, int(Time_end / dt + 1))
             tt = perf_counter()
             self.initialize()      # Задание начальных условий из файла const.py
-            self.upd_time_step(0)  # При первом запуске компилируются модули
+            self.upd_time_step()  # При первом запуске компилируются модули
             print('Время компиляции:', perf_counter() - tt)
 
             with tqdm(iterable=times[1:], ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
                       bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
-                for _t in pbar:
-                    self.upd_time_step(_t)
-                    pbar.set_postfix(день=_t / day_to_sec)
+                for self._t in pbar:
+                    self.upd_time_step()
+                    pbar.set_postfix(день=self._t / day_to_sec)
                     if self.wells[1].eta >= max_eta:
                         break
         except KeyboardInterrupt:

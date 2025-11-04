@@ -1,7 +1,7 @@
 """Вспомогательные процедуры для реализации решения методом конечных объемов."""
 import taichi as ti
 
-from paraphin.constants import Nx, Ny, hx, hy, data_type, eta, ro_o, ro_p, K_o, K_f, K_w, K_p
+from paraphin.constants import data_type, ro_o, ro_p, K_o, K_f, K_w, K_p
 from .phase_f import pf_o, pf_w
 
 

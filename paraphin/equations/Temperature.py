@@ -1,13 +1,14 @@
 """Решение уравнения температуры по явной схеме."""
 import taichi as ti
 
-from paraphin.constants import dt, volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, Twater, init_T, c_ff
+from paraphin.constants import dt, volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, Twater, init_T, K_ff
+from paraphin.utils.math_utils import ti_erfc
 from paraphin.utils.math_utils.FVM_utils import _K_w, _K_o
 
 
 @ti.func
-def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0, qp,
-                         cells_T_eq, new_T, new_m, new_S) -> None:
+def temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells_T_eq, t, k,
+                         mu_o, mu_w, grad_p, new_T, new_m, new_S) -> None:
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -18,24 +19,20 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0
         Температура, [С]
     m: taichi.field(Nx, Ny)
         Пористость, [-]
-    m_0: taichi.field(Nx, Ny)
-        Пористость на старом временном слое, [-]
     S: taichi.field(Nx, Ny)
         Водонасыщенность, [-]
-    S_0: taichi.field(Nx, Ny)
-        Водонасыщенность на старом временном слое, [-]
     C_o: taichi.field(Nx, Ny)
         Теплоемкость нефти, [Дж/(кг*C)]
     C_w: taichi.field(Nx, Ny)
         Теплоемкость воды, [Дж/(кг*C)]
     C_f: taichi.field(Nx, Ny)
         Теплоемкость пласта, [Дж/(кг*C)]
+    C_ff: taichi.field(Nx, Ny)
+        Теплоемкость окружающих пород пласта, [Дж/(кг*C)]
     C_p: taichi.field(Nx, Ny)
         Теплоемкость парафина, [Дж/(кг*C)]
     Wps: taichi.field(Nx, Ny)
         Концентрация взвешенных частиц парафина, [-]
-    Wps_0: taichi.field(Nx, Ny)
-        Концентрация взвешенных частиц парафина на старом временном слое, [-]
     qp: taichi.field(Nx, Ny)
          Скорость отложения парафиновых отложений в общем объеме пористой породы
     cells_T_eq: taichi.field(Nx, Ny)
@@ -46,12 +43,23 @@ def temperature_equation(i, j, T, m, m_0, S, S_0, C_o, C_w, C_f, C_p, Wps, Wps_0
         Пористость на новом временном слое, [-]
     new_S: taichi.field(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
+    t: float
+        Физическое время, прошедшее с начала моделирования задачи, [сек]
+    k: taichi.field(Nx, Ny)
+        Проницаемость, [м^2]
+    mu_o: taichi.field(Nx, Ny)
+		Вязкость нефти, [Па*с]
+	mu_w: taichi.field(Nx, Ny)
+		Вязкость воды, [Па*с]
+    grad_p: taichi.field(Nx, Ny)
+        Поле перепада давления, [Па/м]
     """
     psi = _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f)
     psi_next = _psi(i, j, new_m, new_S, Wps, C_w, C_o, C_p, C_f)
     derivative_add = T[i, j] * volume * (psi_next - psi) / dt
+    T_losses = _top_bottom_heat_losses(i, j, t, k, S, mu_o, mu_w, C_o, C_w, C_f, C_ff, grad_p)
 
-    new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add  + qp[i, j] * ro_p * C_p[i, j] * volume)
+    new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses + qp[i, j] * ro_p * C_p[i, j] * volume)
 
 
 @ti.func
@@ -102,7 +110,7 @@ def _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f):
 
 
 @ti.func
-def _top_bottom_heat_losses(i, j, t, k, S, mu_o, mu_w, C_o, C_w, C_f, grad_p):
+def _top_bottom_heat_losses(i, j, t, k, S, mu_o, mu_w, C_o, C_w, C_f, C_ff, grad_p):
     """Вычисление потерь тепла через кровлю и подошву пласта по методу Ловерье.
 
     Parameters
@@ -121,20 +129,20 @@ def _top_bottom_heat_losses(i, j, t, k, S, mu_o, mu_w, C_o, C_w, C_f, grad_p):
         Теплоемкость воды, [Дж/(кг*C)]
     C_f: taichi.field(Nx, Ny)
         Теплоемкость пласта, [Дж/(кг*C)]
+    C_ff: taichi.field(Nx, Ny)
+        Теплоемкость окружающих пород пласта, [Дж/(кг*C)]
     grad_p: taichi.field(Nx, Ny)
         Градиент давления в центрах ячеек, [Па/м]
     """
     t_loss = 0.0
-    # TODO вычислять скорости
     V_o = grad_p[i, j] * _K_o(k[i, j], S[i, j], mu_o[i, j])
     V_w = grad_p[i, j] * _K_w(k[i, j], S[i, j], mu_w[i, j])
 
-    # lam - теплопроводность пласта
-    teta = 4.0 * lam * t / (C_f * ro_f) / h / h
-    ksi = 4.0 * lam / (V_o * C_o * ro_o + V_w * C_w * ro_w) / h
+    teta = 4.0 * K_ff * t / (C_f[i, j] * ro_f) / h / h
+    ksi = 4.0 * K_ff / (V_o * C_o[i, j] * ro_o + V_w * C_w[i, j] * ro_w) / h
 
     if teta > ksi:
-        # C * ro - горные породы вне пласта
-        t_loss = (Twater - init_T) * ti.erfc(ksi / ti.sqrt((C_f * ro_f) / (c_ff * ro_ff) * (teta-ksi)) * 0.5)
+        erfs_argument = ksi / ti.sqrt((C_f[i, j] * ro_f) / (C_ff[i, j] * ro_ff) * (teta - ksi)) * 0.5
+        t_loss = (Twater - init_T) * ti_erfc(erfs_argument)
 
     return t_loss

@@ -5,7 +5,7 @@ from paraphin.constants import Nx, Ny, hx, hy, eta
 
 
 @ti.func
-def calc_Um_r2(i, j, p, Um_r2, mu_o) -> None:
+def calc_Um_r2(i, j, p, grad_p, Um_r2, mu_o) -> None:
     """Вычисление средней скорости в капилляре без множителя r^2.
 
     Parameters
@@ -14,6 +14,8 @@ def calc_Um_r2(i, j, p, Um_r2, mu_o) -> None:
         Индексы текущей ячейки, [-]
     p: taichi.field(Nx, Ny)
 		Давление, [Па]
+    grad_p: taichi.field(Nx, Ny)
+        Поле перепада давления, [Па/м]
 	Um_r2: taichi.field(Nx, Ny)
         Средняя скорость в капилляре без множителя r^2, [1/(с*м)]
 	mu_o: taichi.field(Nx, Ny)
@@ -36,5 +38,5 @@ def calc_Um_r2(i, j, p, Um_r2, mu_o) -> None:
     else:
         df_dy = (p[i, j + 1] - p[i, j - 1]) / (2 * hy)
 
-    grad_p = ti.sqrt(df_dx * df_dx + df_dy * df_dy)
-    Um_r2[i, j] = grad_p / mu_o[i, j] * 0.125 / eta
+    grad_p[i, j] = ti.sqrt(df_dx * df_dx + df_dy * df_dy)
+    Um_r2[i, j] = grad_p[i, j] / mu_o[i, j] * 0.125 / eta
