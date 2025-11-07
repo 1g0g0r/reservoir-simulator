@@ -8,7 +8,7 @@ from .phase_f import pf_o, pf_w, Buckley_Leverett
 
 @ti.func
 def ti_erfc(x: data_type) -> data_type:
-	"""Аппроксимация Abramowitz and Stegun функции erfc(x) (точность ~1e-7)."""
+	"""Аппроксимация (Abramowitz and Stegun) функции erfc(x) (точность ~1e-7)."""
 	result = 0.0
 	a1, a2, a3 = 0.254829592, -0.284496736, 1.421413741
 	a4, a5, p = -1.453152027, 1.061405429, 0.3275911
