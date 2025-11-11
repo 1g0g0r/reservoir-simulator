@@ -54,7 +54,7 @@ init_T   = 70  # [C]
 init_qp  = 0.0
 init_h_sloy = 0.0
 porous_volume = (X_max - X_min) * (Y_max - Y_min) * h * init_m
-geological_reserves = porous_volume * (1.0 - init_S)  # геологические запасы пласта
+geological_reserves = porous_volume * (1.0 - init_S)  # Геологические запасы пласта
 
 # Параметры флюидов
 ro_w  = 1000.0  # Плотность воды, [кг/м^3]
@@ -94,8 +94,8 @@ alpha = 0.1426 * MW * (Tm + 273.15) * kal_to_J     # Скрытая теплот
 
 # Проверка числа Куранта
 _re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
-_u_aver = init_k / mu_o * Pw * 0.05  # Примерная средняя скорость потока
-Courant_num = _u_aver * dt / _re  # Число Куранта
+_u_aver = init_k / mu_o * Pw * 0.05      # Примерная средняя скорость потока
+Courant_num = _u_aver * dt / _re         # Число Куранта
 if Courant_num > 0.8:
     dt = 0.02 * _re / _u_aver
     dt = round(dt / day_to_sec, 5) * day_to_sec
