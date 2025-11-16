@@ -1,0 +1,266 @@
+\documentclass[12pt,twoside,a4paper]{uz_ku}
+%% опция 'print' для двусторонней печати, 'english' - для статей на английском
+%% файл настроен в кодировке UTF8 (все настройки в файле uz_ku.cls - не изменяйте его!)
+%% здесь можно добавить НЕОБХОДИМЫЕ авторам пакеты:
+
+
+
+%%%%%% Заполняется редакцией %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\Startpage{1}			% начальная страница (заполняется верстальщиком)			%
+\Year{2025}	  			% год														%
+\Volume{166}  			% том														%
+\Book{1}  				% книга														%
+\Type{original} 		% тип: original или review, иначе использовать команду:		%
+						% %\SetType{Т\,И\,П~~С\,Т\,А\,Т\,Ь\,И}{A\,R\,T~~T\,Y\,P\,E}	%
+\Received{??.??.????} 	% дата поступления в редакцию (без первого нуля)			%
+\Accepted{??.??.????}	% дата принятия к публикации  (без первого нуля) 			%
+%%%%%% Заполняется редакцией %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%% для верстальщика %%%%%%%%%%%%%%%%%%%%%%%%%
+%% \usepackage{showframe}	% чтобы видеть геометрию    %%
+%% \overfullrule = 3cm   	% чтобы видеть переполнения	%%								
+%%%%%%%%%%%%%%% для верстальщика %%%%%%%%%%%%%%%%%%%%%%%%%
+
+\UDK{???????} %% УДК
+
+\InformationInRussian
+
+\TITLE{Название статьи}
+\ShortTITLE{Короткое название статьи для колонтитула \ldots} % первые три-четыре слова и \ldots
+\AUTHOR{А.А.~Автор\aff{1}, В.В.~Автор\aff{1,2}\cormail{corresp.author@xxxx.yy}}
+%% если авторы работают в одном и том же институте - \aff не ставить или \aff{}
+%% \cormail - e-mail для корреспонденции, должен быть ровно один и стоять при соответствующем авторе
+\CiteAUTHOR[]{Автор1~А.А., Автор2~Б.Б.} %% ИНОЙ порядок инициалов при цитировании! ([опциональный] аргумент - иное название статьи)
+
+%% Пример  оформления  аффилиации (если автор один или у всех 
+%% авторов общие аффилиации - убрать номер в скобках)
+\Affil[1]{Казанский $($Приволжский$)$ федеральный университет, г.~Казань,~Россия}
+\Affil[2]{Казанский национальный исследовательский технический университет\\им.~А.Н.~Туполева -- КАИ, г.~Казань,~Россия}
+
+\Abstract{Аннотация статьи. Краткое изложение вашего исследования (объёмом от 150 до 300 слов). Пожалуйста, избегайте использования формул, сокращений (если они не расшифрованы), диаграмм, иллюстраций, графиков, таблиц и библиографических ссылок в тексте аннотации. 
+
+Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст.}
+
+% Ключевые слова на русском:
+\KEYWORDS{словосочетание1, словосочетание2, ... (до 10 словосочетаний, без точки в конце)}
+
+% благодарности, поддержка работы, если есть:
+\THANKS{Авторы благодарят ...}
+
+% то же самое дублируется на английском языке
+\InformationInEnglish
+
+\TITLE{Article title}
+\ShortTITLE{Running title \ldots} % the first two-three words and \ldots
+\AUTHOR{A.A.~Author\aff{1}, B.B.~Author\aff{1,2}\cormail{corresp.author@xxxx.yy}}
+\CiteAUTHOR[]{Author1~A.A., Author2~B.B.}
+
+\Affil[1]{Kazan Federal University, Kazan,~Russia}
+\Affil[2]{Kazan National Research Technological University\\named after A.N. Tupolev -- KAI, Kazan,~Russia}
+
+\Abstract{A brief summary of your research (up to 150--300 words long). Please avoid formulas, abbreviations (unless defined), diagrams, illustrations, graphs, tables, and bibliographic references in the abstract text.
+
+Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text. Text.}
+
+\KEYWORDS{keyword1, keyword2, ... (до 10 словосочетаний, без точки в конце)}
+
+% если есть:
+\THANKS{This study was supported by ...}
+
+
+
+\begin{document}
+
+\section*{Введение}
+
+Текст статьи должен быть подготовлен средствами издательской системы \LaTeXe \ с использованием стиля  uz\_ku.cls. Изменения стандартного стилевого файла недопустимы.
+Рекомендуется вставлять текст статьи непосредственно <<поверх>> текста этого шаблона.
+
+В статье нумеруются лишь те формулы, на которые по тексту есть ссылки.
+Список литературы составляется по порядку ссылок в тексте (где номер ссылки указывается в квадратных скобках) и приводится в конце статьи. Ссылки на неопубликованные работы не допускаются. Пример оформления ссылок см. ниже.
+
+\section{Название первого раздела}
+
+Основной текст статьи.
+Рисунки могут быть подготовлены в любом графическом редакторе и предоставлены в формате EPS (предпочтительно) или JPG в~хорошем качестве для печати. Сноски оформляются следующим образом\footnote{Пример оформления сноски.}. При использовании номерных ссылок используйте неразрывный пробел: уравнение~\eqref{eq:1} или формула~(1), теорема~\ref{thm:1}, работа~\cite{grom}. 
+
+
+
+\subsection{Пример вставки рисунка. }
+
+При вставке рис.~\ref{fig:1} ссылка на него обязательна и располагается в TEX файле в абзаце, предшествующем команде вставки иллюстрации, независимо от того, в каком месте она будет отображена в PDF. Центрирование рисунка происходит автоматически. Подпись к рисунку без точки.
+
+\begin{figure} % не требует центрирования, это уже настроено 
+	\includegraphics[clip,width=40mm]{fig.eps}
+	\bicaption
+	{Пример вставки рисунка. Подпись к рисунку ПОД ним,	без точки} % название на русском
+	{Example of inserting a figure}						  % перевод на английский
+	\label{fig:1}
+\end{figure}
+
+
+\subsection{Пример вставки таблицы. }
+
+При вставке табл.~\ref{tab:2} ссылка на нее обязательна и располагается в TEX файле в абзаце, предшествующем команде вставки таблицы, независимо от того, в каком месте она будет отображена в PDF. Центрирование таблицы происходит автоматически. Название таблицы без точки.
+
+\begin{table} % не требует центрирования, это уже настроено 
+	\bicaption
+	{Название таблицы размещается СВЕРХУ нее, без точки} % название на русском
+	{Table title in English} 							 % перевод на английский
+	\label{tab:2}
+	\begin{tabular}{|c|cc|}
+	\hline
+	% после \\ можно ставить \hline или \cline{col1-col2} \cline{col3-col4} ...
+	$n$    &  $A$  & $B$ \\ \hline
+	1  &  $x$ &  ---  \\
+	2  &  $y$ &  $z$ \\ \hline
+	\end{tabular}
+\end{table}
+
+\section{Название второго раздела}
+
+
+
+
+Рекомендуется использовать окружения, определенные в нашем стилевом файле, см. табл.~\ref{tab:1}:
+
+\begin{table}
+	\bicaption
+	{Рекомендуемые окружения}
+	{Recommended Environments}
+\label{tab:1}
+\begin{tabular}{l|l}
+Theorem   		& Теорема									\\
+Theorem\_s 		& Теорема, нумерация подчинена разделам		\\
+Theorem*   		& Теорема без нумерации						\\
+Lemma      		& Лемма										\\
+Proposal  		& Предложение								\\
+Proposal\_s		& Предложение, нумерация подчинена разделам	\\
+Corollary   	& Следствие									\\
+Corollary*  	& Следствие без нумерации					\\
+Axiom      		& Аксиома									\\
+Example   		& Пример									\\
+Definition 		& Определение								\\
+Definition\_s 	& Определение, нумерация подчинена разделам	\\
+Remark      	& Замечание									\\
+Remark*     	& Замечание без нумерации					\\
+Case        	& Случай									\\
+\end{tabular}
+\end{table}
+
+
+
+
+\begin{Theorem}\label{thm:1}
+Формулировка теоремы.
+\end{Theorem}
+
+\begin{proof}
+Текст доказательства. Пример использования формулы с номером:
+\begin{equation}\label{eq:1}
+		a(x)=b^3,
+\end{equation}
+\begin{equation}\label{eq:2}
+		c(x)=d^2,
+\end{equation}
+\begin{equation}\label{eq:3}
+		f(x)=\int x^a dx.
+\end{equation}
+..........
+Теорема доказана.
+\end{proof}
+
+Возможны ссылки на формулы. Например, здесь мы сослались на формулу~\eqref{eq:1} из предыдущей теоремы~\ref{thm:1}. Пример ссылок на несколько формул~\eqref{eq:1}, \eqref{eq:2} или же \eqref{eq:1}--\eqref{eq:3}.
+Пример использования формулы без номера:
+	$$F(x)=x-4.$$
+Пример задания ссылок на используемую литературу~\cite{kolm, grom} или~\cite{miron, lakes, kolm:2}.
+
+\section*{Заключение}
+Заключительный текст статьи. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст.  Текст. Текст. Текст. Текст. Текст. Текст. Текст. Текст.
+
+
+
+%% указать отсутствие конфликта интересов или раскрыть все потенциальные
+%% конфликты интересов, которые могли повлиять на результаты исследования
+\ConflictOfInterests{Авторы заявляют об отсутствии конфликта интересов}
+
+\ConflictOfInterests{The authors declare no conflicts of interest}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% пример библиографии на русском языке %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{thebibliography}{99}
+\bibitem{kolm}
+\textit{Колмогоров А.Н., Фомин С.В.} Элементы теории функций и функционального анализа. М.: Наука, 1976.  543~с.
+
+\bibitem{grom}
+\textit{Громов М.Л.} Красочные категории // УМН. 1970. Т.~70, №~4.  C.~3--76. \URL{https://doi.org/10.4213/rm9657.}
+
+\bibitem{miron}
+\textit{Мироненко В.А., Петров Н.С.} Загрязнение подземных вод углеводородами // Геоэкология. 1995.  №~1.  С.~3--27.
+
+\bibitem{lakes}
+\textit{Lakes R.} Elastic and viscoelastic behavior of chiral materials // Int. J. Mech. Sci.  2001. V.~43,  No~7.  P.~1579--1589.
+
+\bibitem{kolm:2}
+\textit{Kolmogorov A.}  Bemerkungen zu meiner Arbeit «Uber die Summen durch den Zufall bestimmter unabh\"angiger Gr\"ossen» // Math. Ann. 1929. Bd.~102. S.~484--488.
+\end{thebibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% библиография дублируется на английском языке %%
+%%    	   (оставить нашему переводчику)		%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{thebibliography}{99}
+\bibitem{kolm}
+Kolmogorov~A.N., Fomin~S.V. \textit{Elementy teorii funktsii i funktsional'nogo analiza} [Elements of the Theory of Functions and Functional Analysis]. Moscow, Nauka, 1976. 543~p. (In~Russian)
+\bibitem{grom}
+Gromov~M.L. Colourful categories. \textit{Russ. Math. Surv.}, 2015, vol.~70, no.~4, pp.~591--655. \URL{https://doi.org/10.1070/RM2015v070n04ABEH004956.}
+\bibitem{miron}
+Mironenko~V.A., Petrov~N.S. Pollution of groundwater with hydrocarbons. \textit{Geoekologiya}, 1995,  no.~1, pp.~3--27. (In Russian)
+\bibitem{lakes}
+Lakes R. Elastic and viscoelastic behavior of chiral materials. \textit{Int. J. Mech. Sci.},  2001, vol.~43,  no.~7, pp.~1579--1589. \URL{https://doi.org/10.1016/S0020-7403(00)00100-4.}
+\bibitem{kolm:2}
+Kolmogoroff A.  Bemerkungen zu meiner Arbeit „\"Uber die Summen zuf\"alliger Gr\"ossen“. \textit{Math. Ann.}, 1930, Bd.~102, S.~484--488. (In German)
+\end{thebibliography}
+
+
+%%% Подробная информация об авторах %%%
+
+\InformationInRussian
+
+\Author{Имя Отчество Фамилия}
+\Degree{ученая степень}
+	\Position{ученое звание, должность}
+	\Org{организация, в которой работает автор}
+\Email{xxx@yyy.zzz} 
+\ORCID{https://orcid.org/????-????-????-????} 
+
+\Author{Иван Иванович Иванов}
+\Degree{доктор физико-математических наук}
+	\Position{профессор, заведующий кафедрой <<Перспективные материалы>>}
+	\Org{Московский авиационный институт}
+	\Position{старший научный сотрудник Института математики и механики им. Н.И. Лобачевского}
+	\Org{Казанский $($Приволжский$)$ федеральный университет}
+\Email{email@mail.ru} 
+\ORCID{https://orcid.org/0000-0001-0002-0003}
+
+\InformationInEnglish
+
+\Author{First name M*. Family name} %% M*. - Middle name initial
+\Degree{academic degree}
+	\Position{academic title, position}
+	\Org{organization to which the author is affiliated}
+\Email{xxx@yyy.zzz} 
+\ORCID{https://orcid.org/????-????-????-????} 
+
+\Author{Andrey N. Kolmogorov}
+\Degree{Doc. Sci. (Physics and Mathematics)}
+	\Position{Professor, Faculty of Mechanics and Mathematics}
+	\Org{Moscow State University}
+\Email{email@mail.ru}
+\ORCID{https://orcid.org/0000-0001-0002-0003}
+
+\end{document}
+
