@@ -18,3 +18,4 @@ outputs/
 *.blg
 *.bbl
 *.synctex.gz
+*converted-to.pdf
