@@ -7,8 +7,10 @@ from paraphin.constants import S_min, S_max, n_power, data_type, mu_w, mu_o
 @ti.func
 def pf_o(s: data_type) -> data_type:
     """
-    Функция отностельной фазовой проницаемости нефти
-        [(Smax-S)/(Smax-Smin)]^n
+    Функция отностельной фазовой проницаемости нефти:
+               ⎡   Smax - S    ⎤^ n
+        pf_o = ⎢———————————————⎢
+               ⎣  Smax - Smin  ⎦
     """
     ret = 0.0
     if s < S_min:
@@ -24,8 +26,10 @@ def pf_o(s: data_type) -> data_type:
 @ti.func
 def pf_w(s: data_type) -> data_type:
     """
-    Функция отностельной фазовой проницаемости воды
-        [(S-Smin)/(Smax-Smin)]^n
+    Функция отностельной фазовой проницаемости воды:
+               ⎡   S - Smin    ⎤^ n
+        pf_w = ⎢———————————————⎢
+               ⎣  Smax - Smin  ⎦
     """
     ret = 0.0
     if s < S_min:
@@ -40,9 +44,9 @@ def pf_w(s: data_type) -> data_type:
 
 @ti.func
 def Buckley_Leverett(s: data_type, mu_w: data_type, mu_o: data_type) -> data_type:
-    """Функция Баклея-Леверетта
+    """Функция Баклея-Леверетта:
                       pf_w
-        f = -------------------------
+        f = —————————————————————————
             pf_w + pf_o * mu_w / mu_o
     """
     return pf_w(s) / (pf_w(s) + pf_o(s) * mu_w / mu_o)
