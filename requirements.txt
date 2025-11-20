@@ -8,5 +8,4 @@ psutil
 scipy
 taichi
 tqdm
-# python-poppler  # либа для сохранения графиков plotly в формате .eps (sudo apt-get install poppler-utils)
 # pypardiso  # либа для параллельного решения СЛАУ
