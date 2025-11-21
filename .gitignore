@@ -18,4 +18,5 @@ outputs/
 *.blg
 *.bbl
 *.synctex.gz
+*.synctex(busy)
 *-converted-to.pdf
