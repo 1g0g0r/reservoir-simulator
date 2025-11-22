@@ -58,6 +58,7 @@ if __name__ == '__main__':
     s_arr = ti.field(dtype=data_type, shape=n)
     f_o = ti.field(dtype=data_type, shape=n)
     f_w = ti.field(dtype=data_type, shape=n)
+    buck_lev = ti.field(dtype=data_type, shape=n)
 
     @ti.kernel
     def calc_data():
@@ -66,6 +67,7 @@ if __name__ == '__main__':
             s_arr[i] = s
             f_o[i] = pf_o(s)
             f_w[i] = pf_w(s)
+            buck_lev[i] = Buckley_Leverett(s, mu_w, mu_o)
 
     calc_data()
 
@@ -74,7 +76,7 @@ if __name__ == '__main__':
                              line=dict(color='red', width=3)))
     fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='ОФП воды',
                              line=dict(color='blue', width=3)))
-    # fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy()/(f_w.to_numpy()+mu_w/mu_o*f_o.to_numpy()),
+    # fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=buck_lev.to_numpy(),
     #                          mode='lines', name='БЛ', line=dict(color='black', width=3)))
 
     fig.update_layout(plot_bgcolor='white', width=750, height=350, margin=dict(t=0, b=0),
