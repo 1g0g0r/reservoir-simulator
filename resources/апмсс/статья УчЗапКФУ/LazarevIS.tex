@@ -27,10 +27,10 @@
 
 \TITLE{О процессе выпадения парафина в пласте}
 \ShortTITLE{О процессе выпадения парафина в пласте} % первые три-четыре слова и \ldots
-\AUTHOR{И.С.~Лазарев \cormail{Lazarevigor.2001@mail.ru}, А.И.~Никифоров}
+\AUTHOR{А.И.~Никифоров, И.С.~Лазарев \cormail{Lazarevigor.2001@mail.ru}}
 %% если авторы работают в одном и том же институте - \aff не ставить или \aff{}
 %% \cormail - e-mail для корреспонденции, должен быть ровно один и стоять при соответствующем авторе
-\CiteAUTHOR[]{Лазарев~И.С., Никифоров~А.И.} %% ИНОЙ порядок инициалов при цитировании! ([опциональный] аргумент - иное название статьи)
+\CiteAUTHOR[]{Никифоров~А.И., Лазарев~И.С.} %% ИНОЙ порядок инициалов при цитировании! ([опциональный] аргумент - иное название статьи)
 
 %% Пример  оформления  аффилиации (если автор один или у всех авторов общие аффилиации - убрать номер в скобках)
 \Affil{Институт механики и машиностроения ФИЦ КазНЦ РАН, г.~Казань, 420111,~Россия}
@@ -46,8 +46,8 @@
 
 \TITLE{About the process of paraffin deposition in the formation}
 \ShortTITLE{About the process of paraffin deposition \ldots} % the first two-three words and \ldots
-\AUTHOR{I.S.~Lazarev \cormail{Lazarevigor.2001@mail.ru}, A.I.~Nikiforov}
-\CiteAUTHOR[]{Lazarev~I.S., Nikiforov~A.I.}
+\AUTHOR{A.I.~Nikiforov, I.S.~Lazarev \cormail{Lazarevigor.2001@mail.ru}}
+\CiteAUTHOR[]{Nikiforov~A.I., Lazarev~I.S.}
 
 \Affil{Institute of Mechanics and Mechanical Engineering FIC KazanSC of RAS, Kazan, 420111,~Russia}
 
@@ -66,9 +66,104 @@
 	В настоящей работе нефть моделируется как двухкомпонентная углеводородная смесь, состоящая из «нефти» и «парафина». Предполагается, что данные компоненты не смешиваются с водой. Для прогнозирования температуры начала кристаллизации парафина применяется модель идеального раствора бинарной смеси [8]. Особое внимание уделяется механизму блокировки пор парафином. Функция распределения пор по размерам используется для определения коэффициентов пористости и проницаемости [3]. Также при помощи нее строятся замыкающие соотношения для уравнений сохранения массы, импульса и энергии [3, 11-12]. 
 
 \section*{Постановка задачи}
+	Рассматривается двухфазная неизотермическая многокомпонентная фильтрация в прямоугольной области $D = [0, L_x] \times [0, L_y] \times [0, L_z]$. Пласт является однородным, его пористость и проницаемость равны $m$ и $k$ соответственно. Область $D$ является элементом симметрии пятиточечной системы заводнения и содержит две вертикальные совершенные по степени вскрытия скважины радиуса $r_w$. (нагнетательную и добывающую), имеющие координаты $(0, 0)$ и $(L_x, L_y)$ соответственно. Начальная температура пласта $T=T_0$, а температура нагнетаемой воды $T=T_w$.
+	
+	В данной модели присутствуют две фазы и три псевдокомпонента. Нефть и вода представляют собой две отдельные не смешивающиеся фазы. В качестве трех псевдокомпонентов выступают нефть, вода и парафин. Предполагается, что жидкости несжимаемы, а также что между водной и нефтяной фазами не происходит массообмен. Поэтому уравнения баланса масс записываются для каждой фазы отдельно. Учитывая сделанные допущения, уравнения баланса массы для воды и нефти, имеют следующую структуру:
+	
+\begin{equation}\label{eq1}
+\frac{\partial }{\partial t}(m \rho_w S_w ) + \nabla(\rho_w \mathbf{U_w}) = q_w \rho_w,
+\end{equation}
 
-Основной текст статьи.
-Рисунки могут быть подготовлены в любом графическом редакторе и предоставлены в формате EPS (предпочтительно) или JPG в~хорошем качестве для печати. Сноски оформляются следующим образом\footnote{Пример оформления сноски.}. При использовании номерных ссылок используйте неразрывный пробел: уравнение~\eqref{eq:1} или формула~(1), теорема~\ref{thm:1}, работа~\cite{grom}. 
+\begin{equation}\label{eq2}
+\frac{\partial }{\partial t}(w_o  m \rho_o S_o) + \nabla(w_o \rho_o \mathbf{U_o}) = w_o q_o \rho_o.
+\end{equation}
+
+	Псевдокомпонент парафина может быть частично растворен и/или взвешен в нефтяной фазе в виде частиц и отложен в поровом пространстве. Уравнение баланса массы парафина в этом случае запишется в виде \cite{bib:02}:
+
+\begin{equation}\label{eq3}
+\frac{\partial}{\partial t}(w_{ps} m \rho_p S_o + w_p  m \rho_o S_o) + \nabla(w_{ps}  \rho_p \mathbf{U_o} + w_p \rho_o \mathbf{U_o}) = q_p \rho_p + q_o (w_p \rho_o + w_{ps} \rho_p).
+\end{equation}
+
+	Уравнения движения фаз представим с помощью закона Дарси в пренебрежении влиянием капиллярных и гравитационных сил:
+\begin{equation}\label{eq4}
+\mathbf{U_i} = \frac{k f_i}{\mu_i} \nabla P,  \qquad (i=o,w).
+\end{equation}
+
+	В рамках однотемпературной термодинамической модели  уравнение, описывающее баланс полной энергии всей системы, может быть сформулировано в виде следующего выражения \cite{bib:03}:
+
+\begin{multline}\label{eq5}
+\frac{\partial }
+{\partial t}(m \rho_w S_w C_w T +(1-w_{ps})m \rho_o S_o C_o T + 
+w_{ps}m \rho_p S_o C_p T +(1-m) \rho_f C_f T) + 
+\\
++\nabla(\rho_w \mathbf{U_w} C_w T + (1-w_{ps}) \rho_o \mathbf{U_o} C_o T + w_{ps}\rho_p \mathbf{U_o} C_p T) = 
+\\
+=\nabla [(m S_w K_w + (1-w_{ps}) m S_o K_o  + w_{ps} m S_o K_p + (1-m) K_f) \nabla T ] + q_o \rho_o C_o T + q_w \rho_w C_w T
+\end{multline}
+
+Растворимость и осаждение парафинов из нефти моделируется уравнением теории идеального раствора для бинарной смеси \cite{bib:03}:
+\begin{equation} \label{eq6}
+w_{ps} = w_p \exp[\frac{\alpha}{R}(\frac{1}{T} - \frac{1}{T_m})]. 
+\end{equation}
+
+\vspace{1em}
+{\subsection*{\normalsize Модель пористой среды}}
+	 При описании кольматации пласта частицами парафина, будем рассматривать пористую среду в рамках модели идеального грунта, то есть как систему цилиндрических капилляров разного диаметра, имеющих фиктивные сужения (горла). Для простоты используем следующие допущения:
+\begin{enumerate} 
+	\item Для всех капилляров отношение радиуса горла к радиусу канала $\gamma :(0< \gamma \leq 1)$ одинаково и сохраняется в процессе кольматации частиц;
+	\item Частицы парафина имеют шарообразную форму одинакового размера – диаметр $l$;
+	\item Количество оседающих частиц пропорционально их долям в движущейся фазе;
+	\item Капилляр полностью блокируется при попадании частиц, если характерный размер частиц не меньше диаметра горловины, равного по величине $\gamma r$;
+	\item Собственная пористость осевших частиц пренебрежимо мала по сравнению с пористостью пласта;
+	\item Суффозией пренебрегаем, ввиду сложности механизма взаимодействия частиц парафина и недостатка экспериментальных данных;
+	\item Доля капилляров, занятых некоторой фазой, пропорциональна насыщенности образца этой фазой.
+\end{enumerate}
+Последнее допущение является отражением основной гипотезы модели двухфазной фильтрации. Согласно ей вода и нефть движутся по своим системам пор \cite{bib:05}.
+
+\vspace{1em}
+{\subsection*{\normalsize Структурные изменения пористой среды}}
+	\textbf{Скорость сужения порового канала}. Исходя из экспериментальных данных была получена эмпирическая зависимость для скорости сужения цилиндрического порового канала в однофазном потоке, вызванная кольматацией \cite{bib:04}. По аналогии с однофазным потоком для двухфазного скорость сужения порового канала в случае оседания частиц парафина в нефти запишется в виде:
+\begin{equation}\label{eq7}
+\upsilon_r = -w_{ps} (S_o-S_{0}^{*}) \left ( \frac{2 \upsilon_{mo} D^2}{r L_k} \right )^{\frac{1}{3}}.
+\end{equation}
+
+\par \textbf{Скорость блокирования пор}. Для поровых каналов, занятых нефтью, размеры которых удовлетворяют условию блокирования $r \leq \frac{l}{2 \gamma}$, будем вычислять скорость блокирования по следующей формуле \cite{bib:04}:
+	
+\begin{equation}\label{eq8}
+\upsilon_b = \left\{\begin{matrix}
+\frac{(S_0-S_{o}^{*}) 6 \beta r^2 w_{ps} \upsilon_{mo} \phi}{l^3}, \quad \qquad r \leq \frac{l}{2 \gamma}
+ \\
+ 0, \qquad \qquad \qquad \qquad \qquad r > \frac{l}{2 \gamma}
+\end{matrix}\right.
+\end{equation}
+
+\par \textbf{Функция пор по размерам}. Для описания радиусов капилляров вводится функция пор по размерам, согласно которой $ \phi (r,t)-$ доля капилляров, имеющих радиус r в момент времени t. Будем полагать, что для начального момента времени (t = 0) функция пор по размерам известна т.е. $ \phi (r,0)= \phi_0 (r)$.
+Кинематика изменения функции распределения пор по размерам во времени будет определяться следующим уравнением \cite{bib:05}:
+\begin{equation}\label{eq9}
+\frac{\partial \phi}{\partial t} + \frac{\partial (\upsilon_r \phi)}{\partial r} + \upsilon_b = 0.
+\end{equation}
+Подчеркнем, что изменение радиусов происходит во всех поровых каналах, а блокирование происходит только при размере частиц менее радиусов горловин поровых каналов. Однако могут блокироваться и каналы, для которых в начальный момент времени $r \geq \frac{l}{2 \gamma}$, так как в процессе кольматации пласта частицами парафина их диаметры уменьшились и стали удовлетворять условию закупоривания.
+
+\par \textbf{Пористость и проницаемость}. В следствии структурных изменений порового пространства, вызванное кольматацией и блокированием пор, происходит изменение динамической пористости и абсолютной проницаемости пласта. Пусть $m_0$ и $k_0$ начальные пористость и проницаемость, тогда для текущего момента времени их можно представить в виде произведений: $m=m_f m_0$ и $k=k_f k_0$ соответственно. Фактор пористости $m_f$ определим, используя просветность \cite{bib:04}: 
+\begin{equation}\label{eq10}
+m_f = \frac
+{ \int_{0}^{\infty} r^2 \phi (r) dr}
+{ \int_{0}^{\infty} r^2 \phi_0 (r) dr}.
+\end{equation}
+Коэффициент $k_f$ определим, воспользовавшись моделью параллельных капилляров и законом Пуазейля \cite{bib:04}:
+
+\begin{equation}\label{eq11}
+k_f = \frac
+{ \int_{0}^{\infty} r^4 \phi (r) dr}
+{ \int_{0}^{\infty} r^4 \phi_0 (r) dr}.
+\end{equation}
+
+\par \textbf{Интенсивность массообмена}. Изменение объема взвешенных частиц парафина в нефти вызвано двумя факторами: оседание на поверхности пор и блокировка поровых нефтяных каналов \cite{bib:03}. Ввиду вышеуказанных допущений, скорость массообмена парафина в пористой среде будет равна:
+\begin{equation}\label{eq12}
+q_p =
+2 m \frac{ \int_{0}^{\infty} r \upsilon_r(r) \phi (r) dr}{ \int_{0}^{\infty} r^2 \phi(r) dr} + 
+w_{ps} m  \frac{ \int_{0}^{\infty} r \upsilon_b(r) \phi (r) dr}{ \int_{0}^{\infty} r^2 \phi(r) dr}.
+\end{equation}
 
 
 
@@ -169,16 +264,29 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{thebibliography}{99}
-\bibitem{kolm}
-Kolmogorov~A.N., Fomin~S.V. \textit{Elementy teorii funktsii i funktsional'nogo analiza} [Elements of the Theory of Functions and Functional Analysis]. Moscow, Nauka, 1976. 543~p. (In~Russian)
-\bibitem{grom}
-Gromov~M.L. Colourful categories. \textit{Russ. Math. Surv.}, 2015, vol.~70, no.~4, pp.~591--655. \URL{https://doi.org/10.1070/RM2015v070n04ABEH004956.}
-\bibitem{miron}
-Mironenko~V.A., Petrov~N.S. Pollution of groundwater with hydrocarbons. \textit{Geoekologiya}, 1995,  no.~1, pp.~3--27. (In Russian)
-\bibitem{lakes}
-Lakes R. Elastic and viscoelastic behavior of chiral materials. \textit{Int. J. Mech. Sci.},  2001, vol.~43,  no.~7, pp.~1579--1589. \URL{https://doi.org/10.1016/S0020-7403(00)00100-4.}
-\bibitem{kolm:2}
-Kolmogoroff A.  Bemerkungen zu meiner Arbeit „\"Uber die Summen zuf\"alliger Gr\"ossen“. \textit{Math. Ann.}, 1930, Bd.~102, S.~484--488. (In German)
+\bibitem{1} Kanevskaya R. D. Mathematical modeling of hydrodynamic processes in the development of hydrocarbon deposits. Izhevsk. Institute of Computer Research. - 2003. - 26 p.
+
+\bibitem{2} Adeyanju O.A. and Oyekunle L.O. Simulation of paraffin deposition in petroleum reservoirs. ASPES 2 (3), 1-18 (2010) 
+
+\bibitem{3}Nikiforov, A.I., Sadovnikov, R.V. \& Nikiforov, G.A. Modeling of Paraffin Deposition During Oil Production by Cold Water Injection. Lobachevskii J Math 43, 1178–1183 (2022). 
+
+\bibitem{4}Mozes, G. Y. (Ed.): Paraffin products: Properties, technology, applications. New York, Elsevier Scientific Publishing (1982).
+
+\bibitem{5}Wang Sh., Civan F. Modeling Formation Damage by Asphaltene Deposition During Primary Oil Recovery. J. Energy Resour. Technol. 127 (4), 310–317 (2005) 
+
+\bibitem{6}Wang Sh., Civan F. Model-Assisted Analysis of Simultaneous Paraffin and Asphaltene Deposition in Laboratory Core Tests. J. Energy Resour. Technol., 127 (4), 318-322 (2005) 
+
+\bibitem{7}Weingarten J.S., Euchner J.A. Methods for Predicting Wax Precipitation and Deposition. SPE Production Engineering, 121-126 (Feb. 1988) 
+
+\bibitem{8}Ring J.N., Wattenbarger R.A., Keating J.F., and Peddlbhotla S. Simulation of Paraffin Deposition in Reservoirs. SPE Production \& Facilities 36–42 (Feb. 1994) 
+
+\bibitem{9}Sandyga M. S., Struchkov I. A., and Rogachev M. K. Formation damage induced by wax deposition: laboratory investigations and modeling. J. Petroleum Exploration and Production Technology (10) 2541–2558 (2020
+
+\bibitem{10}Kozeny, J. Ueber kapillare Leitung des Wassers im Boden. Sitzungsber Akad. Wiss., Wien 136 (2a), 271-306 (1927)
+
+\bibitem{11}Nikiforov A. I., Zakirov T. R. and Nikiforov1 G. A. Model for Treatment of Oil Reservoirs with Polymer-Dispersed Systems. Chem Tech Fuels Oils 51 (1), 105–112 (2015) 
+
+\bibitem{12}Burdine N. T. Relative permeability calculations from pore size distribution data. SPE 225-G, Petroleum Transactions AIME 198, 71-78 (1953) 
 \end{thebibliography}
 
 
@@ -186,37 +294,35 @@ Kolmogoroff A.  Bemerkungen zu meiner Arbeit „\"Uber die Summen zuf\"alliger G
 
 \InformationInRussian
 
-\Author{Имя Отчество Фамилия}
-\Degree{ученая степень}
-	\Position{ученое звание, должность}
-	\Org{организация, в которой работает автор}
-\Email{xxx@yyy.zzz} 
-\ORCID{https://orcid.org/????-????-????-????} 
-
-\Author{Иван Иванович Иванов}
+\Author{Анатолий Иванович Никифоров}
 \Degree{доктор физико-математических наук}
-	\Position{профессор, заведующий кафедрой <<Перспективные материалы>>}
-	\Org{Московский авиационный институт}
-	\Position{старший научный сотрудник Института математики и механики им. Н.И. Лобачевского}
-	\Org{Казанский $($Приволжский$)$ федеральный университет}
-\Email{email@mail.ru} 
-\ORCID{https://orcid.org/0000-0001-0002-0003}
+	\Position{Заведующий лабораторией математического моделирования процессов фильтрации}
+	\Org{Институт механики и машиностроения ФИЦ КазНЦ РАН}
+\Email{nikiforov@imm.knc.ru} 
+\ORCID{https://orcid.org/0000-0000-0000-0000}
+
+\Author{Игорь Сергеевич Лазарев}
+\Degree{аспирант}
+	\Position{инженер-исследователь}
+	\Org{Институт механики и машиностроения ФИЦ КазНЦ РАН}
+\Email{Lazarevigor.2001@mail.ru} 
+%\ORCID{https://orcid.org/????-????-????-????} 
 
 \InformationInEnglish
 
-\Author{First name M*. Family name} %% M*. - Middle name initial
-\Degree{academic degree}
-	\Position{academic title, position}
-	\Org{organization to which the author is affiliated}
-\Email{xxx@yyy.zzz} 
-\ORCID{https://orcid.org/????-????-????-????} 
-
-\Author{Andrey N. Kolmogorov}
+\Author{Anatoliy I. Nikiforov}
 \Degree{Doc. Sci. (Physics and Mathematics)}
-	\Position{Professor, Faculty of Mechanics and Mathematics}
-	\Org{Moscow State University}
-\Email{email@mail.ru}
-\ORCID{https://orcid.org/0000-0001-0002-0003}
+	\Position{Head of the Laboratory of Mathematical Modeling of Filtration Processes}
+	\Org{Institute of Mechanics and Mechanical Engineering FIC KazanSC of RAS}
+\Email{nikiforov@imm.knc.ru} 
+\ORCID{https://orcid.org/0000-0000-0000-0000}
+
+\Author{Igor S*. Lazarev} %% M*. - Middle name initial
+\Degree{PhD Student}
+	\Position{research engineer}
+	\Org{Institute of Mechanics and Mechanical Engineering FIC KazanSC of RAS}
+\Email{Lazarevigor.2001@mail.ru} 
+%\ORCID{https://orcid.org/????-????-????-????} 
 
 \end{document}
 
