@@ -26,24 +26,24 @@ def create_graphs_and_maps():
 
     fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.03], ['Temperature', 25*1.001, init_T*0.99, 10]]
     for _setings in fields_settings:
-        _field_vis(idx, idx_wp, data, data_wp, pictures_path, *_setings)
+        _field_vis(idx, idx_wp, data, data_wp, *_setings)
 
     plots_settings = [['Producer_oil', 'Producer_water', 'qв, м³/сут'],
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-                      ['Producer_Q_oil','Producer_Q_water', 'Qв, м³']
+                      # ['Producer_Q_oil','Producer_Q_water', 'Qв, м³']
                       ]
     for _settings in plots_settings:
-        _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], pictures_path, *_settings)
+        _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], *_settings)
 
-    # maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
+    # maps = [['m', 0, 1, 0.03], ['k', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
     #         ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
     # for _maps_setings in maps:
-    #     _create_map(idx_wp, data_wp, path, *_maps_setings)
+    #     _create_map(idx_wp, data_wp, *_maps_setings)
 
     print('Done!')
 
 
-def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
+def _plot_vis(time, data, data_wp, name_plot1, name_plot2, y_axis_title):
     """Процедура строит векторные графики показателей работы скважин."""
     fig = go.Figure()
 
@@ -82,10 +82,10 @@ def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
         mode='lines', line=dict(color='red', width=3, dash='dash'), showlegend=False
     ))
     fig = _plots_params(fig, 't, сут', y_axis_title)
-    fig.write_image(path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
+    fig.write_image(pictures_path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
 
 
-def _field_vis(idx, idx_wp, data, data_wp, path, field_name, start, end, step):
+def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     """Процедура строит векторные графики изолиний полей данных."""
     from . import x_mesh, y_mesh
     fig = go.Figure()
@@ -113,10 +113,21 @@ def _field_vis(idx, idx_wp, data, data_wp, path, field_name, start, end, step):
     ))
 
     fig = _plots_params(fig, 'X', 'Y')
-    fig.write_image(path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
+    fig.write_image(pictures_path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
+
+    from paraphin.utils import plotly_to_eps
+    plotly_to_eps(
+        fig_plotly=fig,
+        filename=field_name,
+        figsize=(10, 10),
+        dpi=1200,
+        title_fontsize=16,
+        label_fontsize=14,
+        legend_fontsize=12
+    )
 
 
-def _create_map(idx_wp, data_wp, path, field_name, start, end, step):
+def _create_map(idx_wp, data_wp, field_name, start, end, step):
     from . import x_mesh, y_mesh
 
     fig = go.Figure()
@@ -139,7 +150,7 @@ def _create_map(idx_wp, data_wp, path, field_name, start, end, step):
         yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
     )
 
-    fig.write_image(path / f"{field_name}_{round(data_wp['Time'][idx_wp], 2)}.svg", width=700, height=600)
+    fig.write_image(pictures_path / f"{field_name}_{round(data_wp['Time'][idx_wp], 2)}.svg", width=700, height=600)
 
 
 def _plots_params(fig, x_axis_title, y_axis_title):

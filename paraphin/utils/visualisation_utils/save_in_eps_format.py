@@ -110,37 +110,39 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
 
                 z = np.array(trace.z)
 
-                # Проверяем, есть ли x и y координаты
-                x = np.array(trace.x) if hasattr(trace, 'x') and trace.x is not None else np.arange(z.shape[1])
-                y = np.array(trace.y) if hasattr(trace, 'y') and trace.y is not None else np.arange(z.shape[0])
-
                 # Создаем сетку для контуров
-                X, Y = np.meshgrid(x, y)
+                X, Y = np.meshgrid(trace.x, trace.y)
 
                 # Параметры контуров
-                ncontours = trace.ncontours if hasattr(trace, 'ncontours') else 15
                 contours = trace.contours if hasattr(trace, 'contours') else None
-                autocontour = getattr(contours, 'autocontour', True) if contours else True
+                if contours is None:
+                    continue
+
+                levels = np.linspace(contours.start, contours.end, int((contours.end - contours.start) / contours.size))
 
                 # Цветовая карта
                 colorscale = trace.colorscale if hasattr(trace, 'colorscale') else 'Viridis'
                 cmap = _convert_plotly_colorscale_to_cmap(colorscale)
+                _, color = colorscale[0]
 
                 # Рисуем контуры
                 contour_type = trace.contours_type if hasattr(trace, 'contours_type') else 'levels'
+                linestyle = 'dashed' if trace.line.dash is not None else 'solid'
+                width = trace.line.width
 
                 if contour_type == 'constraint':
                     # Заполненные контуры
-                    contourf = ax.contourf(X, Y, z, ncontours, cmap=cmap, alpha=0.8)
+                    contourf = ax.contourf(X, Y, z, levels, cmap=cmap, alpha=0.8)
                     # Добавляем контурные линии поверх
-                    contour_lines = ax.contour(X, Y, z, ncontours, colors='k', linewidths=0.5)
+                    contour_lines = ax.contour(X, Y, z, levels, colors=color, linestyles=linestyle, linewidths=width)
                 else:
                     # Только контурные линии
-                    contour_lines = ax.contour(X, Y, z, ncontours, cmap=cmap)
+                    contour_lines = ax.contour(X, Y, z, levels, colors=color,
+                                               linestyles=linestyle, linewidths=width)
                     contourf = contour_lines
 
                 # Добавляем подписи к контурам
-                if trace.contours_showlabels if hasattr(trace, 'contours_showlabels') else False:
+                if contours.showlabels if hasattr(contours, 'showlabels') else False:
                     ax.clabel(contour_lines, inline=True, fontsize=10)
 
                 # Название для легенды
@@ -189,7 +191,6 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
                 if hasattr(trace, 'ygap') and trace.ygap:
                     ax.set_aspect('equal')
 
-
     # Заголовок
     if hasattr(fig_plotly.layout, 'title'):
         if isinstance(fig_plotly.layout.title, dict) and fig_plotly.layout.title.text is not None:
@@ -211,14 +212,15 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
 
     # Сетка
     if hasattr(fig_plotly.layout, 'xaxis') and hasattr(fig_plotly.layout.xaxis, 'showgrid'):
-        ax.grid(fig_plotly.layout.xaxis.showgrid, axis='x', alpha=0.3)
+        ax.grid(fig_plotly.layout.xaxis.showgrid, axis='x')
     if hasattr(fig_plotly.layout, 'yaxis') and hasattr(fig_plotly.layout.yaxis, 'showgrid'):
-        ax.grid(fig_plotly.layout.yaxis.showgrid, axis='y', alpha=0.3)
+        ax.grid(fig_plotly.layout.yaxis.showgrid, axis='y')
 
     # Легенда
     if any(hasattr(trace, 'name') and trace.name for trace in fig_plotly.data):
-        ax.legend(fontsize=legend_fontsize, loc='best')
+        ax.legend(fontsize=legend_fontsize, bbox_to_anchor=(1.05, 1))
 
+    plt.show()
     # Диапазоны осей
     if hasattr(fig_plotly.layout, 'xaxis') and hasattr(fig_plotly.layout.xaxis, 'range'):
         if fig_plotly.layout.xaxis.range:
@@ -234,7 +236,7 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
         'format': 'eps',
         'dpi': dpi,
         'bbox_inches': 'tight',
-        'pad_inches': 0.1,
+        'pad_inches': 0.0,
         'transparent': False,
         'metadata': {
             'Creator': 'Plotly to Matplotlib Converter',
