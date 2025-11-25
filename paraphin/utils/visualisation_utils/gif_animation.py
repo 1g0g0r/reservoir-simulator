@@ -10,18 +10,9 @@ from joblib import Parallel, delayed
 
 from .read_data_files import read_solution_data
 from paraphin import r
-from paraphin.constants import (Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec,
-                                S_min, init_T, Twater, init_Wp)
-
-x_mesh = np.linspace(X_min, X_max, Nx)
-y_mesh = np.linspace(Y_min, Y_max, Ny)
+from paraphin.constants import outputs_path, bar_to_pa, day_to_sec, S_min, init_T, Twater, init_Wp
 
 gif_path = outputs_path / 'gif'
-
-names_converter = {
-    'fi': '$$\\varphi$$',
-    'fi_o': '$$\\varphi_0$$'
-}
 
 isolines_settings = {
     'Saturation': [S_min*1.02, 1, 0.03],
@@ -170,6 +161,8 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
     _times: np.ndarray
         Массив времени
     """
+    from . import x_mesh, y_mesh, names_converter
+
     _fig.data = []
     if _name == 'fi':
         for _name, _val in _data_wp['plots'].items():

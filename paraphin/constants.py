@@ -115,6 +115,7 @@ else:
 # Пути проекта
 root_folder = Path(__file__).parent.parent
 outputs_path = root_folder / 'outputs'
+pictures_path = outputs_path / 'pictures'
 results_path = outputs_path / f'results_wp={init_Wp}'
 data_path = outputs_path / 'data'
 logs_path = outputs_path / '.log'

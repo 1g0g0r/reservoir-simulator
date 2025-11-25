@@ -3,15 +3,11 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .read_data_files import read_solution_data
-from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max, outputs_path, bar_to_pa, day_to_sec, S_min, init_T
-
-x_mesh = np.linspace(X_min, X_max, Nx)
-y_mesh = np.linspace(Y_min, Y_max, Ny)
+from paraphin.constants import pictures_path, bar_to_pa, day_to_sec, S_min, init_T
 
 
 def create_graphs_and_maps():
-    path = outputs_path / 'pictures'
-    path.mkdir(parents=True, exist_ok=True)
+    pictures_path.mkdir(parents=True, exist_ok=True)
 
     _, data = read_solution_data('Wp=0.0_processed_data.pkl')
     _, data_wp = read_solution_data('Wp=0.05_processed_data.pkl')
@@ -30,14 +26,14 @@ def create_graphs_and_maps():
 
     fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.03], ['Temperature', 25*1.001, init_T*0.99, 10]]
     for _setings in fields_settings:
-        _field_vis(idx, idx_wp, data, data_wp, path, *_setings)
+        _field_vis(idx, idx_wp, data, data_wp, pictures_path, *_setings)
 
     plots_settings = [['Producer_oil', 'Producer_water', 'qв, м³/сут'],
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
                       ['Producer_Q_oil','Producer_Q_water', 'Qв, м³']
                       ]
     for _settings in plots_settings:
-        _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], path, *_settings)
+        _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], pictures_path, *_settings)
 
     # maps = [['m mult', 0, 1, 0.03], ['k mult', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
     #         ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
@@ -91,6 +87,7 @@ def _plot_vis(time, data, data_wp, path, name_plot1, name_plot2, y_axis_title):
 
 def _field_vis(idx, idx_wp, data, data_wp, path, field_name, start, end, step):
     """Процедура строит векторные графики изолиний полей данных."""
+    from . import x_mesh, y_mesh
     fig = go.Figure()
 
     field_wp = data_wp[field_name][idx_wp]
@@ -120,8 +117,9 @@ def _field_vis(idx, idx_wp, data, data_wp, path, field_name, start, end, step):
 
 
 def _create_map(idx_wp, data_wp, path, field_name, start, end, step):
-    fig = go.Figure()
+    from . import x_mesh, y_mesh
 
+    fig = go.Figure()
     field = data_wp[field_name][idx_wp]
 
     fig.add_trace(go.Contour(

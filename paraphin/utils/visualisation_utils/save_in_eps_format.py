@@ -1,6 +1,11 @@
 """Сохранение графика plotly в векторном формате eps"""
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
+from matplotlib.colors import to_hex, Colormap, LinearSegmentedColormap
+
+from paraphin.constants import pictures_path
 
 
 def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6), dpi: int = 1000,
@@ -26,9 +31,9 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
 
     Example:
     -------
-    plotly_to_matplotlib_eps(
+    plotly_to_eps(
         fig_plotly=fig,
-        filename='plotly_graph.eps',
+        filename='plotly_graph',
         figsize=(10, 6),
         dpi=1200,
         title_fontsize=16,
@@ -42,29 +47,32 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
 
     # Переносим данные из Plotly в Matplotlib
     for trace in fig_plotly.data:
-        trace_type = trace.type
+        trace_type = trace.type.lower()
 
         if trace_type == 'scatter':
-            # Обрабатываем scatter plot (линии и/или точки)
-            x = trace.x
-            y = trace.y
+            x = np.array(trace.x)
+            y = np.array(trace.y)
 
             line_style = '-'
             marker_style = 'o'
+            line_width = 2
+            marker_size = 6
 
-            # Определяем стиль линии и маркеров
+            # Стиль линии и маркеров
             if hasattr(trace, 'mode'):
-                if 'lines' not in trace.mode:
+                if 'lines' not in trace.mode.lower():
                     line_style = ''
-                if 'markers' not in trace.mode:
+                if 'markers' not in trace.mode.lower():
                     marker_style = ''
-                if 'lines+markers' in trace.mode:
+                if 'lines+markers' in trace.mode.lower():
                     line_style = '-'
                     marker_style = 'o'
 
-            # Получаем цвет
-            color = trace.line.color if hasattr(trace, 'line') and hasattr(trace.line, 'color') else None
-            if color is None and hasattr(trace, 'marker') and hasattr(trace.marker, 'color'):
+            # Цвет
+            color = None
+            if hasattr(trace, 'line') and hasattr(trace.line, 'color') and trace.line.color:
+                color = trace.line.color
+            elif hasattr(trace, 'marker') and hasattr(trace.marker, 'color') and trace.marker.color:
                 color = trace.marker.color
 
             # Получаем название для легенды
@@ -76,25 +84,117 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
                     marker=marker_style,
                     color=color,
                     label=name,
-                    linewidth=2,
-                    markersize=8)
+                    linewidth=line_width,
+                    markersize=marker_size)
 
         elif trace_type == 'bar':
-            # Обрабатываем bar plot
-            x = trace.x
-            y = trace.y
-            color = trace.marker.color if hasattr(trace, 'marker') and hasattr(trace.marker, 'color') else None
+            x = np.array(trace.x)
+            y = np.array(trace.y)
+
+            color = None
+            if hasattr(trace, 'marker') and hasattr(trace.marker, 'color') and trace.marker.color:
+                color = trace.marker.color
+
             name = trace.name if hasattr(trace, 'name') and trace.name else None
 
             ax.bar(x, y, color=color, label=name, alpha=0.7)
 
         elif trace_type == 'histogram':
-            # Обрабатываем histogram
-            x = trace.x
-            color = trace.marker.color if hasattr(trace, 'marker') and hasattr(trace.marker, 'color') else None
+            x = np.array(trace.x)
+
+            color = None
+            if hasattr(trace, 'marker') and hasattr(trace.marker, 'color') and trace.marker.color:
+                color = trace.marker.color
+
             name = trace.name if hasattr(trace, 'name') and trace.name else None
 
             ax.hist(x, bins=30, color=color, alpha=0.7, label=name)
+
+        elif trace_type == 'contour':
+            if hasattr(trace, 'z') and trace.z is not None:
+                has_heatmap_or_contour = True
+                colorbar_trace = trace
+
+                z = np.array(trace.z)
+
+                # Проверяем, есть ли x и y координаты
+                x = np.array(trace.x) if hasattr(trace, 'x') and trace.x is not None else np.arange(z.shape[1])
+                y = np.array(trace.y) if hasattr(trace, 'y') and trace.y is not None else np.arange(z.shape[0])
+
+                # Создаем сетку для контуров
+                X, Y = np.meshgrid(x, y)
+
+                # Параметры контуров
+                ncontours = trace.ncontours if hasattr(trace, 'ncontours') else 15
+                contours = trace.contours if hasattr(trace, 'contours') else None
+                autocontour = getattr(contours, 'autocontour', True) if contours else True
+
+                # Цветовая карта
+                colorscale = trace.colorscale if hasattr(trace, 'colorscale') else 'Viridis'
+                cmap = _convert_plotly_colorscale_to_cmap(colorscale)
+
+                # Рисуем контуры
+                contour_type = trace.contours_type if hasattr(trace, 'contours_type') else 'levels'
+
+                if contour_type == 'constraint':
+                    # Заполненные контуры
+                    contourf = ax.contourf(X, Y, z, ncontours, cmap=cmap, alpha=0.8)
+                    # Добавляем контурные линии поверх
+                    contour_lines = ax.contour(X, Y, z, ncontours, colors='k', linewidths=0.5)
+                else:
+                    # Только контурные линии
+                    contour_lines = ax.contour(X, Y, z, ncontours, cmap=cmap)
+                    contourf = contour_lines
+
+                # Добавляем подписи к контурам
+                if trace.contours_showlabels if hasattr(trace, 'contours_showlabels') else False:
+                    ax.clabel(contour_lines, inline=True, fontsize=10)
+
+                # Название для легенды
+                if hasattr(trace, 'name') and trace.name:
+                    contourf.set_label(trace.name)
+
+        elif trace_type == 'heatmap':
+            # Обработка тепловой карты
+            if hasattr(trace, 'z') and trace.z is not None:
+                has_heatmap_or_contour = True
+                colorbar_trace = trace
+
+                z = np.array(trace.z)
+
+                # Проверяем, есть ли x и y координаты
+                x = np.array(trace.x) if hasattr(trace, 'x') and trace.x is not None else np.arange(z.shape[1])
+                y = np.array(trace.y) if hasattr(trace, 'y') and trace.y is not None else np.arange(z.shape[0])
+
+                # Цветовая карта
+                colorscale = trace.colorscale if hasattr(trace, 'colorscale') else 'Viridis'
+                zmin = trace.zmin if hasattr(trace, 'zmin') else None
+                zmax = trace.zmax if hasattr(trace, 'zmax') else None
+                zmid = trace.zmid if hasattr(trace, 'zmid') else None
+
+                cmap = _convert_plotly_colorscale_to_cmap(colorscale)
+
+                # Если указан zmid, создаем симметричную цветовую карту
+                if zmid is not None and zmin is not None and zmax is not None:
+                    norm = plt.Normalize(vmin=zmin, vmax=zmax)
+                else:
+                    norm = None
+
+                # Рисуем heatmap
+                if len(x) == z.shape[1] + 1 and len(y) == z.shape[0] + 1:
+                    # Если x и y задают границы ячеек
+                    im = ax.pcolormesh(x, y, z, cmap=cmap, norm=norm, shading='flat')
+                else:
+                    # Если x и y задают центры ячеек
+                    im = ax.pcolormesh(x, y, z, cmap=cmap, norm=norm, shading='auto')
+
+                # Название для легенды
+                if hasattr(trace, 'name') and trace.name:
+                    im.set_label(trace.name)
+
+                # Настройка aspect ratio
+                if hasattr(trace, 'ygap') and trace.ygap:
+                    ax.set_aspect('equal')
 
 
     # Заголовок
@@ -150,5 +250,67 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
     }
 
     save_kwargs.update(kwargs)
-    plt.savefig(filename, **save_kwargs)
+    plt.savefig(pictures_path / (filename + '.eps'), **save_kwargs)
     plt.close(fig)
+
+
+def _convert_plotly_colorscale_to_cmap(colorscale: str|list) -> Colormap:
+    """Конвертирует цветовые шкалы Plotly в Matplotlib Colormap.
+
+    Parameters:
+    -----------
+    colorscale: str | list
+        Название цветовой шкалы Plotly или список цветов
+
+    Returns:
+    --------
+    Matplotlib Colormap
+    """
+    # Стандартные цветовые шкалы Plotly и их аналоги в Matplotlib
+    plotly_to_mpl = {
+        'Viridis': 'viridis',
+        'Plasma': 'plasma',
+        'Inferno': 'inferno',
+        'Magma': 'magma',
+        'Cividis': 'cividis',
+        'Greys': 'Greys',
+        'YlGnBu': 'YlGnBu',
+        'YlOrRd': 'YlOrRd',
+        'Bluered': 'coolwarm',
+        'RdBu': 'RdBu',
+        'Picnic': 'Spectral',
+        'Portland': 'coolwarm',
+        'Jet': 'jet',
+        'Hot': 'hot',
+        'Blackbody': 'gist_heat',
+        'Earth': 'terrain',
+        'Electric': 'gist_earth',
+        'Rainbow': 'rainbow',
+        'Blues': 'Blues',
+        'Greens': 'Greens',
+        'Reds': 'Reds'
+    }
+
+    if isinstance(colorscale, str):
+        # Пытаемся найти стандартную цветовую шкалу
+        colorscale_name = colorscale.capitalize()
+        if colorscale_name in plotly_to_mpl:
+            cmap_name = plotly_to_mpl[colorscale_name]
+        else:
+            cmap_name = colorscale.lower()
+
+        try:
+            return cm.get_cmap(cmap_name)
+        except:
+            return cm.get_cmap('viridis')
+
+    elif isinstance(colorscale, list):
+        # Если colorscale - это список цветов
+        try:
+            colors = [to_hex(c[-1]) if isinstance(c, list) else to_hex(c) for c in colorscale]
+            return LinearSegmentedColormap.from_list("custom", colors)
+        except:
+            return cm.get_cmap('viridis')
+
+    else:
+        return cm.get_cmap('viridis')
