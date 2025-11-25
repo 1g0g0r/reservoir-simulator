@@ -50,8 +50,6 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
         trace_type = trace.type.lower()
 
         if trace_type == 'scatter':
-            x = np.array(trace.x)
-            y = np.array(trace.y)
 
             line_style = '-'
             marker_style = 'o'
@@ -79,7 +77,7 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
             name = trace.name if hasattr(trace, 'name') and trace.name else None
 
             # Добавляем на график
-            ax.plot(x, y,
+            ax.plot(trace.x[:len(trace.y)], trace.y,
                     linestyle=line_style,
                     marker=marker_style,
                     color=color,
@@ -88,27 +86,22 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
                     markersize=marker_size)
 
         elif trace_type == 'bar':
-            x = np.array(trace.x)
-            y = np.array(trace.y)
-
             color = None
             if hasattr(trace, 'marker') and hasattr(trace.marker, 'color') and trace.marker.color:
                 color = trace.marker.color
 
             name = trace.name if hasattr(trace, 'name') and trace.name else None
 
-            ax.bar(x, y, color=color, label=name, alpha=0.7)
+            ax.bar(trace.x, trace.y, color=color, label=name, alpha=0.7)
 
         elif trace_type == 'histogram':
-            x = np.array(trace.x)
-
             color = None
             if hasattr(trace, 'marker') and hasattr(trace.marker, 'color') and trace.marker.color:
                 color = trace.marker.color
 
             name = trace.name if hasattr(trace, 'name') and trace.name else None
 
-            ax.hist(x, bins=30, color=color, alpha=0.7, label=name)
+            ax.hist(trace.x, bins=30, color=color, alpha=0.7, label=name)
 
         elif trace_type == 'contour':
             if hasattr(trace, 'z') and trace.z is not None:
