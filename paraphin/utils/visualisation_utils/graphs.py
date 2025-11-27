@@ -3,7 +3,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .read_data_files import read_solution_data
-from paraphin.constants import pictures_path, bar_to_pa, day_to_sec, S_min, init_T
+from paraphin.constants import pictures_path, bar_to_pa, day_to_sec, S_min, init_T, Twater
 
 
 def create_graphs_and_maps():
@@ -21,17 +21,17 @@ def create_graphs_and_maps():
     idx_sat_wp = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
     idx_end = len(data['Time']) - 1
     idx_sat = np.argwhere(data['Wells']['Producer_eta'] != 0)[0][0]
-    idx_wp = idx_sat_wp
-    idx = idx_sat
+    idx = idx_wp = idx_end
 
-    fields_settings = [['Pressure', 50, 150, 2], ['Saturation', S_min*1.02, 1, 0.03], ['Temperature', 25*1.001, init_T*0.99, 10]]
+    fields_settings = [['Pressure', 50, 150, 2],
+                       ['Saturation', S_min, 1, 0.03],
+                       ['Temperature', 25*1.001, init_T*0.99, 10]]
     for _setings in fields_settings:
         _field_vis(idx, idx_wp, data, data_wp, *_setings)
 
-    plots_settings = [['Producer_oil', 'Producer_water', 'qв, м³/сут'],
+    plots_settings = [['Producer_oil', 'Producer_water', '$$q_o,\\: м^3 \\setminus сут$$', '$$q_w,\\: м^3 \\setminus сут$$'],
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-                      # ['Producer_Q_oil','Producer_Q_water', 'Qв, м³']
-                      ]
+                      ['Producer_Q_oil','Producer_Q_water', '$$Q_o,\\: м^3$$', '$$Q_v,\\: м^3$$']]
     for _settings in plots_settings:
         _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], *_settings)
 
@@ -43,7 +43,7 @@ def create_graphs_and_maps():
     print('Done!')
 
 
-def _plot_vis(time, data, data_wp, name_plot1, name_plot2, y_axis_title):
+def _plot_vis(time, data, data_wp, name_plot1, name_plot2, right_axis_title, left_axis_title):
     """Процедура строит векторные графики показателей работы скважин."""
     fig = go.Figure()
 
@@ -71,7 +71,7 @@ def _plot_vis(time, data, data_wp, name_plot1, name_plot2, y_axis_title):
         mode='lines', name='Wp=0%',
         line=dict(color='red', width=3, dash='dash'), showlegend=True
     ))
-    fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title='qн, м³/сут', domain=[0.0, 0.5], title_font=dict(size=24)))
+    fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title=right_axis_title, domain=[0.0, 0.5], title_font=dict(size=18)))
 
     fig.add_trace(go.Scatter(
         x=time, y=plot_data_wp2,
@@ -81,8 +81,14 @@ def _plot_vis(time, data, data_wp, name_plot1, name_plot2, y_axis_title):
         x=time, y=plot_data2,
         mode='lines', line=dict(color='red', width=3, dash='dash'), showlegend=False
     ))
-    fig = _plots_params(fig, 't, сут', y_axis_title)
+    fig = _plots_params(fig, "$$t,\\: сут$$", left_axis_title)
     fig.write_image(pictures_path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
+    from paraphin.utils import plotly_to_eps
+    plotly_to_eps(
+        fig_plotly=fig,
+        filename=f"{name_plot1}_{name_plot2}",
+        dpi=1200
+    )
 
 
 def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
@@ -90,7 +96,7 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     from . import x_mesh, y_mesh
     fig = go.Figure()
 
-    field_wp = data_wp[field_name][idx_wp]
+    field_wp = data_wp[field_name][idx]
     field = data[field_name][idx]
 
     fig.add_trace(go.Contour(
@@ -119,11 +125,7 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     plotly_to_eps(
         fig_plotly=fig,
         filename=field_name,
-        figsize=(10, 10),
-        dpi=1200,
-        title_fontsize=16,
-        label_fontsize=14,
-        legend_fontsize=12
+        dpi=1200
     )
 
 
@@ -160,8 +162,8 @@ def _plots_params(fig, x_axis_title, y_axis_title):
         height=500, width=600, showlegend=False,
         # legend=dict(x=1.05, y=0.5, bgcolor='rgba(255,255,255,0.7)'),
         margin=dict(t=0, b=0),
-        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=24)),
-        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=24)),
+        xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
+        yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
     )
 
     fig.add_shape(

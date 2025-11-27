@@ -8,8 +8,7 @@ from matplotlib.colors import to_hex, Colormap, LinearSegmentedColormap
 from paraphin.constants import pictures_path
 
 
-def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6), dpi: int = 1000,
-                  title_fontsize: int = 14, label_fontsize: int = 12, legend_fontsize: int = 10, **kwargs) -> None:
+def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwargs) -> None:
     """Сохраняет график Plotly в формате EPS с промежуточным преобразованием в Matplotlib.
 
     Parameters:
@@ -18,23 +17,14 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
         Plotly Figure объект
     filename: str
         Имя файла для сохранения (с расширением .eps)
-    figsize: tuple
-        Размер фигуры в дюймах (ширина, высота)
     dpi: int
         Разрешение для EPS (чем выше, тем лучше качество)
-    title_fontsize: int
-        Размер шрифта заголовка
-    label_fontsize: int
-        Размер шрифта меток осей
-    legend_fontsize: int
-        Размер шрифта легенды
 
     Example:
     -------
     plotly_to_eps(
         fig_plotly=fig,
         filename='plotly_graph',
-        figsize=(10, 6),
         dpi=1200,
         title_fontsize=16,
         label_fontsize=14,
@@ -43,7 +33,7 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
     """
 
     # Создаем Matplotlib фигуру и оси
-    fig, ax = plt.subplots(figsize=figsize, dpi=100)  # dpi=100 для отображения, реальное будет в savefig
+    fig, ax = plt.subplots(figsize=(fig_plotly.layout.width / 100, fig_plotly.layout.height / 100), dpi=100)
 
     # Переносим данные из Plotly в Matplotlib
     for trace in fig_plotly.data:
@@ -53,13 +43,13 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
 
             line_style = '-'
             marker_style = 'o'
-            line_width = 2
-            marker_size = 6
 
             # Стиль линии и маркеров
             if hasattr(trace, 'mode'):
                 if 'lines' not in trace.mode.lower():
                     line_style = ''
+                if trace.line.dash:
+                    line_style = '--'
                 if 'markers' not in trace.mode.lower():
                     marker_style = ''
                 if 'lines+markers' in trace.mode.lower():
@@ -77,13 +67,14 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
             name = trace.name if hasattr(trace, 'name') and trace.name else None
 
             # Добавляем на график
+            # TODO графики по разным осям название и расположение
             ax.plot(trace.x[:len(trace.y)], trace.y,
                     linestyle=line_style,
                     marker=marker_style,
                     color=color,
                     label=name,
-                    linewidth=line_width,
-                    markersize=marker_size)
+                    linewidth=trace.line.width,
+                    markersize=6)
 
         elif trace_type == 'bar':
             color = None
@@ -195,6 +186,8 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
     if hasattr(fig_plotly.layout, 'title'):
         if isinstance(fig_plotly.layout.title, dict) and fig_plotly.layout.title.text is not None:
             title_text = fig_plotly.layout.title['text']
+            title_text_font_size = fig_plotly.layout.title
+            title_fontsize = fig_plotly.layout.title.font.size if fig_plotly.layout.title.font.size else 16
             ax.set_title(title_text, fontsize=title_fontsize, pad=20)
 
     # Подписи осей
@@ -202,13 +195,14 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
         x_title = fig_plotly.layout.xaxis.title.text if hasattr(fig_plotly.layout.xaxis.title, 'text') else str(
             fig_plotly.layout.xaxis.title)
         if x_title:
-            ax.set_xlabel(x_title, fontsize=label_fontsize)
-
+            label_fontsize = fig_plotly.layout.xaxis.title.font.size if fig_plotly.layout.xaxis.title.font.size else 14
+            ax.set_xlabel(x_title.replace("$$", "$"), fontsize=label_fontsize)
     if hasattr(fig_plotly.layout, 'yaxis') and hasattr(fig_plotly.layout.yaxis, 'title'):
         y_title = fig_plotly.layout.yaxis.title.text if hasattr(fig_plotly.layout.yaxis.title, 'text') else str(
             fig_plotly.layout.yaxis.title)
         if y_title:
-            ax.set_ylabel(y_title, fontsize=label_fontsize)
+            label_fontsize = fig_plotly.layout.yaxis.title.font.size if fig_plotly.layout.yaxis.title.font.size else 14
+            ax.set_ylabel(y_title.replace("$$", "$"), fontsize=label_fontsize)
 
     # Сетка
     if hasattr(fig_plotly.layout, 'xaxis') and hasattr(fig_plotly.layout.xaxis, 'showgrid'):
@@ -217,20 +211,21 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, figsize: tuple = (10, 6)
         ax.grid(fig_plotly.layout.yaxis.showgrid, axis='y')
 
     # Легенда
-    if any(hasattr(trace, 'name') and trace.name for trace in fig_plotly.data):
-        ax.legend(fontsize=legend_fontsize, bbox_to_anchor=(1.05, 1))
+    # TODO поправить легенду
+    # if any(hasattr(trace, 'name') and trace.name for trace in fig_plotly.data):
+    #     ax.legend(fontsize=legend_fontsize, bbox_to_anchor=(1.05, 1))
 
-    plt.show()
+    # plt.show()
+
     # Диапазоны осей
     if hasattr(fig_plotly.layout, 'xaxis') and hasattr(fig_plotly.layout.xaxis, 'range'):
         if fig_plotly.layout.xaxis.range:
             ax.set_xlim(fig_plotly.layout.xaxis.range)
-
     if hasattr(fig_plotly.layout, 'yaxis') and hasattr(fig_plotly.layout.yaxis, 'range'):
         if fig_plotly.layout.yaxis.range:
             ax.set_ylim(fig_plotly.layout.yaxis.range)
 
-    plt.tight_layout()  # Настройки для EPS
+    plt.tight_layout()
 
     save_kwargs = {
         'format': 'eps',
