@@ -16,19 +16,16 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
     fig_plotly: go.Figure
         Plotly Figure объект
     filename: str
-        Имя файла для сохранения (с расширением .eps)
+        Имя файла для сохранения
     dpi: int
-        Разрешение для EPS (чем выше, тем лучше качество)
+        Разрешение для EPS
 
     Example:
     -------
     plotly_to_eps(
         fig_plotly=fig,
         filename='plotly_graph',
-        dpi=1200,
-        title_fontsize=16,
-        label_fontsize=14,
-        legend_fontsize=12
+        dpi=1200
     )
     """
 
@@ -67,7 +64,7 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
             name = trace.name if hasattr(trace, 'name') and trace.name else None
 
             # Добавляем на график
-            # TODO графики по разным осям название и расположение
+            # TODO графики по разным осям название и расположение (fig_plotly.layout.yaxis2)
             ax.plot(trace.x[:len(trace.y)], trace.y,
                     linestyle=line_style,
                     marker=marker_style,
@@ -75,6 +72,12 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                     label=name,
                     linewidth=trace.line.width,
                     markersize=6)
+
+            # ax2 = ax.twinx()
+            # color = 'limegreen'
+            # ax2.set_ylabel('$sin(2 x)$', color=color)
+            # ax2.plot(x, y2, color=color)
+            # ax2.tick_params(axis="y", labelcolor=color)
 
         elif trace_type == 'bar':
             color = None
