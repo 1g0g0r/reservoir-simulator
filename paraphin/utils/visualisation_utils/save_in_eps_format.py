@@ -28,18 +28,23 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
         dpi=1200
     )
     """
+    width, height = fig_plotly.layout.width / 100, fig_plotly.layout.height / 100
+    fig, ax = plt.subplots(figsize=(width, height), dpi=100)
 
-    # Создаем Matplotlib фигуру и оси
-    fig, ax = plt.subplots(figsize=(fig_plotly.layout.width / 100, fig_plotly.layout.height / 100), dpi=100)
+    if hasattr(fig_plotly.layout, 'yaxis2'):
+        ax2 = ax.twinx()
 
-    # Переносим данные из Plotly в Matplotlib
+        # поменяли оси местами
+        ax.yaxis.set_label_position("right")
+        ax.yaxis.tick_right()
+        ax2.yaxis.set_label_position("left")
+        ax2.yaxis.tick_left()
+
     for trace in fig_plotly.data:
         trace_type = trace.type.lower()
 
         if trace_type == 'scatter':
-
             line_style = '-'
-            marker_style = 'o'
 
             # Стиль линии и маркеров
             if hasattr(trace, 'mode'):
@@ -47,11 +52,6 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                     line_style = ''
                 if trace.line.dash:
                     line_style = '--'
-                if 'markers' not in trace.mode.lower():
-                    marker_style = ''
-                if 'lines+markers' in trace.mode.lower():
-                    line_style = '-'
-                    marker_style = 'o'
 
             # Цвет
             color = None
@@ -60,52 +60,47 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
             elif hasattr(trace, 'marker') and hasattr(trace.marker, 'color') and trace.marker.color:
                 color = trace.marker.color
 
-            # Получаем название для легенды
+            # Название для легенды
             name = trace.name if hasattr(trace, 'name') and trace.name else None
 
-            # Добавляем на график
-            # TODO графики по разным осям название и расположение (fig_plotly.layout.yaxis2)
-            ax.plot(trace.x[:len(trace.y)], trace.y,
-                    linestyle=line_style,
-                    marker=marker_style,
-                    color=color,
-                    label=name,
-                    linewidth=trace.line.width,
-                    markersize=6)
+            if not trace.yaxis:
+                yaxis = fig_plotly.layout.yaxis
+                axis = ax
+            else:
+                yaxis = fig_plotly.layout.yaxis2
+                axis = ax2
 
-            # ax2 = ax.twinx()
-            # color = 'limegreen'
-            # ax2.set_ylabel('$sin(2 x)$', color=color)
-            # ax2.plot(x, y2, color=color)
-            # ax2.tick_params(axis="y", labelcolor=color)
+            yaxis_title = yaxis.title.text if yaxis.title.text else ''
+            yaxis_font_size = yaxis.title.font.size if yaxis.title.font.size else 14
+            axis.set_ylabel(yaxis_title.replace("$$", "$"), fontsize=yaxis_font_size)
+            axis.plot(trace.x[:len(trace.y)], trace.y,
+                    linestyle=line_style, color=color, label=name, linewidth=trace.line.width)
+            # TODO добавить эксп формат и подписи возле кривых
 
         elif trace_type == 'bar':
             color = None
             if hasattr(trace, 'marker') and hasattr(trace.marker, 'color') and trace.marker.color:
                 color = trace.marker.color
-
             name = trace.name if hasattr(trace, 'name') and trace.name else None
-
             ax.bar(trace.x, trace.y, color=color, label=name, alpha=0.7)
 
         elif trace_type == 'histogram':
             color = None
             if hasattr(trace, 'marker') and hasattr(trace.marker, 'color') and trace.marker.color:
                 color = trace.marker.color
-
             name = trace.name if hasattr(trace, 'name') and trace.name else None
-
             ax.hist(trace.x, bins=30, color=color, alpha=0.7, label=name)
 
         elif trace_type == 'contour':
             if hasattr(trace, 'z') and trace.z is not None:
                 has_heatmap_or_contour = True
                 colorbar_trace = trace
-
                 z = np.array(trace.z)
+                x = np.array(trace.x) if hasattr(trace, 'x') and trace.x is not None else np.arange(z.shape[1])
+                y = np.array(trace.y) if hasattr(trace, 'y') and trace.y is not None else np.arange(z.shape[0])
 
                 # Создаем сетку для контуров
-                X, Y = np.meshgrid(trace.x, trace.y)
+                X, Y = np.meshgrid(x, y)
 
                 # Параметры контуров
                 contours = trace.contours if hasattr(trace, 'contours') else None
@@ -150,8 +145,6 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 colorbar_trace = trace
 
                 z = np.array(trace.z)
-
-                # Проверяем, есть ли x и y координаты
                 x = np.array(trace.x) if hasattr(trace, 'x') and trace.x is not None else np.arange(z.shape[1])
                 y = np.array(trace.y) if hasattr(trace, 'y') and trace.y is not None else np.arange(z.shape[0])
 
@@ -244,6 +237,7 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
 
     save_kwargs.update(kwargs)
     plt.savefig(pictures_path / (filename + '.eps'), **save_kwargs)
+    plt.savefig(pictures_path / (filename + '.jpg'))
     plt.close(fig)
 
 

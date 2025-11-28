@@ -31,7 +31,8 @@ def create_graphs_and_maps():
 
     plots_settings = [['Producer_oil', 'Producer_water', '$$q_o,\\: м^3 \\setminus сут$$', '$$q_w,\\: м^3 \\setminus сут$$'],
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-                      ['Producer_Q_oil','Producer_Q_water', '$$Q_o,\\: м^3$$', '$$Q_v,\\: м^3$$']]
+                      ['Producer_Q_oil','Producer_Q_water', '$$Q_o,\\: м^3$$', '$$Q_v,\\: м^3$$']
+                      ]
     for _settings in plots_settings:
         _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], *_settings)
 
@@ -83,12 +84,9 @@ def _plot_vis(time, data, data_wp, name_plot1, name_plot2, right_axis_title, lef
     ))
     fig = _plots_params(fig, "$$t,\\: сут$$", left_axis_title)
     fig.write_image(pictures_path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
+
     from paraphin.utils import plotly_to_eps
-    plotly_to_eps(
-        fig_plotly=fig,
-        filename=f"{name_plot1}_{name_plot2}",
-        dpi=1200
-    )
+    plotly_to_eps(fig_plotly=fig, filename=f"{name_plot1}_{name_plot2}", dpi=1200)
 
 
 def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
@@ -122,11 +120,7 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     fig.write_image(pictures_path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
 
     from paraphin.utils import plotly_to_eps
-    plotly_to_eps(
-        fig_plotly=fig,
-        filename=field_name,
-        dpi=1200
-    )
+    plotly_to_eps(fig_plotly=fig, filename=field_name, dpi=1200)
 
 
 def _create_map(idx_wp, data_wp, field_name, start, end, step):
