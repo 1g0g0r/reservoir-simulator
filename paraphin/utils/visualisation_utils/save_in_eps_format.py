@@ -73,6 +73,8 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
             yaxis_title = yaxis.title.text if yaxis.title.text else ''
             yaxis_font_size = yaxis.title.font.size if yaxis.title.font.size else 14
             axis.set_ylabel(yaxis_title.replace("$$", "$"), fontsize=yaxis_font_size)
+            plt.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
+
             axis.plot(trace.x[:len(trace.y)], trace.y,
                     linestyle=line_style, color=color, label=name, linewidth=trace.line.width)
             # TODO добавить эксп формат и подписи возле кривых
@@ -301,3 +303,32 @@ def _convert_plotly_colorscale_to_cmap(colorscale: str|list) -> Colormap:
 
     else:
         return cm.get_cmap('viridis')
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Данные для графиков
+    x = np.linspace(0, 10, 100)
+    y1 = np.sin(x)  # Первая линия - синус
+    y2 = np.cos(x)  # Вторая линия - косинус
+
+    # Создаем график и рисуем линии
+    plt.plot(x, y1, label='sin(x)', color='blue')
+    plt.plot(x, y2, label='cos(x)', color='red')
+
+    # Добавляем текст рядом с линиями
+    plt.text(5, 0.5, 'Вершина синуса', color='blue',
+             horizontalalignment='center', fontsize=10)
+    plt.text(3, -0.8, 'Нижняя точка косинуса', color='red',
+             horizontalalignment='center', fontsize=10)
+
+    # Добавляем аннотацию со стрелкой
+    plt.annotate('Начало косинуса', xy=(0, 1), xytext=(2, 0.7),
+                 arrowprops=dict(facecolor='red', shrink=0.05),
+                 color='red', fontsize=10)
+
+    plt.grid(True)
+    plt.legend()
+    plt.show()
