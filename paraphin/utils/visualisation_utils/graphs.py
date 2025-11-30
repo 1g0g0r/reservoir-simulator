@@ -31,7 +31,7 @@ def create_graphs_and_maps():
 
     plots_settings = [['Producer_oil', 'Producer_water', '$$q_o,\\: м^3 \\setminus сут$$', '$$q_w,\\: м^3 \\setminus сут$$'],
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-                      ['Producer_Q_oil','Producer_Q_water', '$$Q_o,\\: м^3$$', '$$Q_v,\\: м^3$$']
+                      ['Producer_Q_oil','Producer_Q_water', '$$Q_o,\\: м^3$$', '$$Q_w,\\: м^3$$']
                       ]
     for _settings in plots_settings:
         _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], *_settings)

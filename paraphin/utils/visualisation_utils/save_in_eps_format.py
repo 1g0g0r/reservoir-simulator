@@ -73,11 +73,10 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
             yaxis_title = yaxis.title.text if yaxis.title.text else ''
             yaxis_font_size = yaxis.title.font.size if yaxis.title.font.size else 14
             axis.set_ylabel(yaxis_title.replace("$$", "$"), fontsize=yaxis_font_size)
-            plt.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
+            axis.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
 
             axis.plot(trace.x[:len(trace.y)], trace.y,
                     linestyle=line_style, color=color, label=name, linewidth=trace.line.width)
-            # TODO добавить эксп формат и подписи возле кривых
 
         elif trace_type == 'bar':
             color = None
@@ -306,6 +305,7 @@ def _convert_plotly_colorscale_to_cmap(colorscale: str|list) -> Colormap:
 
 
 if __name__ == '__main__':
+    # TODO разобраться с подписями возле кривых
     import matplotlib.pyplot as plt
     import numpy as np
 
