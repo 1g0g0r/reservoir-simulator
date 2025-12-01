@@ -1,4 +1,4 @@
-"""Создание анимаций формата .readme_gifs из предобработанных данных расчета."""
+"""Создание анимаций формата .gif из предобработанных данных расчета."""
 import glob
 import os
 import re
@@ -12,7 +12,7 @@ from .read_data_files import read_solution_data
 from paraphin import r
 from paraphin.constants import outputs_path, bar_to_pa, day_to_sec, S_min, init_T, Twater, init_Wp
 
-gif_path = outputs_path / 'readme_gifs'
+gif_path = outputs_path / 'gif'
 
 isolines_settings = {
     'Saturation': [S_min*1.02, 1, 0.03],
@@ -131,7 +131,7 @@ def create_gif_from_png(name, duration=100, loop=0):
 
     # Сохранение анимацию в формате GIF
     images[0].save(
-        gif_path / f'{name}.readme_gifs',
+        gif_path / f'{name}.gif',
         format="GIF",
         append_images=images[1:],
         save_all=True,
