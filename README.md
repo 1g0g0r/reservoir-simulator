@@ -30,19 +30,19 @@
 ⚫️ ━━━━━ Массовая доля растворенного парафина 5%
 
 ## Поле насыщенности
-![Водонасыщенность](resources/gif/Saturation.gif)
+![Водонасыщенность](resources/readme_gifs/Saturation.gif)
 
 ## Поле температуры
-![Температура](resources/gif/Temperature.gif)
+![Температура](resources/readme_gifs/Temperature.gif)
 
 ## Массовая доля выпавшего парафина
-![Массовая доля выпавшего парафина](resources/gif/Wps_dep.gif)
+![Массовая доля выпавшего парафина](resources/readme_gifs/Wps_dep.gif)
 
 ## Функция пор по размерам
-![Функция пор по размерам](resources/gif/fi.gif)
+![Функция пор по размерам](resources/readme_gifs/fi.gif)
 
 ## Изменение пористости
-![Множитель пористости](resources/gif/m_mult.gif)
+![Множитель пористости](resources/readme_gifs/m_mult.gif)
 
 ## Изменение проницаемости
-![Множитель проницаемости](resources/gif/k_mult.gif)
+![Множитель проницаемости](resources/readme_gifs/k_mult.gif)
