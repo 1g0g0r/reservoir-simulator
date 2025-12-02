@@ -153,12 +153,10 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 colorscale = trace.colorscale if hasattr(trace, 'colorscale') else 'Viridis'
                 zmin = trace.zmin if hasattr(trace, 'zmin') else None
                 zmax = trace.zmax if hasattr(trace, 'zmax') else None
-                zmid = trace.zmid if hasattr(trace, 'zmid') else None
 
                 cmap = _convert_plotly_colorscale_to_cmap(colorscale)
 
-                # Если указан zmid, создаем симметричную цветовую карту
-                if zmid is not None and zmin is not None and zmax is not None:
+                if zmin is not None and zmax is not None:
                     norm = plt.Normalize(vmin=zmin, vmax=zmax)
                 else:
                     norm = None
@@ -207,8 +205,8 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
     if hasattr(fig_plotly.layout, 'yaxis') and hasattr(fig_plotly.layout.yaxis, 'showgrid'):
         ax.grid(fig_plotly.layout.yaxis.showgrid, axis='y')
 
-    # Легенда
     # TODO поправить легенду
+    # Легенда
     # if any(hasattr(trace, 'name') and trace.name for trace in fig_plotly.data):
     #     ax.legend(fontsize=legend_fontsize, bbox_to_anchor=(1.05, 1))
 
