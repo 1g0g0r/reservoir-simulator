@@ -135,12 +135,12 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 if contours.showlabels if hasattr(contours, 'showlabels') else False:
                     ax.clabel(contour_lines, inline=True, fontsize=10)
 
-                # Название для легенды
+                # Название легенды
                 if hasattr(trace, 'name') and trace.name:
                     contourf.set_label(trace.name)
 
         elif trace_type == 'heatmap':
-            # Обработка тепловой карты
+            # Обработка двумерной карты
             if hasattr(trace, 'z') and trace.z is not None:
                 has_heatmap_or_contour = True
                 colorbar_trace = trace
