@@ -119,12 +119,14 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 contour_type = trace.contours_type if hasattr(trace, 'contours_type') else 'levels'
                 linestyle = 'dashed' if trace.line.dash is not None else 'solid'
                 width = trace.line.width
+                contour_name = trace.name if trace.name else ''
 
                 if contour_type == 'constraint':
                     # Заполненные контуры
-                    contourf = ax.contourf(X, Y, z, levels, cmap=cmap, alpha=0.8)
+                    contourf = ax.contourf(X, Y, z, levels, cmap=cmap, name=contour_name, alpha=0.8)
                     # Добавляем контурные линии поверх
-                    contour_lines = ax.contour(X, Y, z, levels, colors=color, linestyles=linestyle, linewidths=width)
+                    contour_lines = ax.contour(X, Y, z, levels, colors=color, linestyles=linestyle,
+                                               linewidths=width, name=contour_name)
                 else:
                     # Только контурные линии
                     contour_lines = ax.contour(X, Y, z, levels, colors=color,
@@ -153,6 +155,7 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 colorscale = trace.colorscale if hasattr(trace, 'colorscale') else 'Viridis'
                 zmin = trace.zmin if hasattr(trace, 'zmin') else None
                 zmax = trace.zmax if hasattr(trace, 'zmax') else None
+                contour_name = trace.name if trace.name else '111'
 
                 cmap = _convert_plotly_colorscale_to_cmap(colorscale)
 
@@ -164,10 +167,10 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 # Рисуем heatmap
                 if len(x) == z.shape[1] + 1 and len(y) == z.shape[0] + 1:
                     # Если x и y задают границы ячеек
-                    im = ax.pcolormesh(x, y, z, cmap=cmap, norm=norm, shading='flat')
+                    im = ax.pcolormesh(x, y, z, cmap=cmap, norm=norm, shading='flat', name=contour_name)
                 else:
                     # Если x и y задают центры ячеек
-                    im = ax.pcolormesh(x, y, z, cmap=cmap, norm=norm, shading='auto')
+                    im = ax.pcolormesh(x, y, z, cmap=cmap, norm=norm, shading='auto', name=contour_name)
 
                 # Название для легенды
                 if hasattr(trace, 'name') and trace.name:
@@ -205,12 +208,9 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
     if hasattr(fig_plotly.layout, 'yaxis') and hasattr(fig_plotly.layout.yaxis, 'showgrid'):
         ax.grid(fig_plotly.layout.yaxis.showgrid, axis='y')
 
-    # TODO поправить легенду
     # Легенда
-    # if any(hasattr(trace, 'name') and trace.name for trace in fig_plotly.data):
-    #     ax.legend(fontsize=legend_fontsize, bbox_to_anchor=(1.05, 1))
-
-    # plt.show()
+    if trace.legend:
+        ax.legend()
 
     # Диапазоны осей
     if hasattr(fig_plotly.layout, 'xaxis') and hasattr(fig_plotly.layout.xaxis, 'range'):
@@ -236,7 +236,6 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
 
     save_kwargs.update(kwargs)
     plt.savefig(pictures_path / (filename + '.eps'), **save_kwargs)
-    plt.savefig(pictures_path / (filename + '.jpg'))
     plt.close(fig)
 
 
@@ -304,9 +303,6 @@ def _convert_plotly_colorscale_to_cmap(colorscale: str|list) -> Colormap:
 
 if __name__ == '__main__':
     # TODO разобраться с подписями возле кривых
-    import matplotlib.pyplot as plt
-    import numpy as np
-
     # Данные для графиков
     x = np.linspace(0, 10, 100)
     y1 = np.sin(x)  # Первая линия - синус
