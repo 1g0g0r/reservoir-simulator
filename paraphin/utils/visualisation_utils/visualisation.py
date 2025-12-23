@@ -34,7 +34,7 @@ def visualize_solution():
     # Если файл конвертированных данных отсутствует, то сами создаем его
     except ValueError:
         convert_pkl_files()
-        _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')  # '(wp5 40)processed_data.pkl'
+        _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')
 
     print('Временных слоев:', _n_times)
 
@@ -50,10 +50,8 @@ def visualize_solution():
 def _visualize_fields(data):
     """Создание анимации полей данных и параметров скважин."""
     input_data = deepcopy(data)
-    wells_plots = 0
+    wells_plots, other_plots, fields_maps = 0, 0, 0
     wells_accumulated_plots = 0
-    other_plots = 0
-    fields_maps = 0
 
     time = input_data['Time'] / day_to_sec
     input_data['Pressure'] /= bar_to_pa
@@ -68,7 +66,7 @@ def _visualize_fields(data):
         input_data['Wps'] *= (S_max - input_data['Saturation'])
         del input_data['plots']
 
-    # names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params']
+    # 'Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params'
     skip_fields = ['Pressure', 'Wo', 'Wp', 'm mult','mu_o', 'mu_w', 'qp']
 
     _f_names = [name for name in input_data.keys() if name not in skip_fields]
@@ -119,31 +117,33 @@ def _visualize_fields(data):
             fields_maps += 1
         data_fields += trace
 
+    # Создание кастомной карты
+    _f_names += ['Sat and Temp']
+    data_fields += [go.Contour(x=x_mesh, y=y_mesh, z=input_data['Saturation'][0], colorscale='Jet',
+                             name='Saturation', contours=dict(coloring='fill'))]
+    data_fields += [go.Contour(x=x_mesh, y=y_mesh, z=input_data['Temperature'][0], name='Temperature',
+                             contours=dict(coloring='lines', showlabels=True,
+                                           labelfont=dict(size=10, color='black'),
+                                           start=25, end=70*0.99, size=10),
+                             line=dict(width=3), colorscale=[[0, 'black'], [1, 'black']], showscale=False)]
+
     # Создаем фигуру
     fig = go.Figure(data=data_fields)
 
     fig.update_layout(
-        # xaxis2=dict(autorange="reversed", overlaying='x'),
         yaxis2=dict(side="right", overlaying="y"),
         legend=dict(x=1.05, y=1.0)
     )
 
     # Создаем массив отображаемых данных
-    visibility = np.eye(len(data_fields), dtype=bool)
-    visibility[fields_maps, fields_maps: fields_maps + wells_plots] = True
-    visibility[fields_maps + 1, fields_maps + wells_plots:fields_maps + wells_plots + wells_accumulated_plots] = True
-    visibility[fields_maps + 1, fields_maps + 1] = False
-    visibility[fields_maps + 2, fields_maps + wells_plots + wells_accumulated_plots:fields_maps + wells_plots + wells_accumulated_plots + other_plots] = True
-    visibility[fields_maps + 2, fields_maps + 2] = False
+    visibility = _get_visibility(data_fields, _f_names, fields_maps, wells_plots, wells_accumulated_plots, other_plots)
 
     # Добавляем слайдеры для изменения данных
     steps = [{}] * n_times
     for i in range(n_times):
         steps[i] = dict(
             method="update",
-            args=[{
-                "z": [input_data[j.name][i] for j in data_fields if j.plotly_name in ['contour', 'heatmap']]
-            }],
+            args=[{"z": [input_data[j.name][i] for j in data_fields if j.plotly_name in ['contour', 'heatmap']]}],
             label=f'{round(time[i], 5)} день'
         )
 
@@ -159,8 +159,7 @@ def _visualize_fields(data):
             dict(
                 type="buttons",
                 direction="down",
-                buttons=[dict(args=[{"visible": visibility[i]}],
-                              label=name,
+                buttons=[dict(args=[{"visible": visibility[i]}], label=name,
                               method="update") for i, name in enumerate(_f_names)],
                 pad={"r": 10, "t": 10},
                 showactive=True,
@@ -214,10 +213,7 @@ def _visualize_plots_fi(plots_data):
         xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
         yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18)),
         yaxis2=dict(side="right", overlaying="y"),
-        legend=dict(
-            x=1.01, y=0.8,
-            font=dict(size=18)
-        )
+        legend=dict(x=1.01, y=0.8, font=dict(size=18))
     )
     fig.add_shape(
         type="rect", xref="paper", yref="paper",
@@ -289,3 +285,25 @@ def show_plot(data, name: str = 'map', show: bool = False):
             fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs='plotly_script.js')
         else:
             fig.write_html(results_path.parent / f'{name}.html', include_plotlyjs=js_path)
+
+
+def _get_visibility(data_fields, names, fields_maps, wells_plots, wells_accumulated_plots, other_plots):
+    """Создание массива отображаемых данных для каждой кнопки."""
+    visibility = np.eye(len(data_fields), dtype=bool)
+    n_button = 0
+    end_idx = fields_maps
+
+    for name, n_graphs in [('Wells', wells_plots), ('Wells_accumulated', wells_accumulated_plots), ('Other params', other_plots)]:
+        # Если данные есть, то создаем для них маску для кнопки
+        if name in names:
+            visibility[fields_maps + n_button, end_idx: end_idx + n_graphs] = True
+            if n_button > 0:
+                visibility[fields_maps + n_button, fields_maps + n_button] = False
+            end_idx += n_graphs
+            n_button += 1
+
+    # Все дополнительные графики отображаем одновременно
+    visibility[fields_maps + n_button, end_idx: ] = True
+    visibility[fields_maps + n_button, fields_maps + n_button] = False
+
+    return visibility

@@ -32,7 +32,7 @@ if __name__ == '__main__':
             showlabels=True,       # Показать значения на линиях
             labelfont=dict(size=10, color='white')  # Белые подписи для контраста
         ),
-        line=dict(width=1.5, color='white'),  # Белые линии средней толщины
+        line=dict(width=1.5), colorscale=[[0, 'white'], [1, 'white']],  # Белые линии средней толщины
         name='Изолинии',          # Название для легенды
         showscale=False           # Скрываем отдельную шкалу для Contour
     ))
