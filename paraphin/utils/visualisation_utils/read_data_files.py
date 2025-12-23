@@ -39,10 +39,11 @@ def convert_pkl_files():
     data = {}
     with open(sorted_paths[0], 'rb') as f:
         for name, file_data in load(f).items():
-            if name in ['Wells', 'Other params']:
-                data[name] = {_name: np.zeros(n_files) for _name, _val in file_data.items()}
-            elif name == 'plots':
-                data[name] = {_name: np.zeros((n_files, len(_val))) for _name, _val in file_data.items()}
+            if isinstance(file_data, dict):
+                if name == 'plots':
+                    data[name] = {_name: np.zeros((n_files, len(_val))) for _name, _val in file_data.items()}
+                else:
+                    data[name] = {_name: np.zeros(n_files) for _name, _val in file_data.items()}
             elif name == 'Time':
                 data[name] = np.zeros(n_files)
             else:
@@ -69,7 +70,7 @@ def _process_single_file(idx, data, file_path):
     with open(file_path, 'rb') as f:
         try:
             for name, file_data in load(f).items():
-                if name in ['Wells', 'Other params', 'plots']:
+                if isinstance(file_data, dict):
                     for _name, _val in file_data.items():
                         data[name][_name][idx] = file_data[_name]
                 else:

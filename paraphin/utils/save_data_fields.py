@@ -23,12 +23,15 @@ fi_np = np.zeros(Nr, dtype=np_data_type)
 def save_fields(solver, t: float):
     """Преобразование taichi -> numpy и охранение полей данных в файл формата pkl."""
     wells_data = {}
+    wells_accumulated_data = {}
     for i in range(solver.n_wells):
         well_name, well = solver._wells_names[i], solver.wells[i]
         q_value, Q_value = well.q, well.Q
         wells_data.update({
             f'{well_name}_oil': q_value[0], f'{well_name}_water': q_value[1],
-            f'{well_name}_total': q_value[2], f'{well_name}_eta': well.eta,
+            f'{well_name}_total': q_value[2], f'{well_name}_eta': well.eta
+        })
+        wells_accumulated_data.update({
             f'{well_name}_Q_oil': Q_value[0], f'{well_name}_Q_water': Q_value[1], f'{well_name}_Q_total': Q_value[2]
         })
 
@@ -51,11 +54,8 @@ def save_fields(solver, t: float):
             'k': new_k_np / init_k,
             'plots': {'fi_o': fi_0_np, 'fi': fi_np},
             'Wells': wells_data,
-            'Other params': {
-                'KIN': solver.KIN[None],
-                f'T [{x_idx},{y_idx}]': T_np[x_idx, y_idx],
-
-            }
+            'Wells_accumulated': wells_accumulated_data,
+            # 'Other params': {'KIN': solver.KIN[None], f'T [{x_idx},{y_idx}]': T_np[x_idx, y_idx]}
         }
     else:
         _loop(solver, p_np, S_np, T_np)
@@ -65,10 +65,8 @@ def save_fields(solver, t: float):
             'Saturation': S_np,
             'Temperature': T_np,
             'Wells': wells_data,
-            # 'Other params': {
-            # 	'KIN': solver.KIN[None],
-            # 	f'T [{0},{0}]': T_np[0, 0],
-            # }
+            'Wells_accumulated': wells_accumulated_data,
+            # 'Other params': {'KIN': solver.KIN[None], f'T [{0},{0}]': T_np[0, 0]}
         }
 
     with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as file:
@@ -78,6 +76,7 @@ def save_fields(solver, t: float):
 
 @ti.kernel
 def _loop(solver: ti.template(), _p_np: ti.types.ndarray(), _S_np: ti.types.ndarray(), _T_np: ti.types.ndarray()):
+    """Перенос данных из структуры taichi в numpy."""
     for I in grouped(solver.S):
         _p_np[I] = solver.p[I]
         _S_np[I] = solver.S[I]
@@ -90,6 +89,7 @@ def _loop_with_paraphin_data(solver: ti.template(), x_idx: int, y_idx: int, _fi_
                              _Wo_np: ti.types.ndarray(), _Wp_np: ti.types.ndarray(), _Wps_np: ti.types.ndarray(),
                              _Wps_dep_np: ti.types.ndarray(), _qp_np: ti.types.ndarray(), _new_m_np: ti.types.ndarray(),
                              _new_k_np: ti.types.ndarray()):
+    """Перенос данных из структуры taichi в numpy."""
     for I in grouped(solver.S):
         _p_np[I] = solver.p[I]
         _S_np[I] = solver.S[I]

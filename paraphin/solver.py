@@ -1,5 +1,6 @@
 """Класс содержит алгоритм расчета и хранение данных."""
 from logging import basicConfig, INFO, getLogger
+from shutil import rmtree
 from sys import stdout
 from time import perf_counter
 
@@ -184,10 +185,6 @@ class Solver:
         _initialize_params_loop()
         _wells_and_matrix_processing()
 
-        # Очищение папки со старыми результатами
-        for file_path in results_path.glob(f'*.pkl'):
-            file_path.unlink()
-
 
     def add_bc(self, field: DataField, bound: Bound, type_bc: TypeBC, value: float) -> None:
         """Учет граничных условий для полей данных."""
@@ -339,6 +336,7 @@ class Solver:
             print('eta:', round(self.wells[1].eta, 5))
             # ti.profiler.print_kernel_profiler_info()
             convert_pkl_files()
+            rmtree(results_path)
 
 
     def _logging_resources(self) -> None:

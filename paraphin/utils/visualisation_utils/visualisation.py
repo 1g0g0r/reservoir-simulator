@@ -51,27 +51,30 @@ def _visualize_fields(data):
     """Создание анимации полей данных и параметров скважин."""
     input_data = deepcopy(data)
     wells_plots = 0
-    aver_param_plots = 0
+    wells_accumulated_plots = 0
+    other_plots = 0
+    fields_maps = 0
 
     time = input_data['Time'] / day_to_sec
     input_data['Pressure'] /= bar_to_pa
 
     n_times = len(time)
     del input_data['Time']
-    if len(input_data['Wells']) == 0: del input_data['Wells']
+    if len(input_data['Wells']) == 0:
+        del input_data['Wells']
+        del input_data['Wells_accumulated']
 
     if 'plots' in input_data.keys():
         input_data['Wps'] *= (S_max - input_data['Saturation'])
         del input_data['plots']
 
-    # names_fields = ['Saturation', 'Temperature', 'Wells', 'Other params']
     # names_fields = ['Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params']
-    skip_fields = ['Wo', 'm mult','mu_o', 'mu_w', 'qp']
+    skip_fields = ['Pressure', 'Wo', 'Wp', 'm mult','mu_o', 'mu_w', 'qp']
+
+    _f_names = [name for name in input_data.keys() if name not in skip_fields]
+    data_fields = []
 
     # Создаем графики
-    _f_names = [name for name in input_data.keys() if name not in skip_fields]
-    n_fields = len(_f_names)
-    data_fields = []
     for name, field in input_data.items():
         if name in skip_fields:
             continue
@@ -79,26 +82,25 @@ def _visualize_fields(data):
         trace = []
         if name == 'Wells':
             for _name, _val in field.items():
-                if np.all(np.isclose(_val, 0.0)) or np.all(np.isclose(_val, 1.0)):
-                    continue
+                if np.all(np.isclose(_val, 0.0)) or np.all(np.isclose(_val, 1.0)): continue
                 if 'eta' in _name:
                     trace += [go.Scatter(x=time, y=_val, mode='lines', name=_name, yaxis='y2',
                                          hovertemplate="x: %{x} день<br>y: %{y}<br>")]
                 else:
-                    if 'Q' in _name:
-                        # TODO для накопов сделать отдельную кнопочку
-                        trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name,
-                                            hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
-                    else:
-                        trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
+                    trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
                                              hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
                 wells_plots += 1
+        elif name == 'Wells_accumulated':
+            for _name, _val in field.items():
+                if np.all(np.isclose(_val, 0.0)): continue
+                trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name,
+                                     hovertemplate="x: %{x} день<br>y: %{y} м^3<br>")]
+                wells_accumulated_plots += 1
         elif name == 'Other params':
             for _name, _val in field.items():
-                # temperature = input_data['Temperature'][:,0,0] °C
                 trace += [go.Scatter(x=time, y=abs(_val), mode='lines', name=_name,
                                      hovertemplate="x: %{x}<br>y: %{y}<br>")]  # xaxis='x2',
-                aver_param_plots += 1
+                other_plots += 1
         else:
             z_max = np.max(field)
             z_min = np.min(field)
@@ -114,6 +116,7 @@ def _visualize_fields(data):
                 trace = [go.Heatmap(x=x_mesh, y=y_mesh, z=field[0], zmin=z_min, zmax=z_max,
                                     colorscale='Jet', name=name,  # colorscale='bluered'
                                     hovertemplate="X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>")]
+            fields_maps += 1
         data_fields += trace
 
     # Создаем фигуру
@@ -125,14 +128,13 @@ def _visualize_fields(data):
         legend=dict(x=1.05, y=1.0)
     )
 
-    # Создаем массив отображаемых данных (все False, а на диагонали True)
+    # Создаем массив отображаемых данных
     visibility = np.eye(len(data_fields), dtype=bool)
-    if aver_param_plots == 0:
-        visibility[n_fields - 1, n_fields - 1:] = True
-    else:
-        visibility[n_fields - 2, n_fields - 2:-aver_param_plots] = True
-        visibility[n_fields - 1, n_fields - 2 + wells_plots:] = True
-        visibility[n_fields - 1, n_fields - 1] = False
+    visibility[fields_maps, fields_maps: fields_maps + wells_plots] = True
+    visibility[fields_maps + 1, fields_maps + wells_plots:fields_maps + wells_plots + wells_accumulated_plots] = True
+    visibility[fields_maps + 1, fields_maps + 1] = False
+    visibility[fields_maps + 2, fields_maps + wells_plots + wells_accumulated_plots:fields_maps + wells_plots + wells_accumulated_plots + other_plots] = True
+    visibility[fields_maps + 2, fields_maps + 2] = False
 
     # Добавляем слайдеры для изменения данных
     steps = [{}] * n_times

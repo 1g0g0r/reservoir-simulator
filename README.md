@@ -1,6 +1,6 @@
-# Paraphin 
+# Reservoir Simulator
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-100%25-brightgreen.svg)](https://github.com/1g0g0r/paraphin)
 
 ### Рекомендуемая версия Python: 3.10+
