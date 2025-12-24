@@ -120,7 +120,7 @@ def _visualize_fields(data):
     # Создание кастомной карты
     _f_names += ['Sat and Temp']
     data_fields += [go.Contour(x=x_mesh, y=y_mesh, z=input_data['Saturation'][0], colorscale='Jet',
-                             name='Saturation', contours=dict(coloring='fill'))]
+                             name='Saturation', contours=dict(coloring='fill', showlabels=True))]
     data_fields += [go.Contour(x=x_mesh, y=y_mesh, z=input_data['Temperature'][0], name='Temperature',
                              contours=dict(coloring='lines', showlabels=True,
                                            labelfont=dict(size=10, color='black'),
