@@ -108,7 +108,7 @@ def create_gif_from_png(name, duration=100, loop=0):
     """Создание анимированный GIF из набора PNG изображений.
 
     Parameters:
-    ---------
+    ----------
     name: str
         Имя параметра визуализации
     duration: int
@@ -145,7 +145,7 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
     """Создание картинки двумерного поля данных в формате png.
 
     Parameters:
-    ---------
+    ----------
     _ii: int
         Индекс отображаемого поля данных
     _fig: plotly.figure
