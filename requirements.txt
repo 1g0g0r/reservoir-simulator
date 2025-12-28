@@ -6,7 +6,8 @@ kaleido==0.*
 matplotlib
 plotly
 psutil
+numba
+sparse-numba
 scipy
-taichi
 tqdm
 # pypardiso  # либа для параллельного решения СЛАУ

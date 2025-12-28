@@ -6,7 +6,7 @@ from time import perf_counter
 
 import numpy as np
 import psutil
-import taichi as ti
+from numba import njit, prange
 from tqdm import tqdm
 
 from paraphin import r1, r3, r4, r5, r6, fi_0
@@ -20,55 +20,55 @@ from .utils import (calc_mu_o, calc_mu_w, preprocess_matrix_and_wells, convert_p
                     Bound, TypeBC, DataField, add_bc, WellStruct, upd_q_and_eta)
 
 
-@ti.data_oriented
 class Solver:
     def __init__(self):
         self.d_type = data_type
 
         # Граничные условия и скважины
-        self.KIN = ti.field(dtype=data_type, shape=())
+        self.KIN = 0.0
         self.n_wells = 0
         self._wells_buffer = []
         self._wells_names = []
         self.wells = WellStruct.field(shape=1)
-        self.boundary_conditions = ti.field(dtype=data_type, shape=(4, 3, 2))  # Граница -> Поле -> Тип, Значение
+        self.boundary_conditions = np.zeros(dtype=data_type, shape=(4, 3, 2))  # Граница -> Поле -> Тип, Значение
 
         # Свойства флюидов
-        self.mu_o = ti.field(dtype=data_type, shape=(Nx, Ny))  # Вязкость нефти, [Па*с]
-        self.mu_w = ti.field(dtype=data_type, shape=(Nx, Ny))  # Вязкость воды, [Па*с]
-        self.C_w  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость воды, [Дж*кг/C]
-        self.C_o  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость нефти, [Дж*кг/C]
-        self.C_f  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость пласта, [Дж*кг/C]
-        self.C_ff = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость окружающих пород пласта, [Дж*кг/C]
-        self.C_p  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость парафина, [Дж*кг/C]
+        self.mu_o = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Вязкость нефти, [Па*с]
+        self.mu_w = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Вязкость воды, [Па*с]
+        self.C_w  = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость воды, [Дж*кг/C]
+        self.C_o  = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость нефти, [Дж*кг/C]
+        self.C_f  = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость пласта, [Дж*кг/C]
+        self.C_ff = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость окружающих пород пласта, [Дж*кг/C]
+        self.C_p  = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Теплоемкость парафина, [Дж*кг/C]
 
-        # Поля данных
-        self.p     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Давление, [Па]
-        self.S     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Водонасыщенность, [-]
-        self.S_0   = ti.field(dtype=data_type, shape=(Nx, Ny))
-        self.Wo    = ti.field(dtype=data_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
-        self.Wo_0  = ti.field(dtype=data_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
-        self.Wp    = ti.field(dtype=data_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти, [-]
-        self.Wp_0  = ti.field(dtype=data_type, shape=(Nx, Ny))
-        self.Wps   = ti.field(dtype=data_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти, [-]
-        self.Wps_0 = ti.field(dtype=data_type, shape=(Nx, Ny))
-        self.Wps_dep = ti.field(dtype=data_type, shape=(Nx, Ny))
-        self.k     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Проницаемость, [м^2]
-        self.m     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Пористость, [-]
-        self.m_0   = ti.field(dtype=data_type, shape=(Nx, Ny))
-        self.T     = ti.field(dtype=data_type, shape=(Nx, Ny))  # Температура, [С]
-        self.T_0   = ti.field(dtype=data_type, shape=(Nx, Ny))
+        # Поля данных пласта
+        self.p     = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Давление, [Па]
+        self.S     = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Водонасыщенность, [-]
+        self.S_0   = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Водонасыщенность на прошлом временном слое, [-]
+        self.Wo    = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
+        self.Wo_0  = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Массовая доля маслянного компонента в нефти, [-]
+        self.Wp    = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти, [-]
+        self.Wp_0  = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Массовая доля растворенного парафина в нефти на прошлом временном слое, [-]
+        self.Wps   = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти, [-]
+        self.Wps_0 = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Массовая доля взвешенного парафина в нефти на прошлом временном слое, [-]
+        self.Wps_dep = np.zeros(dtype=data_type, shape=(Nx, Ny))# Массовая доля осевшего на порах парафина, [-]
+        self.k     = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Проницаемость, [м^2]
+        self.m     = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Пористость, [-]
+        self.m_0   = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Пористость на прошлом временном слое, [-]
+        self.T     = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Температура, [С]
+        self.T_0   = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Температура на прошлом временном слое, [С]
 
         # Динамика образования парафина (кольматация\суффозия)
-        self.integr_r2_fi0 = ti.field(dtype=data_type, shape=())
-        self.integr_r4_fi0 = ti.field(dtype=data_type, shape=())
-        self.grad_p  = ti.field(dtype=data_type, shape=(Nx, Ny))
-        self._Um_r2  = ti.field(dtype=data_type, shape=(Nx, Ny))
-        self.qp      = ti.field(dtype=data_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме
-        self.fi      = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
-        self.h_sloy  = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
-        self.Ur      = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
-        self.Ub      = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
+        # TODO перейти к float64 только при вычислении интегралов
+        self.integr_r2_fi0 = 0.0
+        self.integr_r4_fi0 = 0.0
+        self.grad_p  = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Градиент давления, [Па/м]
+        self._Um_r2  = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Компонент скорости фильтрации в капилляре радиуса r, [1/(м·сек)]
+        self.qp      = np.zeros(dtype=data_type, shape=(Nx, Ny))  # Скорость отложения парафина в общем объеме, [1/сек]
+        self.fi      = np.zeros(dtype=data_type, shape=(Nx, Ny, Nr))  # Функция пор по размерам, [-]
+        self.h_sloy  = np.zeros(dtype=data_type, shape=(Nx, Ny, Nr))  #
+        self.Ur      = np.zeros(dtype=data_type, shape=(Nx, Ny, Nr))  #
+        self.Ub      = np.zeros(dtype=data_type, shape=(Nx, Ny, Nr))  #
 
         # Поля данный нового временного слоя
         self.new_h   = ti.field(dtype=data_type, shape=(Nx, Ny, Nr))
