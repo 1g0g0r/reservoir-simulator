@@ -67,7 +67,7 @@ def _visualize_fields(data):
         del input_data['plots']
 
     # 'Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params'
-    skip_fields = ['Pressure', 'Wo', 'Wp', 'm mult','mu_o', 'mu_w', 'qp']
+    skip_fields = ['Pressure', 'Wo', 'Wp', 'Wps dep', 'Wps', 'm','mu_o', 'mu_w', 'qp']
 
     _f_names = [name for name in input_data.keys() if name not in skip_fields]
     data_fields = []
@@ -119,13 +119,13 @@ def _visualize_fields(data):
 
     # Создание кастомной карты
     _f_names += ['Sat and Temp']
-    data_fields += [go.Contour(x=x_mesh, y=y_mesh, z=input_data['Saturation'][0], colorscale='Jet',
-                             name='Saturation', contours=dict(coloring='fill', showlabels=True))]
+    data_fields += [go.Contour(x=x_mesh, y=y_mesh, z=input_data['Saturation'][0], colorscale='Jet', name='Saturation',
+                               contours=dict(coloring='fill', showlabels=True))]
+
     data_fields += [go.Contour(x=x_mesh, y=y_mesh, z=input_data['Temperature'][0], name='Temperature',
                              contours=dict(coloring='lines', showlabels=True,
-                                           labelfont=dict(size=10, color='black'),
-                                           start=25, end=70*0.99, size=10),
-                             line=dict(width=3), colorscale=[[0, 'black'], [1, 'black']], showscale=False)]
+                                           start=25 * 1.001, end=70 * 0.99, size=10),
+                             line=dict(width=3), colorscale=[[0, 'black'], [1, 'black']], showscale=False, showlegend=True)]
 
     # Создаем фигуру
     fig = go.Figure(data=data_fields)
