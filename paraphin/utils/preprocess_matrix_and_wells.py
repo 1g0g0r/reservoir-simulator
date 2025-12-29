@@ -1,6 +1,6 @@
 """Предобработка матрицы уравнения давления и инициализация данных скважин."""
 import numpy as np
-import taichi as ti
+from numba import njit, prange
 
 from paraphin import NN
 from paraphin.constants import Nx, Ny, hx, hy, h
@@ -8,40 +8,38 @@ from paraphin.constants import Nx, Ny, hx, hy, h
 
 def preprocess_matrix_and_wells(wells, wells_buffer):
     """Препроцессинг профиля матрицы уравнения давления и обработка массива скважин."""
-    rows_indices = ti.field(ti.i32, shape=NN)
-    cols_indices = ti.field(ti.i32, shape=NN)
+    rows_indices = np.zeros(dtype=np.int32, shape=NN)
+    cols_indices = np.zeros(dtype=np.int32, shape=NN)
     _get_rows_cols(row_indices=rows_indices, col_indices=cols_indices)
-
-    rows_indices_np = rows_indices.to_numpy()
-    cols_indices_np = cols_indices.to_numpy()
-    diagonal = rows_indices_np == cols_indices_np
+    diagonal = rows_indices == cols_indices
 
     # Добавление скважин
     if len(wells_buffer) > 0:
-        for i in range(wells.shape[0]):
+        for i in range(len(wells)):
             wells[i] = wells_buffer[i]['well']
             wells[i].idx_rhs = wells[i].i + wells[i].j * Nx
-            wells[i].idx_mat = np.where(np.logical_and(rows_indices_np == wells[i].idx_rhs, diagonal))[0][0]
+            wells[i].idx_mat = np.where(np.logical_and(rows_indices == wells[i].idx_rhs, diagonal))[0][0]
 
-    sorted_indices = np.lexsort((rows_indices_np, cols_indices_np))
-    cols_sorted = cols_indices_np[sorted_indices]
-    rows_sorted = rows_indices_np[sorted_indices].astype(np.intc, copy=False)
+    sorted_indices = np.lexsort((rows_indices, cols_indices))
+    cols_sorted = cols_indices[sorted_indices]
+    rows_sorted = rows_indices[sorted_indices].astype(np.intc, copy=False)
     _, cols_ptr = np.unique(cols_sorted, return_index=True)
     cols_ptr = np.append(cols_ptr, len(cols_sorted)).astype(np.intc, copy=False)
 
     return sorted_indices, rows_sorted, cols_ptr, wells
 
 
-@ti.kernel
-def _get_rows_cols(row_indices: ti.template(), col_indices: ti.template()):
+@njit #(parallel=True)
+def _get_rows_cols(row_indices, col_indices):
     """Сборка матрицы уравнения давления"""
+    # TODO убрать использование num. Сохранять индексы
     num = 0
-    for j in ti.ndrange(Nx):
-        for i in ti.ndrange(Ny):
+    for i in range(Nx):
+        for j in range(Ny):
             idx = i + j * Nx
 
             arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
-            for qq in ti.static(ti.ndrange(4)):
+            for qq in range(4):
                 i1, j1, hij, areaij = arr[qq]
                 if (0 <= i1 < Nx) and (0 <= j1 < Ny):
                     row_indices[num] = idx

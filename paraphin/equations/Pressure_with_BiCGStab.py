@@ -16,33 +16,33 @@ def calc_pressure(p, Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, solver, rhs
 
     Parameters
     ----------
-    p: taichi.field(Nx, Ny)
+    p: numpy.ndarray(Nx, Ny)
         Давление, [Па]
-    Wo: taichi.field(Nx, Ny)
+    Wo: numpy.ndarray(Nx, Ny)
         Массовая доля масляного компонента в нефти, [-]
-    Wo_0: taichi.field(Nx, Ny)
+    Wo_0: numpy.ndarray(Nx, Ny)
         Массовая доля масляного компонента в нефти на прошлом временном слое, [-]
-    m: taichi.field(Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    m_0: taichi.field(Nx, Ny)
+    m_0: numpy.ndarray(Nx, Ny)
         Пористость на прошлом временном слое, [-]
-    k: taichi.field(Nx, Ny)
+    k: numpy.ndarray(Nx, Ny)
         Проницаемость, [м^2]
-    S: taichi.field(Nx, Ny)
+    S: numpy.ndarray(Nx, Ny)
         Водонасыщенность, [-]
-    S_0: taichi.field(Nx, Ny)
+    S_0: numpy.ndarray(Nx, Ny)
         Водонасыщенность на прошлом временном слое, [-]
-    mu_o: taichi.field(Nx, Ny)
+    mu_o: numpy.ndarray(Nx, Ny)
         Вязкость нефти, [Па*с]
-    mu_w: taichi.field(Nx, Ny)
+    mu_w: numpy.ndarray(Nx, Ny)
         Вязкость воды, [Па*с]
-    wells: taichi.field(n_wells)
+    wells: numpy.ndarray(n_wells)
         Массив скважин
     solver: BICGSolver
         Класс решения пяти диагональныхматриц стабилизированным методом бисопряженных градиентов
-    rhs: taichi.field(Nx*Ny)
+    rhs: numpy.ndarray(Nx*Ny)
         Вектор правой части уравнения давления
-    matrix: taichi.field(5, Nx*Ny)
+    matrix: numpy.ndarray(5, Nx*Ny)
         Массив пятидиагональной матрицы уравнения давления
         0: i - Nx
         1: i - 1

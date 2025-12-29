@@ -1,10 +1,10 @@
 """Решение уравнения водонасыщенности по явной схеме."""
-import taichi as ti
+from numba import njit
 
 from paraphin.constants import dt, volume, init_m
 
 
-@ti.func
+@njit
 def saturation_equation(i, j, S, m, m_0, cells_S_eq, new_m, new_S) -> None:
     """Вычисление водонасыщенности по явной схеме.
 
@@ -12,23 +12,23 @@ def saturation_equation(i, j, S, m, m_0, cells_S_eq, new_m, new_S) -> None:
     ----------
     i, j : int
         Индексы текущей ячейки, [-]
-    S: taichi.field(Nx, Ny)
+    S: numpy.ndarray(Nx, Ny)
         Водонасыщенность, [-]
-    m: taichi.field(Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    m_0: taichi.field(Nx, Ny)
+    m_0: numpy.ndarray(Nx, Ny)
         Пористость на прошлом временном слое, [-]
-    cells_S_eq: taichi.field(Nx, Ny)
+    cells_S_eq: numpy.ndarray(Nx, Ny)
         Перетоки воды в ячейках, [Па*м]
-    new_m: taichi.field(Nx, Ny)
+    new_m: numpy.ndarray(Nx, Ny)
         Пористость на новом временном слое, [-]
-    new_S: taichi.field(Nx, Ny)
+    new_S: numpy.ndarray(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """
     new_S[i, j] += S[i, j] + (-S[i, j] * (m[i, j] - m_0[i, j]) + dt * cells_S_eq[i, j] / volume) / m[i, j]
 
 
-@ti.func
+@njit
 def saturation_well(well, m, new_m, new_S) -> None:
     """Учет скважины в уравнении водонасыщенности.
 
@@ -36,11 +36,11 @@ def saturation_well(well, m, new_m, new_S) -> None:
     ----------
     well: Well
         Объект класса скважина
-    m: taichi.field(Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    new_m: taichi.field(Nx, Ny)
+    new_m: numpy.ndarray(Nx, Ny)
         Пористость на новом временном слое, [-]
-    new_S: taichi.field(Nx, Ny)
+    new_S: numpy.ndarray(Nx, Ny)
         Водонасыщенность на новом временном слое, [-]
     """
     i, j = well.i, well.j

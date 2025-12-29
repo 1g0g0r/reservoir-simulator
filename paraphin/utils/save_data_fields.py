@@ -1,23 +1,8 @@
 """ Модуль конвертирует поля данных taichi в словарь массивов numpy."""
-import numpy as np
-import taichi as ti
-from taichi.lang.impl import grouped
 from pickle import dump, HIGHEST_PROTOCOL
 
 from paraphin import fi_0_np
-from paraphin.constants import Nx, Ny, Nr, results_path, init_k, init_m, day_to_sec, np_data_type
-
-p_np = np.zeros((Nx, Ny), dtype=np_data_type)
-S_np = np.zeros((Nx, Ny), dtype=np_data_type)
-T_np = np.zeros((Nx, Ny), dtype=np_data_type)
-Wo_np = np.zeros((Nx, Ny), dtype=np_data_type)
-Wp_np = np.zeros((Nx, Ny), dtype=np_data_type)
-Wps_np = np.zeros((Nx, Ny), dtype=np_data_type)
-Wps_dep_np = np.zeros((Nx, Ny), dtype=np_data_type)
-qp_np = np.zeros((Nx, Ny), dtype=np_data_type)
-new_m_np = np.zeros((Nx, Ny), dtype=np_data_type)
-new_k_np = np.zeros((Nx, Ny), dtype=np_data_type)
-fi_np = np.zeros(Nr, dtype=np_data_type)
+from paraphin.constants import results_path, init_k, init_m, day_to_sec
 
 
 def save_fields(solver, t: float):
@@ -38,32 +23,31 @@ def save_fields(solver, t: float):
     if solver._paraphin:
         x_idx = 0  # int(Nx / 2)
         y_idx = 0  # int(Ny / 2)
-        _loop_with_paraphin_data(solver, x_idx, y_idx, fi_np, p_np, S_np, T_np, Wo_np, Wp_np,
-                                 Wps_np, Wps_dep_np, qp_np, new_m_np, new_k_np)
+
+        # TODO создаь один раз словарь, а потом только перезаписывать
         data = {
             'Time': t,
-            'Pressure': p_np,
-            'Saturation': S_np,
-            'Temperature': T_np,
-            'Wo': Wo_np,
-            'Wp': Wp_np,
-            'Wps': Wps_np,
-            'Wps dep': Wps_dep_np,
-            'qp': qp_np,
-            'm': new_m_np / init_m,
-            'k': new_k_np / init_k,
-            'plots': {'fi_o': fi_0_np, 'fi': fi_np},
+            'Pressure': solver.p,
+            'Saturation': solver.S,
+            'Temperature': solver.T,
+            'Wo': solver.Wo,
+            'Wp': solver.Wp,
+            'Wps': solver.Wps,
+            'Wps dep': solver.Wps_dep,
+            'qp': solver.qp,
+            'm': solver.new_m / init_m,
+            'k': solver.new_k / init_k,
+            'plots': {'fi_o': fi_0_np, 'fi': solver.fi},
             'Wells': wells_data,
             'Wells_accumulated': wells_accumulated_data,
             # 'Other params': {'KIN': solver.KIN[None], f'T [{x_idx},{y_idx}]': T_np[x_idx, y_idx]}
         }
     else:
-        _loop(solver, p_np, S_np, T_np)
         data = {
             'Time': t,
-            'Pressure': p_np,
-            'Saturation': S_np,
-            'Temperature': T_np,
+            'Pressure': solver.p,
+            'Saturation': solver.S,
+            'Temperature': solver.T,
             'Wells': wells_data,
             'Wells_accumulated': wells_accumulated_data,
             # 'Other params': {'KIN': solver.KIN[None], f'T [{0},{0}]': T_np[0, 0]}
@@ -72,35 +56,3 @@ def save_fields(solver, t: float):
     with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as file:
         dump(data, file, protocol=HIGHEST_PROTOCOL)
         solver.logger.info("Данные записаны в файл.")
-
-
-@ti.kernel
-def _loop(solver: ti.template(), _p_np: ti.types.ndarray(), _S_np: ti.types.ndarray(), _T_np: ti.types.ndarray()):
-    """Перенос данных из структуры taichi в numpy."""
-    for I in grouped(solver.S):
-        _p_np[I] = solver.p[I]
-        _S_np[I] = solver.S[I]
-        _T_np[I] = solver.T[I]
-
-
-@ti.kernel
-def _loop_with_paraphin_data(solver: ti.template(), x_idx: int, y_idx: int, _fi_np: ti.types.ndarray(),
-                             _p_np: ti.types.ndarray(), _S_np: ti.types.ndarray(), _T_np: ti.types.ndarray(),
-                             _Wo_np: ti.types.ndarray(), _Wp_np: ti.types.ndarray(), _Wps_np: ti.types.ndarray(),
-                             _Wps_dep_np: ti.types.ndarray(), _qp_np: ti.types.ndarray(), _new_m_np: ti.types.ndarray(),
-                             _new_k_np: ti.types.ndarray()):
-    """Перенос данных из структуры taichi в numpy."""
-    for I in grouped(solver.S):
-        _p_np[I] = solver.p[I]
-        _S_np[I] = solver.S[I]
-        _T_np[I] = solver.T[I]
-        _Wo_np[I] = solver.Wo[I]
-        _Wp_np[I] = solver.Wp[I]
-        _Wps_np[I] = solver.Wps[I]
-        _Wps_dep_np[I] = solver.Wps_dep[I]
-        _qp_np[I] = solver.qp[I]
-        _new_m_np[I] = solver.new_m[I]
-        _new_k_np[I] = solver.new_k[I]
-
-    for i in ti.ndrange(Nr):
-        _fi_np[i] = solver.fi[x_idx, y_idx, i]
