@@ -16,7 +16,7 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, 
 
     Parameters
     ----------
-    Wo: numpy.ndarray((Nx, Ny)
+    Wo: numpy.ndarray(Nx, Ny)
         Массовая доля масляного компонента в нефти, [-]
     Wo_0: numpy.ndarray(Nx, Ny)
         Массовая доля масляного компонента в нефти на прошлом временном слое, [-]

@@ -230,6 +230,7 @@ def _wells_loop(n_wells, wells, m, new_m, S, new_s, T, new_t, Wp, new_wp, Wps, C
         wps_wp_wells(wells[i], m, S, T, Wp, Wps, new_wp)
         temperature_well(wells[i], T, m, S, C_o, C_w, C_f, C_p, Wps, new_t)
 
+
 @njit
 def _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w):
     """Обновление дебита и обводненности скважин."""
@@ -244,7 +245,7 @@ def _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w):
 
 
 @njit(parallel=True)
-def _swap_time_steps(self):
+def _swap_time_steps():
     """Обновление полей данных на новом временном слое."""
     for i in prange(Nx):
         for j in range(Ny):
@@ -280,13 +281,14 @@ def _swap_time_steps(self):
 
 
 @njit
-def _update_mu_and_c_temp(self, i, j) -> None:
-    self.mu_o[i, j] = calc_mu_o(self.T[i, j])
-    self.mu_w[i, j] = calc_mu_w(self.T[i, j])
-    self.C_w[i, j]  = c_w  # calc_c_w(self.T[i, j])
-    self.C_o[i, j]  = c_o  # calc_c_o(self.T[i, j])
-    self.C_f[i, j]  = c_f  # calc_c_f(self.T[i, j])
-    self.C_p[i, j]  = c_p  # calc_c_p(self.T[i, j])
+def _update_mu_and_c_temp(i, j, mu_o, mu_w, C_w, C_o, C_f, C_p):
+    """Обновление свойств флюидов, вызванных изменением температуры."""
+    mu_o[i, j] = calc_mu_o(T[i, j])
+    mu_w[i, j] = calc_mu_w(T[i, j])
+    C_w[i, j]  = c_w  # calc_c_w(self.T[i, j])
+    C_o[i, j]  = c_o  # calc_c_o(self.T[i, j])
+    C_f[i, j]  = c_f  # calc_c_f(self.T[i, j])
+    C_p[i, j]  = c_p  # calc_c_p(self.T[i, j])
 
 
 

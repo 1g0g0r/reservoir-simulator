@@ -16,27 +16,27 @@ def flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, m, Wp, Wps
         Индексы текущей ячейки, [-]
     boundary_conditions: ti.field(4, 3, 2)
         Граничные условия: Граница -> Поле -> Тип, Значение
-    p: numpy.ndarray((Nx, Ny)
+    p: numpy.ndarray(Nx, Ny)
         Давление, [Па]
-    S: numpy.ndarray((Nx, Ny)
+    S: numpy.ndarray(Nx, Ny)
         Водонасыщенность, [-]
-    T: numpy.ndarray((Nx, Ny)
+    T: numpy.ndarray(Nx, Ny)
         Температура, [C]
-    k: numpy.ndarray((Nx, Ny)
+    k: numpy.ndarray(Nx, Ny)
         Проницаемость, [м^2]
-    mu_o: numpy.ndarray((Nx, Ny)
+    mu_o: numpy.ndarray(Nx, Ny)
         Вязкость нефти, [Па*с]
-    mu_w: numpy.ndarray((Nx, Ny)
+    mu_w: numpy.ndarray(Nx, Ny)
         Вязкость воды, [Па*с]
-    m: numpy.ndarray((Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    Wp: numpy.ndarray((Nx, Ny)
+    Wp: numpy.ndarray(Nx, Ny)
         Массовая доля растворенного парафина в нефти, [-]
-    Wps: numpy.ndarray((Nx, Ny)
+    Wps: numpy.ndarray(Nx, Ny)
         Массовая доля взвешенного парафина в нефти, [-]
-    C_o: numpy.ndarray((Nx, Ny)
+    C_o: numpy.ndarray(Nx, Ny)
         Теплоемкость нефти, [Дж/(кг*C)]
-    C_w: numpy.ndarray((Nx, Ny)
+    C_w: numpy.ndarray(Nx, Ny)
         Теплоемкость воды, [Дж/(кг*C)]
     C_p: numpy.ndarray(Nx, Ny)
         Теплоемкость парафина, [Дж/(кг*C)]

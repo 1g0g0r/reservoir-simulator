@@ -18,27 +18,27 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
     ----------
     i, j : int
         Индексы текущей ячейки, [-]
-    qp: numpy.ndarray((Nx, Ny)
+    qp: numpy.ndarray(Nx, Ny)
          Скорость отложения парафиновых отложений в общем объеме пористой породы
-    m: numpy.ndarray((Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    m_0: numpy.ndarray((Nx, Ny)
+    m_0: numpy.ndarray(Nx, Ny)
         Пористость на прошлом временном слое, [-]
-    S: numpy.ndarray((Nx, Ny)
+    S: numpy.ndarray(Nx, Ny)
         Водонасыщенность, [-]
-    S_0: numpy.ndarray((Nx, Ny)
+    S_0: numpy.ndarray(Nx, Ny)
         Водонасыщенность на прошлом временном слое, [-]
-    Wo: numpy.ndarray((Nx, Ny)
+    Wo: numpy.ndarray(Nx, Ny)
         Концентрация нефтяного компонента в нефти, [-]
-    Wp: numpy.ndarray((Nx, Ny)
+    Wp: numpy.ndarray(Nx, Ny)
         Концентрация растворенного парафина, [-]
-    T: numpy.ndarray((Nx, Ny)
+    T: numpy.ndarray(Nx, Ny)
         Температура, [С]
-    cells_Wp_eq: numpy.ndarray((Nx, Ny)
+    cells_Wp_eq: numpy.ndarray(Nx, Ny)
         Перетоки нефти в ячейках, [Па*м]
-    new_Wp: numpy.ndarray((Nx, Ny)
+    new_Wp: numpy.ndarray(Nx, Ny)
         Концентрация растворенного парафина на новом временном слое, [-]
-    new_Wps: numpy.ndarray((Nx, Ny)
+    new_Wps: numpy.ndarray(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     if T[i, j] < init_T * 0.95:
@@ -82,15 +82,15 @@ def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp) -> None:
     ----------
     well: Well
         Объект класса скважина
-    m: numpy.ndarray((Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    S: numpy.ndarray((Nx, Ny)
+    S: numpy.ndarray(Nx, Ny)
         Водонасыщенность, [-]
-    Wp: numpy.ndarray((Nx, Ny)
+    Wp: numpy.ndarray(Nx, Ny)
         Концентрация растворенного парафина, [-]
-    Wps: numpy.ndarray((Nx, Ny)
+    Wps: numpy.ndarray(Nx, Ny)
         Концентрация взвешенного парафина, [-]
-    new_Wp: numpy.ndarray((Nx, Ny)
+    new_Wp: numpy.ndarray(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j
