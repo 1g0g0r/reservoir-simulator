@@ -40,5 +40,4 @@ def calc_Um_r2(i, j, p, grad_p, Um_r2, mu_o):
         df_dy = (p[i, j + 1] - p[i, j - 1]) / (2.0 * hy)
 
     grad_p[i, j] = np.sqrt(df_dx * df_dx + df_dy * df_dy)
-    print(grad_p[i, j] * 0.125 / eta)
     Um_r2[i, j] = grad_p[i, j] / mu_o[i, j] * 0.125 / eta

@@ -8,6 +8,7 @@ from paraphin.constants import data_type, Nr, dt, D, gamma, init_m, init_k
 min_Wps_bound = 1e-6
 
 D_2_gamma = D * 0.5 / gamma
+# TODO вынести в класс
 _a = np.zeros(dtype=data_type, shape=Nr)
 _b = np.zeros(dtype=data_type, shape=Nr)
 

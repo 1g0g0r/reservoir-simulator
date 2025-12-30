@@ -2,10 +2,9 @@
 import numpy as np
 from numba import njit, prange
 from scipy.sparse.linalg._dsolve.linsolve import _superlu
-from sparse_numba.sparse_superlu.superlu_numba_interface import superlu_solve_csc
-from sparse_numba.sparse_umfpack.umfpack_numba_interface import umfpack_solve_csc
+# from sparse_numba.sparse_superlu.superlu_numba_interface import superlu_solve_csc
+# from sparse_numba.sparse_umfpack.umfpack_numba_interface import umfpack_solve_csc
 
-from paraphin import N, NN
 from paraphin.constants import Nx, Ny, hx, hy, dt, volume, h
 from paraphin.utils import mid_Ko_Kw, apply_bc, get_bound, calc_well_mult
 
@@ -49,9 +48,10 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, 
     _adding_wells(wells, S, k, mu_o, mu_w, data, rhs)
 
     # TODO попробовать вызывать сразу компилированный модуль без обертки
-    solution, _ = umfpack_solve_csc(data[sort_mask], rows_indices, cols_ptr, rhs)
+    # solution, _ = superlu_solve_csc(data[sort_mask], rows_indices, cols_ptr, rhs)
+    solution = np.zeros_like(rhs)
 
-    return solution.reshape((Ny, Nx)).T
+    return solution.reshape((Ny, Nx))
 
 
 @njit #(nogil=True, parallel=True)
