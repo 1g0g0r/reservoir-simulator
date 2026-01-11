@@ -83,8 +83,10 @@ class Solver:
         self._t = 0.0
         self._i_img = 0
         self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)
-        self.rhs = np.zeros(N, dtype=data_type)
-        self.data = np.zeros(NN, dtype=data_type)
+        self.a_tdma = np.zeros(Nr, data_type)
+        self.b_tdma = np.zeros(Nr, data_type)
+        self.rhs = np.zeros(N, data_type)
+        self.data = np.zeros(NN, data_type)
         self.rows_indices = np.ndarray
         self.cols_indices = np.ndarray
         self.sort_mask = np.ndarray
@@ -172,7 +174,7 @@ class Solver:
         _wells_loop(self.n_wells, self.wells, self.m, self.new_m, self.S, self.new_s, self.T, self.new_t, self.Wp, self.new_wp, self.Wps, self.C_o, self.C_w, self.C_f, self.C_p)
         # Решение уравнений по явной схеме
         _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wp, self.Wp_0, self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t,
-                    self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.C_o, self.C_w, self.C_p, self.C_f, self.C_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.mu_o, self.mu_w)
+                    self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.C_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.mu_o, self.mu_w)
 
 
     def start(self) -> None:
@@ -201,7 +203,7 @@ class Solver:
 
 @njit(nogil=True, parallel=True) # fastmath=True, boundscheck=False
 def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
-                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, mu_o, mu_w):
+                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, _a_tdma, _b_tdma, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, mu_o, mu_w):
     """Решение уравнений по явной схеме в цикле по ячейкам."""
     for i in prange(Nx):
         for j in range(Ny):
@@ -214,7 +216,7 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
                 # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                 calc_velocitys_h(i, j, S, _Um_r2, Wps, mu_o, fi, h_sloy, Ur, new_h, new_Ur, new_Ub)
                 # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, new_fi, new_k, new_m)
+                calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, _a_tdma, _b_tdma, new_qp, new_fi, new_k, new_m)
 
             # ---решение гидродинамики---
             flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq)

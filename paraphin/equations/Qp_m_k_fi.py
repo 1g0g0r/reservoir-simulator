@@ -6,15 +6,12 @@ from paraphin import r1, r2, r3, r4, r5, r6
 from paraphin.constants import data_type, Nr, dt, D, gamma, init_m, init_k
 
 min_Wps_bound = 1e-6
-
 D_2_gamma = D * 0.5 / gamma
-# TODO вынести в класс
-_a = np.zeros(dtype=data_type, shape=Nr)
-_b = np.zeros(dtype=data_type, shape=Nr)
 
 
 @njit
-def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, new_fi, new_k, new_m) -> None:
+def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, 
+                   new_qp, new_fi, new_k, new_m) -> None:
     """Вычисление концентрации взвешенных частиц парафина по явной схеме.
 
     Parameters
@@ -35,6 +32,8 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         Интеграл r^2 * fi_o(r), [m^3]
     integr_r4_fi0: float
         Интеграл r^4 * fi_o(r), [m^5]
+    a_tdma, b_tdma: numpy.ndarray(Nr)
+        Массивы прогоночных коэффициентов, [-]
     new_qp: numpy.ndarray(Nx, Ny)
          Скорость отложения парафиновых отложений в общем объеме пористой породы
     new_fi: numpy.ndarray(Nx, Ny, Nr)
@@ -52,7 +51,7 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         new_k[i, j] = init_k * r4fi / integr_r4_fi0
 
         # Обновление функции пор по размерам
-        _update_fi(new_fi, fi, Ur, Ub, i, j)
+        _update_fi(new_fi, fi, Ur, Ub, i, j, a_tdma, b_tdma)
 
 
 @njit
@@ -104,7 +103,7 @@ def _calculate_integrals(fi, Ur, Ub, i: int, j: int):
 
 
 @njit
-def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int):
+def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma):
     """Обновление функции пор по размерам по неявной схеме с использованием метода прогонки.
 
     Parameters
@@ -119,6 +118,8 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int):
         Скорость блокирования капилляров, [м/с]
     i, j: int
         Индексы текущей ячейки, [-]
+    a_tdma, b_tdma: numpy.ndarray(Nr)
+        Массивы прогоночных коэффициентов, [-]
     """
     c, d, e, f = 0.0, 0.0, 0.0, 0.0
     # Вычисление прогоночных коэффициентов
@@ -128,8 +129,8 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int):
     else:
         d = 1.0 / dt - Ur[i, j, 0] / (r1[1] - r1[0])
         e = Ur[i, j, 1] / (r1[1] - r1[0])
-    _a[0] = -e / d
-    _b[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
+    a_tdma[0] = -e / d
+    b_tdma[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
 
     # TODO Надо сделать проверку решения в вольфраме
     for ij in range(1, Nr):
@@ -147,16 +148,16 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int):
             # d = 1.0 / dt - Ur[i, j, ij-1] / dr
             e = Ur[i, j, ij+1] / dr
             # e = Ur[i, j, ij] / dr
-        denominator = c * _a[ij - 1] + d
-        _a[ij] = -e / denominator
-        _b[ij] = (f - c * _b[ij - 1]) / denominator
-    _a[Nr - 1] = 0.0
+        denominator = c * a_tdma[ij - 1] + d
+        a_tdma[ij] = -e / denominator
+        b_tdma[ij] = (f - c * b_tdma[ij - 1]) / denominator
+    a_tdma[Nr - 1] = 0.0
 
     # Вычисление функции пор размерам
-    new_fi[i, j, Nr - 1] = _b[Nr - 1]
+    new_fi[i, j, Nr - 1] = b_tdma[Nr - 1]
     for _ij in range(Nr):
         ij = Nr - 1 - _ij  # тк обратный ход
-        new_fi[i, j, ij] = max(new_fi[i, j, ij + 1] * _a[ij] + _b[ij], 0.0)
+        new_fi[i, j, ij] = max(new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij], 0.0)
 
 
 @njit

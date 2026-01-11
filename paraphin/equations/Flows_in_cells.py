@@ -54,6 +54,7 @@ def flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, m, Wp, Wps
 
     for idx in range(4):
         i1, j1, hij, areaij = arr[idx]
+        # TODO переписать через один иф с отрицательной проверкой
         if (0 <= i1 < Nx) and (0 <= j1 < Ny):
             p_ij, S_ij, T_ij = p[i1, j1], S[i1, j1], T[i1, j1]
         else:
