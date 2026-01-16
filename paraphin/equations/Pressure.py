@@ -2,7 +2,7 @@
 import numpy as np
 from numba import njit, prange
 from scipy.sparse.linalg._dsolve.linsolve import _superlu
-# from sparse_numba.sparse_superlu.superlu_numba_interface import superlu_solve_csc
+from sparse_numba.sparse_superlu.superlu_numba_interface import superlu_solve_csc
 # from sparse_numba.sparse_umfpack.umfpack_numba_interface import umfpack_solve_csc
 
 from paraphin.constants import Nx, Ny, hx, hy, dt, volume, h
@@ -48,8 +48,8 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, 
     _adding_wells(wells, S, k, mu_o, mu_w, data, rhs)
 
     # TODO попробовать вызывать сразу компилированный модуль без обертки
-    # solution, _ = superlu_solve_csc(data[sort_mask], rows_indices, cols_ptr, rhs)
-    solution = np.zeros_like(rhs)
+    solution, _ = superlu_solve_csc(data[sort_mask], rows_indices, cols_ptr, rhs)
+    # solution = np.zeros_like(rhs)
 
     return solution.reshape((Ny, Nx))
 
@@ -58,7 +58,7 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, 
 def _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, boundary_conditions):
     """Заполнение массивов матрицы и правой части уравнения давления."""
     num = 0
-    # TODO перейти к одномерному массиву, который создается в препроцессинге
+    # TODO перейти к одномерному массиву, который создается в препроцессинге и вернуть параллельность
     for i in range(Nx):
         for j in range(Ny):
             idx = i + j * Nx

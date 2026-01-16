@@ -56,7 +56,7 @@ class Solver:
         # Динамика образования парафина (кольматация\суффозия)
         self.integr_r2_fi0 = data_type(0.0)
         self.integr_r4_fi0 = data_type(0.0)
-        self.fi      = np.broadcast_to(fi_0, (Nx, Ny, Nr))            # Функция пор по размерам, [-]
+        self.fi      = np.ones((Nx, Ny, Nr), data_type) * fi_0               # Функция пор по размерам, [-]
         self.h_sloy  = np.full((Nx, Ny, Nr), init_h_sloy, data_type)  # Толщина осадочного слоя парафина, [м]
         self.qp      = np.full((Nx, Ny), init_qp, data_type) # Скорость отложения парафина в общем объеме, [1/сек]
         self.grad_p  = np.zeros((Nx, Ny), data_type)         # Градиент давления, [Па/м]
@@ -150,33 +150,6 @@ class Solver:
         self.n_wells += 1
 
 
-    def upd_time_step(self, t: float) -> None:
-        """Решение задачи на текущем временном слое."""
-        self._t = t
-        self._process_time_step()
-        self._logging_solution(t)
-        self._swap_time_steps()
-
-        # Запись данных в файл
-        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
-            save_fields(self, t)
-            self._i_img += 1
-
-
-    def _process_time_step(self) -> None:
-        """Метод IMPES: явный по насыщенности неявный по давлению."""
-        # Обновление давления
-        self.p = calc_pressure(self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o, self.mu_w,
-                               self.wells, self.rows_indices, self.cols_ptr, self.sort_mask, self.data, self.rhs, self.boundary_conditions)
-        # Обновление данных скважин
-        self.KIN = _update_wells_data(self.n_wells, self.wells, self.p, self.S, self.k, self.mu_o, self.mu_w)
-        # Учет скважин в уравнениях
-        _wells_loop(self.n_wells, self.wells, self.m, self.new_m, self.S, self.new_s, self.T, self.new_t, self.Wp, self.new_wp, self.Wps, self.C_o, self.C_w, self.C_f, self.C_p)
-        # Решение уравнений по явной схеме
-        _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wp, self.Wp_0, self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t,
-                    self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.C_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.mu_o, self.mu_w)
-
-
     def start(self) -> None:
         try:
             times = np.linspace(0, Time_end, int(Time_end / dt + 1))
@@ -199,6 +172,34 @@ class Solver:
             print('eta:', round(self.wells[1].eta, 5))
             convert_pkl_files()
             rmtree(results_path)
+
+
+    def upd_time_step(self, t: float) -> None:
+        """Решение задачи на текущем временном слое."""
+        self._t = t
+        self._process_time_step()
+        # self._logging_solution(t)
+        _swap_time_steps(self._t, self._paraphin, self.Wps_dep, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0,
+                     self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t, self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.mu_o, self.mu_w, self.C_w, self.C_o, self.C_f, self.C_p)
+
+        # Запись данных в файл
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
+            save_fields(self, t)
+            self._i_img += 1
+
+
+    def _process_time_step(self) -> None:
+        """Метод IMPES: явный по насыщенности неявный по давлению."""
+        # Обновление давления
+        self.p = calc_pressure(self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o, self.mu_w,
+                               self.wells, self.rows_indices, self.cols_ptr, self.sort_mask, self.data, self.rhs, self.boundary_conditions)
+        # Обновление данных скважин
+        self.KIN = _update_wells_data(self.n_wells, self.wells, self.p, self.S, self.k, self.mu_o, self.mu_w)
+        # Учет скважин в уравнениях
+        _wells_loop(self.n_wells, self.wells, self.m, self.new_m, self.S, self.new_s, self.T, self.new_t, self.Wp, self.new_wp, self.Wps, self.C_o, self.C_w, self.C_f, self.C_p)
+        # Решение уравнений по явной схеме
+        _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wp, self.Wp_0, self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t,
+                    self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.C_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.mu_o, self.mu_w)
 
 
 @njit(nogil=True, parallel=True) # fastmath=True, boundscheck=False
@@ -247,43 +248,44 @@ def _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w):
 
 
 @njit(parallel=True)
-def _swap_time_steps():
+def _swap_time_steps(_t, _paraphin, Wps_dep, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wo_0, Wp, Wp_0,
+                     new_wp, Wps, Wps_0, new_wps, T, T_0, new_t, fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, mu_o, mu_w, C_w, C_o, C_f, C_p):
     """Обновление полей данных на новом временном слое."""
     for i in prange(Nx):
         for j in range(Ny):
-            self._update_mu_and_c_temp(i, j)  #  пересчет свойств флюидов из-за изменения температуры
+            # пересчет свойств флюидов из-за изменения температуры
+            _update_mu_and_c_temp(i, j, T, mu_o, mu_w, C_w, C_o, C_f, C_p)
 
-            self.S_0[i, j] = self.S[i, j]
-            self.S[i, j]   = self.new_s[i, j]
-            self.new_s[i, j] = 0.0
-            self.T_0[i, j] = self.T[i, j]
-            self.T[i, j]   = self.new_t[i, j]
-            self.new_t[i, j] = 0.0
+            S_0[i, j] = S[i, j]
+            S[i, j]   = new_s[i, j]
+            new_s[i, j] = 0.0
+            T_0[i, j] = T[i, j]
+            T[i, j]   = new_t[i, j]
+            new_t[i, j] = 0.0
 
-            if self._paraphin:
-                self.Wo_0[i, j]  = self.Wo[i, j]
-                self.Wo[i, j]    = 1.0 - self.new_wp[i, j] - self.new_wps[i, j]
-                self.Wp_0[i, j]  = self.Wp[i, j]
-                self.Wp[i, j]    = self.new_wp[i, j]
-                self.new_wp[i, j] = 0.0
-                self.Wps_0[i, j] = self.Wps[i, j]
-                self.Wps[i, j]   = self.new_wps[i, j]
-                self.k[i, j]     = self.new_k[i, j]
-                self.m[i, j]     = self.new_m[i, j]
-                self.m_0[i, j]   = self.m[i, j]  # FIXME разобраться с производной (вернуть производные и подвигать изменение дебета)
-                self.Wps_dep[i, j] = np.min(self.Wps_dep[i, j] - self.qp[i, j] * dt * ro_p /
-                                            ((1.0-self.Wps[i,j]) * ro_o + self.Wps[i,j] * ro_p), init_Wp)
-                self.qp[i, j]    = self.new_qp[i, j]
-
+            if _paraphin:
+                Wo_0[i, j]  = Wo[i, j]
+                Wo[i, j]    = 1.0 - new_wp[i, j] - new_wps[i, j]
+                Wp_0[i, j]  = Wp[i, j]
+                Wp[i, j]    = new_wp[i, j]
+                new_wp[i, j] = 0.0
+                Wps_0[i, j] = Wps[i, j]
+                Wps[i, j]   = new_wps[i, j]
+                k[i, j]     = new_k[i, j]
+                m[i, j]     = new_m[i, j]
+                m_0[i, j]   = m[i, j]  # FIXME разобраться с производной (вернуть производные и подвигать изменение дебета)
+                Wps_dep[i, j] = min(Wps_dep[i, j] - qp[i, j] * dt * ro_p /
+                                            ((1.0-Wps[i,j]) * ro_o + Wps[i,j] * ro_p), init_Wp)
+                qp[i, j]    = new_qp[i, j]
                 for ij in range(Nr):
-                    self.fi[i, j, ij]     = self.new_fi[i, j, ij]
-                    self.h_sloy[i, j, ij] = self.new_h[i, j, ij]
-                    self.Ur[i, j, ij]     = self.new_Ur[i, j, ij]
-                    self.Ub[i, j, ij]     = self.new_Ub[i, j, ij]
+                    fi[i, j, ij]     = new_fi[i, j, ij]
+                    h_sloy[i, j, ij] = new_h[i, j, ij]
+                    Ur[i, j, ij]     = new_Ur[i, j, ij]
+                    Ub[i, j, ij]     = new_Ub[i, j, ij]
 
 
 @njit
-def _update_mu_and_c_temp(i, j, mu_o, mu_w, C_w, C_o, C_f, C_p):
+def _update_mu_and_c_temp(i, j, T, mu_o, mu_w, C_w, C_o, C_f, C_p):
     """Обновление свойств флюидов, вызванных изменением температуры."""
     mu_o[i, j] = calc_mu_o(T[i, j])
     mu_w[i, j] = calc_mu_w(T[i, j])

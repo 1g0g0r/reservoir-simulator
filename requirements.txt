@@ -10,4 +10,3 @@ numba
 sparse-numba  # https://github.com/th1275/sparse_numba/blob/main/docs/Installation_Guide_for_sparse_numba.md
 scipy
 tqdm
-# pypardiso  # либа для параллельного решения СЛАУ

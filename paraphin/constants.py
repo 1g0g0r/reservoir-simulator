@@ -2,7 +2,6 @@ from pathlib import Path
 
 import numpy as np
 
-# Инициализация ядра taichi
 data_type = np.float64
 LOGGING = False
 CONTOUR_PLOT = True
