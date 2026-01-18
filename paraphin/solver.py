@@ -189,6 +189,7 @@ class Solver:
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
+            # TODO создать массив в который кешируются данные. и записывать в файл только при заполнении кеша !!!!!
             save_fields(self, t)
             self._i_img += 1
 
@@ -200,7 +201,7 @@ def _process_time_step(_t, _paraphin, boundary_conditions, grad_p, _Um_r2, qp, n
     """Метод IMPES: явный по насыщенности неявный по давлению."""
     # Обновление давления
     p = calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask, data, rhs, boundary_conditions)
-    # Обновление данных скважин  # TODO попробовать new_s
+    # Обновление данных скважин
     KIN = _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w)
     # Учет скважин в уравнениях
     _wells_loop(n_wells, wells, m, new_m, S, new_s, T, new_t, Wp, new_wp, Wps, C_o, C_w, C_f, C_p)
