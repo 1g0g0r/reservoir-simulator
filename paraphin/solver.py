@@ -45,8 +45,8 @@ class Solver:
         self.T_0   = np.full((Nx, Ny), init_T, data_type)  # Температура на прошлом временном слое, [С]
         self.Wo    = np.full((Nx, Ny), 1.0 - init_Wp - init_Wps, data_type)  # Массовая доля маслянного компонента в нефти, [-]
         self.Wo_0  = np.full((Nx, Ny), 1.0 - init_Wp - init_Wps, data_type)  # Массовая доля маслянного компонента в нефти, [-]
-        self.Wp    = np.full((Nx, Ny), init_Wp, data_type)  # Массовая доля растворенного парафина в нефти, [-]
-        self.Wp_0  = np.full((Nx, Ny), init_Wp, data_type)  # Массовая доля растворенного парафина в нефти на прошлом временном слое, [-]
+        self.Wp    = np.full((Nx, Ny), init_Wp, data_type)   # Массовая доля растворенного парафина в нефти, [-]
+        self.Wp_0  = np.full((Nx, Ny), init_Wp, data_type)   # Массовая доля растворенного парафина в нефти на прошлом временном слое, [-]
         self.Wps   = np.full((Nx, Ny), init_Wps, data_type)  # Массовая доля взвешенного парафина в нефти, [-]
         self.Wps_0 = np.full((Nx, Ny), init_Wps, data_type)  # Массовая доля взвешенного парафина в нефти на прошлом временном слое, [-]
         self.Wps_dep = np.full((Nx, Ny), 0.0, data_type)# Массовая доля осевшего на порах парафина, [-]
@@ -64,17 +64,17 @@ class Solver:
         self.Ur      = np.zeros((Nx, Ny, Nr), data_type)     # Скорость сужения капилляров, [м/сек]
         self.Ub      = np.zeros((Nx, Ny, Nr), data_type)     # Скорость блокирования капилляров, [1/сек]
         # Поля данный нового временного слоя
-        self.new_h   = np.zeros((Nx, Ny, Nr), data_type)  # Толщина осадочного слоя парафина на новом временном слое, [м]
+        self.new_h   = np.full((Nx, Ny, Nr), init_h_sloy, data_type)  # Толщина осадочного слоя парафина на новом временном слое, [м]
         self.new_Ur  = np.zeros((Nx, Ny, Nr), data_type)  # Скорость сужения капилляров на новом временном слое, [м/сек]
         self.new_Ub  = np.zeros((Nx, Ny, Nr), data_type)  # Скорость блокирования капилляров на новом временном слое, [1/сек]
-        self.new_fi  = np.zeros((Nx, Ny, Nr), data_type)  # Функция пор по размерам на новом временном слое, [-]
-        self.new_s   = np.zeros((Nx, Ny), data_type)  # Водонасыщенность на новом временном слое, [-]
-        self.new_t   = np.zeros((Nx, Ny), data_type)  # Температура на новом временном слое, [С]
-        self.new_wps = np.zeros((Nx, Ny), data_type)  # Массовая доля взвешенного парафина на новом временном слое, [-]
-        self.new_wp  = np.zeros((Nx, Ny), data_type)  # Массовая доля растворенного парафина на новом временном слое, [-]
-        self.new_qp  = np.zeros((Nx, Ny), data_type)  # Скорость отложения парафина на новом временном слое, [1/сек]
-        self.new_k   = np.zeros((Nx, Ny), data_type)  # Пористость на новом временном слое, [м^2]
-        self.new_m   = np.zeros((Nx, Ny), data_type)  # Проницаемость на новом временном слое, [-]
+        self.new_fi  = np.ones((Nx, Ny, Nr), data_type) * fi_0   # Функция пор по размерам на новом временном слое, [-]
+        self.new_s   = np.zeros((Nx, Ny), data_type)      # Водонасыщенность на новом временном слое, [-]
+        self.new_t   = np.zeros((Nx, Ny), data_type)      # Температура на новом временном слое, [С]
+        self.new_wps = np.full((Nx, Ny), init_Wps, data_type)  # Массовая доля взвешенного парафина на новом временном слое, [-]
+        self.new_wp  = np.full((Nx, Ny), init_Wp, data_type)   # Массовая доля растворенного парафина на новом временном слое, [-]
+        self.new_qp  = np.full((Nx, Ny), init_qp, data_type)   # Скорость отложения парафина на новом временном слое, [1/сек]
+        self.new_k   = np.full((Nx, Ny), init_k, data_type)    # Пористость на новом временном слое, [м^2]
+        self.new_m   = np.full((Nx, Ny), init_m, data_type)    # Проницаемость на новом временном слое, [-]
         # Временные массивы перетоков через границы ячеек
         self.cells_T_eq  = np.zeros((Nx, Ny), data_type)  # Суммарный переток температуры в ячейке
         self.cells_Wp_eq = np.zeros((Nx, Ny), data_type)  # Суммарный переток растворенного в ячейке
@@ -209,9 +209,9 @@ def _process_time_step(_t, _paraphin, boundary_conditions, grad_p, _Um_r2, qp, n
     return p, KIN, new_t, new_s, new_m, new_k, new_h, new_Ur, new_Ub, new_fi, new_wps, new_wp, new_qp
 
 
-@njit(nogil=True, parallel=True) # fastmath=True, boundscheck=False
+@njit(nogil=True, parallel=True, fastmath=True, boundscheck=False) #
 def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
-                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, _a_tdma, _b_tdma, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, mu_o, mu_w):
+                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, mu_o, mu_w):
     """Решение уравнений по явной схеме в цикле по ячейкам."""
     for i in prange(Nx):
         for j in range(Ny):
@@ -224,7 +224,7 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
                 # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                 calc_velocitys_h(i, j, S, _Um_r2, Wps, mu_o, fi, h_sloy, Ur, new_h, new_Ur, new_Ub)
                 # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, _a_tdma, _b_tdma, new_qp, new_fi, new_k, new_m)
+                calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, new_qp, new_fi, new_k, new_m)
 
             # ---решение гидродинамики---
             flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, m, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq)
