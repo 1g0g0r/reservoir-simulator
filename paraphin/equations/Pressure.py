@@ -65,7 +65,7 @@ def _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, bou
             p_sum = 0.0
 
             # rhs filling
-            rhs[idx] = 0.0  # ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+            rhs[idx] = ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
 
             # matrix filling
             arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
@@ -98,6 +98,7 @@ def _adding_wells(wells, S, k, mu_o, mu_w, data, rhs):
     """Учет скважин в уравнении давления."""
     for i in range(len(wells)):
         well = wells[i]
+        # TODO перейти на использование дебитов
         temp_data = calc_well_mult(well, S, k, mu_o, mu_w)  # well.q[2] / well.dp
         data[well.idx_mat] -= temp_data
         rhs[well.idx_rhs] -= temp_data * well.p

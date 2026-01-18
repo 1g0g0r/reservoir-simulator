@@ -41,7 +41,7 @@ def save_fields(solver, t: float):
         cached_data['plots'] = {'fi_o': fi_0_np, 'fi': solver.fi}
         cached_data['Wells'] = wells_data
         cached_data['Wells_accumulated'] = wells_accumulated_data
-        # cached_data['Other params'] = {'KIN': solver.KIN[None], f'T [{x_idx},{y_idx}]': solver.T[x_idx, y_idx]}
+        # cached_data['Other params'] = {'KIN': solver.KIN, f'T [{x_idx},{y_idx}]': solver.T[x_idx, y_idx]}
     else:
         cached_data['Time'] = t
         cached_data['Pressure'] =  solver.p
@@ -49,7 +49,7 @@ def save_fields(solver, t: float):
         cached_data['Temperature'] =  solver.T
         cached_data['Wells'] = wells_data
         cached_data['Wells_accumulated'] = wells_accumulated_data
-        # cached_data['Other params'] = {'KIN': solver.KIN[None], f'T [{0},{0}]': solver.T[0, 0]}
+        cached_data['Other params'] = {'KIN': solver.KIN, f'T [{0},{0}]': solver.T[0, 0]}
 
     with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as file:
         dump(cached_data, file, protocol=HIGHEST_PROTOCOL)

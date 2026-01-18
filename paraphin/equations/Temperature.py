@@ -62,11 +62,6 @@ def temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells
 
     new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + qp[i, j] * ro_p * C_p[i, j] * volume)
 
-    # if i == 0 and j == 0:
-    #     print(dt / psi_next / volume * cells_T_eq[i, j], dt / psi_next / volume * derivative_add, dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add))
-    # if i == int(Nx/2) and j == int(Ny/2):
-    #     print(dt / psi_next / volume * cells_T_eq[i, j], dt / psi_next / volume * derivative_add, dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add))
-
 
 @njit
 def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:

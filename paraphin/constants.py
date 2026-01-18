@@ -102,7 +102,7 @@ if Courant_num > 0.8:
 #     dt = 0.01 * round(dt / day_to_sec, 5) * day_to_sec
 #     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 50  # шаг по времени для сохранения результатов
+sol_time_step = dt * 2  # шаг по времени для сохранения результатов
 
 # Пути проекта
 root_folder = Path(__file__).parent.parent

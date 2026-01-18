@@ -182,14 +182,16 @@ class Solver:
                        self.n_wells, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask, self.data, self.rhs)
         self.p, self.KIN, self.new_t, self.new_s, self.new_m, self.new_k, self.new_h, self.new_Ur, self.new_Ub, self.new_fi, self.new_wps, self.new_wp, self.new_qp = data
 
-        # self._logging_solution(t)
         _swap_time_steps(self._t, self._paraphin, self.Wps_dep, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0,
                      self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t, self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.mu_o, self.mu_w, self.C_w, self.C_o, self.C_f, self.C_p)
+
+        _logging_solution(self, t)
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
             save_fields(self, t)
             self._i_img += 1
+
 
 @njit
 def _process_time_step(_t, _paraphin, boundary_conditions, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wo_0, Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
@@ -198,7 +200,7 @@ def _process_time_step(_t, _paraphin, boundary_conditions, grad_p, _Um_r2, qp, n
     """Метод IMPES: явный по насыщенности неявный по давлению."""
     # Обновление давления
     p = calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask, data, rhs, boundary_conditions)
-    # Обновление данных скважин
+    # Обновление данных скважин  # TODO попробовать new_s
     KIN = _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w)
     # Учет скважин в уравнениях
     _wells_loop(n_wells, wells, m, new_m, S, new_s, T, new_t, Wp, new_wp, Wps, C_o, C_w, C_f, C_p)
@@ -209,7 +211,7 @@ def _process_time_step(_t, _paraphin, boundary_conditions, grad_p, _Um_r2, qp, n
     return p, KIN, new_t, new_s, new_m, new_k, new_h, new_Ur, new_Ub, new_fi, new_wps, new_wp, new_qp
 
 
-@njit(nogil=True, parallel=True, fastmath=True, boundscheck=False) #
+@njit(nogil=True, parallel=True, boundscheck=False)  # , fastmath=True
 def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
                     fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, mu_o, mu_w):
     """Решение уравнений по явной схеме в цикле по ячейкам."""
@@ -254,7 +256,7 @@ def _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w):
     return Q_oil / geological_reserves
 
 
-@njit(parallel=True)
+@njit(nogil=True, parallel=True)
 def _swap_time_steps(_t, _paraphin, Wps_dep, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wo_0, Wp, Wp_0,
                      new_wp, Wps, Wps_0, new_wps, T, T_0, new_t, fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, mu_o, mu_w, C_w, C_o, C_f, C_p):
     """Обновление полей данных на новом временном слое."""
@@ -279,8 +281,8 @@ def _swap_time_steps(_t, _paraphin, Wps_dep, _Um_r2, qp, new_qp, k, new_k, m, m_
                 Wps_0[i, j] = Wps[i, j]
                 Wps[i, j]   = new_wps[i, j]
                 k[i, j]     = new_k[i, j]
+                m_0[i, j]   = m[i, j]
                 m[i, j]     = new_m[i, j]
-                m_0[i, j]   = m[i, j]  # FIXME разобраться с производной (вернуть производные и подвигать изменение дебета)
                 Wps_dep[i, j] = min(Wps_dep[i, j] - qp[i, j] * dt * ro_p /
                                             ((1.0-Wps[i,j]) * ro_o + Wps[i,j] * ro_p), init_Wp)
                 qp[i, j]    = new_qp[i, j]
@@ -304,45 +306,43 @@ def _update_mu_and_c_temp(i, j, T, mu_o, mu_w, C_w, C_o, C_f, C_p):
 
 
 
-def _logging_resources(self) -> None:
-    # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
-    memory_info = psutil.virtual_memory()
-    memory_usage = round(memory_info.used / memory_info.total * 100 , 5)  # memory_info.percent
-    # self.logger.info(f'Использование CPU: {cpu_usage}%')
-    self.logger.info(f'Использование памяти: {memory_usage}%')
-
-
-def _logging_solution(self, t):
+def _logging_solution(solver, t):
     """Логирование решения задачи."""
     if not LOGGING:
         return None
 
-    self.logger.info('')
-    self._logging_resources()
-    self.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день ({int(t / dt)} итерация)")
-    self.logger.info(f"Обновлено давление (бар): min={self.p.to_numpy().min() / bar_to_pa}  max={self.p.to_numpy().max() / bar_to_pa}")
-    self.logger.info(f"Обновлена насыщенность:   min={self.new_s.to_numpy().min()}  max={self.new_s.to_numpy().max()}")
-    self.logger.info(f"Обновлена температура:    min={self.new_t.to_numpy().min()}  max={self.new_t.to_numpy().max()}")
-    for i in range(self.n_wells):
-        self.logger.info(f"Дебет скважины {self._wells_buffer[i]['name']} (м^3/сут): q_o={self.wells[i].q[0] * day_to_sec}  q_w={self.wells[i].q[1] * day_to_sec}")
+    solver.logger.info('')
+    _logging_resources()
+    solver.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день ({int(t / dt)} итерация)")
+    solver.logger.info(f"Обновлено давление (бар): min={solver.p.to_numpy().min() / bar_to_pa}  max={solver.p.to_numpy().max() / bar_to_pa}")
+    solver.logger.info(f"Обновлена насыщенность:   min={solver.new_s.to_numpy().min()}  max={solver.new_s.to_numpy().max()}")
+    solver.logger.info(f"Обновлена температура:    min={solver.new_t.to_numpy().min()}  max={solver.new_t.to_numpy().max()}")
+    for i in range(solver.n_wells):
+        solver.logger.info(f"Дебет скважины {solver._wells_buffer[i]['name']} (м^3/сут): q_o={solver.wells[i].q[0] * day_to_sec}  q_w={solver.wells[i].q[1] * day_to_sec}")
 
-    if not self._paraphin:
+    if not solver._paraphin:
         return None
-    self.logger.info(f"Wps:  min={self.new_wps.to_numpy().min()}  max={self.new_wps.to_numpy().max()}")
-    self.logger.info(f"Wp:   min={self.new_wp.to_numpy().min()}  max={self.new_wp.to_numpy().max()}")
-    oil_components = self.new_wp.to_numpy() + self.new_wps.to_numpy() + self.Wo.to_numpy()
-    self.logger.info(f"Wp+Wps+Wo:   min={oil_components.min()}  max={oil_components.max()}")
+    solver.logger.info(f"Wps:  min={solver.new_wps.to_numpy().min()}  max={solver.new_wps.to_numpy().max()}")
+    solver.logger.info(f"Wp:   min={solver.new_wp.to_numpy().min()}  max={solver.new_wp.to_numpy().max()}")
+    oil_components = solver.new_wp.to_numpy() + solver.new_wps.to_numpy() + solver.Wo.to_numpy()
+    solver.logger.info(f"Wp+Wps+Wo:   min={oil_components.min()}  max={oil_components.max()}")
 
-    self.logger.info(f"qp:     min={self.new_qp.to_numpy().min()}  max={self.new_qp.to_numpy().max()}")
-    self.logger.info(f"m_mult: min={(init_m / self.new_m.to_numpy()).min()}  max={(init_m / self.new_m.to_numpy()).max()}")
-    self.logger.info(f"k_mult: min={(init_k / self.new_k.to_numpy()).min()}  max={(init_k / self.new_k.to_numpy()).max()}")
+    solver.logger.info(f"qp:     min={solver.new_qp.to_numpy().min()}  max={solver.new_qp.to_numpy().max()}")
+    solver.logger.info(f"m_mult: min={(init_m / solver.new_m.to_numpy()).min()}  max={(init_m / solver.new_m.to_numpy()).max()}")
+    solver.logger.info(f"k_mult: min={(init_k / solver.new_k.to_numpy()).min()}  max={(init_k / solver.new_k.to_numpy()).max()}")
 
-    self.logger.info(f"fi:   min={self.fi.to_numpy().min()}  max={self.fi.to_numpy().max()}")
-    self.logger.info(f"Ur:   min={self.new_Ur.to_numpy().min()}  max={self.new_Ur.to_numpy().max()}")
-    self.logger.info(f"Ub:   min={self.new_Ub.to_numpy().min()}  max={self.new_Ub.to_numpy().max()}")
-    self.logger.info(f"Um:   min={self._Um_r2.to_numpy().min()*1e-12}  max={self._Um_r2.to_numpy().max()*1e-12}")
+    solver.logger.info(f"fi:   min={solver.fi.to_numpy().min()}  max={solver.fi.to_numpy().max()}")
+    solver.logger.info(f"Ur:   min={solver.new_Ur.to_numpy().min()}  max={solver.new_Ur.to_numpy().max()}")
+    solver.logger.info(f"Ub:   min={solver.new_Ub.to_numpy().min()}  max={solver.new_Ub.to_numpy().max()}")
+    solver.logger.info(f"Um:   min={solver._Um_r2.to_numpy().min()*1e-12}  max={solver._Um_r2.to_numpy().max()*1e-12}")
 
     # self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
     # self.logger.info(f"fi_0: {' '.join([f'{x:.{3}f}' for x in fi_0])}")
 
 
+def _logging_resources(logger) -> None:
+    # cpu_usage = psutil.cpu_percent(interval=None)  # , percpu=True
+    memory_info = psutil.virtual_memory()
+    memory_usage = round(memory_info.used / memory_info.total * 100 , 5)  # memory_info.percent
+    # self.logger.info(f'Использование CPU: {cpu_usage}%')
+    logger.info(f'Использование памяти: {memory_usage}%')
