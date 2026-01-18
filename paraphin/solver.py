@@ -165,7 +165,7 @@ class Solver:
                     pbar.set_postfix(день=_t / day_to_sec)
                     if self.wells[1].eta >= max_eta:
                         break
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemError):
             pass
         finally:
             print('KIN:', round(self.KIN, 5))
@@ -177,7 +177,11 @@ class Solver:
     def upd_time_step(self, t: float) -> None:
         """Решение задачи на текущем временном слое."""
         self._t = t
-        self._process_time_step()
+        data = _process_time_step(self._t, self._paraphin, self.boundary_conditions, self.grad_p, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0, self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t,
+                       self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.C_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.mu_o, self.mu_w,
+                       self.n_wells, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask, self.data, self.rhs)
+        self.p, self.KIN, self.new_t, self.new_s, self.new_m, self.new_k, self.new_h, self.new_Ur, self.new_Ub, self.new_fi, self.new_wps, self.new_wp, self.new_qp = data
+
         # self._logging_solution(t)
         _swap_time_steps(self._t, self._paraphin, self.Wps_dep, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0,
                      self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t, self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.mu_o, self.mu_w, self.C_w, self.C_o, self.C_f, self.C_p)
@@ -187,19 +191,22 @@ class Solver:
             save_fields(self, t)
             self._i_img += 1
 
+@njit
+def _process_time_step(_t, _paraphin, boundary_conditions, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wo_0, Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
+                       fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, mu_o, mu_w,
+                       n_wells, wells, rows_indices, cols_ptr, sort_mask, data, rhs):
+    """Метод IMPES: явный по насыщенности неявный по давлению."""
+    # Обновление давления
+    p = calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask, data, rhs, boundary_conditions)
+    # Обновление данных скважин
+    KIN = _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w)
+    # Учет скважин в уравнениях
+    _wells_loop(n_wells, wells, m, new_m, S, new_s, T, new_t, Wp, new_wp, Wps, C_o, C_w, C_f, C_p)
+    # Решение уравнений по явной схеме
+    _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
+                fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, mu_o, mu_w)
 
-    def _process_time_step(self) -> None:
-        """Метод IMPES: явный по насыщенности неявный по давлению."""
-        # Обновление давления
-        self.p = calc_pressure(self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o, self.mu_w,
-                               self.wells, self.rows_indices, self.cols_ptr, self.sort_mask, self.data, self.rhs, self.boundary_conditions)
-        # Обновление данных скважин
-        self.KIN = _update_wells_data(self.n_wells, self.wells, self.p, self.S, self.k, self.mu_o, self.mu_w)
-        # Учет скважин в уравнениях
-        _wells_loop(self.n_wells, self.wells, self.m, self.new_m, self.S, self.new_s, self.T, self.new_t, self.Wp, self.new_wp, self.Wps, self.C_o, self.C_w, self.C_f, self.C_p)
-        # Решение уравнений по явной схеме
-        _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wp, self.Wp_0, self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t,
-                    self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.C_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.mu_o, self.mu_w)
+    return p, KIN, new_t, new_s, new_m, new_k, new_h, new_Ur, new_Ub, new_fi, new_wps, new_wp, new_qp
 
 
 @njit(nogil=True, parallel=True) # fastmath=True, boundscheck=False

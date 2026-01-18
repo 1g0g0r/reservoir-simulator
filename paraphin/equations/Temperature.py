@@ -2,8 +2,8 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import dt, volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff
-from paraphin.utils.math_utils import ti_erfc
+from paraphin.constants import dt, volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff, Nx, Ny
+from paraphin.utils.math_utils import erfc
 from paraphin.utils.math_utils.FVM_utils import _K_w, _K_o
 
 
@@ -60,8 +60,12 @@ def temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells
     derivative_add = T[i, j] * volume * (psi_next - psi) / dt
     T_losses = 0.0  #_top_bottom_heat_losses(i, j, t, k, S, T, mu_o, mu_w, C_o, C_w, C_f, C_ff, grad_p)
 
-    new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume +
-                                                       qp[i, j] * ro_p * C_p[i, j] * volume)
+    new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + qp[i, j] * ro_p * C_p[i, j] * volume)
+
+    if i == 0 and j == 0:
+        print(dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add))
+    if i == int(Nx/2) and j == int(Ny/2):
+        print(dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add))
 
 
 @njit
@@ -146,7 +150,7 @@ def _top_bottom_heat_losses(i, j, t, k, S, T, mu_o, mu_w, C_o, C_w, C_f, C_ff, g
     ksi = 4.0 * K_ff / (V_o * C_o[i, j] * ro_o + V_w * C_w[i, j] * ro_w) / h
 
     if teta > ksi:
-        erfs_argument = ksi / np.sqrt((C_f[i, j] * ro_f) / (C_ff[i, j] * ro_ff) * (teta - ksi)) * 0.5
-        t_loss = (T[i, j] - init_T) * ti_erfc(erfs_argument)
+        erfc_argument = ksi / np.sqrt((C_f[i, j] * ro_f) / (C_ff[i, j] * ro_ff) * (teta - ksi)) * 0.5
+        t_loss = (T[i, j] - init_T) * erfc(erfc_argument)
 
     return t_loss

@@ -78,7 +78,7 @@ def up_wp(p_i: data_type, Wp_i: data_type, Wps_i: data_type,
 
 @njit
 def mid_lam(S_i: data_type, m_i: data_type, Wps_i: data_type,
-            S_j: data_type, m_j: data_type, Wps_j: data_type, ) -> data_type:
+            S_j: data_type, m_j: data_type, Wps_j: data_type) -> data_type:
     """Вычисление осредненного коэффициента теплопроводности."""
     # if p_i >= p_j:
     #     ret = m_i * (S_i * K_w + (1.0 - S_i) * ((1.0 - Wps_i) * K_o + Wps_i * K_p)) + (1.0 - m_i) * K_f
