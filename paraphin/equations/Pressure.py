@@ -49,7 +49,6 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, 
 
     # TODO попробовать вызывать сразу компилированный модуль без обертки
     solution, _ = superlu_solve_csc(data[sort_mask], rows_indices, cols_ptr, rhs)
-    # solution = np.zeros_like(rhs)
 
     return solution.reshape((Ny, Nx))
 

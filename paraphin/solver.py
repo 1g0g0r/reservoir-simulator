@@ -264,7 +264,7 @@ def _swap_time_steps(_t, _paraphin, Wps_dep, _Um_r2, qp, new_qp, k, new_k, m, m_
     for i in prange(Nx):
         for j in range(Ny):
             # пересчет свойств флюидов из-за изменения температуры
-            _update_mu_and_c_temp(i, j, T, mu_o, mu_w, C_w, C_o, C_f, C_p)
+            _update_mu_and_c_temp(i, j, new_t, mu_o, mu_w, C_w, C_o, C_f, C_p)
 
             S_0[i, j] = S[i, j]
             S[i, j]   = new_s[i, j]
