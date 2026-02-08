@@ -189,7 +189,7 @@ class Solver:
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
-            # TODO создать массив в который кешируются данные. и записывать в файл только при заполнении кеша !!!!!
+            # TODO создать массив в который кешируются данные (5-7 врем слоев) и записывать в файл только при заполнении кеша !!!!!
             save_fields(self, t)
             self._i_img += 1
 
@@ -212,7 +212,7 @@ def _process_time_step(_t, _paraphin, boundary_conditions, grad_p, _Um_r2, qp, n
     return p, KIN, new_t, new_s, new_m, new_k, new_h, new_Ur, new_Ub, new_fi, new_wps, new_wp, new_qp
 
 
-@njit(nogil=True, parallel=True, boundscheck=False)  # , fastmath=True
+@njit()  # nogil=True, parallel=True, boundscheck=False, fastmath=True
 def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
                     fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, mu_o, mu_w):
     """Решение уравнений по явной схеме в цикле по ячейкам."""
@@ -257,7 +257,7 @@ def _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w):
     return Q_oil / geological_reserves
 
 
-@njit(nogil=True, parallel=True)
+@njit()  # nogil=True, parallel=True
 def _swap_time_steps(_t, _paraphin, Wps_dep, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wo_0, Wp, Wp_0,
                      new_wp, Wps, Wps_0, new_wps, T, T_0, new_t, fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, mu_o, mu_w, C_w, C_o, C_f, C_p):
     """Обновление полей данных на новом временном слое."""
@@ -305,39 +305,37 @@ def _update_mu_and_c_temp(i, j, T, mu_o, mu_w, C_w, C_o, C_f, C_p):
     C_p[i, j]  = c_p  # calc_c_p(self.T[i, j])
 
 
-
-
 def _logging_solution(solver, t):
     """Логирование решения задачи."""
     if not LOGGING:
         return None
 
     solver.logger.info('')
-    _logging_resources()
+    _logging_resources(solver.logger)
     solver.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день ({int(t / dt)} итерация)")
-    solver.logger.info(f"Обновлено давление (бар): min={solver.p.to_numpy().min() / bar_to_pa}  max={solver.p.to_numpy().max() / bar_to_pa}")
-    solver.logger.info(f"Обновлена насыщенность:   min={solver.new_s.to_numpy().min()}  max={solver.new_s.to_numpy().max()}")
-    solver.logger.info(f"Обновлена температура:    min={solver.new_t.to_numpy().min()}  max={solver.new_t.to_numpy().max()}")
+    solver.logger.info(f"Обновлено давление (бар): min={solver.p.min() / bar_to_pa}  max={solver.p.max() / bar_to_pa}")
+    solver.logger.info(f"Обновлена насыщенность:   min={solver.new_s.min()}  max={solver.new_s.max()}")
+    solver.logger.info(f"Обновлена температура:    min={solver.new_t.min()}  max={solver.new_t.max()}")
     for i in range(solver.n_wells):
         solver.logger.info(f"Дебет скважины {solver._wells_buffer[i]['name']} (м^3/сут): q_o={solver.wells[i].q[0] * day_to_sec}  q_w={solver.wells[i].q[1] * day_to_sec}")
 
     if not solver._paraphin:
         return None
-    solver.logger.info(f"Wps:  min={solver.new_wps.to_numpy().min()}  max={solver.new_wps.to_numpy().max()}")
-    solver.logger.info(f"Wp:   min={solver.new_wp.to_numpy().min()}  max={solver.new_wp.to_numpy().max()}")
-    oil_components = solver.new_wp.to_numpy() + solver.new_wps.to_numpy() + solver.Wo.to_numpy()
+    solver.logger.info(f"Wps:  min={solver.new_wps.min()}  max={solver.new_wps.max()}")
+    solver.logger.info(f"Wp:   min={solver.new_wp.min()}  max={solver.new_wp.max()}")
+    oil_components = solver.new_wp + solver.new_wps + solver.Wo
     solver.logger.info(f"Wp+Wps+Wo:   min={oil_components.min()}  max={oil_components.max()}")
 
-    solver.logger.info(f"qp:     min={solver.new_qp.to_numpy().min()}  max={solver.new_qp.to_numpy().max()}")
-    solver.logger.info(f"m_mult: min={(init_m / solver.new_m.to_numpy()).min()}  max={(init_m / solver.new_m.to_numpy()).max()}")
-    solver.logger.info(f"k_mult: min={(init_k / solver.new_k.to_numpy()).min()}  max={(init_k / solver.new_k.to_numpy()).max()}")
+    solver.logger.info(f"qp:     min={solver.new_qp.min()}  max={solver.new_qp.max()}")
+    solver.logger.info(f"m_mult: min={solver.new_m.min()}  max={solver.new_m.max()}")
+    solver.logger.info(f"k_mult: min={solver.new_k.min()}  max={solver.new_k.max()}")
 
-    solver.logger.info(f"fi:   min={solver.fi.to_numpy().min()}  max={solver.fi.to_numpy().max()}")
-    solver.logger.info(f"Ur:   min={solver.new_Ur.to_numpy().min()}  max={solver.new_Ur.to_numpy().max()}")
-    solver.logger.info(f"Ub:   min={solver.new_Ub.to_numpy().min()}  max={solver.new_Ub.to_numpy().max()}")
-    solver.logger.info(f"Um:   min={solver._Um_r2.to_numpy().min()*1e-12}  max={solver._Um_r2.to_numpy().max()*1e-12}")
+    solver.logger.info(f"fi:   min={solver.fi.min()}  max={solver.fi.max()}")
+    solver.logger.info(f"Ur:   min={solver.new_Ur.min()}  max={solver.new_Ur.max()}")
+    solver.logger.info(f"Ub:   min={solver.new_Ub.min()}  max={solver.new_Ub.max()}")
+    solver.logger.info(f"Um:   min={solver._Um_r2.min()*1e-12}  max={solver._Um_r2.max()*1e-12}")
 
-    # self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi.to_numpy()[0, 0]])}")
+    # self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi)[0, 0]])}")
     # self.logger.info(f"fi_0: {' '.join([f'{x:.{3}f}' for x in fi_0])}")
 
 

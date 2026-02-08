@@ -4,8 +4,8 @@ import numpy as np
 from numba import njit
 
 data_type = np.float64
-LOGGING = False
-CONTOUR_PLOT = True
+LOGGING = True
+CONTOUR_PLOT = False
 # TODO использовать эти декораторы
 lin_njit = njit(boundscheck=False, fastmath=True)
 parallel_njit = njit(nogil=True, parallel=True, boundscheck=False, fastmath=True)
@@ -30,14 +30,14 @@ volume = area * h
 
 # Параметры времени задачи
 Time_end = day_to_sec * 365 * 6.0  # Время моделирования
-dt = day_to_sec / 4e1  # Шаг дискретизации по времени
+dt = day_to_sec / 2e1  # Шаг дискретизации по времени
 max_eta = 0.98         # Предельная обводненность
 
 # Параметры скважин
 rw = 0.1              # Радиус скважин, [м]
 Pw = 150 * bar_to_pa  # Давление на нагнетательной скважине, [Па]
 Po = 50 * bar_to_pa   # Давление на добывающей скважине, [Па]
-Twater = 70.0           # Температура нагнетаемой воды, [С]
+Twater = 70.0         # Температура нагнетаемой воды, [С]
 
 # Параметры ОФП
 S_min = 0.18

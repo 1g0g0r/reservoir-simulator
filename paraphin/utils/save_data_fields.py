@@ -49,7 +49,10 @@ def save_fields(solver, t: float):
         cached_data['Temperature'] =  solver.T
         cached_data['Wells'] = wells_data
         cached_data['Wells_accumulated'] = wells_accumulated_data
-        cached_data['Other params'] = {'KIN': solver.KIN, f'T [{0},{0}]': solver.T[0, 0]}
+        cached_data['Other params'] = {'KIN': solver.KIN,
+                                       f'S [{0},{0}]': solver.S[0, 0], f'S [{-1},{-1}]': solver.S[-1, -1],
+                                       f'P [{0},{0}]': solver.p[0, 0], f'p [{-1},{-1}]': solver.p[-1, -1],
+        }
 
     with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as file:
         dump(cached_data, file, protocol=HIGHEST_PROTOCOL)
