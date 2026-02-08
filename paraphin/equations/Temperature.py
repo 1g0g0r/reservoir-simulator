@@ -57,7 +57,7 @@ def temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells
     psi = _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f)
     psi_next = _psi(i, j, new_m, new_S, Wps, C_w, C_o, C_p, C_f)
     derivative_add = T[i, j] * volume * (psi_next - psi) / dt
-    T_losses = 0.0  #_top_bottom_heat_losses(i, j, t, k, S, T, mu_o, mu_w, C_o, C_w, C_f, C_ff, grad_p)
+    T_losses = _top_bottom_heat_losses(i, j, t, k, S, T, mu_o, mu_w, C_o, C_w, C_f, C_ff, grad_p)
 
     new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume +
                                                        qp[i, j] * ro_p * C_p[i, j] * volume)
