@@ -52,6 +52,7 @@ def save_fields(solver, t: float):
             'qp': qp_np,
             'm': new_m_np / init_m,
             'k': new_k_np / init_k,
+            'mu_o': solver.mu_o.to_numpy(),
             'plots': {'fi_o': fi_0_np, 'fi': fi_np},
             'Wells': wells_data,
             'Wells_accumulated': wells_accumulated_data,

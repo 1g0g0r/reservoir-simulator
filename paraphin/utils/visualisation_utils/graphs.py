@@ -16,12 +16,15 @@ def create_graphs_and_maps():
     data_wp['Pressure'] /= bar_to_pa
     data['Time'] /= day_to_sec
     data_wp['Time'] /= day_to_sec
+    data['Wells'].update(data['Wells_accumulated'])
+    data_wp['Wells'].update(data_wp['Wells_accumulated'])
 
     idx_end_wp = len(data_wp['Time']) - 1
     idx_sat_wp = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
     idx_end = len(data['Time']) - 1
     idx_sat = np.argwhere(data['Wells']['Producer_eta'] != 0)[0][0]
-    idx = idx_wp = idx_end
+    idx = idx_end
+    idx_wp = idx_end_wp
 
     fields_settings = [['Pressure', 50, 150, 2],
                        ['Saturation', S_min, 1, 0.03],
@@ -33,7 +36,7 @@ def create_graphs_and_maps():
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
                       ['Producer_Q_oil','Producer_Q_water', '$$Q_o,\\: м^3$$', '$$Q_w,\\: м^3$$']]
     for _settings in plots_settings:
-        _plot_vis(data_wp['Time'], data['Wells'], data_wp['Wells'], *_settings)
+        _plot_vis(data['Time'], data['Wells'], data_wp['Wells'], *_settings)
 
     # maps = [['m', 0, 1, 0.03], ['k', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
     #         ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
@@ -85,7 +88,7 @@ def _plot_vis(time, data, data_wp, name_plot1, name_plot2, right_axis_title, lef
     fig.write_image(pictures_path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
 
     from paraphin.utils import plotly_to_eps
-    plotly_to_eps(fig_plotly=fig, filename=f"{name_plot1}_{name_plot2}", dpi=1200)
+    # plotly_to_eps(fig_plotly=fig, filename=f"{name_plot1}_{name_plot2}", dpi=1200)
 
 
 def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
@@ -93,7 +96,7 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     from . import x_mesh, y_mesh
     fig = go.Figure()
 
-    field_wp = data_wp[field_name][idx]
+    field_wp = data_wp[field_name][idx_wp]
     field = data[field_name][idx]
 
     fig.add_trace(go.Contour(
@@ -116,7 +119,7 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     ))
 
     fig = _plots_params(fig, 'X', 'Y')
-    fig.write_image(pictures_path / f"{field_name}_{round(data_wp['Time'][idx], 2)}.svg", width=700, height=600)
+    fig.write_image(pictures_path / f"{field_name}_{round(data['Time'][idx], 2)}.svg", width=700, height=600)
 
     from paraphin.utils import plotly_to_eps
     plotly_to_eps(fig_plotly=fig, filename=field_name, dpi=1200)

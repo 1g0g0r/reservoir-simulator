@@ -67,7 +67,7 @@ def _visualize_fields(data):
         del input_data['plots']
 
     # 'Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params'
-    skip_fields = ['Pressure', 'Wo', 'Wp', 'Wps dep', 'Wps', 'm','mu_o', 'mu_w', 'qp']
+    skip_fields = ['Pressure', 'Wps','Wo', 'Wp', 'Wps dep', 'Wps', 'qp', 'mu_o', 'mu_w',]
 
     _f_names = [name for name in input_data.keys() if name not in skip_fields]
     data_fields = []
