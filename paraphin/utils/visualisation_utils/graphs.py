@@ -25,8 +25,8 @@ def create_graphs_and_maps():
     idx_sat_wp = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
     idx_end = len(data['Time']) - 1
     idx_sat = np.argwhere(data['Wells']['Producer_eta'] != 0)[0][0]
-    idx = idx_sat
-    idx_wp = idx_sat_wp
+    idx = idx_end
+    idx_wp = idx_end_wp
     global_time = data['Time'] if idx_end > idx_end_wp else data_wp['Time']
 
     fields_settings = [['Pressure', 50, 150, 2],
