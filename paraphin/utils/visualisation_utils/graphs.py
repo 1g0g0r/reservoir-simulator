@@ -92,7 +92,7 @@ def _plot_vis(time, data, data_wp, name_plot1, name_plot2, right_axis_title, lef
     fig.write_image(pictures_path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
 
     from paraphin.utils import plotly_to_eps
-    # plotly_to_eps(fig_plotly=fig, filename=f"{name_plot1}_{name_plot2}", dpi=1200)
+    plotly_to_eps(fig_plotly=fig, filename=f"{name_plot1}_{name_plot2}", dpi=1200)
 
 
 def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):

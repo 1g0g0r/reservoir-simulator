@@ -236,6 +236,7 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
 
     save_kwargs.update(kwargs)
     plt.savefig(pictures_path / (filename + '.eps'), **save_kwargs)
+    plt.savefig(pictures_path / (filename + '.png'))
     plt.close(fig)
 
 
