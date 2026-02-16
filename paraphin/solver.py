@@ -230,6 +230,7 @@ class Solver:
 
         for i in ti.ndrange(Nx):
             for j in ti.ndrange(Ny):
+                calc_Um_r2(i, j, self.p, self.grad_p, self._Um_r2, self.mu_o)  # Средняя скорость в капилляре * r^2
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
                     # Обновление концентраций парафина
@@ -239,8 +240,6 @@ class Solver:
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
 
-                # Средняя скорость в капилляре * r^2
-                calc_Um_r2(i, j, self.p, self.grad_p, self._Um_r2, self.mu_o)
                 # ---решение гидродинамики---
                 flows_in_cells(i, j, self.boundary_conditions, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)

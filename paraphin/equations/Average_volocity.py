@@ -29,14 +29,14 @@ def calc_Um_r2(i, j, p, grad_p, Um_r2, mu_o) -> None:
     elif i == Nx - 1:
         df_dx = (p[i, j] - p[i - 1, j]) / hx
     else:
-        df_dx = (p[i + 1, j] - p[i - 1, j]) / (2 * hx)
+        df_dx = (p[i + 1, j] - p[i - 1, j]) / (2.0 * hx)
 
     if j == 0:
         df_dy = (p[i, j + 1] - p[i, j]) / hy
     elif j == Ny - 1:
         df_dy = (p[i, j] - p[i, j - 1]) / hy
     else:
-        df_dy = (p[i, j + 1] - p[i, j - 1]) / (2 * hy)
+        df_dy = (p[i, j + 1] - p[i, j - 1]) / (2.0 * hy)
 
     grad_p[i, j] = ti.sqrt(df_dx * df_dx + df_dy * df_dy)
     Um_r2[i, j] = grad_p[i, j] / mu_o[i, j] * 0.125 / eta
