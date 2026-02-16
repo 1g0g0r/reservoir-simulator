@@ -3,14 +3,14 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .read_data_files import read_solution_data
-from paraphin.constants import pictures_path, bar_to_pa, day_to_sec, S_min, init_T, Twater
+from paraphin.constants import pictures_path, bar_to_pa, day_to_sec, S_min, init_T, Twater, geological_reserves, init_Wp
 
 
 def create_graphs_and_maps():
     pictures_path.mkdir(parents=True, exist_ok=True)
 
     _, data = read_solution_data('Wp=0.0_processed_data.pkl')
-    _, data_wp = read_solution_data('Wp=0.05_processed_data.pkl')
+    _, data_wp = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')
 
     data['Pressure'] /= bar_to_pa
     data_wp['Pressure'] /= bar_to_pa
@@ -19,12 +19,15 @@ def create_graphs_and_maps():
     data['Wells'].update(data['Wells_accumulated'])
     data_wp['Wells'].update(data_wp['Wells_accumulated'])
 
+    KIN = data['Wells_accumulated']['Producer_Q_oil'][-1] / geological_reserves
+    KIN_wp = data_wp['Wells_accumulated']['Producer_Q_oil'][-1] / geological_reserves
     idx_end_wp = len(data_wp['Time']) - 1
     idx_sat_wp = np.argwhere(data_wp['Wells']['Producer_eta'] != 0)[0][0]
     idx_end = len(data['Time']) - 1
     idx_sat = np.argwhere(data['Wells']['Producer_eta'] != 0)[0][0]
-    idx = idx_end
-    idx_wp = idx_end_wp
+    idx = idx_sat
+    idx_wp = idx_sat_wp
+    global_time = data['Time'] if idx_end > idx_end_wp else data_wp['Time']
 
     fields_settings = [['Pressure', 50, 150, 2],
                        ['Saturation', S_min, 1, 0.03],
@@ -32,11 +35,11 @@ def create_graphs_and_maps():
     for _setings in fields_settings:
         _field_vis(idx, idx_wp, data, data_wp, *_setings)
 
-    plots_settings = [['Producer_oil', 'Producer_water', '$$q_o,\\: м^3 \\setminus сут$$', '$$q_w,\\: м^3 \\setminus сут$$'],
+    plots_settings = [['Producer_oil', 'Producer_water', '$$q_w,\\: м^3 \\setminus сут$$', '$$q_o,\\: м^3 \\setminus сут$$'],
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
-                      ['Producer_Q_oil','Producer_Q_water', '$$Q_o,\\: м^3$$', '$$Q_w,\\: м^3$$']]
+                      ['Producer_Q_oil','Producer_Q_water', '$$Q_w,\\: м^3$$', '$$Q_o,\\: м^3$$']]
     for _settings in plots_settings:
-        _plot_vis(data['Time'], data['Wells'], data_wp['Wells'], *_settings)
+        _plot_vis(global_time, data['Wells'], data_wp['Wells'], *_settings)
 
     # maps = [['m', 0, 1, 0.03], ['k', 0, 1, 0.03], ['Wps dep', 0, 0.05, 0.03],
     #         ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]]
@@ -74,7 +77,8 @@ def _plot_vis(time, data, data_wp, name_plot1, name_plot2, right_axis_title, lef
         mode='lines', name='Wp=0%',
         line=dict(color='red', width=3, dash='dash'), showlegend=True
     ))
-    fig.update_layout(yaxis2 = dict(side="right", overlaying="y", title=right_axis_title, domain=[0.0, 0.5], title_font=dict(size=18)))
+    fig.update_layout(yaxis = dict(side="right", title=right_axis_title, title_font=dict(size=18)))
+    fig.update_layout(yaxis2 = dict(side="left", overlaying="y", title=left_axis_title, domain=[0.0, 0.5], title_font=dict(size=18)))
 
     fig.add_trace(go.Scatter(
         x=time, y=plot_data_wp2,
@@ -84,7 +88,7 @@ def _plot_vis(time, data, data_wp, name_plot1, name_plot2, right_axis_title, lef
         x=time, y=plot_data2,
         mode='lines', line=dict(color='red', width=3, dash='dash'), showlegend=False
     ))
-    fig = _plots_params(fig, "$$t,\\: сут$$", left_axis_title)
+    fig = _plots_params(fig, "$$t,\\: сут$$", right_axis_title)
     fig.write_image(pictures_path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
 
     from paraphin.utils import plotly_to_eps
@@ -122,7 +126,7 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     fig.write_image(pictures_path / f"{field_name}_{round(data['Time'][idx], 2)}.svg", width=700, height=600)
 
     from paraphin.utils import plotly_to_eps
-    plotly_to_eps(fig_plotly=fig, filename=field_name, dpi=1200)
+    # plotly_to_eps(fig_plotly=fig, filename=field_name, dpi=1200)
 
 
 def _create_map(idx_wp, data_wp, field_name, start, end, step):

@@ -232,8 +232,6 @@ class Solver:
             for j in ti.ndrange(Ny):
                 # ---решение задачи кольматации\суффозии---
                 if self._paraphin:
-                    # Средняя скорость в капилляре * r^2
-                    calc_Um_r2(i, j, self.p, self.grad_p, self._Um_r2, self.mu_o)
                     # Обновление концентраций парафина
                     wps_wp_equation(i, j, self.qp, self.m, self.m_0, self.S, self.S_0, self.Wo, self.Wp, self.Wp_0, self.Wps, self.Wps_0, self.T, self.T_0, self.cells_Wp_eq, self.new_wp, self.new_wps)
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
@@ -241,6 +239,8 @@ class Solver:
                     # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
                     calc_qp_m_k_fi(i, j, self.Wps, self.m, self.fi, self.Ur, self.Ub, self.integr_r2_fi0[None], self.integr_r4_fi0[None], self.new_qp, self.new_fi, self.new_k, self.new_m)
 
+                # Средняя скорость в капилляре * r^2
+                calc_Um_r2(i, j, self.p, self.grad_p, self._Um_r2, self.mu_o)
                 # ---решение гидродинамики---
                 flows_in_cells(i, j, self.boundary_conditions, self.p, self.S, self.T, self.k, self.mu_o, self.mu_w, self.m, self.Wp, self.Wps, self.C_o, self.C_w, self.C_p, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq)
                 saturation_equation(i, j, self.S, self.m, self.m_0, self.cells_S_eq, self.new_m, self.new_s)

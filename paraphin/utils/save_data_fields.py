@@ -56,7 +56,7 @@ def save_fields(solver, t: float):
             'plots': {'fi_o': fi_0_np, 'fi': fi_np},
             'Wells': wells_data,
             'Wells_accumulated': wells_accumulated_data,
-            # 'Other params': {'KIN': solver.KIN[None], f'T [{x_idx},{y_idx}]': T_np[x_idx, y_idx]}
+            'Other params': {'KIN': solver.KIN[None]}
         }
     else:
         _loop(solver, p_np, S_np, T_np)
@@ -67,7 +67,7 @@ def save_fields(solver, t: float):
             'Temperature': T_np,
             'Wells': wells_data,
             'Wells_accumulated': wells_accumulated_data,
-            # 'Other params': {'KIN': solver.KIN[None], f'T [{0},{0}]': T_np[0, 0]}
+            'Other params': {'KIN': solver.KIN[None]}
         }
 
     with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as file:
