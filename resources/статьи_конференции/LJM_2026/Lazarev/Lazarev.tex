@@ -206,7 +206,7 @@ w_{ps} m  \frac{ \int_{0}^{\infty} r \upsilon_b(r) \phi (r) dr}{ \int_{0}^{\inft
 
 
 \section{Results}
-	A two-phase non-isothermal multi-component filtration is considered in a rectangular domain $D = [0, L_x] \times [0, L_y] \times [0, L_z]$. The oil phase is represented as a binary mixture of oil and dissolved paraffin with a concentration of $W_p$. The reservoir is homogeneous, with porosity and permeability equal to $m$ and $k$, respectively. The domain $D$ is a symmetry element of a five-point water flooding system and contains an injection well and a production well with coordinates $(0,0)$ and $(L_x,L_y)$, respectively. The wells are vertical and have a radius of $r_w$, and they operate at specified flow rates of $r_{inj}$ and $r_{prod}$, respectively. The initial reservoir temperature is $T=T_0$, and the injected water temperature is $T=T_inj$.
+	A two-phase non-isothermal multi-component filtration is considered in a rectangular domain $D = [0, L_x] \times [0, L_y] \times [0, L_z]$. The oil phase is represented as a binary mixture of oil and dissolved paraffin with a concentration of $W_p$. The reservoir is homogeneous, with porosity and permeability equal to $m$ and $k$, respectively. The domain $D$ is a symmetry element of a five-point water flooding system and contains an injection well and a production well with coordinates $(0,0)$ and $(L_x,L_y)$, respectively. The wells are vertical and have a radius of $r_w$, and they operate at specified flow rates of $r_{inj}$ and $r_{prod}$, respectively. The initial reservoir temperature is $T=T_0$, and the injected water temperature is $T=T_{inj}$.
 	
 	A series of computational experiments was conducted to study the effect of dissolved paraffin on the oil production process during cold water injection. The following values of the parameters used were assumed during the calculations:
 $P_{inj}=200$ bar; $P_{prod}=50$ bar; $T_{inj}=20 ^\circ$ C; $L_x=L_y=200$ m; $L_z=10$ m; $T_0=70 ^\circ$ C; $m_0=0.3$; $k_0=200$ md; $\rho_w=1000$ kg$\setminus$m$^3$; $\rho_o=860$ kg$\setminus$m$^3$; $\rho_f=2700$ kg$\setminus$m$^3$; $\rho_p=900$ kg$\setminus$m$^3$; $C_w=4200$ J$\setminus$(kg$\cdot^\circ$C); $C_o=2000$ J$\setminus$(kg$\cdot^\circ$C); $C_f=1000$ J$\setminus$(kg$\cdot^\circ$C); $C_p=2200$ J$\setminus$(kg$\cdot^\circ$C); $\lambda_w=0.12$ W$\setminus$(m$\cdot^\circ$C); $\lambda_o=0.6$ W$\setminus$(m$\cdot^\circ$C); $\lambda_f=1.8$ W$\setminus$(m$\cdot^\circ$C); $\lambda_p=0.2$ W$\setminus$(m$\cdot^\circ$C); $M_r=350$ g$\setminus$mol. 
@@ -222,27 +222,47 @@ The dependence of fluid viscosity on temperature is calculated using the equatio
 \end{split}
 \end{equation}
 
-	Two cases were considered: in the first case, paraffin-containing oil is filtered $(W_p=5\%)$, and in the second case, the paraffin content is neglected. The calculation was performed until the water cut of the production well reached $98\%$. Figure ~\ref{fig:1} shows that due to the paraffin clogging of the bottom zone of the injection well, the water flow rate of the production well decreases (black solid lines). Figure ~\ref{fig:1} displays the graphs of accumulated oil and water production. It can be seen that the paraffin clogging of the reservoir significantly reduces the rate and quantity of oil production.
+	Two cases were considered: in the first case, paraffin-containing oil is filtered $(W_p=5\%)$, and in the second case, the paraffin content is neglected. The calculation was performed until the water cut of the production well reached $98\%$. Fig. ~\ref{fig:1} shows that due to the paraffin clogging of the bottom zone of the injection well, the water flow rate of the production well decreases (black solid lines). Fig. ~\ref{fig:2} displays the graphs of accumulated oil and water production. It can be seen that the paraffin clogging of the reservoir significantly reduces the rate and quantity of oil production.
 
 \begin{figure}[h]
-	\begin{minipage}[h]{0.49\linewidth}
+	\begin{minipage}[t]{0.48\linewidth}
+	\renewcommand{\figurename}{Fig.} \centering
 	\includegraphics[width=1\linewidth]{LazarevIS_1.eps}
-	{\\ Rates of water and oil from the producing well} 
+	\caption {\parbox{0.8\linewidth}{Rates of water and oil from the producing well}} 
 	\label{fig:1}
 	\end{minipage}
 	\hfill
-	\begin{minipage}[h]{0.49\linewidth}
+	\begin{minipage}[t]{0.48\linewidth}
+	\renewcommand{\figurename}{Fig.} \centering
 	\includegraphics[width=1\linewidth]{LazarevIS_2.eps}
-	{Accumulated rates of water and oil from the producing well}
+	\caption {\parbox{0.8\linewidth}{Accumulated rates of water and oil from the producing well}}
 	\label{fig:2}
 	\end{minipage}
 \end{figure} 
 
+	The fields of temperature and pressure at the moment of reaching the ultimate water cut of the producing well are shown below. We see that the isotherms (fig.~\ref{fig:3}) and isobars (fig.~\ref{fig:4}) lag behind in the case of paraffin-containing oil. This indicates a decrease in the filtration rate and a drop in reservoir pressure. Thus, the low temperature of the injected water has reduced the efficiency of the reservoir pressure maintenance systems.
+
+\begin{figure}[h]
+	\begin{minipage}[t]{0.48\linewidth}
+	\renewcommand{\figurename}{Fig.} \centering
+	\includegraphics[width=1\linewidth]{LazarevIS_3.eps}
+	\caption {\parbox{0.8\linewidth}{The temperature field at the time of reaching the maximum water level}} 
+	\label{fig:3}
+	\end{minipage}
+	\hfill
+	\begin{minipage}[t]{0.48\linewidth}
+	\renewcommand{\figurename}{Fig.} \centering
+	\includegraphics[width=1\linewidth]{LazarevIS_4.eps}
+	\caption {\parbox{0.8\linewidth}{The pressure field at the time of reaching the maximum water level}}
+	\label{fig:4}
+	\end{minipage}
+\end{figure} 
+
+	It should also be noted that due to the deposition of paraffin from oil in the reservoir, not only the development time of the deposit increases, but also the oil recovery coefficient decreases: in the first case, the final development time was 1525 days and Oil recovery factor (ORF) =0.4744, and in the second case, the final time was 1469 days and ORF=0.4745.
 
 
-
-
-
+\section{Conclusion}
+	The developed mathematical model, based on the pore size distribution function and the thermodynamic description of phase transitions, demonstrates the possibility of predicting changes in a porous medium under changing thermobaric filtration conditions. Numerical experiments confirm that the presence of dissolved paraffins in oil during flooding of formations with cold water leads to a slowdown in field development and a decrease in the oil recovery coefficient, due to the colmatation of the pore space by paraffin particles. Flow rate analysis shows that the decrease in productivity of producing wells in the presence of paraffins is enhanced by the combined effect of an increase in fluid viscosity at low temperatures and degradation of reservoir permeability. Temperature fields indicate the relationship between the zones of reduced temperature and the deterioration of filtration characteristics, manifested in a slowdown in the advance of the temperature front. The results confirm the double negative effect of low-temperature flooding: thermal viscosity resistance and mechanical blockage of pore channels, which requires the use of appropriate mining intensification methods. The prospects for the development of the model are related to the integration of the mechanisms of suffusion of paraffin particles, more detailed consideration of the composition of oil and the adaptation of model parameters based on field data.
 
 
 

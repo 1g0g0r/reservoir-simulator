@@ -108,7 +108,10 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 if contours is None:
                     continue
 
-                levels = np.linspace(contours.start, contours.end, int((contours.end - contours.start) / contours.size))
+                if contours.end > 1.1:
+                    levels = np.round(np.linspace(contours.start, contours.end, int((contours.end - contours.start) / contours.size)))
+                else:
+                    levels = np.linspace(contours.start, contours.end, int((contours.end - contours.start) / contours.size))
 
                 # Цветовая карта
                 colorscale = trace.colorscale if hasattr(trace, 'colorscale') else 'Viridis'

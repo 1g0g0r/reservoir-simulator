@@ -29,9 +29,9 @@ def create_graphs_and_maps():
     idx_wp = idx_end_wp
     global_time = data['Time'] if idx_end > idx_end_wp else data_wp['Time']
 
-    fields_settings = [['Pressure', 50, 150, 2],
+    fields_settings = [['Pressure', 50, 150, 3],
                        ['Saturation', S_min, 1, 0.03],
-                       ['Temperature', 25*1.001, init_T*0.99, 10]]
+                       ['Temperature', 25*1.001, init_T*0.99, 6]]
     for _setings in fields_settings:
         _field_vis(idx, idx_wp, data, data_wp, *_setings)
 
