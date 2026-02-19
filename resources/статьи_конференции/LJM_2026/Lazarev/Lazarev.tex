@@ -54,33 +54,27 @@ centertags]%
 \def\R{\rightarrow}
 
 \begin{document}
-\titlerunning{Modeling of paraffin deposition during flooding of oil reservoirs with cold water} % for running heads
+\titlerunning{Modeling of paraffin deposition} % for running heads
 \authorrunning{ Alimov} % for running heads
 %\authorrunning{First-Author, Second-Author} % for running heads
 \title{Modeling of paraffin deposition during flooding of oil reservoirs with cold water}
 % Splitting into lines is performed by the command \\
 % The title is written in accordance with the rules of capitalization.
-\author{\firstname{M. M.}~\surname{Alimov}}
+\author{\firstname{I. S.}~\surname{Lazarev}} \email[E-mail: ]{Lazarevigor.2001@mail.ru} 
+\author{\firstname{A. I.}~\surname{Nikiforov}}
 
-\email[E-mail: ]{marsalyan@yandex.ru} \affiliation{Independent researcher, Kazan, Russia}
+\affiliation{Institute of Mechanics and Engineering FIC KazanSC of RAS, Kazan, 420111,~Russia}
 
-\firstcollaboration{(Submitted by A. M. Elizarov) } % Add if you know submitter.
-%\lastcollaboration{ }
 
-\received{June 7, 2025; revised  July 20, 2025; accepted July 23, 2025}
+\received{February 20, 2026; revised  February 20, 2026; accepted February 20, 2026}
 
 \begin{abstract} % You shouldn't use formulas and citations in the abstract.
-An analytical solution is constructed for the problem of determining the configuration of external
-menisci that forms on the surface of a liquid when a thin inclined fiber with circular
-cross-section is immersed in this liquid. It is assumed that the liquid completely wets the fiber.
-We found that the fiber inclination leads to an asymmetry of both the contact line and the meniscus
-as a whole. It is shown that the maximum of the liquid rise increases with increasing angle of
-inclination of the fiber from the vertical. At the same time, some part of the meniscus falls even below the horizontal level of the initially undisturbed liquid.
+	A mathematical model describing the process of paraffin deposition during injection of cold water into a reservoir saturated with paraffin oil is proposed. The processes of phase transitions associated with the crystallization of paraffin with a decrease in temperature and the subsequent deposition of solid particles in a porous medium are taken into account. The process of paraffin deposition is assumed to be in equilibrium and is modeled based on the theory of an ideal solution for a two-component oil-paraffin system. The pore blocking mechanism is described using the pore size distribution function. The resulting system of differential equations was solved by the finite volume method. The IMPES (Implicit Pressure Explicit Saturation) method was used to solve the pressure and saturation equations together. The results of the study revealed that the colmatation of the pore space by paraffin deposits leads to a deterioration in the filtration and capacitance properties (FCP) of the formation. Due to the decrease in permeability and filtration rate of fluids, the productivity of wells decreases and, as a result, the duration of field development increases. There is also a decrease in the extraction coefficient.
 \end{abstract}
 
-\keywords{capillary rise, hodograph transformation, complex variable} % Include keywords separeted by comma.
+\keywords{non-isothermal filtration, paraffin deposits, dispersed particles, colmatation, porosity, permeability, reservoir damage, numerical modeling} % Include keywords separeted by comma.
 
-\subclass{76B45, 76M40}
+\subclass{76S05, 76M12}
 %\bibliographystyle{spiebib}
 
 \maketitle
@@ -96,19 +90,9 @@ inclination of the fiber from the vertical. At the same time, some part of the m
 % Introduction
 %---------------------------------------------------------------
 \section*{INTRODUCTION}
-A single fiber, being immersed in a liquid, causes its capillary rise. This leads to a change in
-the shape of the initially undisturbed liquid surface and, accordingly, to the formation of some
-external meniscus. Its equilibrium configuration strongly depends on both the wetting properties of
-fibers and the shape of fibers cross-section~\cite{Alimov:bib1}. The analysis of external menisci
-on vertically immersed fiber was carried out in the papers~\cite{Alimov:bib2}--\cite{Alimov:bib4}.
-The case when the fiber is thin and it becomes possible to use the asymptotic approach is the most
-studied~\cite{Alimov:bib5}--\cite{Alimov:bib8}. At the same time, such an important factor as fiber
-inclination was practically not studied. In the paper~\cite{Alimov:bib9}, the asymptotic
-approach~\cite{Alimov:bib5} was extended to the case when the thin fiber is immersed in a liquid so
-that the fiber axis is inclined to the vertical at an arbitrary angle. As a result, an asymptotic
-formulation for the problem of determining the configuration of external menisci in this case was
-obtained. Our purpose is to construct an example of using the new asymptotic formulation for the
-case of thin inclined fibers~\cite{Alimov:bib9}.
+	During the development of oil and gas fields by flooding, reservoir fluids may acquire a temperature different from the natural temperature of the reservoir. This change can be caused by various reasons, depending on the nature of the filtration flow, as well as on the development technology, during which various thermal effects are exerted on productive reservoirs. An example of such an effect is the injection of water in order to maintain reservoir pressure. In the case when the temperature of the injected water is lower than the reservoir temperature, many negative effects may occur that worsen the FES of the reservoir. The most striking example is the deposition of paraffin, which causes a decrease in porosity and permeability, especially near the bottom—hole zone of the formation, and, consequently, an increase in the skin factor. Oil fields of highly viscous oils containing significant concentrations of paraffins, resins and asphaltenes are being developed with less intensity. This is due to the fact that such deposits require the use of specialized technologies for efficient extraction, transportation and preparation. But the complexity of the development does not reduce their economic potential. Global reserves of such oils exceed 810 billion tons [1]. Russia is second only to Venezuela and Canada in this indicator, having geological reserves of high-viscosity oil of about 6-7 billion tons. Paraffins mainly consist of normal alkanes with up to 75% carbon atoms, and the rest consists mainly of isoalkanes, cycloalkanes, and alkylbenzenes [2]. The solubility of paraffin in oil is directly related to its temperature. At a sufficiently high temperature, paraffin wax can completely dissolve in oil. At low temperatures, paraffin is able to solidify, forming a dispersed system consisting of a liquid petroleum phase and solid particles of paraffin. At intermediate temperature values, the paraffin component can be partially dissolved in oil, and partially be in the oil phase in the form of dispersed particles. The formation of solid paraffin particles in oil is accompanied by their deposition on the surface of the pores of the formation. The accumulation of paraffin deposits leads to a decrease in the permeability of the porous medium, which significantly complicates the extraction of oil from reservoirs. Thus, paraffin deposits become a serious reason for reducing the productivity of oil wells. Analysis of the core using computed tomography before and after filtration of paraffin-containing oil at a low temperature [3] showed that colmatation of the pore space with paraffin led to a decrease in the open porosity from to . 
+Building a model for predicting paraffin deposition is a complex task. When modeling cold water injection into an oil reservoir, two main phenomena must be taken into account: the process of paraffin crystallization in oil and the subsequent process of paraffin deposition on the pore surface. There is a wealth of information about the thermophysical characteristics and chemical composition of paraffin compounds [4]. Various thermodynamic models have been developed that make it possible to predict the temperature of the onset of crystallization (the turbidity temperature) and describe the state of equilibrium between the solid and liquid phases for hydrocarbon systems [2, 5, 6]. In a number of scientific papers, the equation of the theory of real solutions for a binary mixture was used to model the solubility/precipitation of paraffins. As an alternative approach, some studies use the theory of an ideal solution of a binary mixture [7, 8]. Usually, the deposition rate of paraffin particles is represented by a combination of three independent factors [4-6, 9]. The first factor characterizes the deposition of particles on the pore walls under the influence of gravity and/or adhesion. The second one expresses the removal of paraffin deposits by the oil flow when a certain threshold value of the intrapore velocity is exceeded. The latter describes the rate at which the paraffin particles block the pores. The deposition of solid paraffin particles in a porous medium leads to a decrease in permeability. The current local permeability value is usually determined by a power-law dependence similar to the formula and Kozeni-Karman [10]. 
+In this paper, oil is modeled as a two-component hydrocarbon mixture consisting of "oil" and "paraffin". It is assumed that these components do not mix with water. To predict the temperature of the beginning of paraffin crystallization, a model of an ideal solution of a binary mixture is used [8]. Special attention is paid to the mechanism of blocking pores with paraffin. The pore size distribution function is used to determine the porosity and permeability coefficients [4]. It is also used to construct closing relations for the equations of conservation of mass, momentum, and energy [4, 11, 12]. Vertical heat loss through the roof and sole is accounted for according to the classical Lowerrier scheme. This approach, which assumes quasi-stationary heat exchange with semi-infinite rock arrays, avoids resource-intensive direct modeling of the host strata. The heat flow is calculated based on solving the equation of thermal conductivity for a semi-infinite body with a boundary condition of the first kind at the contact and is integrated into the equation of reservoir energy as a source [16].
 
 \section{The problem} \label{Alimov:sec1}
 Let a circular fiber be immersed in a liquid so that the central axis of the fiber lies in the
