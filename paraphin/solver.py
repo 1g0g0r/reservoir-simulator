@@ -97,6 +97,7 @@ class Solver:
         if LOGGING:
             self.logger = getLogger(__name__)
             self.logger.setLevel(INFO)
+            self.logger.propagate = False
             handler = FileHandler(logs_path, mode='w')
             handler.setFormatter(Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S'))
             self.logger.addHandler(handler)
@@ -178,10 +179,11 @@ class Solver:
                        self.n_wells, self.wells, self.rows_indices, self.cols_ptr, self.sort_mask, self.data, self.rhs)
         self.p, self.KIN, self.new_t, self.new_s, self.new_m, self.new_k, self.new_h, self.new_Ur, self.new_Ub, self.new_fi, self.new_wps, self.new_wp, self.new_qp = data
 
+        _logging_solution(self, t)
+
         _swap_time_steps(self._t, self._paraphin, self.Wps_dep, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0,
                      self.new_wp, self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t, self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.mu_o, self.mu_w, self.C_w, self.C_o, self.C_f, self.C_p)
 
-        _logging_solution(self, t)
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[1].eta >= max_eta:
