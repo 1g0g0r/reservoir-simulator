@@ -1,4 +1,5 @@
 """Сохранение графика plotly в векторном формате eps"""
+import re
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -108,10 +109,13 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 if contours is None:
                     continue
 
-                if contours.end > 1.1:
-                    levels = np.round(np.linspace(contours.start, contours.end, int((contours.end - contours.start) / contours.size)))
+                if contours.end:
+                    if contours.end > 1.1:
+                        levels = np.round(np.linspace(contours.start, contours.end, int((contours.end - contours.start) / contours.size)))
+                    else:
+                        levels = np.linspace(contours.start, contours.end, int((contours.end - contours.start) / contours.size))
                 else:
-                    levels = np.linspace(contours.start, contours.end, int((contours.end - contours.start) / contours.size))
+                    levels = None
 
                 # Цветовая карта
                 colorscale = trace.colorscale if hasattr(trace, 'colorscale') else 'Viridis'
@@ -124,7 +128,11 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                 width = trace.line.width
                 contour_name = trace.name if trace.name else ''
 
-                if contour_type == 'constraint':
+                if levels is None:
+                    contourf = ax.contourf(X, Y, z, cmap=cmap, name=contour_name, alpha=0.8)
+                    cbar = fig.colorbar(contourf, ax=ax, orientation='vertical')
+                    # cbar.set_ticks([0.75, 0.78, 0.81, 0.84, 0.87, 0.9, 0.93, 0.97, 1.0])
+                elif contour_type == 'constraint':
                     # Заполненные контуры
                     contourf = ax.contourf(X, Y, z, levels, cmap=cmap, name=contour_name, alpha=0.8)
                     # Добавляем контурные линии поверх
@@ -132,17 +140,17 @@ def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwarg
                                                linewidths=width, name=contour_name)
                 else:
                     # Только контурные линии
-                    contour_lines = ax.contour(X, Y, z, levels, colors=color,
-                                               linestyles=linestyle, linewidths=width)
+                    contour_lines = ax.contour(X, Y, z, levels, colors=color, linestyles=linestyle, linewidths=width)
                     contourf = contour_lines
 
                 # Добавляем подписи к контурам
-                if contours.showlabels if hasattr(contours, 'showlabels') else False:
+                if levels and contours.showlabels if hasattr(contours, 'showlabels') else False:
                     ax.clabel(contour_lines, inline=True, fontsize=10)
 
                 # Название легенды
                 if hasattr(trace, 'name') and trace.name:
                     contourf.set_label(trace.name)
+
 
         elif trace_type == 'heatmap':
             # Обработка двумерной карты
@@ -280,6 +288,14 @@ def _convert_plotly_colorscale_to_cmap(colorscale: str|list) -> Colormap:
         'Reds': 'Reds'
     }
 
+    def parse_rgb_string(rgb_str):
+        match = re.match(r'rgb\((\d+),\s*(\d+),\s*(\d+)\)', rgb_str)
+        if match:
+            r, g, b = map(int, match.groups())
+            return (r / 255.0, g / 255.0, b / 255.0)
+        else:
+            raise ValueError(f"Неверный формат RGB: {rgb_str}")
+
     if isinstance(colorscale, str):
         # Пытаемся найти стандартную цветовую шкалу
         colorscale_name = colorscale.capitalize()
@@ -293,20 +309,19 @@ def _convert_plotly_colorscale_to_cmap(colorscale: str|list) -> Colormap:
         except:
             return cm.get_cmap('viridis')
 
-    elif isinstance(colorscale, list):
+    elif isinstance(colorscale, (list, tuple)):
         # Если colorscale - это список цветов
         try:
-            colors = [to_hex(c[-1]) if isinstance(c, list) else to_hex(c) for c in colorscale]
-            return LinearSegmentedColormap.from_list("custom", colors)
+            positions = [item[0] for item in colorscale]
+            colors = [parse_rgb_string(item[1]) for item in colorscale]
+            return LinearSegmentedColormap.from_list("custom", list(zip(positions, colors)))
         except:
             return cm.get_cmap('viridis')
-
     else:
         return cm.get_cmap('viridis')
 
 
 if __name__ == '__main__':
-    # TODO разобраться с подписями возле кривых
     # Данные для графиков
     x = np.linspace(0, 10, 100)
     y1 = np.sin(x)  # Первая линия - синус

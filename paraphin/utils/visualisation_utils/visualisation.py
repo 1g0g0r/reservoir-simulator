@@ -220,7 +220,7 @@ def _visualize_plots_fi(plots_data):
         x0=0, y0=0, x1=1, y1=1,
         line=dict(color="black", width=1)
     )
-    fig.add_hline( y=0, line=dict(color='black', width=1))
+    fig.add_hline(y=0, line=dict(color='black', width=1))
 
     # Настраиваем ползунок
     steps = [{}] * n_times
