@@ -1,5 +1,5 @@
 """Класс содержит алгоритм расчета и хранение данных."""
-from logging import basicConfig, INFO, getLogger
+from logging import INFO, getLogger, Formatter, FileHandler
 from shutil import rmtree
 from sys import stdout
 from time import perf_counter
@@ -35,7 +35,7 @@ class Solver:
         self.C_w  = np.full((Nx, Ny), c_w, data_type)  # Теплоемкость воды, [Дж*кг/C]
         self.C_o  = np.full((Nx, Ny), c_o, data_type)  # Теплоемкость нефти, [Дж*кг/C]
         self.C_f  = np.full((Nx, Ny), c_f, data_type)  # Теплоемкость пласта, [Дж*кг/C]
-        self.C_ff = np.full((Nx, Ny), c_f, data_type)  # Теплоемкость окружающих пород пласта, [Дж*кг/C]
+        self.C_ff = np.full((Nx, Ny), c_ff, data_type) # Теплоемкость окружающих пород пласта, [Дж*кг/C]
         self.C_p  = np.full((Nx, Ny), c_p, data_type)  # Теплоемкость парафина, [Дж*кг/C]
         # Поля данных пласта
         self.p     = np.full((Nx, Ny), init_p, data_type)  # Давление, [Па]
@@ -95,18 +95,14 @@ class Solver:
         data_path.mkdir(parents=True, exist_ok=True)
 
         if LOGGING:
-            basicConfig(
-                filename=logs_path,
-                filemode='w',
-                level=INFO,
-                format='%(asctime)s - %(message)s',
-                datefmt='%H:%M:%S'
-            )
             self.logger = getLogger(__name__)
+            self.logger.setLevel(INFO)
+            handler = FileHandler(logs_path, mode='w')
+            handler.setFormatter(Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S'))
+            self.logger.addHandler(handler)
         else:
             self.logger = getLogger(__name__)
-            self.logger.handlers = []
-            self.logger.propagate = False
+            self.logger.disabled = True
 
 
     def initialize(self):
@@ -218,10 +214,10 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
     """Решение уравнений по явной схеме в цикле по ячейкам."""
     for i in prange(Nx):
         for j in range(Ny):
+            calc_Um_r2(i, j, p, grad_p, _Um_r2, mu_o)  # Средняя скорость в капилляре * r^2
+
             # ---решение задачи кольматации\суффозии---
             if _paraphin:
-                # Средняя скорость в капилляре * r^2
-                calc_Um_r2(i, j, p, grad_p, _Um_r2, mu_o)
                 # Обновление концентраций парафина
                 wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, cells_Wp_eq, new_wp, new_wps)
                 # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
