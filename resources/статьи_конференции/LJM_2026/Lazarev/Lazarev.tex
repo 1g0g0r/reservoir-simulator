@@ -1,0 +1,331 @@
+\documentclass[
+11pt,%
+tightenlines,%
+twoside,%
+onecolumn,%
+nofloats,%
+nobibnotes,%
+nofootinbib,%
+superscriptaddress,%
+noshowpacs,%
+centertags]%
+{revtex4-2}
+\usepackage{ljm}
+\usepackage{graphicx}
+\setcaptionwidth{0.93\textwidth}
+
+\newcommand{\Beginproof}{{\em Proof.}  }
+\newcommand{\Endproof}{\hfill$\Box$\\}
+\newcommand{\bra}[1]{\langle #1|}
+\newcommand{\ket}[1]{|#1\rangle}
+\newcommand{\braket}[2]{\langle #1|#2\rangle}
+\newcommand{\cent}[0]{\mbox{\textcent}}
+\newcommand{\dollar}[0]{\$}
+\newcommand{\blank}{\#}
+\newcommand{\SAF}{\mathtt{2\mbox{-}SAF_t}}
+\newcommand{\USAF}{\mathtt{2\mbox{-}USAF_t}}
+\newcommand{\USAFL}{2\mbox{-}USAF_w}
+\newcommand{\da}{2DA_n}
+\newcommand{\datheta}{2DA^{\Theta}_n}
+\newcommand{\na}{2NA_n}
+\newcommand{\natheta}{2NA^{\Theta}_n}
+\newcommand{\pa}{2PA_n}
+\newcommand{\patheta}{2PA^{\Theta}_n}
+\newcommand{\dsizee}[1]{\mathsf{2DSIZE( \mathrm{#1} )}}
+\newcommand{\dsizetheta}[1]{\mathsf{2D \Theta SIZE( \mathrm{#1} )}}
+\newcommand{\nsize}[1]{\mathsf{2NSIZE( \mathrm{#1} )}}
+\newcommand{\nsizetheta}[1]{\mathsf{2N \Theta SIZE( \mathrm{#1} )}}
+\newcommand{\psize}[1]{\mathsf{2BSIZE( \mathrm{#1} )}}
+\newcommand{\psizetheta}[1]{\mathsf{2B \Theta SIZE \left( \mathrm{#1} \right)}}
+\newcommand{\dfasize}[1]{\mathsf{2DFASIZE( \mathrm{#1} )}}
+\newcommand{\nfasize}[1]{\mathsf{2NFASIZE( \mathrm{#1} )}}
+\newcommand{\saffunc}[1]{\mathtt{2\mbox{-}SAF}_{#1}}
+\newcommand{\usaffunc}[1]{\mathtt{2\mbox{-}USAF}_{#1}}
+\newcommand{\usaflang}[1]{\mathtt{L2USAF}_{#1}}
+\newcommand{\ceil}[1]{\lceil #1 \rceil}
+\newcommand{\Ceil}[1]{\left\lceil #1 \right\rceil}
+\newcommand{\floor}[1]{\lfloor #1 \rfloor}
+\newcommand{\Floor}[1]{\left\lfloor #1 \right\rfloor}
+\newcommand{\paran}[1]{ \left( #1 \right) }
+
+\def\U{\uparrow}
+\def\D{\downarrow}
+\def\L{\leftarrow}
+\def\R{\rightarrow}
+
+\begin{document}
+\titlerunning{Modeling of paraffin deposition} % for running heads
+\authorrunning{Lazarev} % for running heads
+%\authorrunning{First-Author, Second-Author} % for running heads
+\title{Modeling of paraffin deposition during flooding of oil reservoirs with cold water}
+% Splitting into lines is performed by the command \\
+% The title is written in accordance with the rules of capitalization.
+\author{\firstname{I. S.}~\surname{Lazarev}} \email[E-mail: ]{Lazarevigor.2001@mail.ru} 
+\author{\firstname{A. I.}~\surname{Nikiforov}}
+
+\affiliation{Institute of Mechanics and Engineering, Federal Research Center "Kazan Scientific Center", Russian Academy of Sciences, Kazan, 420111 Russia}
+
+
+\received{February 20, 2026; revised  February 20, 2026; accepted February 20, 2026}
+
+\begin{abstract} 
+	A mathematical model describing the process of paraffin deposition during injection of cold water into a reservoir saturated with paraffin oil is proposed. The processes of phase transitions associated with the crystallization of paraffin with a decrease in temperature and the subsequent deposition of solid particles in a porous medium are taken into account. The process of paraffin deposition is assumed to be in equilibrium and is modeled based on the theory of an ideal solution for a two-component oil-paraffin system. The pore blocking mechanism is described using the pore size distribution function. The resulting system of differential equations was solved by the finite volume method. The IMPES (Implicit Pressure Explicit Saturation) method was used to solve the pressure and saturation equations together. The results of the study revealed that the colmatation of the pore space by paraffin deposits leads to a deterioration in the filtration and capacitance properties (FCP) of the formation. Due to the decrease in permeability and filtration rate of fluids, the productivity of wells decreases and, as a result, the duration of field development increases. There is also a decrease in the extraction coefficient.
+\end{abstract}
+
+\keywords{non-isothermal filtration, paraffin deposits, dispersed particles, colmatation, porosity, permeability, reservoir damage, numerical modeling} 
+
+\subclass{76S05, 76M12}
+%\bibliographystyle{spiebib}
+
+\maketitle
+
+%\newtheorem{theorem}{Theorem}
+%\newtheorem{lemma}{Lemma}
+%\newtheorem{definition}{Definition}
+
+%\thank{The work was supported by the Russian Foundation for
+%Basic Research (grant 17-07-01606).}
+
+
+\section*{INTRODUCTION}
+	During the development of oil and gas fields by flooding, reservoir fluids may acquire a temperature different from the natural temperature of the reservoir. This change can be caused by various reasons, depending on the nature of the filtration flow, as well as on the development technology, during which various thermal effects are exerted on productive reservoirs. An example of such an effect is the injection of water in order to maintain reservoir pressure. In the case when the temperature of the injected water is lower than the reservoir temperature, many negative effects may occur that worsen the FES of the reservoir. The most striking example is the deposition of paraffin, which causes a decrease in porosity and permeability, especially near the bottom—hole zone of the formation, and, consequently, an increase in the skin factor. Oil fields of highly viscous oils containing significant concentrations of paraffins, resins and asphaltenes are being developed with less intensity. This is due to the fact that such deposits require the use of specialized technologies for efficient extraction, transportation and preparation. But the complexity of the development does not reduce their economic potential. Global reserves of such oils exceed $810$ billion tons \cite{1}. Russia is second only to Venezuela and Canada in this indicator, having geological reserves of high-viscosity oil of about $6-7$ billion tons. 
+	Paraffins mainly consist of normal alkanes with the number of carbon atoms $C18$ to $C35$, the amount of which in paraffin is usually more than $75\%$, and the rest mainly consists of isoalkanes, cycloalkanes and alkylbenzenes \cite{2}. The solubility of paraffin in oil is directly related to its temperature. At a sufficiently high temperature, paraffin wax can completely dissolve in oil. At low temperatures, paraffin is able to solidify, forming a dispersed system consisting of a liquid petroleum phase and solid particles of paraffin. At intermediate temperature values, the paraffin component can be partially dissolved in oil, and partially be in the oil phase in the form of dispersed particles. The formation of solid paraffin particles in oil is accompanied by their deposition on the surface of the pores of the formation. The accumulation of paraffin deposits leads to a decrease in the permeability of the porous medium, which significantly complicates the extraction of oil from reservoirs. Thus, paraffin deposits become a serious reason for reducing the productivity of oil wells. Analysis of the core using computed tomography before and after filtration of paraffin-containing oil at a low temperature \cite{3} showed that colmatation of the pore space with paraffin led to a decrease in open porosity from $0.9\%$ to $2.1\%$.
+	
+	Building a model for predicting paraffin deposition is a complex task. When modeling the injection of cold water into an oil reservoir, it is necessary to take into account two main phenomena: the process of paraffin crystallization in oil and the subsequent process of paraffin deposition on the pore surface. There is a wealth of information available on the thermophysical properties and chemical composition of paraffin compounds \cite{4}. Various thermodynamic models have been developed to predict the onset temperature of crystallization (cloud point) and describe the equilibrium state between the solid and liquid phases for hydrocarbon systems \cite{2, 5, 6}. In some studies, the equation of real solution theory for a binary mixture has been used to model the solubility/deposition of paraffins. Alternatively, the theory of ideal solution for a binary mixture has been used in some studies \cite{7, 8}. Typically, the intensity of paraffin particle deposition is represented by a combination of three independent factors \cite{4, 5, 6, 9}. The first factor characterizes the deposition of particles on the pore walls due to gravity and/or adhesion. The second factor represents the removal of paraffin deposits by the oil flow when the intra-pore velocity exceeds a certain threshold value. The third factor describes the rate at which paraffin particles block pores. The deposition of solid paraffin particles in the porous medium leads to a decrease in permeability. The current local permeability value is typically determined by a power-law relationship similar to the Kozeny-Carman equation \cite{10}.
+
+	In this work, oil is modeled as a two-component hydrocarbon mixture consisting of "oil" and "paraffin." It is assumed that these components do not mix with water. An ideal binary mixture solution model is used to predict the onset temperature of paraffin crystallization \cite{8}. Special attention is given to the mechanism of pore blockage by paraffin. The pore size distribution function is used to determine the porosity and permeability coefficients \cite{4}. It is also used to construct closure relations for the mass, momentum, and energy conservation equations \cite{4, 11, 12}. Vertical heat loss through the roof and base is accounted for using the classical Loverie scheme. This approach, which assumes quasi-steady-state heat transfer with semi-infinite rock masses, avoids the resource-intensive direct modeling of the host formations. The heat flux is calculated based on the solution of the heat conduction equation for a semi-infinite body with a first-order boundary condition at the contact and is integrated into the reservoir's energy equation as a source \cite{13}.
+
+
+\section{The problem}
+	Two-phase non-isothermal filtration is considered in region $D$. The reservoir is thermally isolated, and its porosity and permeability are $m$ and $k$, respectively. Region $D$ contains injection and production wells. The initial temperature of the reservoir is $T=T_0$, and the temperature of the injected water is $T=T_{inj}$.
+	
+	
+\section{Conservation equations}
+	It is assumed that the fluid in the reservoir is represented by two phases and three pseudo-components. Oil and water are considered to be two separate, immiscible phases. The three pseudo-components are oil, water, and paraffin. The oil phase consists of two pseudo-components: oil and paraffin. It is assumed that the fluids are incompressible and that there is no mass transfer between the water and oil phases. Mass balance equations are written for each pseudo-component. Given these assumptions, the mass balance equations for water and oil are as follows:
+
+\begin{equation}\label{eq1}
+\frac{\partial }{\partial t}(m \rho_w S_w ) + \nabla(\rho_w \mathbf{U_w}) = q_w \rho_w,
+\end{equation}
+
+\begin{equation}\label{eq2}
+\frac{\partial }{\partial t}(w_o  m \rho_o S_o) + \nabla(w_o \rho_o \mathbf{U_o}) = w_o q_o \rho_o.
+\end{equation}
+The paraffin pseudo-component can be partially dissolved and/or suspended in the oil phase as particles and deposited in the pore space. In this case, the paraffin mass balance equation is \cite{6}:
+
+\begin{equation}\label{eq3}
+\frac{\partial}{\partial t}(w_{ps} m \rho_p S_o + w_p  m \rho_o S_o) + \nabla(w_{ps}  \rho_p \mathbf{U_o} + w_p \rho_o \mathbf{U_o}) = q_p \rho_p + q_o (w_p \rho_o + w_{ps} \rho_p).
+\end{equation}
+We can represent the phase motion equations using the Darcy law, neglecting the effects of capillary and gravitational forces:
+
+\begin{equation}\label{eq4}
+\mathbf{U_i} = \frac{k f_i}{\mu_i} \nabla P,  \qquad (i=o,w).
+\end{equation}
+Within the framework of a single-temperature thermodynamic model, the equation describing the balance of the total energy of the entire system can be formulated as follows \cite{4}:
+
+\begin{multline}\label{eq5}
+\frac{\partial }
+{\partial t}(m \rho_w S_w C_w T +(1-w_{ps})m \rho_o S_o C_o T + 
+w_{ps}m \rho_p S_o C_p T +(1-m) \rho_f C_f T) + 
+\\
++\nabla(\rho_w \mathbf{U_w} C_w T + (1-w_{ps}) \rho_o \mathbf{U_o} C_o T + w_{ps}\rho_p \mathbf{U_o} C_p T) = 
+\\
+=\nabla [(m S_w K_w + (1-w_{ps}) m S_o K_o  + w_{ps} m S_o K_p + (1-m) K_f) \nabla T ] + 
+\\
++ q_o \rho_o C_o T + q_w \rho_w C_w T + q_l,
+\end{multline}
+
+where $q_l$ is the vertical heat loss through the roof and bottom of the reservoir, determined according to the Loverie scheme \cite{13}. The solubility and precipitation of paraffins from oil are modeled using the ideal solution theory equation for a binary mixture \cite{4}:
+
+\begin{equation} \label{eq6}
+w_{ps} = w_p \exp[\frac{\alpha}{R}(\frac{1}{T} - \frac{1}{T_m})]. 
+\end{equation}
+
+
+\section{The porous medium model}
+	When describing the formation's clogging by paraffin particles, we will consider the porous medium within the framework of the ideal soil model, i.e., as a system of cylindrical capillaries of different diameters, which have fictitious constrictions (necks). For simplicity, we use the following assumptions:
+	
+\begin{enumerate} 
+\item For all capillaries, the ratio of the neck radius to the channel radius $\gamma :(0< \gamma \leq 1)$ is the same and is maintained during the particle clogging process;
+\item Paraffin particles have a spherical shape of the same size $-$ diameter $l$;
+\item The number of settling particles is proportional to their fractions in the moving phase;
+\item The capillary is completely blocked when particles enter, if the characteristic size of the particles is not less than the neck diameter, which is equal to $\gamma r$;
+\item The intrinsic porosity of the settled particles is negligible compared to the formation's porosity;
+\item We neglect suffusion due to the complexity of the mechanism of interaction between paraffin particles and the lack of experimental data;
+\item The share of capillaries occupied by a certain phase is proportional to the saturation of the sample with this phase.
+\end{enumerate}
+The last assumption is a reflection of the main hypothesis of the two-phase filtration model. According to it, water and oil move through their respective pore systems \cite{14}.
+
+
+\section{Structural changes in the porous medium}
+	Based on the experimental data, an empirical relationship was obtained for the rate of narrowing of a cylindrical pore channel in a single-phase flow caused by colmatation \cite{8}. Similarly, for a two-phase flow, the rate of narrowing of a pore channel in the case of settling of paraffin particles in oil can be written as follows:
+
+\begin{equation}\label{eq7}
+\upsilon_r = -w_{ps} (S_o-S_{0}^{*}) \left ( \frac{2 \upsilon_{mo} D^2}{r L_k} \right )^{\frac{1}{3}}.
+\end{equation}
+For oil-filled pore channels whose dimensions satisfy the blocking condition $r \leq \frac{l}{2 \gamma}$, we will calculate the blocking rate using the following formula \cite{8}:
+
+\begin{equation}\label{eq8}
+\upsilon_b = \left\{\begin{matrix}
+\frac{(S_0-S_{o}^{*}) 6 \beta r^2 w_{ps} \upsilon_{mo} \phi}{l^3}, \quad \qquad r \leq \frac{l}{2 \gamma}
+ \\
+ 0, \qquad \qquad \qquad \qquad \qquad r > \frac{l}{2 \gamma}
+\end{matrix}\right.
+\end{equation}
+To describe the radii of capillaries, we introduce a pore size function, $ \phi (r,t)$, which represents the fraction of capillaries with radius $r$ at time $t$. We assume that the pore size function is known at the initial time $(t = 0)$, i.e.,  $ \phi (r,0)= \phi_0 (r)$. The evolution of the pore size distribution function over time can be described by the following equation \cite{14}:
+
+\begin{equation}\label{eq9}
+\frac{\partial \phi}{\partial t} + \frac{\partial (\upsilon_r \phi)}{\partial r} + \upsilon_b = 0.
+\end{equation}
+It should be noted that changes in radii can occur in all pore channels, and blocking occurs only when the particle size is at least equal to the radius of the pore channel throat. However, channels with $r \leq \frac{l}{2 \gamma}$ at the initial time can also be blocked, as the diameter of the pore channel will decrease during the process of paraffin particle colmatation.
+
+	As a result of structural changes in the pore space caused by colmatation and pore blocking, the dynamic porosity and absolute permeability of the reservoir change. Let $m_0$ and $k_0$ be the initial porosity and permeability, respectively. At the current moment in time, they can be represented as products: $m=m_f m_0$ and $k=k_f k_0$, respectively. The porosity coefficient $m_f$ can be determined using the porosity factor \cite{8}:
+
+\begin{equation}\label{eq10}
+m_f = \frac
+{ \int_{0}^{\infty} r^2 \phi (r) dr}
+{ \int_{0}^{\infty} r^2 \phi_0 (r) dr}.
+\end{equation}
+The coefficient $k_f$ can be determined using the parallel capillaries model and the Poiseuille law \cite{8}:
+
+\begin{equation}\label{eq11}
+k_f = \frac
+{ \int_{0}^{\infty} r^4 \phi (r) dr}
+{ \int_{0}^{\infty} r^4 \phi_0 (r) dr}.
+\end{equation}
+The change in the volume of suspended paraffin particles in oil is caused by two factors: settling on the surface of the pores and blocking the pore channels containing oil \cite{4}. Based on the above assumptions, the rate of mass transfer of paraffin in a porous medium is equal to:
+
+\begin{equation}\label{eq12}
+q_p =
+2 m \frac{ \int_{0}^{\infty} r \upsilon_r(r) \phi (r) dr}{ \int_{0}^{\infty} r^2 \phi(r) dr} + 
+w_{ps} m  \frac{ \int_{0}^{\infty} r \upsilon_b(r) \phi (r) dr}{ \int_{0}^{\infty} r^2 \phi(r) dr}.
+\end{equation}
+
+
+\section{Solution method}
+	The method of control volumes was used as a method for discretizing the differential equations \eqref{eq1}--\eqref{eq5}, which assumes that the characteristics of the reservoir and fluids are constant within the control volume. The convective terms were integrated using an upstream scheme. The IMPES (Implicit Pressure Explicit Saturation) method was used to solve the equations for pressure and saturation simultaneously. The equation for the change in the pore size function \eqref{eq9} was solved using an implicit scheme. This allowed for the avoidance of time step restrictions in the problem of paraffin plugging.
+
+
+\section{Results}
+	A two-phase non-isothermal multi-component filtration is considered in a rectangular domain $D = [0, L_x] \times [0, L_y] \times [0, L_z]$. The oil phase is represented as a binary mixture of oil and dissolved paraffin with a concentration of $W_p$. The reservoir is homogeneous, with porosity and permeability equal to $m$ and $k$, respectively. The domain $D$ is a symmetry element of a five-point water flooding system and contains an injection well and a production well with coordinates $(0,0)$ and $(L_x,L_y)$, respectively. The wells are vertical and have a radius of $r_w$, and they operate at specified flow rates of $r_{inj}$ and $r_{prod}$, respectively. The initial reservoir temperature is $T=T_0$, and the injected water temperature is $T=T_{inj}$.
+	
+	A series of computational experiments was conducted to study the effect of dissolved paraffin on the oil production process during cold water injection. The following values of the parameters used were assumed during the calculations:
+$P_{inj}=200$ bar; $P_{prod}=50$ bar; $T_{inj}=20 ^\circ$ C; $L_x=L_y=200$ m; $L_z=10$ m; $T_0=70 ^\circ$ C; $m_0=0.3$; $k_0=200$ md; $\rho_w=1000$ kg$\setminus$m$^3$; $\rho_o=860$ kg$\setminus$m$^3$; $\rho_f=2700$ kg$\setminus$m$^3$; $\rho_p=900$ kg$\setminus$m$^3$; $C_w=4200$ J$\setminus$(kg$\cdot^\circ$C); $C_o=2000$ J$\setminus$(kg$\cdot^\circ$C); $C_f=1000$ J$\setminus$(kg$\cdot^\circ$C); $C_p=2200$ J$\setminus$(kg$\cdot^\circ$C); $\lambda_w=0.12$ W$\setminus$(m$\cdot^\circ$C); $\lambda_o=0.6$ W$\setminus$(m$\cdot^\circ$C); $\lambda_f=1.8$ W$\setminus$(m$\cdot^\circ$C); $\lambda_p=0.2$ W$\setminus$(m$\cdot^\circ$C); $M_r=350$ g$\setminus$mol. 
+\\ The model used was the Corey relative phase permeability model, with the following parameters: $n=2$; $S_*=0.18$; $S^*=0.7$. The crystallization temperature of paraffin was calculated using the following formula \cite{14}: 
+\begin{equation}\label{eq13}
+	T_m = 101.35 + 0.02617 M_r - \frac{20172}{M_r}
+\end{equation}
+The dependence of fluid viscosity on temperature is calculated using the equations below \cite{15}: 
+\begin{equation}\label{eq14}
+\begin{split}
+    \mu_w &= 0.00002414 \cdot 10^{\frac{247.8}{T + 133.15}}, \\
+    \mu_o &= 0.001 \cdot \exp\left(\frac{5000}{R (T + 273.15)}\right)
+\end{split}
+\end{equation}
+
+	Two cases were considered: in the first case, paraffin-containing oil is filtered $(W_p=5\%)$, and in the second case, the paraffin content is neglected. The calculation was performed until the water cut of the production well reached $98\%$. Fig. ~\ref{fig:1} shows that due to the paraffin clogging of the bottom zone of the injection well, the water flow rate of the production well decreases (black solid lines). Fig. ~\ref{fig:2} displays the graphs of accumulated oil and water production. It can be seen that the paraffin clogging of the reservoir significantly reduces the rate and quantity of oil production.
+
+\begin{figure}[h]
+	\begin{minipage}[t]{0.48\linewidth}
+	\renewcommand{\figurename}{Fig.} \centering
+	\includegraphics[width=1\linewidth]{LazarevIS_1.eps}
+	\caption {\parbox{0.8\linewidth}{Rates of water and oil from the producing well}} 
+	\label{fig:1}
+	\end{minipage}
+	\hfill
+	\begin{minipage}[t]{0.48\linewidth}
+	\renewcommand{\figurename}{Fig.} \centering
+	\includegraphics[width=1\linewidth]{LazarevIS_2.eps}
+	\caption {\parbox{0.8\linewidth}{Accumulated rates of water and oil from the producing well}}
+	\label{fig:2}
+	\end{minipage}
+\end{figure} 
+
+	The fields of temperature and pressure at the moment of reaching the ultimate water cut of the producing well are shown below. We see that the isotherms (fig.~\ref{fig:3}) and isobars (fig.~\ref{fig:4}) lag behind in the case of paraffin-containing oil. This indicates a decrease in the filtration rate and a drop in reservoir pressure. Thus, the low temperature of the injected water has reduced the efficiency of the reservoir pressure maintenance systems.
+
+\begin{figure}[h]
+	\begin{minipage}[t]{0.48\linewidth}
+	\renewcommand{\figurename}{Fig.} \centering
+	\includegraphics[width=1\linewidth]{LazarevIS_3.eps}
+	\caption {\parbox{0.8\linewidth}{The temperature field at the time of reaching the maximum water level}} 
+	\label{fig:3}
+	\end{minipage}
+	\hfill
+	\begin{minipage}[t]{0.48\linewidth}
+	\renewcommand{\figurename}{Fig.} \centering
+	\includegraphics[width=1\linewidth]{LazarevIS_4.eps}
+	\caption {\parbox{0.8\linewidth}{The pressure field at the time of reaching the maximum water level}}
+	\label{fig:4}
+	\end{minipage}
+\end{figure} 
+
+	It should also be noted that due to the deposition of paraffin from oil in the reservoir, not only the development time of the deposit increases, but also the oil recovery coefficient decreases: in the first case, the final development time was 1525 days and Oil recovery factor (ORF) =0.4744, and in the second case, the final time was 1469 days and ORF=0.4745.
+
+
+\section{Conclusion}
+	The developed mathematical model, based on the pore size distribution function and the thermodynamic description of phase transitions, demonstrates the possibility of predicting changes in a porous medium under changing thermobaric filtration conditions. Numerical experiments confirm that the presence of dissolved paraffins in oil during flooding of formations with cold water leads to a slowdown in field development and a decrease in the oil recovery coefficient, due to the colmatation of the pore space by paraffin particles. Flow rate analysis shows that the decrease in productivity of producing wells in the presence of paraffins is enhanced by the combined effect of an increase in fluid viscosity at low temperatures and degradation of reservoir permeability. Temperature fields indicate the relationship between the zones of reduced temperature and the deterioration of filtration characteristics, manifested in a slowdown in the advance of the temperature front. The results confirm the double negative effect of low-temperature flooding: thermal viscosity resistance and mechanical blockage of pore channels, which requires the use of appropriate mining intensification methods. The prospects for the development of the model are related to the integration of the mechanisms of suffusion of paraffin particles, more detailed consideration of the composition of oil and the adaptation of model parameters based on field data.
+
+
+
+\section*{FUNDING}
+The author of this work declare that it did not receive financial support.
+
+\section*{CONFLICT OF INTEREST}
+The authors of this work declare that they have no conflict of interest.
+
+
+\begin{thebibliography}{20}
+
+\bibitem{1} 
+\textit {Kanevskaya R. D.} Mathematical modeling of hydrodynamic processes in the development of hydrocarbon deposits. Izhevsk. Institute of Computer Research., 2003., 26 p. [In Russian]
+
+\bibitem{2}
+\textit {Mozes, G. Y.} Paraffin products: Properties, technology, applications. New York, Elsevier Scientific Publishing (1982).
+
+\bibitem{3}
+\textit {Sandyga M. S., Struchkov I. A., and Rogachev M. K.} Formation damage induced by wax deposition: laboratory investigations and modeling. J. Petroleum Exploration and Production Technology (10) 2541–2558 (2020) 
+
+\bibitem{4}
+\textit {Nikiforov, A.I., Sadovnikov, R.V. \& Nikiforov, G.A.} Modeling of Paraffin Deposition During Oil Production by Cold Water Injection. Lobachevskii J. Math 43, 1178–1183 (2022).
+
+\bibitem{5}
+\textit {Wang Sh., Civan F.} Modeling Formation Damage by Asphaltene Deposition During Primary Oil Recovery. J. Energy Resour. Technol. 127 (4), 310–317 (2005) 
+
+\bibitem{6}
+\textit {Wang Sh., Civan F.} Model-Assisted Analysis of Simultaneous Paraffin and Asphaltene Deposition in Laboratory Core Tests. J. Energy Resour. Technol., 127 (4), 318-322 (2005) 
+
+\bibitem{7}
+\textit {Weingarten J.S., Euchner J.A.} Methods for Predicting Wax Precipitation and Deposition. SPE Production Engineering, 121-126 (Feb. 1988) 
+
+\bibitem{8}
+\textit {Ring J.N., Wattenbarger R.A., Keating J.F., and Peddlbhotla S.} Simulation of Paraffin Deposition in Reservoirs. SPE Production \& Facilities 36–42 (Feb. 1994) 
+
+\bibitem{9}
+\textit {Adeyanju O.A. and Oyekunle L.O.} Simulation of paraffin deposition in petroleum reservoirs. ASPES 2 (3), 1-18 (2010) 
+
+\bibitem{10}
+\textit {Kozeny, J.} Ueber kapillare Leitung des Wassers im Boden. Sitzungsber Akad. Wiss., Wien 136 (2a), 271-306 (1927)
+
+\bibitem{11}
+\textit {Nikiforov A. I., Zakirov T. R. and Nikiforov1 G. A.} Model for Treatment of Oil Reservoirs with Polymer-Dispersed Systems. Chem Tech Fuels Oils 51 (1), 105–112 (2015) 
+
+\bibitem{12}
+\textit {Burdine N. T.} Relative permeability calculations from pore size distribution data. SPE 225-G, Petroleum Transactions AIME 198, 71-78 (1953) 
+
+\bibitem{13}
+\textit{Alishaev M.G.} Calculation of the reservoir temperature field during liquid injection for a flat filtration flow, Proceedings of the USSR Academy of Sciences. Mechanics of liquid and gas., 1979. No. 1. p. 67.  [In Russian]
+
+\bibitem{14}
+\textit {Nikiforov A.I., Nikanshin D.P.} Particle transport by two-phase filtration flow, Mathematical modeling. – 1998. – Vol. 10. - 6. – pp. 42-52 [In Russian]
+
+\bibitem{15}
+\textit {S. A. Mousavi Dehghani, M. Vafaie Sefti , H. Mehdizadeh and H. Shirkhanloo} Solid Phase Equation of State Application for Wax Formation Prediction in Petroleum Mixtures, Iranian Journal of Chemical Engineering Vol. 5, No. 2 (Spring), 2008, IAChE
+
+\bibitem{16}
+\textit{Chekalin A.N., Konyukhov V.M., Kosterin A.V.} Two-phase multicomponent filtration in oil reservoirs of complex structure. Kazan: Kazan State University, 2009, 180 p.  [In Russian]
+
+
+\end{thebibliography}
+
+
+
+\end{document}
