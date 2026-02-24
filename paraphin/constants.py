@@ -7,7 +7,7 @@ import taichi as ti
 data_type = ti.f64
 ti.init(arch=ti.cpu, default_fp=data_type)  # , kernel_profiler=True
 LOGGING = False
-CONTOUR_PLOT = True
+CONTOUR_PLOT = False
 
 # Перевод единиц измерения
 day_to_sec = 86400.0
@@ -18,7 +18,7 @@ kal_to_J = 4.1868
 
 # Параметры сетки
 Nr = 31          # Число узлов сетки радиусов капилляров
-Nx, Ny = 40, 40  # Число узлов сетки по x и y
+Nx, Ny = 50, 50  # Число узлов сетки по x и y
 X_min, X_max = 0., 200.  # Длина пласта, [м]
 Y_min, Y_max = 0., 200.  # Ширина пласта, [м]
 h = 10.0  # Толщина пласта, [м]
@@ -29,7 +29,7 @@ volume = area * h
 
 # Параметры времени задачи
 Time_end = day_to_sec * 365 * 6.0  # Время моделирования
-dt = day_to_sec / 5e1  # Шаг дискретизации по времени
+dt = day_to_sec / 1e2  # Шаг дискретизации по времени
 max_eta = 0.98         # Предельная обводненность
 
 # Параметры скважин
@@ -105,7 +105,7 @@ if Courant_num > 0.8:
 #     dt = 0.01 * round(dt / day_to_sec, 5) * day_to_sec
 #     print(f'Новый шаг по времени увеличен до значения {dt / day_to_sec} сут.')
 
-sol_time_step = dt * 50  # шаг по времени для сохранения результатов
+sol_time_step = dt * 150  # шаг по времени для сохранения результатов
 
 if data_type == ti.f64:
     np_data_type = np.float64

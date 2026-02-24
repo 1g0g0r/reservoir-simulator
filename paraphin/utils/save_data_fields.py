@@ -36,8 +36,8 @@ def save_fields(solver, t: float):
         })
 
     if solver._paraphin:
-        x_idx = 0  # int(Nx / 2)
-        y_idx = 0  # int(Ny / 2)
+        x_idx = 4  # int(Nx / 2)
+        y_idx = 4  # int(Ny / 2)
         _loop_with_paraphin_data(solver, x_idx, y_idx, fi_np, p_np, S_np, T_np, Wo_np, Wp_np,
                                  Wps_np, Wps_dep_np, qp_np, new_m_np, new_k_np)
         data = {
@@ -53,7 +53,7 @@ def save_fields(solver, t: float):
             'm': new_m_np / init_m,
             'k': new_k_np / init_k,
             'mu_o': solver.mu_o.to_numpy(),
-            'fi': fi_np,
+            'plots': {'fi': fi_np},
             'Wells': wells_data,
             'Wells_accumulated': wells_accumulated_data,
             'Other params': {'KIN': solver.KIN[None]}
