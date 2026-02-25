@@ -7,8 +7,9 @@ data_type = np.float64
 LOGGING = True
 CONTOUR_PLOT = False
 # TODO использовать эти декораторы
-lin_njit = njit(boundscheck=False, fastmath=True)
+lin_njit = njit(boundscheck=False, fastmath=True) # inline=True
 parallel_njit = njit(nogil=True, parallel=True, boundscheck=False, fastmath=True)
+
 
 # Перевод единиц измерения
 day_to_sec = 86400.0
