@@ -33,22 +33,21 @@ def create_graphs_and_maps():
     fields_settings = [['Pressure', 50, 150, 3],
                        ['Saturation', S_min, 1, 0.03],
                        ['Temperature', 25*1.001, init_T*0.99, 6]]
-    # for _setings in fields_settings:
-    #     _field_vis(idx, idx_wp, data, data_wp, *_setings)
+    for _setings in fields_settings:
+        _field_vis(idx, idx_wp, data, data_wp, *_setings)
 
     plots_settings = [['Producer_oil', 'Producer_water', '$$q_w,\\: m^3 \\setminus day$$', '$$q_o,\\: m^3 \\setminus day$$'],
                       # ['Producer_eta','Injector_water', '$$q,\\: \\frac{м^3}{сут}$$'],
                       ['Producer_Q_oil','Producer_Q_water', '$$Q_w,\\: m^3$$', '$$Q_o,\\: m^3$$']]
-    # for _settings in plots_settings:
-    #     _plot_vis(global_time, data['Wells'], data_wp['Wells'], *_settings)
+    for _settings in plots_settings:
+        _plot_vis(global_time, data['Wells'], data_wp['Wells'], *_settings)
 
     maps = [['k', 0, 1, 0.03], ['m', 0, 1, 0.03],
             # ['Wps dep', 0, 0.05, 0.03], ['Wps', 0, 0.05, 0.03], ['Wp', 0, 0.05, 0.03]
             ]
-    # for _maps_setings in maps:
-    #     _create_map(idx_wp, data_wp, *_maps_setings)
+    for _maps_setings in maps:
+        _create_map(idx_wp, data_wp, *_maps_setings)
 
-    _plot_fi(data_wp)
     print('Done!')
 
 
@@ -94,8 +93,8 @@ def _plot_vis(time, data, data_wp, name_plot1, name_plot2, right_axis_title, lef
     fig = _plots_params(fig, "$$t,\\: day$$", right_axis_title)
     fig.write_image(pictures_path / f"{name_plot1}_{name_plot2}.svg", width=700, height=600)
 
-    from paraphin.utils import plotly_to_eps
-    plotly_to_eps(fig_plotly=fig, filename=f"{name_plot1}_{name_plot2}", dpi=1200)
+    # from paraphin.utils import plotly_to_eps
+    # plotly_to_eps(fig_plotly=fig, filename=f"{name_plot1}_{name_plot2}", dpi=1200)
 
 
 def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
@@ -128,8 +127,8 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     fig = _plots_params(fig, 'X', 'Y')
     fig.write_image(pictures_path / f"{field_name}_{round(data['Time'][idx], 2)}.svg", width=700, height=600)
 
-    from paraphin.utils import plotly_to_eps
-    plotly_to_eps(fig_plotly=fig, filename=field_name, dpi=1200)
+    # from paraphin.utils import plotly_to_eps
+    # plotly_to_eps(fig_plotly=fig, filename=field_name, dpi=1200)
 
 
 def _create_map(idx_wp, data_wp, field_name, start, end, step):
@@ -158,8 +157,8 @@ def _create_map(idx_wp, data_wp, field_name, start, end, step):
     fig.write_image(pictures_path / f"{field_name}_{round(data_wp['Time'][idx_wp], 2)}.svg", width=700, height=600)
 
 
-    from paraphin.utils import plotly_to_eps
-    plotly_to_eps(fig_plotly=fig, filename=field_name, dpi=1200)
+    # from paraphin.utils import plotly_to_eps
+    # plotly_to_eps(fig_plotly=fig, filename=field_name, dpi=1200)
 
 
 def _plots_params(fig, x_axis_title, y_axis_title):
@@ -204,5 +203,5 @@ def _plot_fi(data):
     fig.add_hline(y=0, line=dict(color='black', width=1))
 
     fig.show()
-    from paraphin.utils import plotly_to_eps
-    plotly_to_eps(fig_plotly=fig, filename='fi', dpi=1200)
+    # from paraphin.utils import plotly_to_eps
+    # plotly_to_eps(fig_plotly=fig, filename='fi', dpi=1200)

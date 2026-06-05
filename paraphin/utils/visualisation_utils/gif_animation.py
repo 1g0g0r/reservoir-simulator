@@ -31,15 +31,15 @@ def create_gif():
 
     fields_settings = [
         ['fi', 'r, м', '$$\\varphi$$'],
-        # ['Saturation', 'X, м', 'Y, м'],
-        # ['Temperature', 'X, м', 'Y, м'],
-        # ['m', 'X, м', 'Y, м'],
-        # ['k', 'X, м', 'Y, м'],
-        # ['Wps dep', 'X, м', 'Y, м']
+        ['Saturation', 'X, м', 'Y, м'],
+        ['Temperature', 'X, м', 'Y, м'],
+        ['m', 'X, м', 'Y, м'],
+        ['k', 'X, м', 'Y, м'],
+        ['Wps dep', 'X, м', 'Y, м']
     ]
 
     for _settings in fields_settings:
-        crating_pictures(1, data, data_wp, *_settings)
+        crating_pictures(50, data, data_wp, *_settings)
         create_gif_from_png(_settings[0], duration=30, loop=0)
 
     print('Done!')
@@ -67,7 +67,7 @@ def crating_pictures(skip_steps, data, data_wp, name, x_axis_name, y_axis_name):
     for file_path in (gif_path / name).glob(f'*.png'):  # Перебор всех файлов .pkl
         file_path.unlink()
 
-    times = data_wp['Time']
+    times = data_wp['Time'] if len(data_wp['Time']) < len(data['Time']) else data['Time']
     n_times = len(times)
 
     # Настраиваем ползунок
