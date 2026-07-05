@@ -1,0 +1,439 @@
+﻿
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>Converted from Markdown</title>
+        <!--[if gte mso 9]>
+        <xml>
+          <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>90</w:Zoom>
+            <w:DoNotPromptForConvert/>
+            <w:DoNotShowInsertAsIcon/>
+          </w:WordDocument>
+        </xml>
+        <![endif]-->
+        <style>
+          @page {
+            size: A4;
+            margin: 2.54cm;
+          }
+          body { 
+            font-family: 'Times New Roman', serif; 
+            font-size: 12pt;
+            line-height: 1.5; 
+            margin: 0;
+            padding: 0;
+            color: #000;
+          }
+          h1 { font-size: 18pt; font-weight: bold; margin: 12pt 0 6pt 0; }
+          h2 { font-size: 16pt; font-weight: bold; margin: 12pt 0 6pt 0; }
+          h3 { font-size: 14pt; font-weight: bold; margin: 12pt 0 6pt 0; }
+          p { margin: 6pt 0; }
+          code { 
+            font-family: 'Courier New', monospace;
+            background-color: #f5f5f5;
+            padding: 2pt;
+            border: 1pt solid #ddd;
+          }
+          pre { 
+            font-family: 'Courier New', monospace;
+            background-color: #f5f5f5;
+            padding: 6pt;
+            border: 1pt solid #ddd;
+            margin: 6pt 0;
+            white-space: pre-wrap;
+          }
+          blockquote { 
+            border-left: 3pt solid #ccc;
+            margin: 6pt 0;
+            padding-left: 12pt;
+            font-style: italic;
+          }
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 6pt 0;
+          }
+          th, td {
+            border: 1pt solid #000;
+            padding: 3pt 6pt;
+            text-align: left;
+          }
+          th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+          }
+          ul, ol {
+            margin: 6pt 0;
+            padding-left: 24pt;
+          }
+          li {
+            margin: 3pt 0;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Компонентное (composition-based) математическое моделирование осаждения тяжёлых углеводородов при изменении термобарических условий</h1>
+<p><em>Углублённый обзор. Подготовлено: 2026-06-27 · Проработано источников: ~75 суммарно по теме · Фокус: модели, явно разрешающие компонентный состав нефти (н-алканы CₙH₂ₙ₊₂, SCN-фракции, C7+) и зависимость осаждения от (T, p). Достоверность: высокая по международной рецензируемой литературе; точные числа цитирований и часть выходных данных рекомендуется сверить.</em></p>
+<blockquote>
+<p>Методологическая оговорка: поиск выполнен WebSearch/WebFetch (Firecrawl/Exa не сконфигурированы). Полнотекстовое чтение PC-SAFT-главы Rice не удалось (бинарный PDF) — её содержание реконструировано по аннотациям нескольких источников и помечено соответствующе.</p>
+</blockquote>
+<hr>
+<h2>0. Что такое «компонентная» модель и при чём тут термобарика</h2>
+<p><strong>Компонентный (compositional) подход</strong> описывает нефть не как «чёрную» жидкость с эмпирическими свойствами (black-oil), а как смесь N компонентов и псевдокомпонентов {CH₄, …, н-алканы CₙH₂ₙ₊₂, нафтены, ароматика, смолы, асфальтены}. Для каждого компонента i записываются химический потенциал μᵢ и фугитивность fᵢ, а равновесие фаз (пар–жидкость–твёрдое, V–L–S, и L–L для асфальтенов) определяется условием равенства фугитивностей:
+<strong>fᵢ^L(T,p,<strong>x</strong>) = fᵢ^S(T,p,<strong>z</strong>) = fᵢ^V(T,p,<strong>y</strong>)</strong> для всех i.</p>
+<p><strong>Термобарический путь.</strong> При разработке (T, p) в каждой точке пласта и ствола меняются: депрессуризация, охлаждение у стенки/у забоя, закачка газа/CO₂/растворителя. Эти изменения смещают флюид через <strong>границы фазовой устойчивости</strong> — температуру начала кристаллизации парафина (WAT) и давление начала осаждения асфальтенов (Asphaltene Onset Pressure, AOP). Поэтому компонентная модель осаждения = <strong>термодинамика фазового равновесия с твёрдой/тяжёлой фазой</strong>, вычисляемая вдоль термобарического пути на каждом узле фильтрационной сетки.</p>
+<p>Ключевое отличие парафинов и асфальтенов по термобарике:</p>
+<ul>
+<li><strong>Парафины</strong> выпадают в основном при <strong>снижении T</strong> (ниже WAT); давление влияет слабее, но для «живой» нефти существенно (растворённый газ).</li>
+<li><strong>Асфальтены</strong> выпадают в основном при <strong>снижении p</strong> к давлению насыщения (максимум у P_b) и при закачке газа; T влияет менее монотонно.</li>
+</ul>
+<hr>
+<h1>ЧАСТЬ I. Характеризация компонентного состава — фундамент всех моделей</h1>
+<p>Точность любой компонентной модели осаждения определяется прежде всего <strong>характеризацией тяжёлого «хвоста» C7+</strong> и распределением н-парафинов внутри него. Это самый чувствительный этап (<a href="https://www.researchgate.net/publication/241790086_C7_Characterization_of_Heavy_Oil_Based_on_Crude_Assay_Data">15 псевдокомпонентов до 1200 г/моль для точной WAT, RG</a>).</p>
+<h3>1.1. Распределения молярного состава C7+</h3>
+<ul>
+<li><strong>Katz (экспоненциальное распределение, 1978/1983)</strong> — простейшая модель убывания мольной доли с номером SCN.</li>
+<li><strong>Whitson (гамма-распределение, 1983)</strong> — трёхпараметрическое (α, β, η) распределение по молекулярной массе; гибко описывает и лёгкие, и тяжёлые нефти; стандарт де-факто; разбиение на псевдокомпоненты квадратурой Гаусса–Лагерра (<a href="https://www.researchgate.net/publication/308358826_C7_Characterization_of_Related_Equilibrium_Fluids_Using_the_Gamma_Distribution">гамма-распределение C7+, RG</a>; <a href="https://www.researchgate.net/publication/250090595_Characterizing_Hydrocarbon_Plus_Fractions">Characterizing Hydrocarbon Plus Fractions, Whitson</a>).</li>
+<li><strong>Pedersen, Ahmed, Riazi</strong> — альтернативные/непрерывные модели; SCN-фракции расширяют до C90+ (<a href="https://www.researchgate.net/publication/244595959_Application_of_the_G-Distribution_Model_to_Molecular_Weight_and_Boiling_Point_Data_for_Petroleum_Fractions">Γ-распределение для MW и Tкип, RG</a>; <a href="http://www.riazim.com/sample/C7EC97.pdf">непрерывная модель C7+, Riazi PDF</a>). Сравнение точности: новые оптимизационные методы дают среднюю ошибку ~25,8 % против 76 % (Katz), 33,6 % (Ahmed), 45,9 % (Whitson) на ряде нефтей (<a href="https://www.researchgate.net/publication/241790086_C7_Characterization_of_Heavy_Oil_Based_on_Crude_Assay_Data">C7+ по crude assay, RG</a>).</li>
+<li>Критические свойства и ацентрический фактор псевдокомпонентов — по корреляциям (Lee–Kesler, Riazi–Daubert, Twu) (<a href="https://www.researchgate.net/publication/322996666_Evaluation_of_Different_Correlation_Performance_for_the_Calculation_of_the_Critical_Properties_and_Acentric_Factor_of_Petroleum_Heavy_Fractions">оценка корреляций, RG</a>).</li>
+</ul>
+<h3>1.2. Распределение н-парафинов (CₙH₂ₙ₊₂) внутри фракций</h3>
+<p>Поскольку именно н-алканы образуют парафиновую твёрдую фазу, нужно знать <strong>долю н-парафинов в каждом SCN</strong> (не всю фракцию). Методы: высокотемпературная газовая хроматография (HTGC), DSC-деконволюция, корреляции экспоненциального спада (<a href="https://www.researchgate.net/publication/256712596_Evaluation_of_different_methodologies_to_determine_the_n-paraffin_distribution_of_petroleum_fractions">методики определения n-парафинового распределения, RG</a>).</p>
+<h3>1.3. Свойства чистых н-алканов как функции номера углерода n</h3>
+<p>Для расчёта SLE нужны для каждого н-алкана:</p>
+<ul>
+<li><strong>температура плавления T_fus(n)</strong> и <strong>энтальпия плавления ΔH_fus(n)</strong> — монотонно растут с n; ΔH между упорядоченной и жидкой фазами <strong>линейна по n</strong> (Broadhurst); сильный <strong>odd-even (чётно-нечётный) эффект</strong> для коротких цепей (<a href="https://www.sciencedirect.com/science/article/abs/pii/S002196140290978X">температуры/энтальпии переходов n-алканов, ScienceDirect</a>; <a href="https://www.researchgate.net/publication/238127049_Temperatures_and_Enthalpies_of_Solid-Solid_and_Melting_Transitions_of_the_Odd-Numbered_n-_Alkanes_C_21_C_23_C_25_C_27_and_C_29">нечётные C21–C29, RG</a>);</li>
+<li><strong>твёрдотельные переходы (solid–solid)</strong> и теплоёмкости ΔCp; для n&gt;9 четыре кристаллические формы — <strong>гексагональная, триклинная, моноклинная, орторомбическая</strong> (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381224000839">термофизика n-алканов C17–C50, ScienceDirect</a>);</li>
+<li><strong>корреляции</strong>: T_fus прогнозируется по n/MW с приемлемой точностью; ΔH_fus и solid–solid переходы предсказываются хуже — существенный источник погрешности (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381224000839">валидация корреляций C17–C50, ScienceDirect</a>; <a href="https://pubs.acs.org/doi/10.1021/acs.cgd.5c00684">групповой вклад для T_m и ΔH_fus, ACS CGD</a>).</li>
+</ul>
+<blockquote>
+<p>Именно зависимости T_fus(n), ΔH_fus(n) для гомологического ряда CₙH₂ₙ₊₂ замыкают термодинамику: они задают идеальную растворимость твёрдой фазы и точку WAT.</p>
+</blockquote>
+<hr>
+<h1>ЧАСТЬ II. Классические (старые) компонентные подходы (≈1980–2000)</h1>
+<h3>2.1. Каркас EOS + G^E</h3>
+<p>Стандартная схема: <strong>кубическое уравнение состояния (SRK / Peng–Robinson)</strong> для пар-жидкостного равновесия (VLE) + <strong>модель коэффициентов активности G^E</strong> для твёрдо-жидкого (SLE). Фугитивность твёрдого компонента связывается с жидким через термодинамику плавления:
+ln(fᵢ^S/fᵢ^L) = −ΔH_fus,i/RT·(1 − T/T_fus,i) − (1/RT)∫ΔCp dT + … (+ члены solid–solid переходов).</p>
+<h3>2.2. Модели твёрдого раствора (Solid-Solution, SS)</h3>
+<ul>
+<li><strong>Won (1986)</strong> — твёрдая фаза = <strong>единый однородный твёрдый раствор</strong>; модифицированный регулярный раствор; ввёл корреляции T_fus, ΔH_fus(n) (<a href="https://www.researchgate.net/publication/379929573_Thermophysical_properties_of_n-alkanes_from_C17_to_C50_and_validation_of_available_correlations">контекст: Won — единый твёрдый раствор vs Coutinho — несколько, RG</a>).</li>
+<li><strong>Hansen et al. (1988)</strong>, <strong>Pedersen et al. (1991)</strong> — теория <strong>полимерных растворов (Флори–Хаггинса)</strong>; Pedersen ввёл эмпирическую поправку, ограничивающую долю компонента, переходящего в твёрдую фазу (борьба с переоценкой) (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0009250901003384">улучшенная модель, ScienceDirect</a>).</li>
+<li><strong>Erickson, Brown</strong> — инженерные SS-варианты.</li>
+<li><em>Ограничение SS:</em> систематическая <strong>переоценка выпадения лёгких компонентов</strong>; давление практически не учитывается.</li>
+</ul>
+<h3>2.3. Классические термодинамические модели асфальтенов</h3>
+<ul>
+<li><strong>Hirschberg et al. (1984)</strong> — растворная модель: <strong>Флори–Хаггинс + параметр растворимости (Скэтчард–Хильдебранд)</strong>; асфальтены растворены, выпадение <strong>обратимо</strong> (<a href="https://www.mdpi.com/2227-9117/11/3/765">контекст-обзор моделей, MDPI Processes 11(3):765</a>).</li>
+<li><strong>Leontaritis &amp; Mansoori (1987)</strong> — <strong>коллоидная</strong> модель: асфальтены — твёрдые частицы, стабилизированные смолами; выпадение часто <strong>необратимо</strong> (<a href="https://www.researchgate.net/publication/237196338_Asphaltene_Flocculation_During_Oil_Recovery_and_Processing_A_Thermodynamic-Colloidal_Model">SPE-16258, RG</a>). <em>Противоречие с Hirschberg по обратимости.</em></li>
+</ul>
+<h3>2.4. Непрерывная и полунепрерывная термодинамика (continuous thermodynamics)</h3>
+<p>Альтернатива дискретным псевдокомпонентам: состав описывается <strong>непрерывной функцией распределения</strong> F(I) по индексу I (молекулярная масса / Tкип / параметр растворимости).</p>
+<ul>
+<li><strong>Rätzsch &amp; Kehlen (1983)</strong> — непрерывная термодинамика; <strong>Cotterman &amp; Prausnitz (1985)</strong> — полунепрерывная; flash двумя способами: <strong>метод моментов</strong> (приближённый) и <strong>квадратурный</strong> (гауссово интегрирование) (<a href="https://www.researchgate.net/publication/232992857_Flash_Calculations_for_a_Crude_Oil_by_Continuous_Thermodynamics">flash по непрерывной термодинамике, RG</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/0009250987801446">фазовое равновесие непрерывных/полунепрерывных смесей, ScienceDirect</a>).</li>
+<li><strong>Применение к тяжёлым компонентам:</strong> моделирование точек флокуляции асфальтенов в рамках Скэтчарда–Хильдебранда с <strong>гауссовыми распределениями по параметру растворимости</strong> (мальтены/асфальтены — отдельные распределения); депарафинизация (de-oiling) восков (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381213006493">полунепрерывная для многофазного равновесия, ScienceDirect</a>; <a href="https://www.researchgate.net/publication/245332538_Modelling_of_the_solvent-deoiling_process_of_waxes_by_continuous_thermodynamics">de-oiling восков непрерывной термодинамикой, RG</a>).</li>
+<li><em>Достоинство:</em> малое число параметров для очень многокомпонентных систем; <em>ограничение:</em> приближённость, трудность с резкими границами твёрдой фазы.</li>
+</ul>
+<hr>
+<h1>ЧАСТЬ III. Multi-solid и явный учёт давления (1996+)</h1>
+<h3>3.1. Многотвёрдофазная модель</h3>
+<ul>
+<li><strong>Lira-Galeana, Firoozabadi, Prausnitz (1996)</strong> — каждый компонент, прошедший <strong>критерий стабильности</strong> (по фугитивности), образует <strong>отдельную чистую твёрдую фазу</strong>; пар/жидкость по PR-EOS. Точнее SS для тяжёлых фракций; даёт ступенчатую кривую выпадения (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0009250901003384">контекст-обзор, ScienceDirect</a>).</li>
+<li><strong>Coutinho (predictive UNIQUAC/Wilson, 1998+)</strong> — компромисс: <strong>несколько сосуществующих твёрдых растворов</strong>; устраняет переоценку лёгких (<a href="https://pubs.acs.org/doi/full/10.1021/ie980340h">ACS IECR</a>).</li>
+</ul>
+<h3>3.2. Учёт давления — поправка Пойнтинга и «живая» нефть</h3>
+<p>Давление входит в фугитивность твёрдого через <strong>поправку Пойнтинга</strong>:
+fᵢ^S(T,p) = fᵢ^S(T,p*)·exp[ vᵢ^S (p − p*) / (RT) ].</p>
+<ul>
+<li>Включение поправки Пойнтинга + solid–solid переходов подтверждает пригодность multi-solid и для <strong>онсета, и для массы</strong> при высоком давлении (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0009250901003384">улучшенная модель с Пойнтингом, ScienceDirect</a>).</li>
+<li><strong>«Живая» нефть (live oil):</strong> растворённый газ — растворитель; его наличие <strong>повышает WAT</strong>; депрессуризация ниже P_b (разгазирование) резко меняет WAT (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0009250901003384">эффект давления/газа на WAT</a>).</li>
+<li><strong>Газоконденсаты:</strong> эффект давления <strong>немонотонный/обратный</strong> — при изотермическом снижении p масса выпавшего парафина может сперва расти, затем падать и снова расти (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381207001008">высокое давление, новая предиктивная модель, FPE 2007</a>; <a href="https://onepetro.org/SPEATCE/proceedings-abstract/99ATCE/All-99ATCE/SPE-56488-MS/60045">выпадение в газоконденсатах, SPE-56488</a>; <a href="https://pubs.acs.org/doi/10.1021/acsomega.4c10044">температурные паттерны в газоконденсатах, ACS Omega 2024</a>).</li>
+<li><strong>Измерение при высоком давлении:</strong> HP-μDSC для WAT «живых» нефтей (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381207001008">контекст</a>).</li>
+</ul>
+<hr>
+<h1>ЧАСТЬ IV. Современные EOS-семейства: SAFT / PC-SAFT / CPA (2000–2025)</h1>
+<p>Главный сдвиг последних двух десятилетий — переход от «EOS+G^E» к <strong>единым уравнениям состояния на основе статистической теории ассоциирующих флюидов</strong>, описывающим VLE, LLE и осаждение тяжёлой фазы в (T, p, состав) одной моделью.</p>
+<h3>4.1. Основа SAFT/PC-SAFT</h3>
+<ul>
+<li><strong>Chapman, Gubbins, Jackson, Radosz (1990)</strong> — SAFT; <strong>Gross &amp; Sadowski (2001)</strong> — PC-SAFT. Остаточная энергия Гельмгольца:
+<strong>a^res = a^hc (твёрдая цепь, hard-chain) + a^disp (дисперсия) + a^assoc (ассоциация/вод. связи)</strong>.
+Каждый компонент задаётся тремя параметрами: <strong>m</strong> (число сегментов), <strong>σ</strong> (диаметр сегмента), <strong>ε/k</strong> (энергия дисперсии); для ассоциирующих — доп. параметры энергии/объёма ассоциации.</li>
+</ul>
+<h3>4.2. PC-SAFT для асфальтенов</h3>
+<ul>
+<li><strong>Ting, Hirasaki, Chapman (2003); Gonzalez et al. (2007); Vargas, Chapman (Rice)</strong> — асфальтен как крупный сегмент; <strong>моделирует фазовое поведение в (T, p, состав)</strong>; превосходит кубические EOS даже при минимальных композиционных данных (вплоть до C9+); предсказывает нестабильность при изменении p, T и состава (газ/CO₂) (<a href="https://www.researchgate.net/publication/231272065_Modeling_of_Asphaltene_Precipitation_Due_to_Changes_in_Composition_Using_the_Perturbed_Chain_Statistical_Associating_Fluid_Theory_Equation_of_State">выпадение асфальтенов при изменении состава, PC-SAFT, RG</a>; <a href="https://www.researchgate.net/publication/231273784_Modeling_Asphaltene_Phase_Behavior_in_Crude_Oil_Systems_Using_the_Perturbed_Chain_Form_of_the_Statistical_Associating_Fluid_Theory_PC-SAFT_Equation_of_State">фазовое поведение асфальтенов PC-SAFT, RG</a>; <a href="https://link.springer.com/chapter/10.1007/0-387-68903-6_12">глава Применение PC-SAFT, Springer</a>).</li>
+<li>Систематические процедуры характеризации крудов/асфальтенов под PC-SAFT и оценка максимума асфальтеновой фазы (<a href="https://link.springer.com/article/10.1007/s43153-022-00296-6">альтернативная характеризация + PC-SAFT, Braz. J. Chem. Eng. 2022</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S0016236121000569">PC-SAFT для крудов и асфальтенов: систематический обзор, Fuel 2021</a>).</li>
+<li>Робастные алгоритмы VLLE/фазовой огибающей на PC-SAFT (<a href="https://www.sciencedirect.com/science/article/abs/pii/S016773221935901X">фазовая диаграмма асфальтенов PC-SAFT, FPE 2019</a>).</li>
+</ul>
+<h3>4.3. CPA (Cubic-Plus-Association)</h3>
+<ul>
+<li><strong>Li &amp; Firoozabadi (2010)</strong> — <strong>SRK + ассоциативный член</strong>; делит C12+ на тяжёлые УВ и асфальтен; учитывает <strong>само-ассоциацию</strong> асфальтена и <strong>кросс-ассоциацию</strong> асфальтен–тяжёлые УВ; прогноз AOP и влияния CO₂ при изменении давления (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381219301852">контекст: Li &amp; Firoozabadi 2010, CPA</a>).</li>
+<li><strong>CPA vs PC-SAFT</strong> для AOP и фазовой огибающей — сравнительные исследования (оба точнее кубических solid-моделей; выбор зависит от данных) (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381219301852">сравнение CPA и PC-SAFT, FPE 2019</a>; <a href="https://www.researchgate.net/publication/305313997_Modeling_of_Asphaltene_Onset_Precipitation_Conditions_with_Cubic_Plus_Association_CPA_and_Perturbed_Chain_Statistical_Associating_Fluid_Theory_PC-SAFT_Equation_of_States">моделирование онсета CPA и PC-SAFT, RG</a>).</li>
+<li>Новейшее (2024): параметры ассоциации CPA из <strong>молекулярной динамики и петролеомики</strong>; неизотермические алгоритмы градиента асфальтенов (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0016236123031903">ассоциация из MD/петролеомики, Fuel 2024</a>); HPHT-эксперимент + PC-SAFT при депрессуризации и закачке газа в «живой» нефти (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381222001704">HPHT live oil, FPE 2022</a>).</li>
+<li>Улучшение кубической PR-solid модели через термодинамические корреляции/усреднение (<a href="https://link.springer.com/article/10.1007/s12182-019-00377-1">cubic-PR solid, Petroleum Science 2019</a>).</li>
+</ul>
+<h3>4.4. PC-SAFT для парафинов</h3>
+<p>PC-SAFT и multi-solid + PC-SAFT применяются и к парафину (WAT, масса), особенно для тяжёлого «хвоста» (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0016236121020810">MS + PC-SAFT для разных крудов, Fuel 2021</a>).</p>
+<hr>
+<h1>ЧАСТЬ V. Многофазный flash с твёрдыми фазами — вычислительное ядро</h1>
+<p>При заданных (T, p, <strong>z</strong>) на каждом узле сетки нужно определить <strong>число, тип и составы фаз</strong>, включая твёрдые (wax) и тяжёлую жидкую/твёрдую (asphaltene). Это самая «тяжёлая» вычислительная часть компонентной модели.</p>
+<h3>5.1. Анализ устойчивости фаз</h3>
+<ul>
+<li><strong>Критерий касательной плоскости (Tangent Plane Distance, TPD) — Michelsen (1982)</strong>: фаза устойчива, если TPD ≥ 0 для всех пробных составов. Определяет, нужно ли вводить новую (в т.ч. твёрдую) фазу (<a href="https://www.academia.edu/8442551/Multiphase_equilibria_calculation_by_direct_minimization_of_Gibbs_free_energy_with_a_global_optimization_method">контекст: Michelsen TPD; единый каркас multiphase flash</a>).</li>
+<li><strong>Прямая минимизация энергии Гиббса</strong> (Heidemann; Gautam–Seider; Soares и др.) — альтернатива/дополнение TPD; глобальная оптимизация (<a href="https://www.academia.edu/8442551/Multiphase_equilibria_calculation_by_direct_minimization_of_Gibbs_free_energy_with_a_global_optimization_method">минимизация G глобальной оптимизацией, academia</a>).</li>
+<li>Для асфальтенов: Nghiem и Li применяли TPD; Lira-Galeana — критерий стабильности для твёрдых фаз парафина.</li>
+</ul>
+<h3>5.2. Алгоритмы flash</h3>
+<ul>
+<li>Чередование <strong>анализ устойчивости ↔ flash</strong> (Michelsen, унифицированный каркас: nested loop, последовательные подстановки, методы 2-го порядка, частичный Ньютон) (<a href="https://www.researchgate.net/publication/326870130_Multiphase_isenthalpic_flash_General_approach_and_its_adaptation_to_thermal_recovery_of_heavy_oil">унифицированный multiphase flash, контекст</a>).</li>
+<li><strong>Trust-region</strong> методы для робастной устойчивости/flash (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381213004780">trust-region stability &amp; flash, FPE 2013</a>).</li>
+<li>Трёхфазный flash с водой; одновременный multiphase flash + устойчивость, включая <strong>твёрдый CO₂</strong> (<a href="https://pubs.acs.org/doi/10.1021/acs.jced.1c00330">одновременный flash с твёрдым CO₂, JCED 2021</a>).</li>
+</ul>
+<h3>5.3. Изоэнтальпийный (isenthalpic) flash — мост к неизотермике</h3>
+<p>В тепловых процессах температура — <strong>результат</strong>, а не вход. <strong>Изоэнтальпийный flash</strong> задаёт энтальпию H (а не T) и находит (T, фазы) одновременно — естественная формулировка для <strong>неизотермической</strong> фильтрации/термических МУН.</p>
+<ul>
+<li><strong>Zhu &amp; Okuno (2016)</strong> — multiphase isenthalpic flash, интегрированный с анализом устойчивости; адаптация к тепловой добыче тяжёлой нефти (<a href="https://ryosukeokuno.com/wp-content/uploads/2024/10/018_FPE-Multiphase-Isenthalpic-Flash-Zhu-and-Okuno-2016.pdf">isenthalpic flash + стабильность, Zhu &amp; Okuno, PDF</a>; <a href="https://www.researchgate.net/publication/326870130_Multiphase_isenthalpic_flash_General_approach_and_its_adaptation_to_thermal_recovery_of_heavy_oil">общий подход + тепловая добыча, RG</a>).</li>
+<li><em>Следствие для диссертации:</em> связку «энергия ↔ фазовый переход парафина» естественно реализовать через изоэнтальпийный flash с твёрдой фазой.</li>
+</ul>
+<h3>5.4. Численные трудности</h3>
+<p>Негладкость на границах появления/исчезновения фаз; чувствительность к начальным приближениям; рост стоимости с числом компонентов и фаз — главный барьер для применения SAFT-flash в полномасштабной пластовой симуляции (см. Часть VIII).</p>
+<hr>
+<h1>ЧАСТЬ VI. Сопряжение компонентной термодинамики с термобарической фильтрацией</h1>
+<h3>6.1. Архитектура compositional reservoir simulation</h3>
+<p>На каждом блоке и временном шаге:</p>
+<ol>
+<li>перенос компонентов (уравнения сохранения массы каждого i) + Дарси + <strong>уравнение энергии</strong> (для T) → локальные (T, p, <strong>z</strong>);</li>
+<li><strong>flash + устойчивость</strong> при локальных (T, p) → доли и составы фаз, в т.ч. твёрдой;</li>
+<li><strong>источниковый член осаждения</strong> R_i^dep (кинетика Wang–Civan: поверхность + закупорка + вынос) → изменение φ, k;</li>
+<li>обновление свойств флюида/породы → следующий шаг.</li>
+</ol>
+<h3>6.2. Реализации</h3>
+<ul>
+<li><strong>Qin, Wang, Sepehrnoori, Pope (2000)</strong> — solid-model асфальтена в компонентной симуляции (<a href="https://pubs.acs.org/doi/10.1021/ie990781g">IECR, ACS</a>).</li>
+<li><strong>Nghiem et al.</strong> — solid-model в компонентном симуляторе; <strong>полностью неявные</strong> EOS-симуляторы осаждения при истощении (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381215001831">FIM-симулятор осаждения, FPE 2015</a>; <a href="https://onepetro.org/SPEATCE/proceedings-abstract/08ATCE/08ATCE/SPE-120203-STU/145597">параллельный FIM EOS, SPE-120203</a>).</li>
+<li><strong>Tabzar et al. (2018)</strong> — полная связанная система (нефть/газ/вода/асфальтен) с Nghiem-термодинамикой и 3-членной кинетикой; Ньютон–Рафсон (<a href="https://ogst.ifpenergiesnouvelles.fr/articles/ogst/full_html/2018/01/ogst180048/ogst180048.html">OGST 2018, full text</a>).</li>
+<li><strong>Коммерческие:</strong> <strong>CMG-GEM</strong> (компонентный, модуль асфальтенов — <a href="https://www.researchgate.net/publication/267869547_Compositional_simulation_of_deposition_flocculation_and_precipitation_of_Asphaltene_in_oil_reservoir_using_CMG-GEM">CMG-GEM кейс, RG</a>); <strong>CMG-STARS</strong> (термический); <strong>PVTsim Nova/Multiflash</strong> (парафин+асфальтен, экспорт в OLGA/PIPESIM — <a href="https://calsep.com/pvtsim-nova/find-a-pvtsim-package/flow-assurance/">Calsep</a>).</li>
+<li><strong>Термобарический путь → карта зон осаждения:</strong> осаждение локализуется там, где путь пересекает WAT/AOP (часто <strong>околоскважинная зона</strong>: максимум ∇p и охлаждения).</li>
+</ul>
+<h3>6.3. Современные эффективные реализации (2023–2025)</h3>
+<p>Эффективные схемы внедрения выпадения асфальтена в симуляцию (<a href="https://www.sciencedirect.com/science/article/pii/S2949891024008777">effective approach, 2024</a>); CO₂ в глубоких пластах (<a href="https://onepetro.org/SPEATCE/proceedings-abstract/23ATCE/3-23ATCE/535420">SPE 2023</a>).</p>
+<hr>
+<h1>ЧАСТЬ VII. Старое vs современное — сравнительная таблица</h1>
+<table>
+<thead>
+<tr>
+<th>Подход</th>
+<th>Термодинам. база</th>
+<th>Учёт T</th>
+<th>Учёт p</th>
+<th>Компонентное разрешение</th>
+<th>Сильные/слабые стороны</th>
+<th>Репрезентативные источники</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SS (твёрдый раствор)</td>
+<td>EOS+G^E (регуляр./полимер. раствор)</td>
+<td>да (главное)</td>
+<td>слабо</td>
+<td>псевдокомп. C7+</td>
+<td>прост; переоценивает лёгкие</td>
+<td>Won 1986; Hansen 1988; Pedersen 1991</td>
+</tr>
+<tr>
+<td>Multi-solid</td>
+<td>PR-EOS + чистые тв. фазы + Пойнтинг</td>
+<td>да</td>
+<td>да (Пойнтинг)</td>
+<td>покомпонентно</td>
+<td>точен для тяжёлых; ступенчатая кривая</td>
+<td>Lira-Galeana 1996</td>
+</tr>
+<tr>
+<td>Predictive UNIQUAC</td>
+<td>неск. твёрдых растворов</td>
+<td>да</td>
+<td>да</td>
+<td>покомпонентно</td>
+<td>баланс точности; параметры предиктивны</td>
+<td>Coutinho 1998</td>
+</tr>
+<tr>
+<td>Непрерывная термодинамика</td>
+<td>распределение F(I)+EOS</td>
+<td>да</td>
+<td>да</td>
+<td>непрерывно (моменты/квадратура)</td>
+<td>мало параметров; приближённость</td>
+<td>Cotterman–Prausnitz 1985; Rätzsch–Kehlen 1983</td>
+</tr>
+<tr>
+<td>Асфальтен растворный</td>
+<td>Флори–Хаггинс/Скэтчард–Хильдебранд</td>
+<td>да</td>
+<td>да</td>
+<td>мальтены/асфальтены</td>
+<td>обратимо; ограничен</td>
+<td>Hirschberg 1984</td>
+</tr>
+<tr>
+<td>Асфальтен коллоидный</td>
+<td>коллоид + смолы-стабилизаторы</td>
+<td>частично</td>
+<td>да</td>
+<td>асфальтен/смолы</td>
+<td>необратимость; качественный</td>
+<td>Leontaritis–Mansoori 1987</td>
+</tr>
+<tr>
+<td>Асфальтен solid-model</td>
+<td>PR-EOS + тв. фаза (2 солида)</td>
+<td>да</td>
+<td>да</td>
+<td>C31+ split</td>
+<td>стандарт в ПО; калибруемый</td>
+<td>Nghiem 1993</td>
+</tr>
+<tr>
+<td>Асфальтен мицеллярный</td>
+<td>LLE + мицеллы</td>
+<td>да</td>
+<td>да</td>
+<td>асфальтен/смолы/мономеры</td>
+<td>физичный; сложный</td>
+<td>Pan–Firoozabadi 1997</td>
+</tr>
+<tr>
+<td>PC-SAFT</td>
+<td>стат. теория (hc+disp+assoc)</td>
+<td>да</td>
+<td>да</td>
+<td>m,σ,ε по компонентам</td>
+<td>точен в (T,p,состав); дорог</td>
+<td>Ting 2003; Gonzalez 2007</td>
+</tr>
+<tr>
+<td>CPA</td>
+<td>SRK + ассоциация</td>
+<td>да</td>
+<td>да</td>
+<td>само/кросс-ассоциация</td>
+<td>хорош для AOP; калибровка</td>
+<td>Li–Firoozabadi 2010</td>
+</tr>
+</tbody></table>
+<hr>
+<h1>Пробелы и противоречия</h1>
+<p><strong>Противоречия (фиксировать, не усреднять):</strong></p>
+<ol>
+<li><strong>SS vs Multi-solid vs SAFT</strong> — нет единой «лучшей» термодинамики; SS переоценивает лёгкие, MS даёт негладкую кривую, SAFT точнее, но дороже и чувствительнее к параметрам.</li>
+<li><strong>Обратимость осаждения асфальтенов</strong> — Hirschberg (обратимо) vs Leontaritis–Mansoori (необратимо); современные модели вводят (частичную) обратимость как параметр.</li>
+<li><strong>Эффект давления не универсален</strong> — для «живой» нефти газ повышает WAT; в газоконденсатах эффект давления немонотонный/обратный.</li>
+<li><strong>CPA vs PC-SAFT</strong> для AOP — обе превосходят кубические, но ранжирование зависит от флюида и данных.</li>
+<li><strong>Характеризация C7+</strong> — разные методы дают разброс предсказанной WAT/AOP; это <strong>доминирующий источник погрешности</strong>, перекрывающий различия термодинамических моделей.</li>
+</ol>
+<p><strong>Пробелы (открытые задачи — релевантны диссертации):</strong></p>
+<ol>
+<li><strong>Изоэнтальпийный flash с твёрдой фазой в пластовом симуляторе</strong> — почти не реализован для парафина при неизотермической фильтрации (хотя аппарат Zhu–Okuno готов).</li>
+<li><strong>SAFT-термодинамика в полномасштабной компонентной симуляции пласта</strong> — барьер вычислительной стоимости flash; нужны суррогаты/таблицы/ML-ускорение.</li>
+<li><strong>Совместное (co-precipitation) компонентное моделирование парафин + асфальтен + смолы</strong> вдоль термобарического пути — почти не разработано.</li>
+<li><strong>Непрерывная термодинамика для твёрдой фазы в фильтрации</strong> — потенциально дёшева, но мало применяется из-за резких границ S-фазы.</li>
+<li><strong>ML/PINN-ускорение flash и характеризации</strong> в связке с термобарической фильтрацией — зарождающееся направление.</li>
+</ol>
+<hr>
+<h1>Итоговый список ключевых источников (BibTeX — новые относительно прошлых отчётов)</h1>
+<pre><code class="language-bibtex">@article{Whitson1983,
+  author = {Whitson, C. H.},
+  title = {Characterizing hydrocarbon plus fractions},
+  journal = {Society of Petroleum Engineers Journal}, volume = {23}, number = {4}, pages = {683--694}, year = {1983}}
+
+@article{KatzFiroozabadi1978,
+  author = {Katz, D. L. and Firoozabadi, A.},
+  title = {Predicting phase behavior of condensate/crude-oil systems using methane interaction coefficients},
+  journal = {Journal of Petroleum Technology}, volume = {30}, number = {11}, pages = {1649--1655}, year = {1978}}
+
+@article{CottermanPrausnitz1985,
+  author = {Cotterman, R. L. and Prausnitz, J. M.},
+  title = {Flash calculations for continuous or semicontinuous mixtures by use of an equation of state},
+  journal = {Industrial \&amp; Engineering Chemistry Process Design and Development}, volume = {24}, number = {2}, pages = {434--443}, year = {1985}}
+
+@article{RatzschKehlen1983,
+  author = {R{\&quot;a}tzsch, M. T. and Kehlen, H.},
+  title = {Continuous thermodynamics of complex mixtures},
+  journal = {Fluid Phase Equilibria}, volume = {14}, pages = {225--234}, year = {1983}}
+
+@article{Broadhurst1962,
+  author = {Broadhurst, M. G.},
+  title = {An analysis of the solid phase behavior of the normal paraffins},
+  journal = {Journal of Research of the National Bureau of Standards A}, volume = {66A}, number = {3}, pages = {241--249}, year = {1962}}
+
+@article{Michelsen1982a,
+  author = {Michelsen, M. L.},
+  title = {The isothermal flash problem. Part I. Stability},
+  journal = {Fluid Phase Equilibria}, volume = {9}, number = {1}, pages = {1--19}, year = {1982}}
+
+@article{Michelsen1982b,
+  author = {Michelsen, M. L.},
+  title = {The isothermal flash problem. Part II. Phase-split calculation},
+  journal = {Fluid Phase Equilibria}, volume = {9}, number = {1}, pages = {21--40}, year = {1982}}
+
+@article{GrossSadowski2001,
+  author = {Gross, J. and Sadowski, G.},
+  title = {Perturbed-chain SAFT: an equation of state based on a perturbation theory for chain molecules},
+  journal = {Industrial \&amp; Engineering Chemistry Research}, volume = {40}, number = {4}, pages = {1244--1260}, year = {2001}}
+
+@article{Chapman1990,
+  author = {Chapman, W. G. and Gubbins, K. E. and Jackson, G. and Radosz, M.},
+  title = {New reference equation of state for associating liquids},
+  journal = {Industrial \&amp; Engineering Chemistry Research}, volume = {29}, number = {8}, pages = {1709--1721}, year = {1990}}
+
+@article{Ting2003,
+  author = {Ting, P. D. and Hirasaki, G. J. and Chapman, W. G.},
+  title = {Modeling of asphaltene phase behavior with the SAFT equation of state},
+  journal = {Petroleum Science and Technology}, volume = {21}, number = {3-4}, pages = {647--661}, year = {2003}}
+
+@article{Gonzalez2007,
+  author = {Gonzalez, D. L. and Ting, P. D. and Hirasaki, G. J. and Chapman, W. G.},
+  title = {Modeling of asphaltene precipitation due to changes in composition using the perturbed chain SAFT equation of state},
+  journal = {Energy \&amp; Fuels}, volume = {21}, number = {3}, pages = {1231--1242}, year = {2007}}
+
+@article{LiFiroozabadi2010,
+  author = {Li, Z. and Firoozabadi, A.},
+  title = {Cubic-plus-association equation of state for asphaltene precipitation in live oils},
+  journal = {Energy \&amp; Fuels}, volume = {24}, number = {5}, pages = {2956--2963}, year = {2010}}
+
+@article{ZhuOkuno2016,
+  author = {Zhu, D. and Okuno, R.},
+  title = {Multiphase isenthalpic flash integrated with stability analysis},
+  journal = {Fluid Phase Equilibria}, volume = {423}, pages = {203--219}, year = {2016}}
+
+@article{Pauly2007,
+  author = {Pauly, J. and Daridon, J.-L. and Coutinho, J. A. P.},
+  title = {A new predictive thermodynamic model for wax formation phenomena at high pressure},
+  journal = {Fluid Phase Equilibria}, volume = {255}, pages = {193--199}, year = {2007}}
+
+@article{Qin2000,
+  author = {Qin, X. and Wang, P. and Sepehrnoori, K. and Pope, G. A.},
+  title = {Modeling asphaltene precipitation in reservoir simulation},
+  journal = {Industrial \&amp; Engineering Chemistry Research}, volume = {39}, number = {8}, pages = {2644--2654}, year = {2000}}
+</code></pre>
+<blockquote>
+<p>Тома/страницы/годы для ряда классических работ (Whitson 1983; Cotterman–Prausnitz 1985; Michelsen 1982; Li–Firoozabadi 2010; Ting 2003; Gonzalez 2007; Zhu–Okuno 2016) приведены по памяти/аннотациям — сверьте по издателю/DOI.</p>
+</blockquote>
+<hr>
+<h1>Выводы для диссертации (компонентный модуль <code>paraphin</code>)</h1>
+<ol>
+<li><strong>Термодинамическое ядро:</strong> для парафина — multi-solid (Lira-Galeana) или predictive UNIQUAC (Coutinho); при высоком давлении/«живой» нефти — добавить <strong>поправку Пойнтинга</strong> и при необходимости PC-SAFT. Для асфальтена — Nghiem solid-model или CPA/PC-SAFT.</li>
+<li><strong>Характеризация C7+</strong> (Whitson-гамма + распределение н-парафинов CₙH₂ₙ₊₂ + корреляции T_fus(n), ΔH_fus(n) Broadhurst) — заложить как отдельный, тщательно валидируемый модуль: это главный источник погрешности.</li>
+<li><strong>Flash-ядро:</strong> анализ устойчивости TPD (Michelsen) + multiphase flash с твёрдой фазой; для неизотермики — <strong>изоэнтальпийная</strong> формулировка (Zhu–Okuno).</li>
+<li><strong>Сопряжение с фильтрацией:</strong> на каждом узле — flash при локальных (T,p) вдоль термобарического пути → источник осаждения → φ,k (Часть VI прошлых отчётов).</li>
+<li><strong>Производительность:</strong> предусмотреть кэширование/таблицы/ML-суррогат flash (открытая задача) — иначе SAFT-flash в полномасштабной 3D-симуляции дорог.</li>
+</ol>
+<hr>
+<h2>Методология</h2>
+<p>Выполнено ~24 поисковых запроса суммарно (в т.ч. ~11 в этом раунде, англ./рус.); широкий охват → углубление по характеризации, классическим и SAFT/CPA-моделям, flash-алгоритмам и термобарике; полнотекстовое чтение открытых источников (Tabzar et al. 2018 ранее; попытка PC-SAFT-главы Rice — PDF бинарный). Противоречия зафиксированы явно; библиографические детали части классических работ рекомендуется сверить по первоисточникам.</p>
+
+      </body>
+      </html>
+    
