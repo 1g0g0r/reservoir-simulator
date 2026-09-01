@@ -87,6 +87,7 @@ class Solver:
         # Вспомогательные поля класса
         self._t = 0.0
         self._i_img = 0
+        self._layers_file = None  # общий файл слоев, открывается при первом сохранении
         self.dt = dt              # Текущий шаг по времени, подбирается по CFL каждую итерацию, [с]
         self.max_dfw = 1.0        # max|df_w/dS|, задается в initialize()
         self.clip_stats = np.zeros(4, data_type)  # [число обрезаний S, макс. выход, i, j] за шаг
@@ -183,7 +184,7 @@ class Solver:
 
             _t = 0.0
             with tqdm(total=Time_end, ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
-                      bar_format="{l_bar}{bar}[{elapsed}/{remaining}]  {n_fmt}/{total_fmt}{postfix}   ") as pbar:
+                      bar_format="{l_bar}{bar}[{elapsed}/{remaining}]{postfix}   ") as pbar:  # {n_fmt}/{total_fmt}
                 while _t < Time_end:
                     self.dt = min(self.dt, Time_end - _t)  # последний шаг подрезаем ровно до Time_end
                     _t += self.dt
@@ -197,7 +198,11 @@ class Solver:
         finally:
             print('KIN:', round(self.KIN, 5))
             print('eta:', round(self.wells[1].eta, 5))
-            convert_pkl_files()
+            if self._layers_file is not None:
+                self._layers_file.close()
+                self._layers_file = None
+            # Число слоев известно отсюда, иначе склейке пришлось бы считать их проходом по файлу
+            convert_pkl_files(self._i_img)
             rmtree(results_path)
 
 
@@ -234,8 +239,7 @@ class Solver:
             _logging_clip(self)
 
         # Полный лог и сохранение полей идут по одному условию и обязательно до _swap_time_steps:
-        # он обнуляет new_* поля, которые логируются. Логировать каждый шаг нельзя - на сетке 25x25
-        # один вызов _logging_solution стоил 4.1 мс против 2.3 мс на весь остальной шаг.
+        # он обнуляет new_* поля, которые логируются.
         dump_now = (t >= self._i_img * sol_time_step or np.isclose(t, Time_end)
                     or self.wells[1].eta >= max_eta)
         if dump_now:

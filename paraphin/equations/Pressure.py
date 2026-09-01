@@ -6,9 +6,7 @@ from paraphin.constants import Nx, Ny, hx, hy, volume, h
 from paraphin.utils import apply_bc, get_bound, calc_well_mult, mid, solve_band_system
 from paraphin.utils.math_utils.FVM_utils import _K_o, _K_w
 
-# Смещения соседей и геометрия граней. Вынесены в константы модуля: раньше на каждой ячейке
-# создавался вложенный список `[[i+1, j, hx, hy*h], ...]`, и на сетке 25x25 его аллокация съедала
-# 92% времени сборки матрицы (356 мкс из 388).
+# Смещения соседей и геометрия граней.
 _DI   = np.array([1, -1, 0, 0])
 _DJ   = np.array([0, 0, 1, -1])
 _HIJ  = np.array([hx, hx, hy, hy])

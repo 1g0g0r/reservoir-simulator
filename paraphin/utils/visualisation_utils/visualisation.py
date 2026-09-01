@@ -7,7 +7,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from paraphin import r
-from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, js_path, bar_to_pa,
+from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, layers_file, js_path, bar_to_pa,
                                 day_to_sec, CONTOUR_PLOT, S_max, init_Wp)
 from .read_data_files import read_solution_data, convert_pkl_files
 
@@ -23,13 +23,11 @@ names_converter = {
 def visualize_solution():
     """Визуализация данных расчета."""
     try:
-        actual_n_times = len([path for path in results_path.glob('*.pkl') if 'processed_data' not in path.name])
-        _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')  #'(wp5 40)processed_data.pkl'
-
-        # Если количество временных слоев изменилось, то заново обрабатываем данные
-        if actual_n_times != _n_times:
+        # Файл слоев остается на диске, только если расчет не дошел до склейки: значит данные
+        # свежее обработанного файла и их надо собрать заново
+        if layers_file.is_file():
             convert_pkl_files()
-            _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')
+        _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')  #'(wp5 40)processed_data.pkl'
 
     # Если файл конвертированных данных отсутствует, то сами создаем его
     except ValueError:

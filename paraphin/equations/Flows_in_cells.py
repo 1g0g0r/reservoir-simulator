@@ -7,8 +7,6 @@ from paraphin.utils import mid, up_T, up_wp, mid_lam, up_fraction, apply_bc, get
 from paraphin.utils.math_utils.FVM_utils import _K_o, _K_w
 
 # Смещения соседей и геометрия граней - те же константы, что и в сборке матрицы давления.
-# Раньше этот список создавался заново на каждой ячейке; на сетке 25x25 его аллокация была
-# основной статьей расхода явного цикла.
 _DI   = np.array([1, -1, 0, 0])
 _DJ   = np.array([0, 0, 1, -1])
 _HIJ  = np.array([hx, hx, hy, hy])

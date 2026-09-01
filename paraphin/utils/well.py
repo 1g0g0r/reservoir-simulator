@@ -4,7 +4,7 @@ from numba import njit, int32, float32, float64
 from numba.experimental import jitclass
 from numba.types import Array
 
-from paraphin.constants import data_type, h, _re
+from paraphin.constants import data_type, h, _re, Nx
 from .math_utils import pf_w, pf_o, Buckley_Leverett
 
 if data_type == np.float32:
@@ -85,3 +85,17 @@ def calc_well_mult(well, S, k, mu_o, mu_w) -> float:
                       pf_w(S[well.i, well.j]) / mu_w[well.i, well.j])
 
     return ret
+
+
+def preprocess_matrix_and_wells(wells, wells_buffer):
+    """Раскладка скважин из буфера в массив с вычислением индекса неизвестной.
+
+    Профиль разреженности матрицы больше не нужен: уравнение давления собирается сразу в три
+    диагонали ленты (`equations/Pressure.py`), поэтому скважина правит `diag[idx]` и `rhs[idx]`
+    по одному и тому же индексу `idx = i + j*Nx`.
+    """
+    for i in range(len(wells)):
+        wells[i] = wells_buffer[i]['well']
+        wells[i].idx_rhs = wells[i].i + wells[i].j * Nx
+
+    return wells

@@ -97,11 +97,6 @@ alpha = 0.1426 * MW * (Tm + 273.15) * kal_to_J     # Скрытая теплот
 _re = 0.14 * np.sqrt(hx * hx + hy * hy)  # Радиус контура питания скважины, [м]
 
 # Параметры адаптивного шага по времени.
-# Прежняя проверка Куранта, стоявшая здесь, не работала: _u_aver = init_k / mu_o * Pw * 0.05 имеет
-# размерность м^2/с, поэтому "число Куранта" получалось в метрах и порог 0.8 ни с чем не сравнивался.
-# Кроме того она бралась по номинальным mu_o, mu_w (отношение подвижностей 5 вместо фактических 14.4
-# при 70 C) и вычислялась один раз по начальным условиям, то есть в принципе не могла поймать рост
-# расхода по мере обводнения. Фактический CFL считается теперь каждый шаг в Solver по потокам граней.
 CFL_target = 0.8        # целевое число Куранта для явной схемы по насыщенности
 dt_growth  = 1.2        # максимальный рост шага за одну итерацию
 dt_max     = dt         # шаг не растет выше стартового
@@ -121,6 +116,7 @@ root_folder = Path(__file__).parent.parent
 outputs_path = root_folder / 'outputs'
 pictures_path = outputs_path / 'pictures'
 results_path = outputs_path / f'results_wp={init_Wp}'
+layers_file = results_path / 'layers.pkl'  # промежуточные слои расчета, один файл на весь расчет
 data_path = outputs_path / 'data'
 logs_path = outputs_path / '.log'
 js_path = root_folder / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
