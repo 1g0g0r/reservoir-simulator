@@ -1,4 +1,4 @@
-""" Модуль конвертирует поля данных taichi в словарь массивов numpy."""
+"""Модуль конвертирует поля данных класса в pkl."""
 from pickle import dump, HIGHEST_PROTOCOL
 
 from paraphin import fi_0_np
@@ -10,7 +10,7 @@ wells_accumulated_data = {}
 
 
 def save_fields(solver, t: float):
-    """Преобразование taichi -> numpy и охранение полей данных в файл формата pkl."""
+    """Сохранение полей данных в файл формата pkl."""
 
     for i in range(solver.n_wells):
         well_name, well = solver._wells_names[i], solver.wells[i]

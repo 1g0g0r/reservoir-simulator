@@ -5,7 +5,7 @@ from numba import njit
 from paraphin.constants import Nx, Ny, hx, hy, eta
 
 
-@njit
+@njit(cache=True)
 def calc_Um_r2(i, j, p, grad_p, Um_r2, mu_o):
     """Вычисление средней скорости в капилляре без множителя r^2.
 

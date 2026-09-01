@@ -5,7 +5,7 @@ from numba import njit
 from paraphin.constants import S_min, S_max, n_power, data_type, mu_w, mu_o
 
 
-@njit
+@njit(cache=True)
 def pf_o(s: data_type) -> data_type:
     """
     Функция отностельной фазовой проницаемости нефти:
@@ -24,7 +24,7 @@ def pf_o(s: data_type) -> data_type:
     return ret
 
 
-@njit
+@njit(cache=True)
 def pf_w(s: data_type) -> data_type:
     """
     Функция отностельной фазовой проницаемости воды:
@@ -43,7 +43,7 @@ def pf_w(s: data_type) -> data_type:
     return ret
 
 
-@njit
+@njit(cache=True)
 def Buckley_Leverett(s: data_type, mu_w: data_type, mu_o: data_type) -> data_type:
     """Функция Баклея-Леверетта:
                       pf_w

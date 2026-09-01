@@ -5,37 +5,37 @@ from numba import njit
 from paraphin.constants import data_type, R
 
 
-@njit
+@njit(cache=True)
 def calc_mu_o(t: data_type) -> data_type:
     """Вязкость нефти, [Pa*c] Уравнение Аррениуса."""
     return 0.001 * np.exp(5000 / R / (t + 273.15))
 
 
-@njit
+@njit(cache=True)
 def calc_mu_w(t: data_type) -> data_type:
     """Вязкость воды, [Pa*c]  уравнение Андраде"""
     return 2.414 * 10 ** -5 * 10 ** (247.8 / (t + 133.15))
 
 
-@njit
+@njit(cache=True)
 def calc_c_w(t: data_type) -> data_type:
     """"Теплоемкость воды, [Дж/(кг*C)]"""
     return 4217 - 2.15 * t + 0.002 * t ** 2
 
 
-@njit
+@njit(cache=True)
 def calc_c_o(t: data_type) -> data_type:
     """"Теплоемкость нефти, [Дж/(кг*C)]"""
     return 1800 + 4 * t + 0.01 * t ** 2
 
 
-@njit
+@njit(cache=True)
 def calc_c_f(t: data_type) -> data_type:
     """"Теплоемкость пласта, [Дж/(кг*C)]"""
     return 800 + 0.75 * t
 
 
-@njit
+@njit(cache=True)
 def calc_c_p(t: data_type) -> data_type:
     """"Теплоемкость парафина, [Дж/(кг*C)]"""
     return 1840 + 3.56 * t  # (t + 273.15)

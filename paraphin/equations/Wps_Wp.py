@@ -2,7 +2,7 @@
 import numpy as  np
 from numba import njit
 
-from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type, init_Wp, init_T
+from paraphin.constants import ro_p, ro_o, volume, Tm, R, alpha, data_type, init_Wp, init_T
 
 min_Wp_bound = 1e-6
 
@@ -10,8 +10,8 @@ reverse_Tm = 1.0 / Tm
 alpha_R = alpha / R
 
 
-@njit
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, cells_Wp_eq, new_Wp, new_Wps) -> None:
+@njit(cache=True)
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, cells_Wp_eq, new_Wp, new_Wps, dt) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
@@ -62,7 +62,7 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
         new_Wp[i, j] = Wp[i, j]
 
 
-@njit
+@njit(cache=True)
 def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
     """Моделирование процесса кристаллизации парафина."""
     new_Wps = Wps
@@ -74,8 +74,8 @@ def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
     return new_Wps
 
 
-@njit
-def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp) -> None:
+@njit(cache=True)
+def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp, dt) -> None:
     """Вычисление массовой доли взвешенных частиц (Wps) и растворенного парафина (Wp) парафина в нефти по явной схеме.
 
     Parameters

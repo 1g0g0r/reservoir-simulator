@@ -7,6 +7,6 @@ matplotlib
 plotly
 psutil
 numba
-sparse-numba  # https://github.com/th1275/sparse_numba/blob/main/docs/Installation_Guide_for_sparse_numba.md
+sparse-numba  # SuperLU идет в колесе; UMFPACK - только сборкой: build_umfpack_windows.sh
 scipy
 tqdm

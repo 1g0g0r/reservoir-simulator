@@ -1,103 +1,135 @@
-"""Решение уравнения давления: сборка матрицы (МКО и решение СЛАУ)."""
+"""Решение уравнения давления: сборка матрицы (МКО) и решение ленточной СЛАУ."""
 import numpy as np
 from numba import njit, prange
-from scipy.sparse.linalg._dsolve.linsolve import _superlu
-from sparse_numba.sparse_superlu.superlu_numba_interface import superlu_solve_csc
-# from sparse_numba.sparse_umfpack.umfpack_numba_interface import umfpack_solve_csc
 
-from paraphin.constants import Nx, Ny, hx, hy, dt, volume, h
-from paraphin.utils import mid_Ko_Kw, apply_bc, get_bound, calc_well_mult
+from paraphin.constants import Nx, Ny, hx, hy, volume, h
+from paraphin.utils import apply_bc, get_bound, calc_well_mult, mid, solve_band_system
+from paraphin.utils.math_utils.FVM_utils import _K_o, _K_w
+
+# Смещения соседей и геометрия граней. Вынесены в константы модуля: раньше на каждой ячейке
+# создавался вложенный список `[[i+1, j, hx, hy*h], ...]`, и на сетке 25x25 его аллокация съедала
+# 92% времени сборки матрицы (356 мкс из 388).
+_DI   = np.array([1, -1, 0, 0])
+_DJ   = np.array([0, 0, 1, -1])
+_HIJ  = np.array([hx, hx, hy, hy])
+_AREA = np.array([hy * h, hy * h, hx * h, hx * h])
 
 
-@njit
-def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, wells, rows_indices, cols_ptr, sort_mask, data, rhs, boundary_condition):
-    """Сборка матрицы и решение СЛАУ уравнения давления (МКО)
+@njit(cache=True)
+def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w, wells,
+                  diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q,
+                  boundary_condition, band_age, dt):
+    """Сборка матрицы и решение СЛАУ уравнения давления (МКО).
+
+    Матрица собирается не в CSC, а сразу в три диагонали положительно определенной формы
+    `M = -A` (см. `utils/math_utils/band_solver.py`): пятиточечный шаблон при нумерации
+    `idx = i + j*Nx` дает ленту с полушириной Nx, для которой разложение Холецкого на порядок
+    дешевле SuperLU. Инвариант «порядок записи в препроцессинге и в сборке должен совпадать»
+    при этом исчезает: каждая ячейка пишет в свои `diag[idx]`, `ex[idx]`, `ey[idx]`.
 
     Parameters
     ----------
-    Wo: numpy.ndarray(Nx, Ny)
-        Массовая доля масляного компонента в нефти, [-]
-    Wo_0: numpy.ndarray(Nx, Ny)
-        Массовая доля масляного компонента в нефти на прошлом временном слое, [-]
-    m: numpy.ndarray(Nx, Ny)
-        Пористость, [-]
-    m_0: numpy.ndarray(Nx, Ny)
-        Пористость на прошлом временном слое, [-]
+    Wo, Wo_0: numpy.ndarray(Nx, Ny)
+        Массовая доля масляного компонента в нефти на текущем и прошлом временном слое, [-]
+    m, m_0: numpy.ndarray(Nx, Ny)
+        Пористость на текущем и прошлом временном слое, [-]
     k: numpy.ndarray(Nx, Ny)
         Проницаемость, [м^2]
-    S: numpy.ndarray(Nx, Ny)
-        Водонасыщенность, [-]
-    S_0: numpy.ndarray(Nx, Ny)
-        Водонасыщенность на прошлом временном слое, [-]
-    mu_o: numpy.ndarray(Nx, Ny)
-        Вязкость нефти, [Па*с]
-    mu_w: numpy.ndarray(Nx, Ny)
-        Вязкость воды, [Па*с]
+    S, S_0: numpy.ndarray(Nx, Ny)
+        Водонасыщенность на текущем и прошлом временном слое, [-]
+    mu_o, mu_w: numpy.ndarray(Nx, Ny)
+        Вязкости нефти и воды, [Па*с]
+    lam_o, lam_w: numpy.ndarray(Nx, Ny)
+        Подвижности фаз k*pf/mu, посчитанные `calc_mobility` до вызова, [м^2/(Па*с)]
     wells: numpy.ndarray(n_wells)
         Массив скважин
-    rows_indices: ti.ndarray(NN)
-        Массив строк разреженной матрицы
-    cols_ptr: ti.ndarray(NN)
-        Массив столбцов разреженной матрицы
-    sort_mask: ti.ndarray(NN)
-        Массив перестановки элементов матрицы из стандартной расположения в csc формат
-    boundary_condition: ti.field(4, 3, 2)
+    diag, ex, ey: numpy.ndarray(Nx*Ny)
+        Диагонали матрицы: центр, связь с idx+1 (сосед по x), связь с idx+Nx (сосед по y)
+    rhs: numpy.ndarray(Nx*Ny)
+        Правая часть в форме M x = rhs, то есть с обратным знаком к исходной
+    band_w: numpy.ndarray(Nx*Ny, Nx+1)
+        Буфер фактора Холецкого, живет между шагами
+    p_vec: numpy.ndarray(Nx*Ny)
+        Решение; на входе - давление с прошлого шага, оно же начальное приближение для PCG
+    pcg_r, pcg_z, pcg_p, pcg_q: numpy.ndarray(Nx*Ny)
+        Рабочие векторы PCG
+    boundary_condition: numpy.ndarray(4, 3, 2)
         Граничные условия: Граница -> Поле -> Тип, Значение
+    band_age: int
+        Возраст фактора Холецкого в шагах
+    dt: float
+        Текущий шаг по времени, [с]
     """
-    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, boundary_condition)
-    _adding_wells(wells, S, k, mu_o, mu_w, data, rhs)
+    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w,
+                         diag, ex, ey, rhs, boundary_condition, dt)
+    _adding_wells(wells, S, k, mu_o, mu_w, diag, rhs)
 
-    # TODO попробовать вызывать сразу компилированный модуль без обертки
-    solution, _ = superlu_solve_csc(data[sort_mask], rows_indices, cols_ptr, rhs)
+    band_age = solve_band_system(diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q, band_age)
 
-    return solution.reshape((Ny, Nx))
+    # Неизвестная нумеруется как idx = i + j*Nx (быстрый индекс - i), поэтому строки развернутого
+    # решения отвечают j, а столбцы - i. Без транспонирования поле давления оказывается зеркальным
+    # относительно главной диагонали по отношению ко всем остальным полям, которые индексируются [i, j].
+    return np.ascontiguousarray(p_vec.reshape((Ny, Nx)).T), band_age
 
 
-@njit #(nogil=True, parallel=True)
-def _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, data, rhs, boundary_conditions):
-    """Заполнение массивов матрицы и правой части уравнения давления."""
-    num = 0
-    # TODO перейти к одномерному массиву, который создается в препроцессинге и вернуть параллельность
-    for i in range(Nx):
+@njit(parallel=True, cache=True)
+def _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w,
+                         diag, ex, ey, rhs, boundary_conditions, dt):
+    """Заполнение диагоналей матрицы и правой части уравнения давления.
+
+    Собирается форма `M = -A`: диагональ положительна, внедиагональные элементы отрицательны,
+    правая часть - с обратным знаком. Ячейка владеет гранями «вправо» и «вверх», поэтому записи
+    независимы и цикл распараллеливается.
+    """
+    for i in prange(Nx):
         for j in range(Ny):
             idx = i + j * Nx
-            p_sum = 0.0
+            lam_ij = lam_o[i, j] + lam_w[i, j]
 
-            # rhs filling
-            rhs[idx] = ((m[i, j] - m_0[i, j]) + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+            # Источник объема из-за изменения пористости и состава нефти
+            acc = -((m[i, j] - m_0[i, j])
+                    + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+            dg = 0.0
 
-            # matrix filling
-            arr = [[i + 1, j, hx, hy*h], [i - 1, j, hx, hy*h], [i, j + 1, hy, hx*h], [i, j - 1, hy, hx*h]]
             for qq in range(4):
-                i1, j1, hij, areaij = arr[qq]
-                i1, j1 = int(i1), int(j1)
+                i1 = i + _DI[qq]
+                j1 = j + _DJ[qq]
+                hij = _HIJ[qq]
+                areaij = _AREA[qq]
+
                 if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                    val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j], k[i1, j1], S[i1, j1], mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
-                    data[num] = val
-                    p_sum -= val
-                    num += 1
+                    val = mid(lam_ij, lam_o[i1, j1] + lam_w[i1, j1]) * areaij / hij
+                    dg += val
+                    if qq == 0:
+                        ex[idx] = -val
+                    elif qq == 2:
+                        ey[idx] = -val
                 else:
                     bound = get_bound(i1, j1)
-                    i1, j1, hij = i, j, hij * 0.5
+                    hij *= 0.5
                     S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
-                    val = mid_Ko_Kw(k[i, j], S[i, j], mu_o[i, j], mu_w[i, j],
-                                    k[i1, j1], S_ij, mu_o[i1, j1], mu_w[i1, j1]) * areaij / hij
-                    if boundary_conditions[bound, 0, 0] == 1: # Дирихле
-                        rhs[idx] -= boundary_conditions[bound, 0, 1] * val
-                        p_sum -= val
-                    else:  # Нейман
-                        rhs[idx] -= boundary_conditions[bound, 0, 1] * val
+                    lam_gh = _K_o(k[i, j], S_ij, mu_o[i, j]) + _K_w(k[i, j], S_ij, mu_w[i, j])
+                    val = mid(lam_ij, lam_gh) * areaij / hij
+                    acc += boundary_conditions[bound, 0, 1] * val
+                    if boundary_conditions[bound, 0, 0] == 1:  # Дирихле
+                        dg += val
 
-            data[num] = p_sum
-            num += 1
+            # Правая грань последнего столбца и верхняя грань последней строки связей не дают
+            if i == Nx - 1:
+                ex[idx] = 0.0
+            if j == Ny - 1:
+                ey[idx] = 0.0
+
+            diag[idx] = dg
+            rhs[idx] = acc
 
 
-@njit
-def _adding_wells(wells, S, k, mu_o, mu_w, data, rhs):
+@njit(cache=True)
+def _adding_wells(wells, S, k, mu_o, mu_w, diag, rhs):
     """Учет скважин в уравнении давления."""
     for i in range(len(wells)):
         well = wells[i]
         # TODO перейти на использование дебитов
         temp_data = calc_well_mult(well, S, k, mu_o, mu_w)  # well.q[2] / well.dp
-        data[well.idx_mat] -= temp_data
-        rhs[well.idx_rhs] -= temp_data * well.p
+        diag[well.idx_rhs] += temp_data
+        rhs[well.idx_rhs] += temp_data * well.p

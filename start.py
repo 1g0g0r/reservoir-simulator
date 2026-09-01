@@ -1,5 +1,4 @@
 """Модуль запуска всего расчета."""
-# Идея использовать taichi пришла благодаря репозиторию: https://github.com/hejob/taichi-fvm2d-fluid-ns
 from paraphin.constants import Pw, Po, rw, Twater, Ny, Nx, S_max, day_to_sec
 from paraphin.solver import Solver, Bound, TypeBC, DataField
 

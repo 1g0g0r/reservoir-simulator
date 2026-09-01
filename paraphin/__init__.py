@@ -1,7 +1,41 @@
 """Модуль решения задачи двухфазной неизотермической фильтрации с учетом кольматаци пласта парафином."""
+import hashlib
+import warnings
+from pathlib import Path
+
 import numpy as np
+from numba.core.errors import NumbaWarning
+
+# Функции, получающие скважины (numba jitclass), на диск не кешируются - numba предупреждает об
+# этом на каждом запуске. Сделать с этим нечего, кроме отказа от jitclass, поэтому глушим
+# конкретно это сообщение: остальные предупреждения numba остаются видимыми.
+warnings.filterwarnings('ignore', message='.*Cannot cache compiled function', category=NumbaWarning)
 
 from paraphin.constants import data_type, Nx, Ny, Nr
+
+
+def _drop_stale_numba_cache() -> None:
+    """Сброс дискового кеша numba при правке констант.
+
+    Горячие функции помечены njit(cache=True) - без этого компиляция всего графа занимает 25 секунд
+    при каждом запуске, что больше самого расчета. Но numba инвалидирует кеш по mtime файла с самой
+    функцией, а значения из constants.py вшиваются в машинный код как константы: поменяв Nx или dt,
+    без этой проверки мы считали бы по старой сетке. Поэтому кеш сбрасывается по хешу констант.
+    """
+    pkg = Path(__file__).parent
+    digest = hashlib.md5(b''.join((pkg / name).read_bytes()
+                                  for name in ('constants.py', '__init__.py'))).hexdigest()
+    stamp = pkg / '__pycache__' / 'constants_hash.txt'
+    if stamp.is_file() and stamp.read_text(encoding='ascii') == digest:
+        return None
+
+    for cached in pkg.rglob('__pycache__/*.nb[ic]'):
+        cached.unlink(missing_ok=True)
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(digest, encoding='ascii')
+
+
+_drop_stale_numba_cache()
 
 N = Nx * Ny  # размер матрицы
 NN = 5 * Nx * Ny - 2 * (Nx + Ny)  # количество ненулевых элементов в матрице давления

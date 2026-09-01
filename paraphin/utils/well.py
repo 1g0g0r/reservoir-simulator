@@ -4,7 +4,7 @@ from numba import njit, int32, float32, float64
 from numba.experimental import jitclass
 from numba.types import Array
 
-from paraphin.constants import data_type, dt, h, _re
+from paraphin.constants import data_type, h, _re
 from .math_utils import pf_w, pf_o, Buckley_Leverett
 
 if data_type == np.float32:
@@ -16,7 +16,6 @@ well_spec = [
     ('i', int32),
     ('j', int32),
     ('idx_rhs', int32),
-    ('idx_mat', int32),
     ('rw', data_type_nb),
     ('p', data_type_nb),
     ('T', data_type_nb),
@@ -36,7 +35,6 @@ class WellStruct:
         self.i = i
         self.j = j
         self.idx_rhs = 0
-        self.idx_mat = 0
         self.rw = 0.0
         self.p = p
         self.T = T
@@ -49,8 +47,8 @@ class WellStruct:
         self.dp = 0.0
 
 
-@njit
-def upd_q_and_eta(well, p, S, k, mu_o, mu_w) -> WellStruct:
+@njit(cache=True)
+def upd_q_and_eta(well, p, S, k, mu_o, mu_w, dt) -> WellStruct:
     """Вычисление дебета скважины."""
     well.dp = p[well.i, well.j] - well.p
     mult = well.dp * well.productivity_mult * k[well.i, well.j]
@@ -74,7 +72,7 @@ def upd_q_and_eta(well, p, S, k, mu_o, mu_w) -> WellStruct:
     return well
 
 
-@njit
+@njit(cache=True)
 def calc_well_mult(well, S, k, mu_o, mu_w) -> float:
     """Вычисление множителя дебета скважины."""
     ret = 0.0

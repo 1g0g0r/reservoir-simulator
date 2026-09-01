@@ -3,15 +3,15 @@ import numpy as np
 from numba import njit
 
 from paraphin import r1, r2, r3, r4, r5, r6
-from paraphin.constants import data_type, Nr, dt, D, gamma, init_m, init_k
+from paraphin.constants import data_type, Nr, D, gamma, init_m, init_k
 
 min_Wps_bound = 1e-6
 D_2_gamma = D * 0.5 / gamma
 
 
-@njit
-def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, 
-                   new_qp, new_fi, new_k, new_m) -> None:
+@njit(cache=True)
+def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma,
+                   new_qp, new_fi, new_k, new_m, dt) -> None:
     """Вычисление концентрации взвешенных частиц парафина по явной схеме.
 
     Parameters
@@ -51,10 +51,10 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdm
         new_k[i, j] = init_k * r4fi / integr_r4_fi0
 
         # Обновление функции пор по размерам
-        _update_fi(new_fi, fi, Ur, Ub, i, j, a_tdma, b_tdma)
+        _update_fi(new_fi, fi, Ur, Ub, i, j, a_tdma, b_tdma, dt)
 
 
-@njit
+@njit(cache=True)
 def _calculate_integrals(fi, Ur, Ub, i: int, j: int):
     """Вычисление интегралов функции пор по размерам.
 
@@ -102,8 +102,8 @@ def _calculate_integrals(fi, Ur, Ub, i: int, j: int):
     return qp1, qp2, r2fi, r4fi
 
 
-@njit
-def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma):
+@njit(cache=True)
+def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     """Обновление функции пор по размерам по неявной схеме с использованием метода прогонки.
 
     Parameters
@@ -160,8 +160,8 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma):
         new_fi[i, j, ij] = max(new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij], 0.0)
 
 
-@njit
-def _update_fi_deprecated(fi, Ur, Ub, i: int, j: int, ij: int):
+@njit(cache=True)
+def _update_fi_deprecated(fi, Ur, Ub, i: int, j: int, ij: int, dt):
     """Обновление функции пор по размерам по явной схеме.
 
     Parameters

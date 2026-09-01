@@ -2,14 +2,14 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import dt, volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff, Nx, Ny
+from paraphin.constants import volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff, Nx, Ny
 from paraphin.utils.math_utils import erfc
 from paraphin.utils.math_utils.FVM_utils import _K_w, _K_o
 
 
-@njit
+@njit(cache=True)
 def temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells_T_eq, t, k,
-                         mu_o, mu_w, grad_p, new_T, new_m, new_S) -> None:
+                         mu_o, mu_w, grad_p, new_T, new_m, new_S, dt) -> None:
     """Вычисление температуры по явной схеме.
 
     Parameters
@@ -54,6 +54,8 @@ def temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells
 		Вязкость воды, [Па*с]
     grad_p: numpy.ndarray(Nx, Ny)
         Поле перепада давления, [Па/м]
+    dt: float
+        Текущий шаг по времени, [с]
     """
     psi = _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f)
     psi_next = _psi(i, j, new_m, new_S, Wps, C_w, C_o, C_p, C_f)
@@ -63,8 +65,8 @@ def temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells
     new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + qp[i, j] * ro_p * C_p[i, j] * volume)
 
 
-@njit
-def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
+@njit(cache=True)
+def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T, dt) -> None:
     """Учет скважины в уравнении энергии.
 
     Parameters
@@ -89,6 +91,8 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
         Концентрация взвешенных частиц парафина, [-]
     new_T: numpy.ndarray(Nx, Ny)
         Температура на новом временном слое, [С]
+    dt: float
+        Текущий шаг по времени, [с]
     """
     i, j = well.i, well.j
 
@@ -103,14 +107,14 @@ def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T) -> None:
     new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[i, j] * ro_w * well.q[1]) * multiplier * Twell
 
 
-@njit
+@njit(cache=True)
 def _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f):
     # TODO уточнить энергию осевшего на порах парафина
     return (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
                                      ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j])
 
 
-@njit
+@njit(cache=True)
 def _top_bottom_heat_losses(i, j, t, k, S, T, mu_o, mu_w, C_o, C_w, C_f, C_ff, grad_p):
     """Вычисление потерь тепла через кровлю и подошву пласта по методу Ловерье.
 

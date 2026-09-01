@@ -3,7 +3,7 @@ from numba import njit
 import numpy as np
 
 from paraphin import r1, r2
-from paraphin.constants import data_type, Nr, dt, ro_p, D, g, gamma, betta, Diff, Lk, Cf, S_max, Delta
+from paraphin.constants import data_type, Nr, ro_p, D, g, gamma, betta, Diff, Lk, Cf, S_max, Delta
 
 """
 Lk: float
@@ -31,8 +31,8 @@ D_2_gamma = D * 0.5 / gamma
 So_max = 1.0 - S_max
 
 
-@njit
-def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new) -> None:
+@njit(cache=True)
+def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
     """Вычисление скоростей и толщины осадочного слоя в ячейке.
 
     Parameters
@@ -68,10 +68,10 @@ def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_n
             uc = u_c(r=r1[ij], mu=mu_o[i, j], ro=ro_p)
             Ub_new[i, j, ij] = u_b(So=So, um=um, wps=Wps[i, j], fi=fi[i, j, ij], r=r1[ij])
             Ur_new[i, j, ij] = u_r(So=So, wps=Wps[i, j], um=um, uc=uc, r=r1[ij], h=h_sloy[i, j, ij])
-            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij])
+            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
 
 
-@njit
+@njit(cache=True)
 def u_r(So: data_type, wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type) -> data_type:
     """Скорость изменения радиуса капилляра.
 
@@ -107,7 +107,7 @@ def u_r(So: data_type, wps: data_type, um: data_type, uc: data_type, r: data_typ
     return ur
 
 
-@njit
+@njit(cache=True)
 def u_b(So: data_type, um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type:
     """Скорость блокирования капилляров.
 
@@ -136,7 +136,7 @@ def u_b(So: data_type, um: data_type, wps: data_type, fi: data_type, r: data_typ
     return ub
 
 
-@njit
+@njit(cache=True)
 def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
     """Критическая скорость.
 
@@ -163,8 +163,8 @@ def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
     return uc
 
 
-@njit
-def sed_h(h0: data_type, ur: data_type, r: data_type) -> data_type:
+@njit(cache=True)
+def sed_h(h0: data_type, ur: data_type, r: data_type, dt: data_type) -> data_type:
     """
     Вычисление толщины осадочного слоя.
 

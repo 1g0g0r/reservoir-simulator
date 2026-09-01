@@ -29,7 +29,7 @@ def add_bc(boundary_conditions, boundary: int, field: int, type_bc: int, value: 
     boundary_conditions[boundary, field, 1] = value
 
 
-@njit
+@njit(cache=True)
 def apply_bc(boundary_conditions: np.ndarray, bound: int, data_field_idx: int, data_field: np.ndarray,
              i: int, j: int, h: data_type) -> data_type:
     """Учет граничных условий на границе области."""
@@ -45,7 +45,7 @@ def apply_bc(boundary_conditions: np.ndarray, bound: int, data_field_idx: int, d
     return ret
 
 
-@njit
+@njit(cache=True)
 def get_bound(i: int, j: int) -> int:
     """Определение границы области по индексу ячейки."""
     bound = 0
