@@ -11,7 +11,7 @@ import numpy as np
 from paraphin import N
 from paraphin.constants import Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_m, init_p, init_T, data_type
 from paraphin.equations import calc_pressure
-from paraphin.utils import WellStruct, preprocess_matrix_and_wells, calc_mu_o, calc_mu_w, calc_mobility
+from paraphin.utils import WellStruct, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility
 
 INJ = (3, 7)
 PROD = (Nx - 5, Ny - 10)
@@ -22,7 +22,7 @@ def _solve_pressure():
     injector = WellStruct(i=INJ[0], j=INJ[1], p=Pw, T=Twater, rw=rw, is_injector=1, mult=0.25)
     producer = WellStruct(i=PROD[0], j=PROD[1], p=Po, T=0.0, rw=rw, is_injector=0, mult=0.25)
     buffer = [{'well': injector, 'name': 'inj'}, {'well': producer, 'name': 'prod'}]
-    wells = preprocess_matrix_and_wells([WellStruct, WellStruct], buffer)
+    wells = preprocess_wells(buffer)
 
     def field(value):
         return np.full((Nx, Ny), value, data_type)
@@ -36,11 +36,12 @@ def _solve_pressure():
     calc_mobility(k, S, mu_o, mu_w, lam_o, lam_w)
 
     diag, ex, ey, rhs = vec(), vec(), vec(), vec()
-    p, _ = calc_pressure(field(1.0), field(1.0), field(init_m), field(init_m), k, S, S, mu_o, mu_w,
-                         lam_o, lam_w, wells, diag, ex, ey, rhs,
-                         np.zeros((N, Nx + 1), data_type), np.full(N, init_p, data_type),
-                         vec(), vec(), vec(), vec(),
-                         np.zeros((4, 3, 2), data_type), 0, 4320.0)
+    p = np.zeros((Nx, Ny), data_type)
+    calc_pressure(field(1.0), field(1.0), field(init_m), field(init_m), k, S, S, mu_o, mu_w,
+                  lam_o, lam_w, wells, diag, ex, ey, rhs,
+                  np.zeros((N, Nx + 1), data_type), np.full(N, init_p, data_type),
+                  vec(), vec(), vec(), vec(),
+                  np.zeros((4, 3, 2), data_type), 0, p, 4320.0)
 
     return p, diag, ex, ey, rhs
 

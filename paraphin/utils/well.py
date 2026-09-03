@@ -75,27 +75,24 @@ def upd_q_and_eta(well, p, S, k, mu_o, mu_w, dt) -> WellStruct:
 @njit(cache=True)
 def calc_well_mult(well, S, k, mu_o, mu_w) -> float:
     """Вычисление множителя дебета скважины."""
-    ret = 0.0
     mult = well.productivity_mult * k[well.i, well.j]
 
     if well.is_injector == 1:
-        ret = mult / mu_w[well.i, well.j]
-    else:
-        ret = mult * (pf_o(S[well.i, well.j]) / mu_o[well.i, well.j] +
-                      pf_w(S[well.i, well.j]) / mu_w[well.i, well.j])
+        return mult / mu_w[well.i, well.j]
 
-    return ret
+    return mult * (pf_o(S[well.i, well.j]) / mu_o[well.i, well.j] +
+                   pf_w(S[well.i, well.j]) / mu_w[well.i, well.j])
 
 
-def preprocess_matrix_and_wells(wells, wells_buffer):
-    """Раскладка скважин из буфера в массив с вычислением индекса неизвестной.
+def preprocess_wells(wells_buffer):
+    """Раскладка скважин из буфера в список с вычислением индекса неизвестной.
 
-    Профиль разреженности матрицы больше не нужен: уравнение давления собирается сразу в три
+    Профиль разреженности матрицы не нужен: уравнение давления собирается сразу в
     диагонали ленты (`equations/Pressure.py`), поэтому скважина правит `diag[idx]` и `rhs[idx]`
     по одному и тому же индексу `idx = i + j*Nx`.
     """
-    for i in range(len(wells)):
-        wells[i] = wells_buffer[i]['well']
-        wells[i].idx_rhs = wells[i].i + wells[i].j * Nx
+    wells = [item['well'] for item in wells_buffer]
+    for well in wells:
+        well.idx_rhs = well.i + well.j * Nx
 
     return wells

@@ -7,7 +7,7 @@ from paraphin.constants import Nx, Ny, data_type
 
 
 class TypeBC(Enum):
-    Neyman    = 0
+    Neumann    = 0
     Dirichlet = 1
 
 
@@ -47,15 +47,19 @@ def apply_bc(boundary_conditions: np.ndarray, bound: int, data_field_idx: int, d
 
 @njit(cache=True)
 def get_bound(i: int, j: int) -> int:
-    """Определение границы области по индексу ячейки."""
-    bound = 0
-    if j < 0:         # левая граница
-        bound = 0
-    elif j > Ny - 1:  # правая граница
-        bound = 1
-    elif i < 0:       # нижняя граница
-        bound = 2
-    elif i > Nx - 1:  # верхняя граница
-        bound = 3
+    """Определение границы области по вылету индекса за сетку.
+
+    Соответствие индексов и enum `Bound`: j за сеткой - это Left/Right, i за сеткой - Top/Bottom.
+    Enum разворачивается в константы на этапе компиляции, поэтому njit это не мешает.
+    """
+    bound = Bound.Left.value
+    if j < 0:
+        bound = Bound.Left.value
+    elif j > Ny - 1:
+        bound = Bound.Right.value
+    elif i < 0:
+        bound = Bound.Top.value
+    elif i > Nx - 1:
+        bound = Bound.Bottom.value
 
     return bound

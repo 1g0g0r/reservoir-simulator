@@ -4,7 +4,7 @@ import numpy as np
 from paraphin.constants import Nx, Ny, X_max, X_min, Y_min, Y_max
 from .gif_animation import create_gif
 from .graphs import create_graphs_and_maps
-from .read_data_files import convert_pkl_files, read_solution_data
+from ..read_data_files import convert_pkl_files, read_solution_data
 from .save_in_eps_format import plotly_to_eps
 from .visualisation import show_plot, visualize_solution
 

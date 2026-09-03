@@ -1,8 +1,17 @@
 """Вспомогательные процедуры для реализации решения методом конечных объемов."""
+import numpy as np
 from numba import njit, prange
 
-from paraphin.constants import data_type, ro_o, ro_p, K_o, K_f, K_w, K_p, Nx, Ny
+from paraphin.constants import data_type, ro_o, ro_p, K_o, K_f, K_w, K_p, Nx, Ny, hx, hy, h
 from .phase_f import pf_o, pf_w
+
+# Обход соседей ячейки: вправо, влево, вверх, вниз. Смещение индексов, расстояние между центрами
+# и площадь грани. Одни и те же таблицы нужны и сборке матрицы давления, и расчету перетоков,
+# поэтому лежат здесь, а не копией в каждом из двух модулей.
+DI = np.array([1, -1, 0, 0])
+DJ = np.array([0, 0, 1, -1])
+HIJ = np.array([hx, hx, hy, hy])
+AREA = np.array([hy * h, hy * h, hx * h, hx * h])
 
 
 @njit(parallel=True, cache=True)
@@ -15,8 +24,8 @@ def calc_mobility(k, S, mu_o, mu_w, lam_o, lam_w) -> None:
     """
     for i in prange(Nx):
         for j in range(Ny):
-            lam_o[i, j] = _K_o(k[i, j], S[i, j], mu_o[i, j])
-            lam_w[i, j] = _K_w(k[i, j], S[i, j], mu_w[i, j])
+            lam_o[i, j] = mobility_o(k[i, j], S[i, j], mu_o[i, j])
+            lam_w[i, j] = mobility_w(k[i, j], S[i, j], mu_w[i, j])
 
 
 @njit(cache=True)
@@ -33,93 +42,41 @@ def mid(x: data_type, y: data_type) -> data_type:
 
 
 @njit(cache=True)
-def mid_Ko_Kw(k_i: data_type, s_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
-              k_j: data_type, s_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
-    """mid(Ko + Kw)_ij"""
-    x = _K_o(k_i, s_i, mu_o_i) + _K_w(k_i, s_i, mu_w_i)
-    y = _K_o(k_j, s_j, mu_o_j) + _K_w(k_j, s_j, mu_w_j)
-    s = x + y
-
-    return 2.0 * x * y / s if s > 0.0 else 0.0
-
-
-@njit(cache=True)
-def up_kw(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
-          k_j: data_type, s_j: data_type, p_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
-    """Значение берется вверх по потоку: up(kw / (ko + kw)"""
-    if p_i >= p_j:
-        kw, ko = _K_w(k_i, s_i, mu_w_i), _K_o(k_i, s_i, mu_o_i)
-    else:
-        kw, ko = _K_w(k_j, s_j, mu_w_j), _K_o(k_j, s_j, mu_o_j)
-
-    s = kw + ko
-
-    return kw / s if s > 0.0 else 0.0
-
-
-@njit(cache=True)
-def up_ko(k_i: data_type, s_i: data_type, p_i: data_type, mu_o_i: data_type, mu_w_i: data_type,
-          k_j: data_type, s_j: data_type, p_j: data_type, mu_o_j: data_type, mu_w_j: data_type) -> data_type:
-    """Значение берется вверх по потоку: up(ko / (ko + kw)"""
-    if p_i >= p_j:
-        kw, ko = _K_w(k_i, s_i, mu_w_i), _K_o(k_i, s_i, mu_o_i)
-    else:
-        kw, ko = _K_w(k_j, s_j, mu_w_j), _K_o(k_j, s_j, mu_o_j)
-
-    s = kw + ko
-
-    return ko / s if s > 0.0 else 0.0
-
-
-@njit(cache=True)
 def up_T(p_i: data_type, T_i: data_type, p_j: data_type, T_j: data_type) -> data_type:
-    """Значение берется вверх по потоку: up(kw / (ko + kw)"""
-    ret = 0.0
-
-    if p_i >= p_j:
-        ret = T_i
-    else:
-        ret = T_j
-
-    return ret
+    """Температура ячейки вверх по потоку."""
+    return T_i if p_i >= p_j else T_j
 
 
 @njit(cache=True)
 def up_wp(p_i: data_type, Wp_i: data_type, Wps_i: data_type,
           p_j: data_type, Wp_j: data_type, Wps_j: data_type) -> data_type:
-    """Вычисление взвешенного и растворенного парафина вверх по потку. """
-    ret = 0.0
-
+    """Массовая концентрация парафина (растворенного и взвешенного) вверх по потоку."""
     if p_i >= p_j:
-        ret = ro_o * Wp_i + ro_p * Wps_i
-    else:
-        ret = ro_o * Wp_j + ro_p * Wps_j
+        return ro_o * Wp_i + ro_p * Wps_i
 
-    return ret
+    return ro_o * Wp_j + ro_p * Wps_j
 
 
 @njit(cache=True)
-def mid_lam(S_i: data_type, m_i: data_type, Wps_i: data_type,
-            S_j: data_type, m_j: data_type, Wps_j: data_type) -> data_type:
-    """Вычисление осредненного коэффициента теплопроводности."""
-    # if p_i >= p_j:
-    #     ret = m_i * (S_i * K_w + (1.0 - S_i) * ((1.0 - Wps_i) * K_o + Wps_i * K_p)) + (1.0 - m_i) * K_f
-    # else:
-    #     ret = m_j * (S_j * K_w + (1.0 - S_j) * ((1.0 - Wps_j) * K_o + Wps_j * K_p)) + (1.0 - m_j) * K_f
+def lam_heat(S: data_type, m: data_type, Wps: data_type) -> data_type:
+    """Эффективная теплопроводность ячейки, [Вт/(м*С)].
 
-    ret_i = m_i * (S_i * K_w + (1.0 - S_i) * ((1.0 - Wps_i) * K_o + Wps_i * K_p)) + (1.0 - m_i) * K_f
-    ret_j =  m_j * (S_j * K_w + (1.0 - S_j) * ((1.0 - Wps_j) * K_o + Wps_j * K_p)) + (1.0 - m_j) * K_f
-
-    return mid(ret_i, ret_j)
+    Отдельно от осреднения по грани: величина у своей ячейки одна на все четыре грани, и раньше
+    `mid_lam` пересчитывала ее четырежды. Осреднение по грани - `mid(lam_heat_i, lam_heat_j)`.
+    """
+    return m * (S * K_w + (1.0 - S) * ((1.0 - Wps) * K_o + Wps * K_p)) + (1.0 - m) * K_f
 
 
 @njit(cache=True)
-def _K_o(k: data_type, s: data_type, mu_o: data_type) -> data_type:
-    """Фазовая проницаемость нефти."""
+def mobility_o(k: data_type, s: data_type, mu_o: data_type) -> data_type:
+    """Подвижность нефти k*pf_o/mu_o в одной ячейке, [м^2/(Па*с)].
+
+    Имя не K_o: так называется теплопроводность нефти в constants.py.
+    """
     return k * pf_o(s) / mu_o
 
 
 @njit(cache=True)
-def _K_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
-    """Фазовая проницаемость воды."""
+def mobility_w(k: data_type, s: data_type, mu_w: data_type) -> data_type:
+    """Подвижность воды k*pf_w/mu_w в одной ячейке, [м^2/(Па*с)]."""
     return k * pf_w(s) / mu_w
