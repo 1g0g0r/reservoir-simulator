@@ -1,29 +1,21 @@
-""" Модуль конвертирует поля данных taichi в словарь массивов numpy."""
-import numpy as np
-import taichi as ti
-from taichi.lang.impl import grouped
+"""Модуль конвертирует поля данных класса в pkl."""
 from pickle import dump, HIGHEST_PROTOCOL
 
 from paraphin import fi_0_np
-from paraphin.constants import Nx, Ny, Nr, results_path, init_k, init_m, day_to_sec, np_data_type
+from paraphin.constants import layers_file, init_k, init_m
 
-p_np = np.zeros((Nx, Ny), dtype=np_data_type)
-S_np = np.zeros((Nx, Ny), dtype=np_data_type)
-T_np = np.zeros((Nx, Ny), dtype=np_data_type)
-Wo_np = np.zeros((Nx, Ny), dtype=np_data_type)
-Wp_np = np.zeros((Nx, Ny), dtype=np_data_type)
-Wps_np = np.zeros((Nx, Ny), dtype=np_data_type)
-Wps_dep_np = np.zeros((Nx, Ny), dtype=np_data_type)
-qp_np = np.zeros((Nx, Ny), dtype=np_data_type)
-new_m_np = np.zeros((Nx, Ny), dtype=np_data_type)
-new_k_np = np.zeros((Nx, Ny), dtype=np_data_type)
-fi_np = np.zeros(Nr, dtype=np_data_type)
+cached_data = {}
+wells_data = {}
+wells_accumulated_data = {}
 
 
 def save_fields(solver, t: float):
-    """Преобразование taichi -> numpy и охранение полей данных в файл формата pkl."""
-    wells_data = {}
-    wells_accumulated_data = {}
+    """Дозапись полей данных очередного временного слоя в общий файл расчета.
+
+    Слои пишутся подряд в один открытый файл, а не в отдельный pkl на каждое сохранение: это убирает
+    открытия файла при каждом сохранении, а также долгую пост-обработку множества файлов.
+    Память при этом не растет: `dump` отдает байты в ОС и возвращается, в памяти живет ровно один слой.
+    """
     for i in range(solver.n_wells):
         well_name, well = solver._wells_names[i], solver.wells[i]
         q_value, Q_value = well.q, well.Q
@@ -36,72 +28,38 @@ def save_fields(solver, t: float):
         })
 
     if solver._paraphin:
-        x_idx = 4  # int(Nx / 2)
-        y_idx = 4  # int(Ny / 2)
-        _loop_with_paraphin_data(solver, x_idx, y_idx, fi_np, p_np, S_np, T_np, Wo_np, Wp_np,
-                                 Wps_np, Wps_dep_np, qp_np, new_m_np, new_k_np)
-        data = {
-            'Time': t,
-            'Pressure': p_np,
-            'Saturation': S_np,
-            'Temperature': T_np,
-            'Wo': Wo_np,
-            'Wp': Wp_np,
-            'Wps': Wps_np,
-            'Wps dep': Wps_dep_np,
-            'qp': qp_np,
-            'm': new_m_np / init_m,
-            'k': new_k_np / init_k,
-            'mu_o': solver.mu_o.to_numpy(),
-            'plots': {'fi': fi_np},
-            'Wells': wells_data,
-            'Wells_accumulated': wells_accumulated_data,
-            'Other params': {'KIN': solver.KIN[None]}
-        }
+        x_idx = 0  # int(Nx / 2)
+        y_idx = 0  # int(Ny / 2)
+
+        cached_data['Time'] = t
+        cached_data['Pressure'] = solver.p
+        cached_data['Saturation'] = solver.S
+        cached_data['Temperature'] = solver.T
+        cached_data['Wo'] = solver.Wo
+        cached_data['Wp'] = solver.Wp
+        cached_data['Wps'] = solver.Wps
+        cached_data['Wps dep'] = solver.Wps_dep
+        cached_data['qp'] = solver.qp
+        cached_data['m'] = solver.new_m / init_m
+        cached_data['k'] = solver.new_k / init_k
+        cached_data['plots'] = {'fi_o': fi_0_np, 'fi': solver.fi}
+        cached_data['Wells'] = wells_data
+        cached_data['Wells_accumulated'] = wells_accumulated_data
+        # cached_data['Other params'] = {'KIN': solver.KIN, f'T [{x_idx},{y_idx}]': solver.T[x_idx, y_idx]}
     else:
-        _loop(solver, p_np, S_np, T_np)
-        data = {
-            'Time': t,
-            'Pressure': p_np,
-            'Saturation': S_np,
-            'Temperature': T_np,
-            'Wells': wells_data,
-            'Wells_accumulated': wells_accumulated_data,
-            'Other params': {'KIN': solver.KIN[None]}
+        cached_data['Time'] = t
+        cached_data['Pressure'] =  solver.p
+        cached_data['Saturation'] =  solver.S
+        cached_data['Temperature'] =  solver.T
+        cached_data['Wells'] = wells_data
+        cached_data['Wells_accumulated'] = wells_accumulated_data
+        cached_data['Other params'] = {'KIN': solver.KIN,
+                                       f'S [{0},{0}]': solver.S[0, 0], f'S [{-1},{-1}]': solver.S[-1, -1],
+                                       f'P [{0},{0}]': solver.p[0, 0], f'p [{-1},{-1}]': solver.p[-1, -1],
         }
 
-    with open(results_path / f'data_{t / day_to_sec}.pkl', 'wb') as file:
-        dump(data, file, protocol=HIGHEST_PROTOCOL)
-        solver.logger.info("Данные записаны в файл.")
+    if solver._layers_file is None:
+        solver._layers_file = open(layers_file, 'wb')
 
-
-@ti.kernel
-def _loop(solver: ti.template(), _p_np: ti.types.ndarray(), _S_np: ti.types.ndarray(), _T_np: ti.types.ndarray()):
-    """Перенос данных из структуры taichi в numpy."""
-    for I in grouped(solver.S):
-        _p_np[I] = solver.p[I]
-        _S_np[I] = solver.S[I]
-        _T_np[I] = solver.T[I]
-
-
-@ti.kernel
-def _loop_with_paraphin_data(solver: ti.template(), x_idx: int, y_idx: int, _fi_np: ti.types.ndarray(),
-                             _p_np: ti.types.ndarray(), _S_np: ti.types.ndarray(), _T_np: ti.types.ndarray(),
-                             _Wo_np: ti.types.ndarray(), _Wp_np: ti.types.ndarray(), _Wps_np: ti.types.ndarray(),
-                             _Wps_dep_np: ti.types.ndarray(), _qp_np: ti.types.ndarray(), _new_m_np: ti.types.ndarray(),
-                             _new_k_np: ti.types.ndarray()):
-    """Перенос данных из структуры taichi в numpy."""
-    for I in grouped(solver.S):
-        _p_np[I] = solver.p[I]
-        _S_np[I] = solver.S[I]
-        _T_np[I] = solver.T[I]
-        _Wo_np[I] = solver.Wo[I]
-        _Wp_np[I] = solver.Wp[I]
-        _Wps_np[I] = solver.Wps[I]
-        _Wps_dep_np[I] = solver.Wps_dep[I]
-        _qp_np[I] = solver.qp[I]
-        _new_m_np[I] = solver.new_m[I]
-        _new_k_np[I] = solver.new_k[I]
-
-    for i in ti.ndrange(Nr):
-        _fi_np[i] = solver.fi[x_idx, y_idx, i]
+    dump(cached_data, solver._layers_file, protocol=HIGHEST_PROTOCOL)
+    solver.logger.info("Данные записаны в файл.")

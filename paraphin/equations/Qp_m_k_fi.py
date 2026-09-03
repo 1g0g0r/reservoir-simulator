@@ -1,45 +1,44 @@
 """Решение уравнения концентрации взвешенных частиц парафина по явной схеме."""
-import taichi as ti
+from numba import njit
 
 from paraphin import r1, r2, r3, r4, r5, r6
-from paraphin.constants import data_type, Nr, dt, D, gamma, init_m, init_k
-
-min_Wps_bound = 1e-6
+from paraphin.constants import Nr, D, gamma, init_m, init_k, min_Wps_bound
 
 D_2_gamma = D * 0.5 / gamma
-_a = ti.field(dtype=data_type, shape=Nr)
-_b = ti.field(dtype=data_type, shape=Nr)
 
 
-@ti.func
-def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_qp, new_fi, new_k, new_m) -> None:
+@njit(cache=True)
+def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma,
+                   new_qp, new_fi, new_k, new_m, dt) -> None:
     """Вычисление концентрации взвешенных частиц парафина по явной схеме.
 
     Parameters
     ----------
     i, j : int
         Индексы текущей ячейки, [-]
-    Wps: taichi.field(Nx, Ny)
+    Wps: numpy.ndarray(Nx, Ny)
         Концентрации взвешенных частиц парафина, [-]
-    m: taichi.field(Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    fi: taichi.field(Nx, Ny, Nr)
+    fi: numpy.ndarray(Nx, Ny, Nr)
         Функция распределения пор по размеру, [-]
-    Ub: taichi.field(Nx, Ny, Nr)
+    Ub: numpy.ndarray(Nx, Ny, Nr)
         Скорость блокирования капилляра, [м/с]
-    Ur: taichi.field(Nx, Ny, Nr)
+    Ur: numpy.ndarray(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра, [м/с]
     integr_r2_fi0: float
         Интеграл r^2 * fi_o(r), [m^3]
     integr_r4_fi0: float
         Интеграл r^4 * fi_o(r), [m^5]
-    new_qp: taichi.field(Nx, Ny)
+    a_tdma, b_tdma: numpy.ndarray(Nr)
+        Массивы прогоночных коэффициентов, [-]
+    new_qp: numpy.ndarray(Nx, Ny)
          Скорость отложения парафиновых отложений в общем объеме пористой породы
-    new_fi: taichi.field(Nx, Ny, Nr)
+    new_fi: numpy.ndarray(Nx, Ny, Nr)
         Обновленная функция распределения пор по размеру, [-]
-    new_m: taichi.field(Nx, Ny)
+    new_m: numpy.ndarray(Nx, Ny)
         Новое значение пористости, [-]
-    new_k: taichi.field(Nx, Ny)
+    new_k: numpy.ndarray(Nx, Ny)
         Новое значение проницаемости, [-]
     """
     if Wps[i, j] > min_Wps_bound:
@@ -50,20 +49,20 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, new_q
         new_k[i, j] = init_k * r4fi / integr_r4_fi0
 
         # Обновление функции пор по размерам
-        _update_fi(new_fi, fi, Ur, Ub, i, j)
+        _update_fi(new_fi, fi, Ur, Ub, i, j, a_tdma, b_tdma, dt)
 
 
-@ti.func
-def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
+@njit(cache=True)
+def _calculate_integrals(fi, Ur, Ub, i: int, j: int):
     """Вычисление интегралов функции пор по размерам.
 
     Parameters
     ----------
-    fi: taichi.field(Nx, Ny, Nr)
+    fi: numpy.ndarray(Nx, Ny, Nr)
         Функции распределения пор по размерам
-    Ur: taichi.field(Nx, Ny, Nr)
+    Ur: numpy.ndarray(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра
-    Ub: taichi.field(Nx, Ny, Nr)
+    Ub: numpy.ndarray(Nx, Ny, Nr)
         Скорость блокирования капилляров, [м/с]
     i, j: int
         Индексы текущей ячейки, [-]
@@ -81,7 +80,7 @@ def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template()
     """
     qp1, qp2, r2fi, r4fi = 0.0, 0.0, 0.0, 0.0
 
-    for ij in ti.ndrange((1, Nr)):
+    for ij in range(1, Nr):
         dr = r1[ij] - r1[ij - 1]
         A_fi = (fi[i, j, ij - 1] * r1[ij] - fi[i, j, ij] * r1[ij - 1]) / dr
         B_fi = (fi[i, j, ij] - fi[i, j, ij - 1]) / dr
@@ -101,22 +100,24 @@ def _calculate_integrals(fi: ti.template(), Ur: ti.template(), Ub: ti.template()
     return qp1, qp2, r2fi, r4fi
 
 
-@ti.func
-def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int):
+@njit(cache=True)
+def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     """Обновление функции пор по размерам по неявной схеме с использованием метода прогонки.
 
     Parameters
     ----------
-    new_fi: taichi.field(Nx, Ny, Nr)
+    new_fi: numpy.ndarray(Nx, Ny, Nr)
         Обновленная функция распределения пор по размерам
-    fi: taichi.field(Nx, Ny, Nr)
+    fi: numpy.ndarray(Nx, Ny, Nr)
         Функции распределения пор по размерам
-    Ur: taichi.field(Nx, Ny, Nr)
+    Ur: numpy.ndarray(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра
-    Ub: taichi.field(Nx, Ny, Nr)
+    Ub: numpy.ndarray(Nx, Ny, Nr)
         Скорость блокирования капилляров, [м/с]
     i, j: int
         Индексы текущей ячейки, [-]
+    a_tdma, b_tdma: numpy.ndarray(Nr)
+        Массивы прогоночных коэффициентов, [-]
     """
     c, d, e, f = 0.0, 0.0, 0.0, 0.0
     # Вычисление прогоночных коэффициентов
@@ -126,11 +127,11 @@ def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: 
     else:
         d = 1.0 / dt - Ur[i, j, 0] / (r1[1] - r1[0])
         e = Ur[i, j, 1] / (r1[1] - r1[0])
-    _a[0] = -e / d
-    _b[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
+    a_tdma[0] = -e / d
+    b_tdma[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
 
     # TODO Надо сделать проверку решения в вольфраме
-    for ij in ti.ndrange((1, Nr)):
+    for ij in range(1, Nr):
         dr = r1[ij] - r1[ij-1]
         f = fi[i, j, ij] / dt - Ub[i, j, ij]
         if Ur[i, j, ij] >= 0:
@@ -143,31 +144,31 @@ def _update_fi(new_fi: ti.template(), fi: ti.template(), Ur: ti.template(), Ub: 
             c = 0.0
             d = 1.0 / dt - Ur[i, j, ij] / dr
             # d = 1.0 / dt - Ur[i, j, ij-1] / dr
-            e = Ur[i, j, ij+1] / dr
+            e = Ur[i, j, ij + 1] / dr if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
             # e = Ur[i, j, ij] / dr
-        denominator = c * _a[ij - 1] + d
-        _a[ij] = -e / denominator
-        _b[ij] = (f - c * _b[ij - 1]) / denominator
-    _a[Nr - 1] = 0.0
+        denominator = c * a_tdma[ij - 1] + d
+        a_tdma[ij] = -e / denominator
+        b_tdma[ij] = (f - c * b_tdma[ij - 1]) / denominator
+    a_tdma[Nr - 1] = 0.0
 
     # Вычисление функции пор размерам
-    new_fi[i, j, Nr - 1] = _b[Nr - 1]
-    for _ij in ti.ndrange(Nr):
+    new_fi[i, j, Nr - 1] = max(b_tdma[Nr - 1], 0.0)
+    for _ij in range(1, Nr):  # с 1: последний элемент уже посчитан, иначе чтение за границей fi
         ij = Nr - 1 - _ij  # тк обратный ход
-        new_fi[i, j, ij] = ti.max(new_fi[i, j, ij + 1] * _a[ij] + _b[ij], 0.0)
+        new_fi[i, j, ij] = max(new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij], 0.0)
 
 
-@ti.func
-def _update_fi_deprecated(fi: ti.template(), Ur: ti.template(), Ub: ti.template(), i: int, j: int, ij: int):
+@njit(cache=True)
+def _update_fi_deprecated(fi, Ur, Ub, i: int, j: int, ij: int, dt):
     """Обновление функции пор по размерам по явной схеме.
 
     Parameters
     ----------
-    fi: taichi.field(Nx, Ny, Nr)
+    fi: numpy.ndarray(Nx, Ny, Nr)
         Функции распределения пор по размерам
-    Ur: taichi.field(Nx, Ny, Nr)
+    Ur: numpy.ndarray(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра
-    Ub: taichi.field(Nx, Ny, Nr)
+    Ub: numpy.ndarray(Nx, Ny, Nr)
         Скорость блокирования капилляров, [м/с]
     i, j, ij: int
         Индексы текущей ячейки, [-]

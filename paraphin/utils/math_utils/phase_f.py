@@ -1,10 +1,11 @@
 """Функции относительных фазовы проницаемостей флюидов."""
-import taichi as ti
+import numpy as np
+from numba import njit
 
 from paraphin.constants import S_min, S_max, n_power, data_type, mu_w, mu_o
 
 
-@ti.func
+@njit(cache=True)
 def pf_o(s: data_type) -> data_type:
     """
     Функция отностельной фазовой проницаемости нефти:
@@ -23,7 +24,7 @@ def pf_o(s: data_type) -> data_type:
     return ret
 
 
-@ti.func
+@njit(cache=True)
 def pf_w(s: data_type) -> data_type:
     """
     Функция отностельной фазовой проницаемости воды:
@@ -42,7 +43,7 @@ def pf_w(s: data_type) -> data_type:
     return ret
 
 
-@ti.func
+@njit(cache=True)
 def Buckley_Leverett(s: data_type, mu_w: data_type, mu_o: data_type) -> data_type:
     """Функция Баклея-Леверетта:
                       pf_w
@@ -55,26 +56,22 @@ def Buckley_Leverett(s: data_type, mu_w: data_type, mu_o: data_type) -> data_typ
 if __name__ == '__main__':
     import plotly.graph_objects as go
     n = 100
-    s_arr = ti.field(dtype=data_type, shape=n)
-    f_o = ti.field(dtype=data_type, shape=n)
-    f_w = ti.field(dtype=data_type, shape=n)
-    buck_lev = ti.field(dtype=data_type, shape=n)
+    s_arr = np.zeros(dtype=data_type, shape=n)
+    f_o = np.zeros(dtype=data_type, shape=n)
+    f_w = np.zeros(dtype=data_type, shape=n)
+    buck_lev = np.zeros(dtype=data_type, shape=n)
 
-    @ti.kernel
-    def calc_data():
-        for i in range(n):
-            s = i / n
-            s_arr[i] = s
-            f_o[i] = pf_o(s)
-            f_w[i] = pf_w(s)
-            buck_lev[i] = Buckley_Leverett(s, mu_w, mu_o)
-
-    calc_data()
+    for i in range(n):
+        s = i / n
+        s_arr[i] = s
+        f_o[i] = pf_o(s)
+        f_w[i] = pf_w(s)
+        buck_lev[i] = Buckley_Leverett(s, mu_w, mu_o)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_o.to_numpy(), mode='lines', name='ОФП нефти',
+    fig.add_trace(go.Scatter(x=s_arr, y=f_o, mode='lines', name='ОФП нефти',
                              line=dict(color='red', width=3)))
-    fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=f_w.to_numpy(), mode='lines', name='ОФП воды',
+    fig.add_trace(go.Scatter(x=s_arr, y=f_w, mode='lines', name='ОФП воды',
                              line=dict(color='blue', width=3)))
     # fig.add_trace(go.Scatter(x=s_arr.to_numpy(), y=buck_lev.to_numpy(),
     #                          mode='lines', name='БЛ', line=dict(color='black', width=3)))

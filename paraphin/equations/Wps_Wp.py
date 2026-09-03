@@ -1,7 +1,8 @@
 """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме."""
-import taichi as ti
+import numpy as  np
+from numba import njit
 
-from paraphin.constants import dt, ro_p, ro_o, volume, Tm, R, alpha, data_type, init_Wp, init_T
+from paraphin.constants import ro_p, ro_o, volume, Tm, R, alpha, data_type, init_Wp, init_T
 
 min_Wp_bound = 1e-6
 
@@ -9,35 +10,35 @@ reverse_Tm = 1.0 / Tm
 alpha_R = alpha / R
 
 
-@ti.func
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, cells_Wp_eq, new_Wp, new_Wps) -> None:
+@njit(cache=True)
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, cells_Wp_eq, new_Wp, new_Wps, dt) -> None:
     """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
 
     Parameters
     ----------
     i, j : int
         Индексы текущей ячейки, [-]
-    qp: taichi.field(Nx, Ny)
+    qp: numpy.ndarray(Nx, Ny)
          Скорость отложения парафиновых отложений в общем объеме пористой породы
-    m: taichi.field(Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    m_0: taichi.field(Nx, Ny)
+    m_0: numpy.ndarray(Nx, Ny)
         Пористость на прошлом временном слое, [-]
-    S: taichi.field(Nx, Ny)
+    S: numpy.ndarray(Nx, Ny)
         Водонасыщенность, [-]
-    S_0: taichi.field(Nx, Ny)
+    S_0: numpy.ndarray(Nx, Ny)
         Водонасыщенность на прошлом временном слое, [-]
-    Wo: taichi.field(Nx, Ny)
+    Wo: numpy.ndarray(Nx, Ny)
         Концентрация нефтяного компонента в нефти, [-]
-    Wp: taichi.field(Nx, Ny)
+    Wp: numpy.ndarray(Nx, Ny)
         Концентрация растворенного парафина, [-]
-    T: taichi.field(Nx, Ny)
+    T: numpy.ndarray(Nx, Ny)
         Температура, [С]
-    cells_Wp_eq: taichi.field(Nx, Ny)
+    cells_Wp_eq: numpy.ndarray(Nx, Ny)
         Перетоки нефти в ячейках, [Па*м]
-    new_Wp: taichi.field(Nx, Ny)
+    new_Wp: numpy.ndarray(Nx, Ny)
         Концентрация растворенного парафина на новом временном слое, [-]
-    new_Wps: taichi.field(Nx, Ny)
+    new_Wps: numpy.ndarray(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     if T[i, j] < init_T * 0.95:
@@ -51,45 +52,45 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
                     + cells_Wp_eq[i, j] / volume + ro_p * qp[i, j])
 
             colmatation = qp[i, j] * dt * ro_p / ((1.0-Wps[i,j]) * ro_o + Wps[i,j] * ro_p)
-            new_Wp[i, j] += ti.max(_new_Wp, 0.0)
-            new_Wps[i, j] = ti.max(init_Wp - new_Wp[i, j] + colmatation , 0.0)
+            new_Wp[i, j] += max(_new_Wp, 0.0)
+            new_Wps[i, j] = max(init_Wp - new_Wp[i, j] + colmatation , 0.0)
 
         else:
             colmatation = qp[i, j] * dt * ro_p / ((1.0-Wps[i,j]) * ro_o + Wps[i,j] * ro_p)
-            new_Wps[i, j] = ti.max(Wps[i, j] + colmatation, 0)
+            new_Wps[i, j] = max(Wps[i, j] + colmatation, 0)
     else:
         new_Wp[i, j] = Wp[i, j]
 
 
-@ti.func
+@njit(cache=True)
 def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
     """Моделирование процесса кристаллизации парафина."""
     new_Wps = Wps
 
     # exact_solution = alpha_R * Tm / (alpha_R + Tm * ti.log(border))
     if Wp > min_Wp_bound and T > 0.9 * Tm:
-        new_Wps = Wp * ti.exp(alpha_R * (1.0 / T - reverse_Tm))
+        new_Wps = Wp * np.exp(alpha_R * (1.0 / T - reverse_Tm))
 
     return new_Wps
 
 
-@ti.func
-def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp) -> None:
+@njit(cache=True)
+def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp, dt) -> None:
     """Вычисление массовой доли взвешенных частиц (Wps) и растворенного парафина (Wp) парафина в нефти по явной схеме.
 
     Parameters
     ----------
     well: Well
         Объект класса скважина
-    m: taichi.field(Nx, Ny)
+    m: numpy.ndarray(Nx, Ny)
         Пористость, [-]
-    S: taichi.field(Nx, Ny)
+    S: numpy.ndarray(Nx, Ny)
         Водонасыщенность, [-]
-    Wp: taichi.field(Nx, Ny)
+    Wp: numpy.ndarray(Nx, Ny)
         Концентрация растворенного парафина, [-]
-    Wps: taichi.field(Nx, Ny)
+    Wps: numpy.ndarray(Nx, Ny)
         Концентрация взвешенного парафина, [-]
-    new_Wp: taichi.field(Nx, Ny)
+    new_Wp: numpy.ndarray(Nx, Ny)
         Концентрация взвешенных частиц парафина на новом временном слое, [-]
     """
     i, j = well.i, well.j

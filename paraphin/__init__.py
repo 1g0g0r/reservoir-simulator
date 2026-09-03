@@ -1,8 +1,41 @@
 """Модуль решения задачи двухфазной неизотермической фильтрации с учетом кольматаци пласта парафином."""
+import hashlib
+import warnings
+from pathlib import Path
+
 import numpy as np
-import taichi as ti
+from numba.core.errors import NumbaWarning
+
+# Функции, получающие скважины (numba jitclass), на диск не кешируются - numba предупреждает об
+# этом на каждом запуске. Сделать с этим нечего, кроме отказа от jitclass, поэтому глушим
+# конкретно это сообщение: остальные предупреждения numba остаются видимыми.
+warnings.filterwarnings('ignore', message='.*Cannot cache compiled function', category=NumbaWarning)
 
 from paraphin.constants import data_type, Nx, Ny, Nr
+
+
+def _drop_stale_numba_cache() -> None:
+    """Сброс дискового кеша numba при правке констант.
+
+    Горячие функции помечены njit(cache=True) - без этого компиляция всего графа занимает 25 секунд
+    при каждом запуске, что больше самого расчета. Но numba инвалидирует кеш по mtime файла с самой
+    функцией, а значения из constants.py вшиваются в машинный код как константы: поменяв Nx или dt,
+    без этой проверки мы считали бы по старой сетке. Поэтому кеш сбрасывается по хешу констант.
+    """
+    pkg = Path(__file__).parent
+    digest = hashlib.md5(b''.join((pkg / name).read_bytes()
+                                  for name in ('constants.py', '__init__.py'))).hexdigest()
+    stamp = pkg / '__pycache__' / 'constants_hash.txt'
+    if stamp.is_file() and stamp.read_text(encoding='ascii') == digest:
+        return None
+
+    for cached in pkg.rglob('__pycache__/*.nb[ic]'):
+        cached.unlink(missing_ok=True)
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(digest, encoding='ascii')
+
+
+_drop_stale_numba_cache()
 
 N = Nx * Ny  # размер матрицы
 NN = 5 * Nx * Ny - 2 * (Nx + Ny)  # количество ненулевых элементов в матрице давления
@@ -11,31 +44,19 @@ r = np.linspace(0, 40 * 1e-6, Nr, endpoint=True)
 # fi_0 = np.array([0.0, 0.013, 0.023, 0.031, 0.035, 0.034, 0.027, 0.021, 0.016, 0.018, 0.025, 0.032, 0.041, 0.052, 0.061, 0.073, 0.082, 0.086, 0.081, 0.07, 0.059, 0.048, 0.035, 0.024, 0.013, 0])
 _sigma = 2.0 * np.pi
 _m = np.max(r) / 2
+
 # TODO перейти на лог-нормальное распределение
 fi_0_np = np.exp(-0.5 * ((r - _m) / 1e-6 / _sigma)**2) / _sigma
 fi_0_np[0] = fi_0_np[-1] = 0.0
-fi_0_np = fi_0_np / np.sum(fi_0_np)
+fi_0 = fi_0_np / np.sum(fi_0_np)
 
 # массивы радиусов пор в необходимых степенях
-r1 = ti.field(dtype=data_type, shape=Nr)
-r2 = ti.field(dtype=data_type, shape=Nr)
-r3 = ti.field(dtype=data_type, shape=Nr)
-r4 = ti.field(dtype=data_type, shape=Nr)
-r5 = ti.field(dtype=data_type, shape=Nr)
-r6 = ti.field(dtype=data_type, shape=Nr)
-fi_0 = ti.field(dtype=data_type, shape=Nr)
-r2_np = r * r
-r3_np = r2_np * r
-r4_np = r3_np * r
-r5_np = r4_np * r
-r6_np = r5_np * r
-r1.from_numpy(r)
-r2.from_numpy(r2_np)
-r3.from_numpy(r3_np)
-r4.from_numpy(r4_np)
-r5.from_numpy(r5_np)
-r6.from_numpy(r6_np)
-fi_0.from_numpy(fi_0_np)
+r1 = r
+r2 = r * r
+r3 = r2 * r
+r4 = r3 * r
+r5 = r4 * r
+r6 = r5 * r
 
 
 if __name__ == '__main__':

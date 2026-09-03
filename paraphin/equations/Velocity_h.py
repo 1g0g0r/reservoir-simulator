@@ -1,8 +1,8 @@
 """Вычисление скоростей и толщины осадочного слоя в ячейке."""
-import taichi as ti
+from numba import njit
 
 from paraphin import r1, r2
-from paraphin.constants import data_type, Nr, dt, ro_p, D, g, gamma, betta, Diff, Lk, Cf, S_max, Delta
+from paraphin.constants import data_type, Nr, ro_p, D, g, gamma, betta, Diff, Lk, Cf, S_max, Delta, min_Wps_bound
 
 """
 Lk: float
@@ -30,47 +30,47 @@ D_2_gamma = D * 0.5 / gamma
 So_max = 1.0 - S_max
 
 
-@ti.func
-def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new) -> None:
+@njit(cache=True)
+def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
     """Вычисление скоростей и толщины осадочного слоя в ячейке.
 
     Parameters
     ----------
     i, j : int
         Индексы текущей ячейки, [-]
-    S: taichi.field(Nx, Ny)
+    S: numpy.ndarray(Nx, Ny)
         Водонасыщенность, [-]
-    Um_r2: taichi.field(Nx, Ny)
+    Um_r2: numpy.ndarray(Nx, Ny)
          Средняя скорость в капилляре без множителя r^2, [1/(с*м)]
-    Wps: taichi.field(Nx, Ny)
+    Wps: numpy.ndarray(Nx, Ny)
         Концентрация взвешенных частиц парафина, [-]
-    mu_o: taichi.field(Nx, Ny)
+    mu_o: numpy.ndarray(Nx, Ny)
         Вязкость нефти, [Па*с]
-    fi: taichi.field(Nx, Ny, Nr)
+    fi: numpy.ndarray(Nx, Ny, Nr)
         Функция распределения пор по размеру, [-]
-    h_sloy: : taichi.field(Nx, Ny, Nr)
+    h_sloy: : numpy.ndarray(Nx, Ny, Nr)
          Толщина осадочного слоя, [m]
-    Ur: taichi.field(Nx, Ny, Nr)
+    Ur: numpy.ndarray(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра, [м/с]
-    h_sloy_new: : taichi.field(Nx, Ny, Nr)
+    h_sloy_new: : numpy.ndarray(Nx, Ny, Nr)
          Толщина осадочного слоя на новом временном слое, [m]
-    Ub_new: taichi.field(Nx, Ny, Nr)
+    Ub_new: numpy.ndarray(Nx, Ny, Nr)
         Скорость блокирования капилляра на новом временном слое, [м/с]
-    Ur_new: taichi.field(Nx, Ny, Nr)
+    Ur_new: numpy.ndarray(Nx, Ny, Nr)
         Скорость изменения радиуса капилляра на новом временном слое, [м/с]
     """
     # Тк при Wps=0 цикл не имеет смысла
-    if Wps[i, j] > 1e-6:
+    if Wps[i, j] > min_Wps_bound:
         So = 1.0 - S[i, j] - So_max
-        for ij in ti.ndrange(Nr):
+        for ij in range(Nr):
             um = Um_r2[i, j] * r2[ij]
             uc = u_c(r=r1[ij], mu=mu_o[i, j], ro=ro_p)
             Ub_new[i, j, ij] = u_b(So=So, um=um, wps=Wps[i, j], fi=fi[i, j, ij], r=r1[ij])
             Ur_new[i, j, ij] = u_r(So=So, wps=Wps[i, j], um=um, uc=uc, r=r1[ij], h=h_sloy[i, j, ij])
-            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij])
+            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
 
 
-@ti.func
+@njit(cache=True)
 def u_r(So: data_type, wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type) -> data_type:
     """Скорость изменения радиуса капилляра.
 
@@ -106,7 +106,7 @@ def u_r(So: data_type, wps: data_type, um: data_type, uc: data_type, r: data_typ
     return ur
 
 
-@ti.func
+@njit(cache=True)
 def u_b(So: data_type, um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type:
     """Скорость блокирования капилляров.
 
@@ -135,7 +135,7 @@ def u_b(So: data_type, um: data_type, wps: data_type, fi: data_type, r: data_typ
     return ub
 
 
-@ti.func
+@njit(cache=True)
 def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
     """Критическая скорость.
 
@@ -154,16 +154,17 @@ def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
         Критическая скорость, [м/с]
     """
     uc = 0.0
-    x0 = 0.5 * D / r
-    if x0 < 1.0:
-        x = 1.0 - x0
-        uc =  cf_D2 * ro / (mu * (1.0 - x * x))
+    if r > 0.0:
+        x0 = 0.5 * D / r
+        if x0 < 1.0:
+            x = 1.0 - x0
+            uc =  cf_D2 * ro / (mu * (1.0 - x * x))
 
     return uc
 
 
-@ti.func
-def sed_h(h0: data_type, ur: data_type, r: data_type) -> data_type:
+@njit(cache=True)
+def sed_h(h0: data_type, ur: data_type, r: data_type, dt: data_type) -> data_type:
     """
     Вычисление толщины осадочного слоя.
 
@@ -182,5 +183,5 @@ def sed_h(h0: data_type, ur: data_type, r: data_type) -> data_type:
         Толщина осадочного слоя, [m].
     """
     hr = h0 - dt * ur
-    hr = ti.max(0.0, ti.min(hr, r - 1e-7))
+    hr = max(0.0, min(hr, r - 1e-7))
     return hr

@@ -1,4 +1,4 @@
-# Для ускорения сборки окружения перед установкой библиотек необходимо установить uv!!!
+# Для ускорения сборки окружения перед установкой библиотек необходимо использовать uv!!!
 joblib
 numpy
 pillow
@@ -6,7 +6,7 @@ kaleido==0.*
 matplotlib
 plotly
 psutil
+numba
+sparse-numba  # SuperLU идет в колесе; UMFPACK - только сборкой: build_umfpack_windows.sh
 scipy
-taichi
 tqdm
-# pypardiso  # либа для параллельного решения СЛАУ
