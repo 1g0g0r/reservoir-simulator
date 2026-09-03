@@ -1,9 +1,8 @@
 """Вычисление скоростей и толщины осадочного слоя в ячейке."""
 from numba import njit
-import numpy as np
 
 from paraphin import r1, r2
-from paraphin.constants import data_type, Nr, ro_p, D, g, gamma, betta, Diff, Lk, Cf, S_max, Delta
+from paraphin.constants import data_type, Nr, ro_p, D, g, gamma, betta, Diff, Lk, Cf, S_max, Delta, min_Wps_bound
 
 """
 Lk: float
@@ -61,7 +60,7 @@ def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_n
         Скорость изменения радиуса капилляра на новом временном слое, [м/с]
     """
     # Тк при Wps=0 цикл не имеет смысла
-    if Wps[i, j] > 1e-6:
+    if Wps[i, j] > min_Wps_bound:
         So = 1.0 - S[i, j] - So_max
         for ij in range(Nr):
             um = Um_r2[i, j] * r2[ij]
@@ -155,10 +154,11 @@ def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
         Критическая скорость, [м/с]
     """
     uc = 0.0
-    x0 = 0.5 * D / r
-    if x0 < 1.0:
-        x = 1.0 - x0
-        uc =  cf_D2 * ro / (mu * (1.0 - x * x))
+    if r > 0.0:
+        x0 = 0.5 * D / r
+        if x0 < 1.0:
+            x = 1.0 - x0
+            uc =  cf_D2 * ro / (mu * (1.0 - x * x))
 
     return uc
 

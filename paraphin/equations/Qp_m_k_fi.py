@@ -1,11 +1,9 @@
 """Решение уравнения концентрации взвешенных частиц парафина по явной схеме."""
-import numpy as np
 from numba import njit
 
 from paraphin import r1, r2, r3, r4, r5, r6
-from paraphin.constants import data_type, Nr, D, gamma, init_m, init_k
+from paraphin.constants import Nr, D, gamma, init_m, init_k, min_Wps_bound
 
-min_Wps_bound = 1e-6
 D_2_gamma = D * 0.5 / gamma
 
 
@@ -146,7 +144,7 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
             c = 0.0
             d = 1.0 / dt - Ur[i, j, ij] / dr
             # d = 1.0 / dt - Ur[i, j, ij-1] / dr
-            e = Ur[i, j, ij+1] / dr
+            e = Ur[i, j, ij + 1] / dr if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
             # e = Ur[i, j, ij] / dr
         denominator = c * a_tdma[ij - 1] + d
         a_tdma[ij] = -e / denominator
@@ -154,8 +152,8 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     a_tdma[Nr - 1] = 0.0
 
     # Вычисление функции пор размерам
-    new_fi[i, j, Nr - 1] = b_tdma[Nr - 1]
-    for _ij in range(Nr):
+    new_fi[i, j, Nr - 1] = max(b_tdma[Nr - 1], 0.0)
+    for _ij in range(1, Nr):  # с 1: последний элемент уже посчитан, иначе чтение за границей fi
         ij = Nr - 1 - _ij  # тк обратный ход
         new_fi[i, j, ij] = max(new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij], 0.0)
 

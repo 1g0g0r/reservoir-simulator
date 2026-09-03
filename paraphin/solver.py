@@ -97,8 +97,9 @@ class Solver:
         self._p_bhp_max = 0.0
         self._p_warned = False
         self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)
-        self.a_tdma = np.zeros(Nr, data_type)
-        self.b_tdma = np.zeros(Nr, data_type)
+        # Прогоночные коэффициенты для fi: своя строка на каждый i, иначе гонка в prange по ячейкам
+        self.a_tdma = np.zeros((Nx, Nr), data_type)
+        self.b_tdma = np.zeros((Nx, Nr), data_type)
         # Подвижности фаз: считаются один раз за шаг и переиспользуются сборкой матрицы и перетоками
         self.lam_o = np.zeros((Nx, Ny), data_type)
         self.lam_w = np.zeros((Nx, Ny), data_type)
@@ -212,10 +213,7 @@ class Solver:
         step_dt = self.dt
         self.clip_stats[:] = 0.0
 
-        # Метод IMPES: явный по насыщенности, неявный по давлению. Стадии вызываются отсюда, а не
-        # из одной общей njit-обертки: та получала скважины (numba jitclass) в аргументах и потому
-        # не кешировалась на диск - ее компиляция занимала 5 из 9 секунд прогрева. Накладных
-        # расходов на вызовы нет, поля меняются на месте и возвращать их не нужно.
+        # Метод IMPES: явный по насыщенности, неявный по давлению.
         # Подвижности фаз - общие для сборки матрицы давления и для перетоков
         calc_mobility(self.k, self.S, self.mu_o, self.mu_w, self.lam_o, self.lam_w)
         # Обновление давления
@@ -252,7 +250,6 @@ class Solver:
 
         # Запись данных в файл
         if dump_now:
-            # TODO создать массив в который кешируются данные (5-7 врем слоев) и записывать в файл только при заполнении кеша !!!!!
             save_fields(self, t)
             self._i_img += 1
 
@@ -288,8 +285,9 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
     """Решение уравнений по явной схеме в цикле по ячейкам.
 
     Ячейки независимы - каждая пишет только в свои [i, j], поэтому внешний цикл идет в prange.
-    Единственное общее место, статистика обрезаний насыщенности, собирается поячеечно в clip_field
-    и сворачивается уже после параллельного цикла.
+    Статистика обрезаний насыщенности собирается поячеечно в clip_field и сворачивается уже после
+    параллельного цикла. Прогоночные буферы a_tdma, b_tdma нарезаются по i: один общий буфер на
+    все ячейки давал гонку - потоки затирали друг другу коэффициенты, и fi считалась по мусору.
     """
     for i in prange(Nx):
         for j in range(Ny):
@@ -302,7 +300,7 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
                 # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и скорости блокирования капилляров
                 calc_velocitys_h(i, j, S, _Um_r2, Wps, mu_o, fi, h_sloy, Ur, new_h, new_Ur, new_Ub, dt)
                 # Обновление функции пор по размерам, объема выделяемого парафина, пористости, проницаемости
-                calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, new_qp, new_fi, new_k, new_m, dt)
+                calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma[i], b_tdma[i], new_qp, new_fi, new_k, new_m, dt)
 
             # ---решение гидродинамики---
             flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam_w, m, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out)

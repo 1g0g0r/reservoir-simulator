@@ -142,7 +142,7 @@ def _visualize_fields(data):
         steps[i] = dict(
             method="update",
             args=[{"z": [input_data[j.name][i] for j in data_fields if j.plotly_name in ['contour', 'heatmap']]}],
-            label=f'{round(time[i], 5)} день'
+            label=f'{round(time[i], 1)} день'
         )
 
     sliders = [dict(
