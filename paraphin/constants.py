@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 from numba import njit
 
+
 data_type = np.float64
 LOGGING = True
 CONTOUR_PLOT = False
@@ -16,7 +17,7 @@ kal_to_J = 4.1868
 
 # Параметры сетки
 Nr = 31          # Число узлов сетки радиусов капилляров
-Nx, Ny = 25, 25  # Число узлов сетки по x и y
+Nx, Ny = 50, 50  # Число узлов сетки по x и y
 X_min, X_max = 0., 200.  # Длина пласта, [м]
 Y_min, Y_max = 0., 200.  # Ширина пласта, [м]
 h = 10.0  # Толщина пласта, [м]
@@ -27,8 +28,10 @@ volume = area * h
 
 # Параметры времени задачи
 Time_end = day_to_sec * 365 * 6.0  # Время моделирования
+
 dt = day_to_sec / 2e1  # Шаг дискретизации по времени
 max_eta = 0.98         # Предельная обводненность
+sol_time_step = dt * 50  # шаг по времени для сохранения результатов и записи в лог
 
 # Параметры скважин
 rw = 0.1              # Радиус скважин, [м]
@@ -44,11 +47,11 @@ n_power = 2
 # Данные инициализации
 init_p   = (Pw + Po) / 2  # [Па]
 init_S   = S_min
-init_Wp  = 0.05
+init_Wp  = 0.0
 init_Wps = 0.0
 init_k   = 0.2 * darcy_to_m2  # [м^2]
-init_m   = 0.2
-init_T   = 70.0  # [C]
+init_m   = 0.3
+init_T   = 70  # [C]
 init_qp  = 0.0
 init_h_sloy = 0.0
 porous_volume = (X_max - X_min) * (Y_max - Y_min) * h * init_m
@@ -105,8 +108,6 @@ dt_min     = dt * 1e-3  # нижняя граница шага, [с]
 p_refactor_period = 5      # через сколько шагов пересобирать фактор Холецкого
 p_pcg_rtol        = 1e-10  # относительная невязка PCG на промежуточных шагах
 p_pcg_maxit       = 20     # не уложился - фактор пересобирается и система решается точно
-
-sol_time_step = dt * 50  # шаг по времени для сохранения результатов и записи в лог
 
 # Пути проекта
 root_folder = Path(__file__).parent.parent

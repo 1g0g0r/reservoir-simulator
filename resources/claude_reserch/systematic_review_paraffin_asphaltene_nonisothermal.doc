@@ -1,0 +1,565 @@
+﻿
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>Converted from Markdown</title>
+        <!--[if gte mso 9]>
+        <xml>
+          <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>90</w:Zoom>
+            <w:DoNotPromptForConvert/>
+            <w:DoNotShowInsertAsIcon/>
+          </w:WordDocument>
+        </xml>
+        <![endif]-->
+        <style>
+          @page {
+            size: A4;
+            margin: 2.54cm;
+          }
+          body { 
+            font-family: 'Times New Roman', serif; 
+            font-size: 12pt;
+            line-height: 1.5; 
+            margin: 0;
+            padding: 0;
+            color: #000;
+          }
+          h1 { font-size: 18pt; font-weight: bold; margin: 12pt 0 6pt 0; }
+          h2 { font-size: 16pt; font-weight: bold; margin: 12pt 0 6pt 0; }
+          h3 { font-size: 14pt; font-weight: bold; margin: 12pt 0 6pt 0; }
+          p { margin: 6pt 0; }
+          code { 
+            font-family: 'Courier New', monospace;
+            background-color: #f5f5f5;
+            padding: 2pt;
+            border: 1pt solid #ddd;
+          }
+          pre { 
+            font-family: 'Courier New', monospace;
+            background-color: #f5f5f5;
+            padding: 6pt;
+            border: 1pt solid #ddd;
+            margin: 6pt 0;
+            white-space: pre-wrap;
+          }
+          blockquote { 
+            border-left: 3pt solid #ccc;
+            margin: 6pt 0;
+            padding-left: 12pt;
+            font-style: italic;
+          }
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 6pt 0;
+          }
+          th, td {
+            border: 1pt solid #000;
+            padding: 3pt 6pt;
+            text-align: left;
+          }
+          th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+          }
+          ul, ol {
+            margin: 6pt 0;
+            padding-left: 24pt;
+          }
+          li {
+            margin: 3pt 0;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Систематический литературный обзор: Математическое моделирование осаждения парафинов, асфальтенов и других тяжёлых компонентов нефти при неизотермической фильтрации в пористой среде</h1>
+<p><em>Подготовлено: 2026-06-27 · Проработано источников: ~60 · Полнотекстовое чтение: ключевые открытые статьи · Уровень достоверности: высокий по международной рецензируемой литературе; средний по части библиографических деталей русскоязычных монографий и по точным числам цитирований (Google Scholar не опрашивался — оценки значимости даны качественно и помечены).</em></p>
+<blockquote>
+<p><strong>Методологическая оговорка.</strong> Поиск выполнен инструментами WebSearch/WebFetch (MCP-инструменты Firecrawl/Exa в данной среде не сконфигурированы). Точные числа цитирований не извлекались автоматически; значимость источников оценена качественно по их роли в литературе (частота ссылок в обзорах, статус «канонической» модели). Имена первых авторов для двух полнотекстово недоступных статей (Sci. Rep. Changchunling; Geosystem Engineering 2014) рекомендуется сверить перед цитированием — они помечены [⚠ сверить].</p>
+</blockquote>
+<hr>
+<h2>Содержание</h2>
+<ol>
+<li>Термодинамика осаждения парафинов (SLE, WAT, multi-solid / solid-solution, EOS, характеризация)</li>
+<li>Кинетика и механизмы осаждения (диффузия, сдвиг, броуновское движение, гравитация; рост и старение)</li>
+<li>Связанные неизотермические модели в пористой среде (неразрывность + Дарси + энергия + фазовый переход)</li>
+<li>Повреждение пласта (снижение φ и k, обратная связь с течением и температурой)</li>
+<li>Моделирование асфальтенов (осаждение/кольматация/вынос; термо-баро-композиционная связь)</li>
+<li>Численные методы и симуляторы</li>
+<li>Экспериментальная валидация и промысловые кейсы</li>
+<li>Современные направления (2018–2025): композиционное моделирование, ML, гибриды</li>
+</ol>
+<ul>
+<li>Сводная оценка ключевых источников</li>
+<li>BibTeX</li>
+<li>Пробелы и противоречия</li>
+<li>Выводы для диссертации</li>
+</ul>
+<hr>
+<h2>1. Термодинамика осаждения парафинов</h2>
+<h3>Физика процесса</h3>
+<p>Парафины — это насыщенные н-алканы (преим. C18–C60+), кристаллизующиеся при охлаждении нефти ниже <strong>температуры начала кристаллизации (Wax Appearance Temperature, WAT / cloud point)</strong>. Термодинамическая задача — описание равновесия «жидкость—твёрдое» (Solid–Liquid Equilibrium, SLE): какие компоненты и в каком количестве переходят в твёрдую фазу при заданных (T, p, состав). Базовое условие равновесия — равенство фугитивностей компонента i в жидкой и твёрдой фазах: f_i^L(T,p,x) = f_i^S(T,p,z). Растворимость падает с понижением T; при разгазировании (потере лёгких н-алканов-растворителей) WAT <strong>повышается</strong>.</p>
+<h3>Две парадигмы описания твёрдой фазы</h3>
+<p><strong>(а) Модели твёрдого раствора (Solid-Solution, SS)</strong> — все компоненты взаимно растворимы в одной твёрдой фазе; коэффициенты активности по теории регулярных или полимерных растворов (Флори—Хаггинса). Схема EOS+G^E: кубическое УРС (PR/SRK) для пар/жидкость + G^E-модель для SLE.</p>
+<ul>
+<li><strong>Won (1986)</strong> — первая инженерная SS-модель (модифицированный регулярный раствор) для выпадения парафина из тяжёлых УВ-смесей (<a href="https://www.researchgate.net/publication/238639852_Thermodynamic_Modeling_of_Wax_Precipitation_in_Crude_Oils1">контекст, RG</a>).</li>
+<li><strong>Hansen et al. (1988)</strong> и <strong>Pedersen et al. (1991)</strong> — модели на базе теории полимерных растворов (Флори); Pedersen ввёл эмпирическую поправку, ограничивающую долю компонента, способного перейти в твёрдую фазу (<a href="https://link.springer.com/article/10.1007/s12182-015-0071-4">контекст, Springer</a>).</li>
+</ul>
+<p><strong>(б) Многотвёрдофазная модель (Multi-Solid, MS)</strong> — каждый выпадающий компонент образует <strong>отдельную чистую несмешивающуюся</strong> твёрдую фазу; число твёрдых фаз определяется критерием стабильности.</p>
+<ul>
+<li><strong>Lira-Galeana, Firoozabadi, Prausnitz (1996)</strong> — каноническая MS-модель; пар/жидкость по PR-EOS, характеризация фракций по Уитсону (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0009250901003384">обзор, ScienceDirect</a>). Считается эталоном точности для тяжёлых фракций.</li>
+</ul>
+<p><strong>(в) Предиктивные локально-композиционные модели</strong></p>
+<ul>
+<li><strong>Coutinho (1998), Predictive UNIQUAC</strong> — предсказывает расщепление твёрдой фазы на несколько сосуществующих <strong>твёрдых растворов</strong>, устраняя переоценку выпадения лёгких алканов, характерную для Wilson/модиф. UNIQUAC (<a href="https://pubs.acs.org/doi/full/10.1021/ie980340h">ACS</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381206002743">новый pred. UNIQUAC, ScienceDirect</a>).</li>
+</ul>
+<p><strong>(г) Уравнения состояния семейства SAFT</strong></p>
+<ul>
+<li><strong>PC-SAFT</strong> — современный подход для совместного описания VLE/SLE, WAT и массы парафина; эффективен при характеризации тяжёлого «хвоста» (<a href="https://link.springer.com/article/10.1007/s12182-015-0071-4">PC-SAFT для парафина, Springer</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S0016236121020810">MS + PC-SAFT, Fuel 2021</a>).</li>
+</ul>
+<h3>Характеризация состава</h3>
+<p>Ключевой и наиболее чувствительный этап — разбиение C7+/C30+ «хвоста» на псевдокомпоненты (метод <strong>Whitson</strong>, гамма-распределение), задание корреляций T_пл, ΔH_пл н-алканов. От характеризации сильнее всего зависит предсказанная WAT (<a href="https://link.springer.com/article/10.1007/s13202-018-0480-1">WDT по MS-модели, Springer</a>).</p>
+<h3>Противоречие</h3>
+<p>SS-модели склонны переоценивать выпадение лёгких компонентов; MS-модели точнее для тяжёлых фракций, но дают ступенчатую (негладкую) кривую выпадения; predictive UNIQUAC компромиссен. Универсального консенсуса нет — выбор модели зависит от типа флюида (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0016236121020810">Fuel 2021</a>).</p>
+<hr>
+<h2>2. Кинетика и механизмы осаждения</h2>
+<h3>Физика: четыре механизма переноса к холодной поверхности/стенке поры</h3>
+<ol>
+<li><strong>Молекулярная диффузия</strong> парафина по градиенту концентрации, индуцированному радиальным градиентом температуры (закон Фика; J = -ρ D_wo dC/dr·dC/dT). Признан <strong>доминирующим</strong> для большинства условий.</li>
+<li><strong>Сдвиговая дисперсия</strong> — перенос кристаллов сдвиговым потоком.</li>
+<li><strong>Броуновская диффузия</strong> взвешенных кристаллов.</li>
+<li><strong>Гравитационное оседание</strong> более плотных кристаллов.</li>
+</ol>
+<p><strong>Основополагающая работа — Burger, Perkins, Striegler (1981)</strong> (Trans-Alaska Pipeline): отложение объяснено суммой молекулярной диффузии, сдвиговой дисперсии и броуновской диффузии (<a href="https://www.onepetro.org/journal-paper/SPE-8788-PA">JPT, OnePetro</a>).
+<strong>Brown, Niesen, Erickson (1993)</strong> экспериментально показали несущественность сдвиговой дисперсии и отсутствие отложения при нулевом тепловом потоке — это закрепило молекулярную диффузию как главный механизм (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0016236123022901">контекст-обзор</a>). <strong>Это явное противоречие в литературе</strong> (Burger vs. Brown) по роли сдвиговой дисперсии — отмечается до сих пор.</p>
+<h3>Модели роста и старения отложения</h3>
+<ul>
+<li><strong>Singh, Venkatesan, Fogler, Nagarajan (2000, 2001)</strong> — модель Мичигана: радиальная диффузия молекул парафина в гель вызывает одновременный <strong>рост</strong> и <strong>старение (aging)</strong> отложения за счёт встречной диффузии (counter-diffusion) внутрь геля и роста доли твёрдой фазы; вводят понятие критической углеродной длины (critical carbon number) (<a href="https://deepblue.lib.umich.edu/handle/2027.42/34241">AIChE J. 2000, Deep Blue</a>; <a href="https://aiche.onlinelibrary.wiley.com/doi/abs/10.1002/aic.690470103">AIChE J. 2001, Wiley</a>).</li>
+<li><strong>Huang, Lee, Senra, Fogler (2011)</strong> — фундаментальная модель совместного тепло- и массопереноса, прогноз толщины и доли парафина (ламинар/турбулент) (<a href="https://deepblue.lib.umich.edu/bitstream/handle/2027.42/87116/12517_ftp.pdf">PDF, Deep Blue</a>).</li>
+<li><strong>Ramirez-Jaramillo, Lira-Galeana, Manero (2004)</strong> — многокомпонентная гидродинамическая модель, связка SLE + неньютоновское течение; молекулярная диффузия через пограничный слой (<a href="https://www.researchgate.net/publication/232874607_Modeling_Wax_Deposition_in_Pipelines">RG</a>).</li>
+<li><strong>Correra et al. (2007)</strong> — уточнение коэффициента диффузии парафина в температурном градиенте (<a href="https://onlinelibrary.wiley.com/doi/10.1002/zamm.200510293">ZAMM, Wiley</a>).</li>
+</ul>
+<hr>
+<h2>3. Связанные неизотермические модели в пористой среде</h2>
+<h3>Каноническая система уравнений</h3>
+<p>Совместно решаются:</p>
+<p><strong>(1) Сохранение массы компонента i (многофазное течение):</strong>
+∂/∂t(φ Σ_p ρ_p S_p x_{i,p}) + ∇·(Σ_p ρ_p x_{i,p} <strong>u</strong>_p) = q_i − R_i^{dep}
+где R_i^{dep} — источниковый член осаждения/выпадения (связь с блоками 1, 2, 4).</p>
+<p><strong>(2) Закон Дарси (для каждой фазы p = oil, water, gas):</strong>
+<strong>u</strong><em>p = −(k·k</em>{rp}/μ_p)(∇p_p − ρ_p g ∇D)</p>
+<p><strong>(3) Уравнение энергии (тепломассоперенос):</strong>
+∂/∂t[(1−φ)ρ_r c_r T + φ Σ_p ρ_p S_p û_p] + ∇·(Σ_p ρ_p h_p <strong>u</strong><em>p) = ∇·(λ_eff ∇T) + Q</em>{JT} + Q_{cryst} + q_H</p>
+<ul>
+<li>λ_eff — эффективная теплопроводность скелет+флюид;</li>
+<li><strong>Q_{JT}</strong> — эффект Джоуля—Томсона (дросселирование при ∇p);</li>
+<li><strong>Q_{cryst}</strong> — тепловыделение при кристаллизации парафина: Q_{cryst} = L_{cryst}·(∂m_s/∂t), где L_{cryst} — скрытая теплота, m_s — масса выпавшей твёрдой фазы (источник связи термики и фазового перехода);</li>
+<li>адиабатический эффект и теплота разгазирования учитываются аналогичными членами (<a href="http://oilgasjournal.ru/issue_21/chetvertushkin-lyupa-trapeznikova.pdf">многофазные течения, oilgasjournal</a>).</li>
+</ul>
+<p><strong>(4) Замыкание — термодинамика выпадения</strong> из §1: m_s = m_s(T, p, состав), WAT(T,p); ниже WAT включается фазовый переход.</p>
+<h3>Допущения (типовые)</h3>
+<p>Локальное термическое равновесие скелет↔флюид; несжимаемая порода или слабая пороупругость; постоянные/слабозависящие теплофизические свойства; мгновенное термодинамическое равновесие выпадения (или кинетика 1-го порядка). Часть работ снимает допущение о равновесии (кинетика осаждения, §4–5).</p>
+<h3>Ключевые источники (методология)</h3>
+<ul>
+<li><strong>Banki, Hoteit, Firoozabadi (2008)</strong> — ⭐ перенос на пористую среду: поток диффузии в неизотермике через <strong>термодинамику необратимых процессов</strong>; <strong>enthalpy–porosity</strong> подход к фазовому переходу; закупорка — через кинетическое уравнение пористости. Методологически наиболее близок к задаче «выпадение + неизотермика + изменение проницаемости» (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0017931007006722">Int. J. Heat Mass Transfer, ScienceDirect</a>).</li>
+<li><strong>Российская школа:</strong> Чекалюк (1965, термодинамика пласта) (<a href="https://www.geokniga.org/books/4848">GeoKniga</a>); Алишаев, Розенберг, Теслюк (1985, неизотермическая фильтрация); автомодельные задачи неизотермической двухфазной фильтрации (<a href="https://www.dissercat.com/content/avtomodelnye-zadachi-neizotermicheskoi-dvukhfaznoi-filtratsii-i-teplovogo-pogranichnogo-sloy">dissercat</a>); фильтрация с фазовыми переходами (<a href="https://www.dissercat.com/content/issledovanie-protsessov-neizotermicheskoi-filtratsii-zhidkosti-i-gaza-s-fazovymi-perekhodami">dissercat</a>); вязкопластичные нефти при термозаводнении (<a href="https://vestnik.astu.org/ru/nauka/article/71928/view">Вестник АГТУ</a>).</li>
+<li><strong>Аналогия фазового перехода:</strong> обзор неизотермической фильтрации с разложением газогидрата (<a href="https://www.mdpi.com/2227-7390/10/24/4674">Mathematics, MDPI 10(24):4674</a>) — образцовая структура связанной системы (гидрат ↔ парафин формально близки).</li>
+</ul>
+<hr>
+<h2>4. Повреждение пласта: снижение проницаемости и пористости</h2>
+<h3>Физика</h3>
+<p>Выпавшая твёрдая фаза откладывается на поверхности пор (постепенно) и закупоривает поровые каналы (резко), снижая φ и k и изменяя относительные фазовые проницаемости (ОФП), смачиваемость и вязкость. Обратная связь: ↓k → ↑∇p → ↑Q_{JT} и изменение поля T → новое выпадение.</p>
+<h3>Базовые модели связи φ↔k</h3>
+<ul>
+<li><strong>Уравнение Козени—Кармана</strong> и его модификации (Civan): k = k_0 (φ/φ_0)^n, n≈3, с поправкой на структуру осадка.</li>
+<li><strong>Civan, Reservoir Formation Damage (3-е изд., 2016)</strong> — энциклопедический свод: кинетика осаждения, модифиц. Козени—Карман, три механизма (поверхностное осаждение, закупорка горловин, реэнтрейнмент) (<a href="https://vdoc.pub/documents/reservoir-formation-damage-fundamentals-modeling-assessment-and-mitigation-7d5nok4gg810">книга, vdoc.pub</a>).</li>
+<li><strong>Civan (2001)</strong> — кинетическая модель масштабного эффекта φ–k (<a href="https://aiche.onlinelibrary.wiley.com/doi/abs/10.1002/aic.690470206">AIChE J., Wiley</a>).</li>
+<li><strong>Gruesbeck, Collins (1982)</strong> — модель «параллельных путей»: среда делится на мелкие каналы (пробковая закупорка) и крупные (поверхностное непробковое осаждение); фундамент для всех последующих deposition-моделей (<a href="https://www.sciencedirect.com/science/article/abs/pii/S001623611831278X">контекст</a>).</li>
+</ul>
+<h3>Применительно к парафину в пласте</h3>
+<ul>
+<li><strong>He et al. [⚠ сверить], Scientific Reports 10:14595 (2020)</strong> — Changchunling: уравнение фазового превращения + двухфазная нефть-вода фильтрация; эксперимент показывает резкое падение радиуса горловин и ОФП с понижением T (<a href="https://www.nature.com/articles/s41598-020-71065-z">Nature</a>).</li>
+<li><strong>[⚠ сверить] (2014), Geosystem Engineering 17(4)</strong> — холодное заводнение высокопарафинистой залежи; фронт «холодового повреждения» смещается вглубь пласта со временем (<a href="https://www.tandfonline.com/doi/abs/10.1080/12269328.2014.959623">T&amp;F</a>).</li>
+</ul>
+<hr>
+<h2>5. Моделирование асфальтенов</h2>
+<h3>Физика и термодинамика выпадения (4 конкурирующих парадигмы)</h3>
+<p>Асфальтены — наиболее полярные, высокомолекулярные компоненты; выпадают преимущественно при <strong>снижении давления</strong> к давлению насыщения (максимум выпадения ≈ давление насыщения) и при закачке газа/CO₂. Четыре школы термодинамики:</p>
+<ol>
+<li><strong>Растворная (Флори—Хаггинса), обратимая — Hirschberg et al. (1984):</strong> асфальтены растворены; выпадение реверсивно при изменении растворяющей способности нефти (<a href="https://www.mdpi.com/2227-9117/11/3/765">контекст-обзор, MDPI Processes 11(3):765</a>).</li>
+<li><strong>Коллоидная — Leontaritis &amp; Mansoori (1987):</strong> асфальтены — твёрдые коллоидные частицы, стабилизированные адсорбированными смолами; выпадение чаще <strong>необратимо</strong> (<a href="https://www.researchgate.net/publication/237196338_Asphaltene_Flocculation_During_Oil_Recovery_and_Processing_A_Thermodynamic-Colloidal_Model">SPE 16258, RG</a>). <strong>Противоречие с (1)</strong> по обратимости — ключевой нерешённый спор.</li>
+<li><strong>Термодинамика мицеллообразования — Victorov &amp; Firoozabadi (1996); Pan &amp; Firoozabadi (1998/2000):</strong> асфальтен-мицеллы со смолами на оболочке; выпадение как жидкость-жидкостное равновесие (тяжёлая фаза = асфальтены+смолы) + PR-EOS для мономеров (<a href="https://aiche.onlinelibrary.wiley.com/doi/abs/10.1002/aic.690420626">AIChE J., Wiley</a>; <a href="https://onepetro.org/SPEATCE/proceedings-abstract/97SPE/97SPE/SPE-38857-MS/189120">SPE 38857, OnePetro</a>).</li>
+<li><strong>Твёрдофазная (solid model) — Nghiem et al. (1993):</strong> осадок = два «твёрдых»: Solid 1 (обратимо равновесен с асфальтеном в нефти), Solid 2 (образуется из Solid 1 по реакции флокуляции — обратимой/необратимой); тяжёлая фракция C31+ делится на непреципитирующую и преципитирующую части (<a href="https://pubs.acs.org/doi/10.1021/ie990781g">контекст, IECR</a>). Доминирует в коммерческих симуляторах.</li>
+</ol>
+<h3>Кинетика осаждения/кольматации/выноса в пористой среде</h3>
+<ul>
+<li><strong>Wang &amp; Civan (трёхчленная модель)</strong> — суммарное осаждение = поверхностное осаждение + закупорка горловин + (вычитается) вынос (entrainment):
+<strong>∂E/∂t = α·C·φ − β·E·(v − v_cr) + γ(1 + σE)·u·C</strong><ul>
+<li>α — поверхностное осаждение (∝ концентрации взвеси C);</li>
+<li>β — вынос (реэнтрейнмент), активен при v &gt; v_cr (критическая поровая скорость);</li>
+<li>γ — закупорка горловин (∝ скорости u), σ — «снежный» коэффициент лавинного роста.
+Затем <strong>φ = φ₀ − E</strong>, <strong>k = k₀(φ/φ₀)³</strong> (<a href="https://ogst.ifpenergiesnouvelles.fr/articles/ogst/full_html/2018/01/ogst180048/ogst180048.html">полнотекст: Tabzar et al., OGST 73 (2018)</a>).</li>
+</ul>
+</li>
+<li><strong>Tabzar et al. (2018)</strong> — открытая статья с <strong>полной системой</strong> (4 связанных баланса масс в цилиндрических координатах: нефть, газ, вода, асфальтен; уравнение (3) — кинетика; (4)–(5) — φ,k; (1) — фугитивность твёрдого по Nghiem; решение Ньютона—Рафсона в MATLAB). Образцовый шаблон сопряжённой модели (<a href="https://ogst.ifpenergiesnouvelles.fr/articles/ogst/full_html/2018/01/ogst180048/ogst180048.html">OGST 2018</a>).</li>
+<li><strong>Коллоидный подход к моделированию осаждения</strong> (<a href="https://ogst.ifpenergiesnouvelles.fr/articles/ogst/pdf/2008/01/ogst07068.pdf">OGST 2008, PDF</a>); <strong>новые модели pore-blocking</strong> (<a href="https://www.sciencedirect.com/science/article/pii/S0920410519309337">JPSE 2019</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S001623611831278X">Fuel 2019</a>).</li>
+</ul>
+<h3>Термо-баро-композиционная связь</h3>
+<p>Выпадение асфальтенов управляется (p, T, состав): депрессуризация, закачка CO₂/растворителя, изменение T. В компонентном симуляторе deposition-член связывается с flash-расчётом (3-фазное равновесие) и обновлением свойств флюида и породы (<a href="https://www.sciencedirect.com/science/article/pii/S092041051630359X">3-фазное равновесие, JPSE 2016</a>).</p>
+<hr>
+<h2>6. Численные методы и симуляторы</h2>
+<h3>Дискретизация и схемы</h3>
+<ul>
+<li><strong>Метод конечных объёмов (FVM)</strong> — преобладает в пластовой симуляции (локальная консервативность); скалярные переменные (p, S_p, концентрации) дискретизируются по FVM; двухточечная (TPFA) или многоточечная (MPFA) аппроксимация потока для неортогональных сеток и полного тензора проницаемости (<a href="https://www.mdpi.com/2311-5521/6/10/341">полунеявный FVM, Fluids/MDPI 6(10):341</a>).</li>
+<li><strong>Конечные элементы / смешанно-гибридные FE</strong> — для сложной геометрии/тензоров (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0021999117304874">mixed-hybrid FE, J. Comput. Phys. 2017</a>).</li>
+<li><strong>Схемы связывания:</strong> полностью неявная (FIM, Ньютон—Рафсон, безусловно устойчива), IMPES/IMPEC, IMPESC (давление неявно, составы явно), последовательно-неявная.</li>
+</ul>
+<h3>Симуляторы выпадения/осаждения</h3>
+<ul>
+<li><strong>Полностью неявный компонентный симулятор осаждения асфальтена при истощении</strong> — одновременное решение уравнений фазового равновесия, объёмного ограничения, переноса компонентов, multiphase flash и deposition (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378381215001831">Fluid Phase Equilibria 2015</a>).</li>
+<li><strong>Параллельный FIM EOS-симулятор осаждения асфальтена</strong> (<a href="https://onepetro.org/SPEATCE/proceedings-abstract/08ATCE/08ATCE/SPE-120203-STU/145597">SPE-120203-STU</a>).</li>
+<li><strong>Nghiem &amp; Coombe / Qin et al. (2000)</strong> — реализация solid-model в компонентной симуляции (<a href="https://pubs.acs.org/doi/10.1021/ie990781g">IECR, ACS</a>; <a href="https://onepetro.org/SPEIOR/proceedings-abstract/04IOR/04IOR/SPE-89437-MS/71368">SPE-89437</a>).</li>
+<li><strong>Коммерческие пакеты:</strong> <strong>CMG-GEM</strong> (компонентный, модуль асфальтенов; deposition/flocculation/precipitation — <a href="https://www.researchgate.net/publication/267869547_Compositional_simulation_of_deposition_flocculation_and_precipitation_of_Asphaltene_in_oil_reservoir_using_CMG-GEM">CMG-GEM кейс, RG</a>); <strong>CMG-STARS</strong> (тепловой); <strong>PVTsim Nova / Multiflash</strong> (термодинамика парафина/асфальтена, тюнинг к эксперименту, экспорт в OLGA/PIPESIM — <a href="https://calsep.com/pvtsim-nova/find-a-pvtsim-package/flow-assurance/">Calsep</a>); <strong>OLGA</strong> (динамическое многофазное течение, риск отложений в трубопроводах — <a href="https://www.slb.com/products-and-services/delivering-digital-at-scale/software/olga/olga-dynamic-multiphase-flow-simulator">SLB</a>); <strong>PIPESIM</strong>, <strong>Multiflash Wax</strong> (использован в <a href="https://cyberleninka.ru/article/n/modelirovanie-protsessa-obrazovaniya-organicheskih-otlozheniy-parafinovogo-tipa-pri-ekspluatatsii-skvazhin-elektrotsentrobezhnymi">Кищенко и др., 2018</a>).</li>
+</ul>
+<blockquote>
+<p>Замечание: специализированных <strong>пластовых</strong> симуляторов именно <strong>парафиноотложения</strong> (в отличие от асфальтенов) в открытой литературе мало; чаще адаптируют асфальтеновый аппарат или строят исследовательские коды (см. §3 Banki et al.; §5 Tabzar et al.).</p>
+</blockquote>
+<hr>
+<h2>7. Экспериментальная валидация и промысловые кейсы</h2>
+<h3>Методы измерения WAT и кинетики</h3>
+<ul>
+<li><strong>DSC (дифференциальная сканирующая калориметрия)</strong> — по экзотермическому пику фиксируют WAT и массу выпавших кристаллов vs. T.</li>
+<li><strong>Кросс-поляризационная микроскопия (CPM)</strong> — детекция первых кристаллов по вращению плоскости поляризации (часто наиболее чувствительна).</li>
+<li><strong>Вискозиметрия/реометрия</strong> — по излому кривой μ(T); <strong>переоценивает</strong> WAT относительно DSC.</li>
+<li>Сравнения методов и влияние скорости охлаждения (<a href="https://www.sciencedirect.com/science/article/pii/S0920410516304557">DSC vs термомикроскопия vs реометрия, JPSE 2016</a>; <a href="https://www.researchgate.net/publication/284640242_Determination_of_Wax_CrystallizationGelation_Temperature_by_Rheometry_DSC_and_CPM">реометрия/DSC/CPM, RG</a>). <strong>Противоречие методов</strong> по абсолютному значению WAT — известный источник неопределённости при валидации.</li>
+</ul>
+<h3>Установки для кинетики отложения</h3>
+<ul>
+<li><strong>Flow loop</strong> (петлевые стенды), <strong>cold finger</strong> (холодный палец), <strong>core flooding</strong> (фильтрация через керн) — для динамического осаждения в пористой среде (<a href="https://psl-systemtechnik.com/en/wax-appearance-temperature-wat/">WAT/стенды, PSL</a>).</li>
+</ul>
+<h3>Промысловые/керновые кейсы (асфальтены)</h3>
+<ul>
+<li><strong>Core flooding:</strong> снижение проницаемости 72–98 % при необратимом удержании асфальтенов/смол (<a href="https://www.researchgate.net/publication/239142334_Permeability_reduction_by_asphaltenes_and_resins_deposition_in_porous_media">Permeability reduction…, RG</a>).</li>
+<li><strong>CO₂-заводнение, Changqing (сверхнизкая проницаемость)</strong> — влияние режима/темпа закачки; максимум осаждения у минимального давления смешиваемости (MMP) (<a href="https://onlinelibrary.wiley.com/doi/10.1155/2021/6626114">Geofluids 2021, Wiley</a>); длинный керн CO₂/flue gas (<a href="https://www.nature.com/articles/s41598-024-54395-0">Sci. Rep. 2024</a>); влияние давления/расхода в песчанике (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0016236121022924">Fuel 2021</a>).</li>
+<li><strong>Промысловые кейсы парафина:</strong> холодное заводнение высокопарафинистых залежей (§4); до ~75 % осложнений по АСПО (ЛУКОЙЛ-Пермь) (<a href="https://www.dissercat.com/content/nauchno-metodicheskie-osnovy-modelirovaniya-protsessov-upravleniya-ekspluatatsionnymi-kharak-0">dissercat</a>).</li>
+</ul>
+<hr>
+<h2>8. Современные направления (2018–2025)</h2>
+<h3>Композиционное и многофазное моделирование</h3>
+<p>Тренд — полностью неявные <strong>компонентные</strong> симуляторы с 3-фазным flash и сопряжённым deposition-членом; учёт CO₂-EOR и термо-баро эффектов (<a href="https://www.sciencedirect.com/science/article/pii/S092041051630359X">3-фазное равновесие, JPSE 2016</a>; <a href="https://www.sciencedirect.com/science/article/pii/S2949891024008777">эффективная реализация выпадения, 2024</a>; <a href="https://onepetro.org/SPEATCE/proceedings-abstract/23ATCE/3-23ATCE/535420">CO₂ в глубоких пластах, SPE 2023</a>).</p>
+<h3>Машинное обучение</h3>
+<ul>
+<li><strong>Прогноз WAT:</strong> ANN, ансамбли, SVM, ELM, ANFIS; «интеллектуальные» модели по экспериментальным данным (<a href="https://link.springer.com/article/10.1007/s13369-019-04290-y">WAT по AI, AJSE/Springer</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S0016236124022956">новые интеллект. модели WAT, Fuel 2024</a>; <a href="https://www.sciencedirect.com/science/article/pii/S0009250925011170">ансамбли для тяжёлой нефти, Chem. Eng. Sci. 2025</a>).</li>
+<li><strong>Прогноз скорости отложения парафина:</strong> RBF/случайный лес/XGBoost/PINN на композиционно-термодинамических данных (<a href="https://www.earthdoc.org/content/papers/10.3997/2214-4609.202032021">ML для отложения, Earthdoc</a>; <a href="https://www.researchgate.net/publication/375012949_Development_of_Predictive_Model_for_Wax_Formation_in_Deep-water_Pipeline_Using_Machine_learning">ML для глубоководных трубопроводов, RG</a>).</li>
+<li><strong>Асфальтены:</strong> ANFIS, RBF+GWO, ELM, MLP — кинетика агрегации и тесты осаждения (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10613205/">AI агрегация асфальтенов, PMC</a>).</li>
+</ul>
+<h3>Гибридные / физико-информированные подходы</h3>
+<ul>
+<li><strong>PINN (physics-informed neural networks)</strong> для многофазного течения в пористой среде: захват фронтов насыщенности (Buckley—Leverett), неоднородные/трещиноватые среды, mesh-free FIM-формулировки, доменная декомпозиция при разреженных данных (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0309170824001180">PINN двухфазное течение, ScienceDirect 2024</a>; <a href="https://www.sciencedirect.com/science/article/pii/S1995822623002947">PINN+домены, GEEN 2023</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S030917082500288X">PIAWNN, AWR 2025</a>). Прямого применения PINN к <strong>неизотермическому осаждению парафина/асфальтена в пласте</strong> в открытой литературе пока почти нет — <strong>перспективная ниша</strong>.</li>
+</ul>
+<hr>
+<h2>Сводная оценка ключевых источников</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Источник (авторы, год)</th>
+<th>Тип модели / вклад</th>
+<th>Валидация</th>
+<th>Значимость*</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Won (1986)</td>
+<td>SS, регулярный раствор; первая инженерная SLE-модель парафина</td>
+<td>лаб. SLE</td>
+<td>Основополагающая</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Pedersen et al. (1991)</td>
+<td>SS, полимерный раствор + эмпирич. поправка</td>
+<td>North Sea crudes</td>
+<td>Высокая</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Lira-Galeana, Firoozabadi, Prausnitz (1996)</td>
+<td><strong>Multi-solid</strong>, PR-EOS</td>
+<td>многокомпонент. смеси</td>
+<td>Каноническая</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Coutinho (1998)</td>
+<td>Predictive UNIQUAC, неск. тв. растворов</td>
+<td>н-алкановые смеси</td>
+<td>Высокая</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Burger, Perkins, Striegler (1981)</td>
+<td>Кинетика: диффузия+сдвиг+броун.</td>
+<td>Trans-Alaska</td>
+<td>Основополагающая</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Singh, Venkatesan, Fogler, Nagarajan (2000/2001)</td>
+<td>Рост+старение геля, counter-diffusion</td>
+<td>flow loop</td>
+<td>Каноническая</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Huang, Lee, Senra, Fogler (2011)</td>
+<td>Тепло+массоперенос, толщина отложения</td>
+<td>flow loop</td>
+<td>Высокая</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Banki, Hoteit, Firoozabadi (2008)</td>
+<td>Необратимая термодинамика + enthalpy-porosity (пористый слой)</td>
+<td>числ./лаб.</td>
+<td>Высокая (мост к пласту)</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Civan (2016, 3-е изд.)</td>
+<td>Свод formation damage; модиф. Козени—Карман</td>
+<td>книга/множество кейсов</td>
+<td>Каноническая</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Gruesbeck, Collins (1982)</td>
+<td>Параллельные пути: осаждение/закупорка</td>
+<td>керн</td>
+<td>Основополагающая</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Hirschberg et al. (1984)</td>
+<td>Асфальтены: Флори—Хаггинс, обратимо</td>
+<td>PVT</td>
+<td>Основополагающая</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Leontaritis &amp; Mansoori (1987)</td>
+<td>Асфальтены: коллоидная, (не)обратимо</td>
+<td>промысл.</td>
+<td>Основополагающая</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Nghiem et al. (1993)</td>
+<td>Асфальтены: solid model (2 солида)</td>
+<td>компонент. симуляция</td>
+<td>Каноническая (в softwarе)</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Pan &amp; Firoozabadi (1998/2000)</td>
+<td>Асфальтены: мицеллярная, LLE</td>
+<td>PVT/высокие p,T</td>
+<td>Высокая</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Wang &amp; Civan / Tabzar et al. (2018)</td>
+<td>Сопряжённая: 3-членная кинетика + φ,k + flash</td>
+<td>лаб. растворимость</td>
+<td>Высокая (шаблон)</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Sci. Rep. 10:14595 (2020) [⚠]</td>
+<td>Парафин в пласте: фазовый переход + 2-фазн. фильтрация</td>
+<td>эксперимент+числ.</td>
+<td>Средняя-высокая (релевантна)</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Чекалюк (1965); Алишаев и др. (1985)</td>
+<td>Термодинамика пласта; неизотерм. фильтрация</td>
+<td>аналит./числ.</td>
+<td>Основополагающие (рус.)</td>
+</tr>
+</tbody></table>
+<p>*Значимость оценена качественно (роль в литературе), без точных чисел цитирований — см. оговорку в начале.</p>
+<hr>
+<h2>Итоговый список наиболее значимых источников (BibTeX)</h2>
+<pre><code class="language-bibtex">@article{Won1986,
+  author = {Won, K. W.},
+  title = {Thermodynamics for solid solution-liquid-vapor equilibria: wax phase formation from heavy hydrocarbon mixtures},
+  journal = {Fluid Phase Equilibria}, volume = {30}, pages = {265--279}, year = {1986}}
+
+@article{Hansen1988,
+  author = {Hansen, J. H. and Fredenslund, Aa. and Pedersen, K. S. and R{\o}nningsen, H. P.},
+  title = {A thermodynamic model for predicting wax formation in crude oils},
+  journal = {AIChE Journal}, volume = {34}, number = {12}, pages = {1937--1942}, year = {1988}}
+
+@article{Pedersen1991,
+  author = {Pedersen, K. S. and Skovborg, P. and R{\o}nningsen, H. P.},
+  title = {Wax precipitation from North Sea crude oils. 4. Thermodynamic modeling},
+  journal = {Energy \&amp; Fuels}, volume = {5}, number = {6}, pages = {924--932}, year = {1991}}
+
+@article{LiraGaleana1996,
+  author = {Lira-Galeana, C. and Firoozabadi, A. and Prausnitz, J. M.},
+  title = {Thermodynamics of wax precipitation in petroleum mixtures},
+  journal = {AIChE Journal}, volume = {42}, number = {1}, pages = {239--248}, year = {1996}}
+
+@article{Coutinho1998,
+  author = {Coutinho, J. A. P.},
+  title = {Predictive UNIQUAC: a new model for the description of multiphase solid-liquid equilibria in complex hydrocarbon mixtures},
+  journal = {Industrial \&amp; Engineering Chemistry Research}, volume = {37}, number = {12}, pages = {4870--4875}, year = {1998}}
+
+@article{Burger1981,
+  author = {Burger, E. D. and Perkins, T. K. and Striegler, J. H.},
+  title = {Studies of wax deposition in the Trans Alaska pipeline},
+  journal = {Journal of Petroleum Technology}, volume = {33}, number = {6}, pages = {1075--1086}, year = {1981}}
+
+@inproceedings{Brown1993,
+  author = {Brown, T. S. and Niesen, V. G. and Erickson, D. D.},
+  title = {Measurement and prediction of the kinetics of paraffin deposition},
+  booktitle = {SPE Annual Technical Conference and Exhibition}, note = {SPE-26548-MS}, year = {1993}}
+
+@article{Singh2000,
+  author = {Singh, P. and Venkatesan, R. and Fogler, H. S. and Nagarajan, N.},
+  title = {Formation and aging of incipient thin film wax-oil gels},
+  journal = {AIChE Journal}, volume = {46}, number = {5}, pages = {1059--1074}, year = {2000}}
+
+@article{Singh2001,
+  author = {Singh, P. and Venkatesan, R. and Fogler, H. S. and Nagarajan, N. R.},
+  title = {Morphological evolution of thick wax deposits during aging},
+  journal = {AIChE Journal}, volume = {47}, number = {1}, pages = {6--18}, year = {2001}}
+
+@article{RamirezJaramillo2004,
+  author = {Ram{\&#39;i}rez-Jaramillo, E. and Lira-Galeana, C. and Manero, O.},
+  title = {Modeling wax deposition in pipelines},
+  journal = {Petroleum Science and Technology}, volume = {22}, number = {7-8}, pages = {821--861}, year = {2004}}
+
+@article{Huang2011,
+  author = {Huang, Z. and Lee, H. S. and Senra, M. and Fogler, H. S.},
+  title = {A fundamental model of wax deposition in subsea oil pipelines},
+  journal = {AIChE Journal}, volume = {57}, number = {11}, pages = {2955--2964}, year = {2011}}
+
+@article{Banki2008,
+  author = {Banki, R. and Hoteit, H. and Firoozabadi, A.},
+  title = {Mathematical formulation and numerical modeling of wax deposition in pipelines from enthalpy-porosity approach and irreversible thermodynamics},
+  journal = {International Journal of Heat and Mass Transfer}, volume = {51}, number = {13-14}, pages = {3387--3398}, year = {2008}}
+
+@book{Civan2016,
+  author = {Civan, F.},
+  title = {Reservoir Formation Damage: Fundamentals, Modeling, Assessment, and Mitigation},
+  edition = {3rd}, publisher = {Gulf Professional Publishing}, year = {2016}}
+
+@article{Civan2001,
+  author = {Civan, F.},
+  title = {Scale effect on porosity and permeability: kinetics, model, and correlation},
+  journal = {AIChE Journal}, volume = {47}, number = {2}, pages = {271--287}, year = {2001}}
+
+@article{GruesbeckCollins1982,
+  author = {Gruesbeck, C. and Collins, R. E.},
+  title = {Entrainment and deposition of fine particles in porous media},
+  journal = {Society of Petroleum Engineers Journal}, volume = {22}, number = {6}, pages = {847--856}, year = {1982}}
+
+@article{Hirschberg1984,
+  author = {Hirschberg, A. and deJong, L. N. J. and Schipper, B. A. and Meijer, J. G.},
+  title = {Influence of temperature and pressure on asphaltene flocculation},
+  journal = {Society of Petroleum Engineers Journal}, volume = {24}, number = {3}, pages = {283--293}, year = {1984}}
+
+@inproceedings{LeontaritisMansoori1987,
+  author = {Leontaritis, K. J. and Mansoori, G. A.},
+  title = {Asphaltene flocculation during oil production and processing: a thermodynamic-colloidal model},
+  booktitle = {SPE International Symposium on Oilfield Chemistry}, note = {SPE-16258-MS}, year = {1987}}
+
+@inproceedings{Nghiem1993,
+  author = {Nghiem, L. X. and Hassam, M. S. and Nutakki, R. and George, A. E. D.},
+  title = {Efficient modelling of asphaltene precipitation},
+  booktitle = {SPE Annual Technical Conference and Exhibition}, note = {SPE-26642-MS}, year = {1993}}
+
+@inproceedings{PanFiroozabadi1997,
+  author = {Pan, H. and Firoozabadi, A.},
+  title = {Thermodynamic micellization model for asphaltene precipitation from reservoir crudes at high pressures and temperatures},
+  booktitle = {SPE Annual Technical Conference and Exhibition}, note = {SPE-38857-MS}, year = {1997}}
+
+@article{Tabzar2018,
+  author = {Tabzar, A. and Fathinasab, M. and Salehi, A. and Bahrami, B. and Mohammadi, A. H.},
+  title = {Multiphase flow modeling of asphaltene precipitation and deposition},
+  journal = {Oil \&amp; Gas Science and Technology}, volume = {73}, pages = {51}, year = {2018}}
+
+@article{Qin2000,
+  author = {Qin, X. and Wang, P. and Sepehrnoori, K. and Pope, G. A.},
+  title = {Modeling asphaltene precipitation in reservoir simulation},
+  journal = {Industrial \&amp; Engineering Chemistry Research}, volume = {39}, number = {8}, pages = {2644--2654}, year = {2000}}
+
+@article{ChangchunlingSciRep2020,
+  author = {{[verify authors]}},
+  title = {Cold damage from wax deposition in a shallow, low-temperature, and high-wax reservoir in Changchunling Oilfield},
+  journal = {Scientific Reports}, volume = {10}, pages = {14595}, year = {2020}}
+
+@book{Chekalyuk1965,
+  author = {Чекалюк, Э. Б.},
+  title = {Термодинамика нефтяного пласта},
+  publisher = {Недра}, address = {Москва}, year = {1965}}
+
+@book{Alishaev1985,
+  author = {Алишаев, М. Г. and Розенберг, М. Д. and Теслюк, Е. В.},
+  title = {Неизотермическая фильтрация при разработке нефтяных месторождений},
+  publisher = {Недра}, address = {Москва}, year = {1985}}
+
+@book{Tronov1970,
+  author = {Тронов, В. П.},
+  title = {Механизм образования смоло-парафиновых отложений и борьба с ними},
+  publisher = {Недра}, address = {Москва}, year = {1970}}
+
+@article{Yu2024review,
+  author = {Yu, et al.},
+  title = {A comprehensive review of wax deposition in crude oil systems: mechanisms, influencing factors, prediction and inhibition techniques},
+  journal = {Fuel}, volume = {357}, pages = {129676}, year = {2024}}
+</code></pre>
+<blockquote>
+<p>Поля, помеченные приблизительно (vol/pages/note SPE-номера, инициалы рус. авторов), сверьте по OnePetro/eLibrary/издателю перед включением в диссертацию.</p>
+</blockquote>
+<hr>
+<h2>Пробелы и противоречия</h2>
+<p><strong>Противоречия в литературе (не усреднять — фиксировать):</strong></p>
+<ol>
+<li><strong>Роль сдвиговой дисперсии</strong> в отложении парафина: Burger et al. (1981) включают её, Brown et al. (1993) считают несущественной. Спор не закрыт.</li>
+<li><strong>Обратимость выпадения асфальтенов:</strong> растворная модель Hirschberg (обратимо) vs. коллоидная Leontaritis–Mansoori (часто необратимо). Современные solid/мицеллярные модели вводят частичную обратимость как параметр — консенсуса нет.</li>
+<li><strong>Абсолютное значение WAT</strong> зависит от метода (DSC vs CPM vs вискозиметрия дают разброс), что искажает валидацию кинетических моделей.</li>
+<li><strong>SS vs MS термодинамика:</strong> SS переоценивает лёгкие, MS даёт негладкую кривую; «правильный» выбор зависит от флюида.</li>
+</ol>
+<p><strong>Пробелы (открытые задачи — релевантны диссертации):</strong></p>
+<ol>
+<li><strong>Дефицит чисто пластовых неизотермических моделей именно парафина</strong> (в отличие от трубопроводных и от асфальтеновых пластовых). Аппарат Banki–Hoteit–Firoozabadi (необратимая термодинамика + enthalpy-porosity) на пласт перенесён слабо.</li>
+<li><strong>Полная связка всех блоков</strong> (термодинамика выпадения с реальным EOS/PC-SAFT + неизотермическая многофазная фильтрация с Q_cryst + 3-членная кинетика осаждения/выноса + обратная связь φ→k и на ОФП) в одном пластовом симуляторе встречается редко.</li>
+<li><strong>Совместный учёт неньютоновской реологии/начального градиента</strong> в зоне геля и термодинамики выпадения.</li>
+<li><strong>Совместное (co-precipitation) моделирование парафин+асфальтен+смолы</strong> при неизотермике — почти не разработано (Civan рассматривал совместное осаждение как редкий случай).</li>
+<li><strong>PINN/гибриды для неизотермического осаждения в пласте</strong> — практически отсутствуют; ML пока в основном для прогноза WAT/скорости, а не для решения связанной краевой задачи.</li>
+<li><strong>Верификация</strong> на промысловых данных холодного заводнения высокопарафинистых залежей ограничена немногими кейсами (Changchunling; китайские/российские месторождения).</li>
+</ol>
+<hr>
+<h2>Выводы для диссертации (архитектура модели <code>paraphin</code>)</h2>
+<p>Рекомендуемая структура сопряжённой модели:</p>
+<ol>
+<li><strong>Термодинамический модуль</strong> → m_s(T,p,состав), WAT: для парафина — MS (Lira-Galeana) или predictive UNIQUAC (Coutinho)/PC-SAFT; для асфальтена — solid model (Nghiem) либо мицеллярная (Pan–Firoozabadi).</li>
+<li><strong>Фильтрационно-тепловой каркас</strong> (§3): неразрывность компонентов + Дарси + энергия с Q_cryst и Q_JT; фазовый переход через enthalpy-porosity (Banki et al.).</li>
+<li><strong>Кинетика осаждения</strong> (§5): 3-членная модель Wang–Civan/Tabzar (поверхностное осаждение + закупорка + вынос), σ-лавинный член.</li>
+<li><strong>Обратная связь</strong> φ = φ₀ − E; k = k₀(φ/φ₀)ⁿ (Козени—Карман/Civan); модификация ОФП.</li>
+<li><strong>Численная схема:</strong> FVM + полностью неявная (Ньютон—Рафсон), локальное измельчение в ПЗП (осаждение — околоскважинный эффект).</li>
+<li><strong>Валидация:</strong> лаб. WAT (DSC/CPM) + core flooding + промысловый кейс холодного заводнения.</li>
+</ol>
+<hr>
+<h2>Методология обзора</h2>
+<p>Выполнено ~16 поисковых запросов (англ./рус.) по 8 под-вопросам; широкий охват → углубление по канонdическим и новейшим работам; полнотекстовое чтение открытых статей (в т.ч. Tabzar et al., OGST 2018 — извлечена полная система уравнений). Перекрёстная сверка между источниками; противоречия зафиксированы явно. Числа цитирований и часть библиографических деталей рекомендуется сверить по первоисточникам.</p>
+
+      </body>
+      </html>
+    

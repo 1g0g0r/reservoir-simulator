@@ -22,7 +22,7 @@ isolines_settings = {
 
 def create_gif():
     _, data = read_solution_data('Wp=0.0_processed_data.pkl')
-    _, data_wp = read_solution_data('Wp=0.05_processed_data.pkl')
+    _, data_wp = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')
 
     data['Pressure'] /= bar_to_pa
     data_wp['Pressure'] /= bar_to_pa
@@ -30,17 +30,17 @@ def create_gif():
     data_wp['Time'] /= day_to_sec
 
     fields_settings = [
-        # ['fi', 'r, м', names_converter['fi']],
+        ['fi', 'r, м', '$$\\varphi$$'],
         ['Saturation', 'X, м', 'Y, м'],
         ['Temperature', 'X, м', 'Y, м'],
-        # ['m mult', 'X, м', 'Y, м'],
-        # ['k mult', 'X, м', 'Y, м'],
-        # ['Wps dep', 'X, м', 'Y, м']
+        ['m', 'X, м', 'Y, м'],
+        ['k', 'X, м', 'Y, м'],
+        ['Wps dep', 'X, м', 'Y, м']
     ]
 
     for _settings in fields_settings:
-        crating_pictures(10, data, data_wp, *_settings)
-        create_gif_from_png(_settings[0], duration=100, loop=0)
+        crating_pictures(50, data, data_wp, *_settings)
+        create_gif_from_png(_settings[0], duration=30, loop=0)
 
     print('Done!')
 
@@ -67,7 +67,7 @@ def crating_pictures(skip_steps, data, data_wp, name, x_axis_name, y_axis_name):
     for file_path in (gif_path / name).glob(f'*.png'):  # Перебор всех файлов .pkl
         file_path.unlink()
 
-    times = data['Time']
+    times = data_wp['Time'] if len(data_wp['Time']) < len(data['Time']) else data['Time']
     n_times = len(times)
 
     # Настраиваем ползунок
@@ -175,9 +175,9 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
         else:
             z_max = 1.0
             if _name == 'k':
-                z_min = 0.65
+                z_min = 0.76
             else:
-                z_min = 0.75
+                z_min = 0.85
         _fig.add_trace(go.Contour(
             x=x_mesh, y=y_mesh, z=_data_wp[_name][_ii], zmin=z_min, zmax=z_max,
             contours=dict(
