@@ -11,7 +11,7 @@ alpha_R = alpha / R
 
 
 @njit(cache=True)
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wps, T, T_0, cells_Wp_eq, new_Wp, new_Wps, dt) -> None:
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wps, T, T_0, cells_Wp_eq, new_Wp, new_Wps, Wps_dep, dt) -> None:
     """Концентрации растворенного (Wp) и взвешенного (Wps) парафина по явной схеме.
 
     Считается только ниже начальной температуры. Это нужно, чтобы избежать лишних вычислений в области,
@@ -39,6 +39,11 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wps, T, T_0, cells_Wp_eq, new_
             new_Wps[i, j] = max(Wps[i, j] + colmatation, 0)
     else:
         new_Wp[i, j] = Wp[i, j]
+        new_Wps[i, j] = Wps[i, j]  # выше температуры кристаллизации Wps не меняется
+
+    # Осевший на порах парафин
+    Wps_dep[i, j] = min(Wps_dep[i, j] - qp[i, j] * dt * ro_p /
+                        ((1.0 - new_Wps[i, j]) * ro_o + new_Wps[i, j] * ro_p), init_Wp)
 
 
 @njit(cache=True)

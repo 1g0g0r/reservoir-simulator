@@ -6,7 +6,7 @@ from paraphin.constants import Nr, init_m, init_k, min_Wps_bound
 
 
 @njit(cache=True)
-def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma,
+def calc_qp_m_k_fi(i, j, Wps, qp, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma,
                    new_qp, new_fi, new_k, new_m, dt) -> None:
     """Скорость отложения парафина, пористость, проницаемость и функция пор по размерам.
 
@@ -29,6 +29,12 @@ def calc_qp_m_k_fi(i, j, Wps, m, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdm
 
         # Обновление функции пор по размерам
         _update_fi(new_fi, fi, Ur, Ub, i, j, a_tdma, b_tdma, dt)
+    else:
+        # Ниже порога кольматации поля не меняются, но записать их все равно нужно: слои
+        # меняются ссылками, и в new_* к следующему шагу лежит позапрошлый слой, а не текущий.
+        new_qp[i, j] = qp[i, j]
+        new_m[i, j] = m[i, j]
+        new_k[i, j] = k[i, j]
 
 
 @njit(cache=True)

@@ -45,8 +45,8 @@ def save_fields(solver, t: float) -> None:
             'Wps': solver.Wps,
             'Wps dep': solver.Wps_dep,
             'qp': solver.qp,
-            'm': solver.new_m / init_m,
-            'k': solver.new_k / init_k,
+            'm': solver.m / init_m,
+            'k': solver.k / init_k,
             'plots': {'fi_o': fi_0_np, 'fi': solver.fi[x_idx, y_idx]},
         })
     else:
