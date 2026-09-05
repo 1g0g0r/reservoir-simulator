@@ -28,7 +28,7 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wps, qp, cells_
     if vinsome_westerveld:
         T_losses = _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
     else:
-        T_losses = _top_bottom_heat_losses_lauwerier(i, j, t, T)
+        T_losses = _heat_losses_lauwerier(i, j, t, T)
 
     new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + qp[i, j] * ro_p * C_p[i, j] * volume)
 
@@ -59,7 +59,7 @@ def _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f):
 
 
 @njit(cache=True)
-def _top_bottom_heat_losses_lauwerier(i, j, t, T):
+def _heat_losses_lauwerier(i, j, t, T):
     """Потери тепла через кровлю и подошву пласта, [Вт/м^3].
 
     Схема Ловерье дает обмен пласта с окружающими породами как Theta = -2*K_ff*dT/dz на границах

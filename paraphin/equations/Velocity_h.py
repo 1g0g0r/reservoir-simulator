@@ -44,11 +44,10 @@ def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_
             Ub_new[i, j, ij] = 0.0
         for ij in range(n_narrow):
             Ur_new[i, j, ij] = 0.0
+            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
         for ij in range(n_narrow, Nr):
             Ur_new[i, j, ij] = u_r(ur_coef * cbrt_r1[ij], So, um_r2, r1[ij],
                                    h_sloy[i, j, ij], mu_o[i, j])
-
-        for ij in range(Nr):
             h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
 
 

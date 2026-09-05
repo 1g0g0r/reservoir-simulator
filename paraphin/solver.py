@@ -32,7 +32,7 @@ class Solver:
         self.n_wells = 0
         self._wells_buffer = []
         self._wells_names = []
-        self.wells = []  # заполняется в initialize() из _wells_buffer
+        self.wells = []
         self.boundary_conditions = np.zeros(dtype=data_type, shape=(4, 3, 2))  # Граница -> Поле -> Тип, Значение
         # Свойства флюидов
         self.mu_o = np.full((Nx, Ny), calc_mu_o(init_T), data_type)  # Вязкость нефти, [Па*с]
@@ -85,7 +85,6 @@ class Solver:
         self.cells_S_eq  = np.zeros((Nx, Ny), data_type)  # Суммарный переток водонасыщенности в ячейке
         self.cells_Q_out = np.zeros((Nx, Ny), data_type)  # Суммарный отток через грани ячейки, [м^3/с]
         # Состояние метода Винсома-Вестервельда: накопленный интеграл перегрева пород, [C*м].
-        # Аккумулятор, а не временной слой - три буфера не нужны, обнуляется только на старте.
         self.E_ff = np.zeros((Nx, Ny), data_type)
         # Вспомогательные поля класса
         self._t = 0.0
@@ -93,12 +92,7 @@ class Solver:
         self._layers_file = None  # общий файл слоев, открывается при первом сохранении
         self.dt = dt              # Текущий шаг по времени, подбирается по CFL каждую итерацию, [с]
         self.max_dfw = 1.0        # max|df_w/dS|, задается в initialize()
-        self.clip_stats = np.zeros(4, data_type)  # [число обрезаний S, макс. выход, i, j] за шаг
-        self.clip_field = np.zeros((Nx, Ny), data_type)  # выход S за границы по ячейкам за шаг
-        self._clip_total = 0.0    # Накопленное число обрезаний S за весь расчет
-        self._p_bhp_min = 0.0     # Диапазон забойных давлений скважин, [Па]
-        self._p_bhp_max = 0.0
-        self._p_warned = False
+        self._producer = -1       # Индекс добывающей скважины, ищется в initialize() по is_injector
         self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)
         # Прогоночные коэффициенты для fi: своя строка на каждый i, иначе гонка в prange по ячейкам
         self.a_tdma = np.zeros((Nx, Nr), data_type)
@@ -125,9 +119,6 @@ class Solver:
             self.logger = getLogger(__name__)
             self.logger.setLevel(INFO)
             self.logger.propagate = False
-            for old in self.logger.handlers[:]:
-                self.logger.removeHandler(old)
-                old.close()
             handler = FileHandler(logs_path, mode='w')
             handler.setFormatter(Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S'))
             self.logger.addHandler(handler)
@@ -150,19 +141,20 @@ class Solver:
 
             return r2_fi0, r4_fi0
 
-        # Критерий останова и расчет КИН читают wells[1], поэтому набор скважин фиксирован:
-        # ровно две, добывающая под индексом 1. Проверяем здесь, а не падаем по IndexError в цикле.
-        if self.n_wells != 2 or self._wells_buffer[1]['well'].is_injector == 1:
-            raise ValueError('Ожидаются ровно две скважины, добывающая - вторая по порядку '
-                             f'add_well; сейчас их {self.n_wells}')
+        # Критерий останова и расписание сохранения читают обводненность добывающей скважины,
+        # поэтому она нужна ровно одна; порядок вызовов add_well при этом не важен. Ищем здесь,
+        # а не падаем по IndexError где-то в цикле.
+        producers = [idx for idx, item in enumerate(self._wells_buffer)
+                     if item['well'].is_injector == 0]
+        if len(producers) != 1:
+            raise ValueError('Ожидается ровно одна добывающая скважина (is_injector=False), '
+                             f'сейчас их {len(producers)} из {self.n_wells}')
+        self._producer = producers[0]
 
         self.integr_r2_fi0, self.integr_r4_fi0 = _calc_integrals()
         self._wells_names = [item['name'] for item in self._wells_buffer]
         self.wells = preprocess_wells(self._wells_buffer)
         self.max_dfw = _calc_max_dfw()
-
-        bhp = [well['well'].p for well in self._wells_buffer]
-        self._p_bhp_min, self._p_bhp_max = min(bhp), max(bhp)
 
 
     def add_bc(self, field: DataField, bound: Bound, type_bc: TypeBC, value: float) -> None:
@@ -194,13 +186,13 @@ class Solver:
                     pbar.update(self.dt)
                     self.upd_time_step(_t)
                     pbar.set_postfix(день=_t / day_to_sec, шаг_сут=round(self.dt / day_to_sec, 5))
-                    if self.wells[1].eta >= max_eta:
+                    if self.wells[self._producer].eta >= max_eta:
                         break
         except (KeyboardInterrupt, SystemError):
             pass
         finally:
             print('KIN:', round(self.KIN, 5))
-            print('eta:', round(self.wells[1].eta, 5))
+            print('eta:', round(self.wells[self._producer].eta, 5))
             if self._layers_file is not None:
                 self._layers_file.close()
                 self._layers_file = None
@@ -212,7 +204,6 @@ class Solver:
         """Решение задачи на текущем временном слое."""
         self._t = t
         step_dt = self.dt
-        self.clip_stats[:] = 0.0
 
         # Метод IMPES: явный по насыщенности, неявный по давлению.
         # Подвижности фаз - общие для сборки матрицы давления и для перетоков
@@ -228,19 +219,17 @@ class Solver:
         _wells_loop(self.n_wells, self.wells, self.m, self.S, self.new_s, self.T, self.new_t, self.Wp, self.new_wp, self.Wps, self.C_o, self.C_w, self.C_f, self.C_p, step_dt)
         # Решение уравнений по явной схеме
         dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wp, self.new_wp, self.Wps, self.new_wps, self.Wps_dep, self.T, self.T_0, self.new_t,
-                        self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.clip_field, self.clip_stats, self.max_dfw, step_dt)
+                        self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.max_dfw, step_dt)
         # Шаг для следующей итерации из фактического условия устойчивости
         dt_next = _calc_dt(self.n_wells, self.wells, self.m, self.cells_Q_out, self.max_dfw, step_dt, dt_cells)
 
-        self._clip_total += self.clip_stats[0]
-        self._check_pressure()
-        if self.clip_stats[0] > 0:
-            _logging_clip(self)
+        if not np.isfinite(self.p.sum()):
+            raise FloatingPointError('В поле давления появились NaN/Inf')
 
         # Полный лог и сохранение полей идут по одному условию и обязательно до _swap_time_steps:
         # он обнуляет new_* поля, которые логируются.
         dump_now = (t >= self._i_img * sol_time_step or np.isclose(t, Time_end)
-                    or self.wells[1].eta >= max_eta)
+                    or self.wells[self._producer].eta >= max_eta)
         if dump_now:
             _logging_solution(self, t)
 
@@ -285,12 +274,11 @@ class Solver:
 
 @njit(parallel=True, cache=True)
 def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wp, new_wp, Wps, new_wps, Wps_dep, T, T_0, new_t,
-                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, mu_o, mu_w, lam_o, lam_w, clip_field, clip_stats, max_dfw, dt):
+                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, mu_o, mu_w, lam_o, lam_w, max_dfw, dt):
     """Решение уравнений по явной схеме в цикле по ячейкам.
 
     Ячейки независимы - каждая пишет только в свои [i, j], поэтому внешний цикл идет в prange.
-    Статистика обрезаний насыщенности собирается поячеечно в clip_field и сворачивается уже после
-    параллельного цикла. Прогоночные буферы a_tdma, b_tdma нарезаются по i: один общий буфер на
+    Прогоночные буферы a_tdma, b_tdma нарезаются по i: один общий буфер на
     все ячейки давал бы гонку - потоки затирали друг другу коэффициенты, и fi считалась по мусору.
     """
     for i in prange(Nx):
@@ -308,34 +296,20 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
 
             # ---решение гидродинамики---
             flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam_w, m, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out)
-            saturation_equation(i, j, S, m, cells_S_eq, new_m, new_s, dt, clip_field)
+            saturation_equation(i, j, S, m, cells_S_eq, new_m, new_s, dt)
             temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wps, qp, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
 
-    # Свертка по ячейкам, одним проходом: статистика обрезаний [число, макс. выход, i, j] и
-    # ограничение на шаг по числу Куранта. Раньше это были два прохода по одним и тем же 2500
-    # ячейкам, причем второй - отдельным njit-вызовом со скважинами в аргументах.
+    # Ограничение на шаг по числу Куранта - отдельным проходом уже после prange: cells_Q_out
+    # заполняется в параллельном цикле, и минимум по нему можно брать только целиком.
     # Свои имена ci, cj: переиспользование i, j из prange сбивает numba типизацию индексов.
-    cnt, worst, wi, wj = 0.0, 0.0, 0.0, 0.0
     dt_cells = dt_max
     for ci in range(Nx):
         for cj in range(Ny):
-            v = clip_field[ci, cj]
-            if v > 0.0:
-                cnt += 1.0
-                if v > worst:
-                    worst = v
-                    wi = ci
-                    wj = cj
-
             q_out = cells_Q_out[ci, cj]
             if q_out > 1e-30:
                 dt_cell = CFL_target * m[ci, cj] * volume / (max_dfw * q_out)
                 if dt_cell < dt_cells:
                     dt_cells = dt_cell
-    clip_stats[0] = cnt
-    clip_stats[1] = worst
-    clip_stats[2] = wi
-    clip_stats[3] = wj
 
     return dt_cells
 
@@ -345,8 +319,7 @@ def _calc_dt(n_wells, wells, m, cells_Q_out, max_dfw, dt_prev, dt_cells):
     """Шаг по времени из условия устойчивости явной схемы по насыщенности.
 
     Ограничение на ячейку: dt <= CFL * m*V / (max|df_w/dS| * Q_отток). По самим ячейкам минимум
-    уже посчитан в `_equations_loop` (там же идет свертка обрезаний, проход по сетке один на двоих)
-    и приходит сюда как `dt_cells`. Здесь остаются только скважины: их отбор идет мимо граней,
+    уже посчитан в `_equations_loop` и приходит сюда как `dt_cells`. Здесь остаются только скважины: их отбор идет мимо граней,
     поэтому для ячеек скважин он добавляется к оттоку отдельно. Считается каждый шаг, потому что
     расход растет вместе с суммарной подвижностью по мере обводнения - в разы к концу расчета.
     """
@@ -388,30 +361,16 @@ def _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w, dt):
 def _swap_time_steps(_paraphin, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wo_0,
                      Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
                      fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, mu_o, mu_w):
-    """Обновление полей данных на новом временном слое.
-
-    Поячеечный параллельный цикл: `new_X` переезжает в текущий слой, текущий - в `X_0`. Ячейки
-    независимы, каждая пишет только в свои [i, j], поэтому внешний цикл идет в prange.
-    Буферы `new_s` и `new_wp` обнуляются здесь же: уравнения накапливают их через `+=`.
-
-    Вязкости пересчитываются от новой температуры. Векторной записи тут нет намеренно:
-    параллельный цикл считает их за 25 мкс против 60-99 мкс у numpy на 50x50 - `mu_w` идет
-    через `10**x`, а SIMD-реализации `pow` у numpy нет. Теплоемкости C_w, C_o, C_f, C_p раньше
-    переприсваивались здесь же константами на каждом шаге: они выставляются в `Solver.__init__`
-    и не меняются, а корреляции от температуры лежат в `utils/math_utils/fluids_correlations.py`.
-
-    Поля по радиусам пор `calc_velocities_h` и `calc_qp_m_k_fi` пишут только выше порога
-    кольматации; в остальных ячейках new_* равны текущим с прошлого активного шага, поэтому
-    копия под порогом - no-op и пропускается. Порог проверяется по Wps_0: сам Wps на этой строке
-    уже заменен новым, а уравнения смотрели на старый. Срезами, а не поячеечным циклом по Nr:
-    numba разворачивает их в memcpy подряд лежащих Nr элементов, поячеечный цикл - в четыре
-    чередующихся потока записи.
-    """
+    """Обновление полей данных на новом временном слое."""
     for i in prange(Nx):
         for j in range(Ny):
             # Пересчет свойств флюидов из-за изменения температуры
             mu_o[i, j] = calc_mu_o(new_t[i, j])
             mu_w[i, j] = calc_mu_w(new_t[i, j])
+            # C_w[i, j] = c_w  # calc_c_w(self.T[i, j])
+            # C_o[i, j] = c_o  # calc_c_o(self.T[i, j])
+            # C_f[i, j] = c_f  # calc_c_f(self.T[i, j])
+            # C_p[i, j] = c_p  # calc_c_p(self.T[i, j])
 
             S_0[i, j]   = S[i, j]
             S[i, j]     = new_s[i, j]
@@ -487,16 +446,6 @@ def _logging_solution(solver, t):
 
     # self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi)[0, 0]])}")
     # self.logger.info(f"fi_0: {' '.join([f'{x:.{3}f}' for x in fi_0])}")
-
-
-def _logging_clip(solver) -> None:
-    """Предупреждение об обрезании насыщенности. Пишется на каждом шаге, где оно случилось."""
-    if not LOGGING:
-        return None
-    solver.logger.warning(f"Насыщенность обрезана в {int(solver.clip_stats[0])} ячейках, "
-                          f"максимальный выход {solver.clip_stats[1]} "
-                          f"в ячейке ({int(solver.clip_stats[2])}, {int(solver.clip_stats[3])}); "
-                          f"всего с начала расчета {int(solver._clip_total)}")
 
 
 def _logging_resources(logger) -> None:
