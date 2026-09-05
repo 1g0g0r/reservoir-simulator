@@ -1,7 +1,7 @@
 """Решение уравнения концентрации взвешенных частиц парафина по явной схеме."""
 from numba import njit
 
-from paraphin import r1, r2, r3, r4, r5, r6, n_block
+from paraphin import r1, r2, r3, r4, r5, r6, n_pass
 from paraphin.constants import Nr, init_m, init_k, min_Wps_bound
 
 
@@ -63,9 +63,9 @@ def _calculate_integrals(fi, Ur, Ub, i: int, j: int):
         r2fi += (r3[ij] - r3[ij - 1]) * A_fi / 3 + (r4[ij] - r4[ij - 1]) * B_fi / 4  # r^2 * fi
         r4fi += (r5[ij] - r5[ij - 1]) * A_fi / 5 + (r6[ij] - r6[ij - 1]) * B_fi / 6  # r^4 * fi
 
-    # Ub отлична от нуля только при r <= r_pass (частица не проходит горло), поэтому интеграл
+    # Ub отлична от нуля только при r < r_pass (частица не проходит горло), поэтому интеграл
     # ub*r^2 идет отдельным коротким циклом, а не проверкой радиуса на каждом узле общего
-    for ij in range(1, n_block):
+    for ij in range(1, n_pass):
         dr = r1[ij] - r1[ij - 1]
         A_ub = (Ub[i, j, ij - 1] * r1[ij] - Ub[i, j, ij] * r1[ij - 1]) / dr
         B_ub = (Ub[i, j, ij] - Ub[i, j, ij - 1]) / dr

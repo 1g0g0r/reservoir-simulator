@@ -7,11 +7,6 @@ from paraphin.constants import volume
 @njit(cache=True)
 def saturation_equation(i, j, S, m, cells_S_eq, new_m, new_S, dt) -> None:
     """Вычисление водонасыщенности по явной схеме.
-
-    Границы [S_min, S_max] держит сама модель: вне них f_w и f_o выходят на 0 и 1
-    (`math_utils/phase_f.py`), поток становится монотонным, и при шаге по Куранту схема
-    из диапазона не выносит. Зажима и статистики обрезаний здесь нет.
-
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     new_S[i, j] += S[i, j] + (-S[i, j] * (new_m[i, j] - m[i, j]) + dt * cells_S_eq[i, j] / volume) / new_m[i, j]

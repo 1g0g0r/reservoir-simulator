@@ -1,7 +1,7 @@
 """Вычисление скоростей и толщины осадочного слоя в ячейке."""
 from numba import njit
 
-from paraphin import r1, r4, cbrt_r1, n_block, n_narrow
+from paraphin import r1, r4, cbrt_r1, n_pass
 from paraphin.constants import (data_type, Nr, D, g, betta, Diff, Lk, Cf, S_max, Delta, ro_p,
                                 min_Wps_bound, suffusion)
 
@@ -18,7 +18,7 @@ def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_
 
     Узкие капилляры частица затыкает целиком (Ub), в широкие проходит и оседает на стенке,
     сужая их (Ur < 0). Граница - радиус, при котором частица проходит горло; критерий и деление
-    сетки радиусов на два диапазона - в `paraphin/__init__.py` (`r_pass`, `n_block`, `n_narrow`).
+    сетки радиусов на два диапазона - в `paraphin/__init__.py` (`r_pass`, `n_pass`).
     При Wps ниже порога кольматации цикл не имеет смысла и не выполняется.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
@@ -29,23 +29,20 @@ def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_
         wps = Wps[i, j]
         um_r2 = Um_r2[i, j]
 
-        # Оба множителя зависят только от ячейки, зависимость от радиуса вынесена в константные
-        # массивы. Скорость блокирования: So*wps*b_D_3 * um*r^2 * fi, где um = um_r2*r^2, то есть
-        # um*r^2 = um_r2 * r^4. Скорость сужения: -So*wps * (um*Diff_2/r)^(1/3), где
-        # um*Diff_2/r = um_r2*Diff_2*r, то есть корень распадается на cbrt(um_r2*Diff_2)*cbrt(r).
-        # Было Nr вызовов pow на ячейку, стало один.
+        # Оба множителя зависят только от ячейки, зависимость от радиуса вынесена в константные массивы.
+        # Скорость блокирования: So*wps*b_D_3 * um*r^2 * fi, где um = um_r2*r^2, то есть um*r^2 = um_r2 * r^4.
+        # Скорость сужения: -So*wps * (um*Diff_2/r)^(1/3), где um*Diff_2/r = um_r2*Diff_2*r,
+        # то есть корень распадается на cbrt(um_r2*Diff_2)*cbrt(r). Было Nr вызовов pow на ячейку, стало один.
         ub_coef = So * wps * b_D_3 * um_r2
         ur_coef = -So * wps * (um_r2 * Diff_2) ** (1.0 / 3.0)
 
-        # Блокирование - только узкие капилляры (r <= r_pass), сужение - только широкие
-        for ij in range(n_block):
+        # Блокирование - только узкие капилляры (r < r_pass), сужение - только широкие
+        for ij in range(n_pass):
             Ub_new[i, j, ij] = ub_coef * r4[ij] * fi[i, j, ij]
-        for ij in range(n_block, Nr):
-            Ub_new[i, j, ij] = 0.0
-        for ij in range(n_narrow):
             Ur_new[i, j, ij] = 0.0
             h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
-        for ij in range(n_narrow, Nr):
+        for ij in range(n_pass, Nr):
+            Ub_new[i, j, ij] = 0.0
             Ur_new[i, j, ij] = u_r(ur_coef * cbrt_r1[ij], So, um_r2, r1[ij],
                                    h_sloy[i, j, ij], mu_o[i, j])
             h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)

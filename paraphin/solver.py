@@ -5,7 +5,6 @@ from sys import stdout
 from time import perf_counter
 
 import numpy as np
-import psutil
 from numba import njit, prange
 from tqdm import tqdm
 
@@ -21,8 +20,6 @@ from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, satu
 from .utils import (calc_mu_o, calc_mu_w, preprocess_wells, convert_pkl_files, save_fields,
                     Bound, TypeBC, DataField, add_bc, WellStruct, upd_q_and_eta, Buckley_Leverett,
                     calc_mobility)
-
-_process = psutil.Process()  # для логирования памяти, см. _logging_resources
 
 
 class Solver:
@@ -142,8 +139,7 @@ class Solver:
             return r2_fi0, r4_fi0
 
         # Критерий останова и расписание сохранения читают обводненность добывающей скважины,
-        # поэтому она нужна ровно одна; порядок вызовов add_well при этом не важен. Ищем здесь,
-        # а не падаем по IndexError где-то в цикле.
+        # поэтому она нужна ровно одна; порядок вызовов add_well при этом не важен.
         producers = [idx for idx, item in enumerate(self._wells_buffer)
                      if item['well'].is_injector == 0]
         if len(producers) != 1:
@@ -226,13 +222,6 @@ class Solver:
         if not np.isfinite(self.p.sum()):
             raise FloatingPointError('В поле давления появились NaN/Inf')
 
-        # Полный лог и сохранение полей идут по одному условию и обязательно до _swap_time_steps:
-        # он обнуляет new_* поля, которые логируются.
-        dump_now = (t >= self._i_img * sol_time_step or np.isclose(t, Time_end)
-                    or self.wells[self._producer].eta >= max_eta)
-        if dump_now:
-            _logging_solution(self, t)
-
         _swap_time_steps(self._paraphin, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m,
                          self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0, self.new_wp,
                          self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t,
@@ -240,36 +229,12 @@ class Solver:
                          self.Ub, self.new_Ub, self.mu_o, self.mu_w)
 
         self.dt = dt_next
+        _logging_solution(self, t)
 
         # Запись данных в файл
-        if dump_now:
+        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[self._producer].eta >= max_eta:
             save_fields(self, t)
             self._i_img += 1
-
-
-    def _check_pressure(self) -> None:
-        """Проверка поля давления на физичность.
-
-        При отключенном парафине правая часть уравнения давления тождественно нулевая, матрица -
-        симметричная M-матрица, а скважины входят источниками с забойными давлениями. Тогда дискретный
-        принцип максимума гарантирует p в пределах [min(p_заб), max(p_заб)]. Выход за эти границы
-        означает не физику, а NaN в матрице или сбой решателя, поэтому сообщаем о нем явно.
-        """
-        if not np.isfinite(self.p.sum()):
-            raise FloatingPointError('В поле давления появились NaN/Inf')
-
-        if self._paraphin or self.n_wells == 0:
-            return None
-
-        tol = 1e-6 * max(abs(self._p_bhp_max), 1.0)
-        if self.p.min() < self._p_bhp_min - tol or self.p.max() > self._p_bhp_max + tol:
-            msg = (f'Давление вне диапазона забойных давлений скважин: '
-                   f'min={self.p.min() / bar_to_pa:.4f} max={self.p.max() / bar_to_pa:.4f} бар '
-                   f'при допустимых [{self._p_bhp_min / bar_to_pa:.4f}, {self._p_bhp_max / bar_to_pa:.4f}] бар')
-            self.logger.warning(msg)
-            if not self._p_warned:
-                self._p_warned = True
-                print('\n' + msg)
 
 
 @njit(parallel=True, cache=True)
@@ -278,9 +243,9 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
     """Решение уравнений по явной схеме в цикле по ячейкам.
 
     Ячейки независимы - каждая пишет только в свои [i, j], поэтому внешний цикл идет в prange.
-    Прогоночные буферы a_tdma, b_tdma нарезаются по i: один общий буфер на
-    все ячейки давал бы гонку - потоки затирали друг другу коэффициенты, и fi считалась по мусору.
+    Прогоночные буферы a_tdma, b_tdma нарезаются по i: один общий буфер на все ячейки давал бы гонку потоков.
     """
+    dt_cells = dt_max
     for i in prange(Nx):
         for j in range(Ny):
             calc_Um_r2(i, j, p, grad_p, _Um_r2, mu_o)  # Средняя скорость в капилляре * r^2
@@ -299,17 +264,10 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
             saturation_equation(i, j, S, m, cells_S_eq, new_m, new_s, dt)
             temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wps, qp, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
 
-    # Ограничение на шаг по числу Куранта - отдельным проходом уже после prange: cells_Q_out
-    # заполняется в параллельном цикле, и минимум по нему можно брать только целиком.
-    # Свои имена ci, cj: переиспользование i, j из prange сбивает numba типизацию индексов.
-    dt_cells = dt_max
-    for ci in range(Nx):
-        for cj in range(Ny):
-            q_out = cells_Q_out[ci, cj]
+            # Ограничение на шаг по числу Куранта
+            q_out = cells_Q_out[i, j]
             if q_out > 1e-30:
-                dt_cell = CFL_target * m[ci, cj] * volume / (max_dfw * q_out)
-                if dt_cell < dt_cells:
-                    dt_cells = dt_cell
+                dt_cells = min(dt_cells, CFL_target * m[i, j] * volume / (max_dfw * q_out))
 
     return dt_cells
 
@@ -402,11 +360,9 @@ def _swap_time_steps(_paraphin, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new
 def _calc_max_dfw() -> float:
     """Максимум производной функции Баклея-Леверетта на рабочем диапазоне насыщенности.
 
-    Именно эта величина задает предел устойчивости явной схемы по насыщенности. Считается по
-    фактическим вязкостям, а не по номинальным mu_o, mu_w из constants.py: при 70 C отношение
-    подвижностей равно 14.4 против заявленных там 5, а max|df_w/dS| - 6.5 против 2.2.
+    Именно эта величина задает предел устойчивости явной схемы по насыщенности.
     """
-    # ponytail: производная берется при init_T; пересчитать, если диапазон температур расширится
+    # производная берется при init_T; пересчитать, если диапазон температур расширится
     s = np.linspace(S_min, S_max, 2001)
     mu_w_ref, mu_o_ref = calc_mu_w(init_T), calc_mu_o(init_T)
     f_w = np.array([Buckley_Leverett(x, mu_w_ref, mu_o_ref) for x in s])
@@ -420,7 +376,6 @@ def _logging_solution(solver, t):
         return None
 
     solver.logger.info('')
-    _logging_resources(solver.logger)
     solver.logger.info(f"ВРЕМЕННОЙ СЛОЙ t = {round(t / day_to_sec, 5)} день, шаг {solver.dt / day_to_sec} сут")
     solver.logger.info(f"Обновлено давление (бар): min={solver.p.min() / bar_to_pa}  max={solver.p.max() / bar_to_pa}")
     solver.logger.info(f"Обновлена насыщенность:   min={solver.new_s.min()}  max={solver.new_s.max()}")
@@ -446,9 +401,3 @@ def _logging_solution(solver, t):
 
     # self.logger.info(f"fi:   {' '.join([f'{x:.{3}f}' for x in self.fi)[0, 0]])}")
     # self.logger.info(f"fi_0: {' '.join([f'{x:.{3}f}' for x in fi_0])}")
-
-
-def _logging_resources(logger) -> None:
-    # psutil.virtual_memory() на Windows стоит 3.5 мс - больше, чем весь шаг по времени.
-    # Память самого процесса и полезнее, и дешевле в тысячу раз.
-    logger.info(f'Память процесса: {round(_process.memory_info().rss / 1024 ** 2, 1)} МБ')
