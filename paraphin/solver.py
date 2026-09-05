@@ -12,7 +12,7 @@ from tqdm import tqdm
 from paraphin import N, r1, r3, r4, r5, r6, fi_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs_path, init_T, init_k, init_S, init_m,
                         init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, dt, day_to_sec,
-                        max_eta, c_o, c_w, c_p, c_f, c_ff, sol_time_step, Time_end, LOGGING, geological_reserves,
+                        max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, geological_reserves,
                         volume, S_min, S_max, CFL_target, dt_growth, dt_max, dt_min,
                         min_Wps_bound)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, saturation_well, temperature_well,
@@ -40,7 +40,6 @@ class Solver:
         self.C_w  = np.full((Nx, Ny), c_w, data_type)  # Теплоемкость воды, [Дж*кг/C]
         self.C_o  = np.full((Nx, Ny), c_o, data_type)  # Теплоемкость нефти, [Дж*кг/C]
         self.C_f  = np.full((Nx, Ny), c_f, data_type)  # Теплоемкость пласта, [Дж*кг/C]
-        self.C_ff = np.full((Nx, Ny), c_ff, data_type) # Теплоемкость окружающих пород пласта, [Дж*кг/C]
         self.C_p  = np.full((Nx, Ny), c_p, data_type)  # Теплоемкость парафина, [Дж*кг/C]
         # Поля данных пласта
         self.p     = np.full((Nx, Ny), init_p, data_type)  # Давление, [Па]
@@ -85,6 +84,9 @@ class Solver:
         self.cells_Wp_eq = np.zeros((Nx, Ny), data_type)  # Суммарный переток растворенного в ячейке
         self.cells_S_eq  = np.zeros((Nx, Ny), data_type)  # Суммарный переток водонасыщенности в ячейке
         self.cells_Q_out = np.zeros((Nx, Ny), data_type)  # Суммарный отток через грани ячейки, [м^3/с]
+        # Состояние метода Винсома-Вестервельда: накопленный интеграл перегрева пород, [C*м].
+        # Аккумулятор, а не временной слой - три буфера не нужны, обнуляется только на старте.
+        self.E_ff = np.zeros((Nx, Ny), data_type)
         # Вспомогательные поля класса
         self._t = 0.0
         self._i_img = 0
@@ -226,7 +228,7 @@ class Solver:
         _wells_loop(self.n_wells, self.wells, self.m, self.S, self.new_s, self.T, self.new_t, self.Wp, self.new_wp, self.Wps, self.C_o, self.C_w, self.C_f, self.C_p, step_dt)
         # Решение уравнений по явной схеме
         dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wp, self.new_wp, self.Wps, self.new_wps, self.Wps_dep, self.T, self.T_0, self.new_t,
-                        self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.C_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.clip_field, self.clip_stats, self.max_dfw, step_dt)
+                        self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.clip_field, self.clip_stats, self.max_dfw, step_dt)
         # Шаг для следующей итерации из фактического условия устойчивости
         dt_next = _calc_dt(self.n_wells, self.wells, self.m, self.cells_Q_out, self.max_dfw, step_dt, dt_cells)
 
@@ -242,7 +244,11 @@ class Solver:
         if dump_now:
             _logging_solution(self, t)
 
-        _swap_time_steps(self)
+        _swap_time_steps(self._paraphin, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m,
+                         self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0, self.new_wp,
+                         self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t,
+                         self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur,
+                         self.Ub, self.new_Ub, self.mu_o, self.mu_w)
 
         self.dt = dt_next
 
@@ -279,7 +285,7 @@ class Solver:
 
 @njit(parallel=True, cache=True)
 def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wp, new_wp, Wps, new_wps, Wps_dep, T, T_0, new_t,
-                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, C_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, mu_o, mu_w, lam_o, lam_w, clip_field, clip_stats, max_dfw, dt):
+                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, mu_o, mu_w, lam_o, lam_w, clip_field, clip_stats, max_dfw, dt):
     """Решение уравнений по явной схеме в цикле по ячейкам.
 
     Ячейки независимы - каждая пишет только в свои [i, j], поэтому внешний цикл идет в prange.
@@ -303,7 +309,7 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp, n
             # ---решение гидродинамики---
             flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam_w, m, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out)
             saturation_equation(i, j, S, m, cells_S_eq, new_m, new_s, dt, clip_field)
-            temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells_T_eq, _t, lam_o, lam_w, grad_p, new_t, new_m, new_s, dt)
+            temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wps, qp, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
 
     # Свертка по ячейкам, одним проходом: статистика обрезаний [число, макс. выход, i, j] и
     # ограничение на шаг по числу Куранта. Раньше это были два прохода по одним и тем же 2500
@@ -378,45 +384,15 @@ def _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w, dt):
     return Q_oil / geological_reserves
 
 
-def _swap_time_steps(solver) -> None:
+@njit(parallel=True, cache=True)
+def _swap_time_steps(_paraphin, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new_s, Wo, Wo_0,
+                     Wp, Wp_0, new_wp, Wps, Wps_0, new_wps, T, T_0, new_t,
+                     fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, mu_o, mu_w):
     """Обновление полей данных на новом временном слое.
 
-    Копирования полей здесь нет: буферы меняются ссылками (ping-pong). Поле с тремя буферами
-    (X_0, X, new_X) прокручивается по кругу - new_X становится текущим слоем, текущий уезжает
-    в X_0, а освободившийся X_0 уходит под new_X, его содержимое все равно затирается целиком.
-    Данные при этом не двигаются, двигаются только имена.
-
-    **Условие корректности: уравнение обязано писать new_X в каждой ячейке, а не только там,
-    где поле изменилось.** Пропущенная ячейка получит не текущее значение, а позапрошлое: ее
-    держит второй буфер, который к следующему шагу встанет на место текущего слоя. Раньше на это
-    работало копирование в цикле, и ячейку можно было не трогать; теперь `calc_qp_m_k_fi` и
-    `wps_wp_equation` в своих else-ветках пишут `new_* = текущее`. Заводишь новое поле - или
-    пиши его в каждой ячейке, или оставляй копию, как у полей по радиусам пор (`fi`, `h_sloy`,
-    `Ur`, `Ub`): те копируются в `_finish_swap` только выше порога кольматации.
-    """
-    s = solver
-    s.S_0, s.S, s.new_s = s.S, s.new_s, s.S_0
-    s.T_0, s.T, s.new_t = s.T, s.new_t, s.T_0
-
-    if s._paraphin:
-        s.Wo_0, s.Wo = s.Wo, s.Wo_0
-        s.Wp_0, s.Wp, s.new_wp = s.Wp, s.new_wp, s.Wp_0
-        s.Wps_0, s.Wps, s.new_wps = s.Wps, s.new_wps, s.Wps_0
-        s.m_0, s.m, s.new_m = s.m, s.new_m, s.m_0
-        s.k, s.new_k = s.new_k, s.k
-        s.qp, s.new_qp = s.new_qp, s.qp
-
-    _finish_swap(s._paraphin, s.T, s.mu_o, s.mu_w, s.new_s, s.new_t, s.Wo, s.Wp, s.Wps, s.new_wp,
-                 s.Wps_0, s.fi, s.new_fi, s.h_sloy, s.new_h, s.Ur, s.new_Ur, s.Ub, s.new_Ub)
-
-
-@njit(parallel=True, cache=True)
-def _finish_swap(_paraphin, T, mu_o, mu_w, new_s, new_t, Wo, Wp, Wps, new_wp,
-                 Wps_0, fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub):
-    """Поячеечный хвост обмена слоев: то, что ссылками не решается.
-
-    Имена полей здесь уже после ping-pong: `Wp` - это новый слой, `new_wp` - отработавший буфер
-    под обнуление (уравнения накапливают new_* через `+=`).
+    Поячеечный параллельный цикл: `new_X` переезжает в текущий слой, текущий - в `X_0`. Ячейки
+    независимы, каждая пишет только в свои [i, j], поэтому внешний цикл идет в prange.
+    Буферы `new_s` и `new_wp` обнуляются здесь же: уравнения накапливают их через `+=`.
 
     Вязкости пересчитываются от новой температуры. Векторной записи тут нет намеренно:
     параллельный цикл считает их за 25 мкс против 60-99 мкс у numpy на 50x50 - `mu_w` идет
@@ -424,24 +400,38 @@ def _finish_swap(_paraphin, T, mu_o, mu_w, new_s, new_t, Wo, Wp, Wps, new_wp,
     переприсваивались здесь же константами на каждом шаге: они выставляются в `Solver.__init__`
     и не меняются, а корреляции от температуры лежат в `utils/math_utils/fluids_correlations.py`.
 
-    Поля по радиусам пор - единственные, что здесь копируются: ссылками их не обменять, потому что
-    `calc_velocities_h` и `calc_qp_m_k_fi` пишут их только выше порога кольматации, а тождественная
-    запись в пропущенных ячейках стоила бы Nr элементов вместо одного. В этих ячейках new_* равны
-    текущим с прошлого активного шага, поэтому копия под порогом - no-op и пропускается. Порог
-    проверяется по Wps_0: сам Wps к этому моменту уже заменен новым, а уравнения смотрели на старый.
-    Срезами, а не поячеечным циклом по Nr: numba разворачивает их в memcpy подряд лежащих Nr
-    элементов, поячеечный цикл - в четыре чередующихся потока записи.
+    Поля по радиусам пор `calc_velocities_h` и `calc_qp_m_k_fi` пишут только выше порога
+    кольматации; в остальных ячейках new_* равны текущим с прошлого активного шага, поэтому
+    копия под порогом - no-op и пропускается. Порог проверяется по Wps_0: сам Wps на этой строке
+    уже заменен новым, а уравнения смотрели на старый. Срезами, а не поячеечным циклом по Nr:
+    numba разворачивает их в memcpy подряд лежащих Nr элементов, поячеечный цикл - в четыре
+    чередующихся потока записи.
     """
     for i in prange(Nx):
         for j in range(Ny):
-            mu_o[i, j] = calc_mu_o(T[i, j])
-            mu_w[i, j] = calc_mu_w(T[i, j])
+            # Пересчет свойств флюидов из-за изменения температуры
+            mu_o[i, j] = calc_mu_o(new_t[i, j])
+            mu_w[i, j] = calc_mu_w(new_t[i, j])
+
+            S_0[i, j]   = S[i, j]
+            S[i, j]     = new_s[i, j]
             new_s[i, j] = 0.0
+            T_0[i, j]   = T[i, j]
+            T[i, j]     = new_t[i, j]
             new_t[i, j] = 0.0
 
             if _paraphin:
-                Wo[i, j]  = 1.0 - Wp[i, j] - Wps[i, j]
+                Wo_0[i, j]   = Wo[i, j]
+                Wo[i, j]     = 1.0 - new_wp[i, j] - new_wps[i, j]
+                Wp_0[i, j]   = Wp[i, j]
+                Wp[i, j]     = new_wp[i, j]
                 new_wp[i, j] = 0.0
+                Wps_0[i, j]  = Wps[i, j]
+                Wps[i, j]    = new_wps[i, j]
+                k[i, j]      = new_k[i, j]
+                m_0[i, j]    = m[i, j]
+                m[i, j]      = new_m[i, j]
+                qp[i, j]     = new_qp[i, j]
 
                 if Wps_0[i, j] > min_Wps_bound:
                     fi[i, j, :]     = new_fi[i, j, :]

@@ -2,24 +2,33 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff
-from paraphin.utils.math_utils import erfc
+from paraphin.constants import (volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff, c_ff,
+                                vinsome_westerveld)
+
+# Свойства окружающих пород. Константы уровня модуля: numba вшивает их в машинный код литералами,
+# а не считает корень и деление на каждой ячейке каждый шаг.
+alpha_ff = K_ff / (c_ff * ro_ff)  # температуропроводность, [м^2/с]
+M_ff = c_ff * ro_ff               # объемная теплоемкость, [Дж/(м^3*C)]
 
 
 @njit(cache=True)
-def temperature_equation(i, j, T, m, S, C_o, C_w, C_f, C_ff, C_p, Wps, qp, cells_T_eq, t,
-                         lam_o, lam_w, grad_p, new_T, new_m, new_S, dt) -> None:
+def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wps, qp, cells_T_eq, t, E_ff,
+                         new_T, new_m, new_S, dt) -> None:
     """Вычисление температуры по явной схеме.
 
     Помимо перетоков `cells_T_eq` учитывает изменение теплоемкости смеси за шаг, теплоту
-    кристаллизации парафина (`qp`) и потери через кровлю и подошву пласта (метод Ловерье).
+    кристаллизации парафина (`qp`) и потери через кровлю и подошву пласта. Метод потерь выбирает
+    флаг `vinsome_westerveld` из `constants.py`; ветка сворачивается на этапе компиляции.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     psi = _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f)
     psi_next = _psi(i, j, new_m, new_S, Wps, C_w, C_o, C_p, C_f)
     derivative_add = T[i, j] * volume * (psi_next - psi) / dt
-    T_losses = _top_bottom_heat_losses(i, j, t, T, lam_o, lam_w, C_o, C_w, C_f, C_ff, grad_p)
+    if vinsome_westerveld:
+        T_losses = _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
+    else:
+        T_losses = _top_bottom_heat_losses_lauwerier(i, j, t, T)
 
     new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + qp[i, j] * ro_p * C_p[i, j] * volume)
 
@@ -50,21 +59,78 @@ def _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f):
 
 
 @njit(cache=True)
-def _top_bottom_heat_losses(i, j, t, T, lam_o, lam_w, C_o, C_w, C_f, C_ff, grad_p):
-    """Потери тепла через кровлю и подошву пласта по методу Ловерье, [Вт/м^3].
+def _top_bottom_heat_losses_lauwerier(i, j, t, T):
+    """Потери тепла через кровлю и подошву пласта, [Вт/м^3].
+
+    Схема Ловерье дает обмен пласта с окружающими породами как Theta = -2*K_ff*dT/dz на границах
+    z = +-h/2, а сами породы прогреваются одномерной теплопроводностью вглубь. Для полубесконечного
+    массива, на границе которого держится перегрев (T - init_T), решение Карслоу-Егера дает
+    плотность потока K_ff*(T - init_T)/sqrt(pi*alpha_ff*t) с единицы площади; двойка - кровля
+    и подошва, деление на h - переход к единице объема пласта.
+
+    Знак: в остывшей ячейке (T < init_T) величина отрицательна, а в уравнении она вычитается, то
+    есть непрогретые породы возвращают тепло в пласт. Поток падает как 1/sqrt(t) - прогретый слой
+    пород растет.
+
+    Время отсчитывается от начала расчета, а не от прихода теплового фронта в ячейку: точный учет
+    требует свертки по всей истории температуры ячейки (Винсом-Вестервельд) или отдельного поля с
+    моментом прихода фронта. Пока фронт не дошел, T = init_T и член нулевой сам по себе, так что
+    завышается только длительность прогрева пород под уже пройденными ячейками.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
-    t_loss = 0.0
-    # Подвижности уже посчитаны calc_mobility: mobility_o(k, S, mu_o) - это ровно lam_o[i, j]
-    V_o = grad_p[i, j] * lam_o[i, j]
-    V_w = grad_p[i, j] * lam_w[i, j]
+    # ponytail: t от начала расчета вместо времени с прихода фронта; завести поле t_front[i, j],
+    # если потери начнут заметно влиять на положение теплового фронта
+    if t <= 0.0:
+        return 0.0
 
-    teta = 4.0 * K_ff * t / (C_f[i, j] * ro_f) / h / h
-    ksi = 4.0 * K_ff / (V_o * C_o[i, j] * ro_o + V_w * C_w[i, j] * ro_w) / h
+    return 2.0 * K_ff * (T[i, j] - init_T) / (h * np.sqrt(np.pi * alpha_ff * t))
 
-    if teta > ksi:
-        erfc_argument = ksi / np.sqrt((C_f[i, j] * ro_f) / (C_ff[i, j] * ro_ff) * (teta - ksi)) * 0.5
-        t_loss = (T[i, j] - init_T) * erfc(erfc_argument)
 
-    return t_loss
+@njit(cache=True)
+def _heat_losses_vw(i, j, t, T, T_0, E_ff, dt):
+    """Потери тепла через кровлю и подошву по Винсому-Вестервельду, [Вт/м^3].
+
+    Точный поток в породы - свертка всей истории температуры ячейки с ядром 1/sqrt(t - tau),
+    то есть O(t) памяти и работы на ячейку. Винсом и Вестервельд (1980) заменяют свертку
+    пробным профилем температуры в породах с двумя свободными параметрами
+    (TOUGH2 User's Guide, п. 7.4, ур. 39-40; статья лежит в `resources/литература/неизотермическое`):
+
+        T(z) - init_T = (dT_bound + p*z + q*z^2) * exp(-z/d),   d = sqrt(alpha_ff*t)/2
+
+    `p` и `q` пересчитываются каждый шаг из двух условий:
+
+        профиль удовлетворяет уравнению теплопроводности на границе:
+            dT_bound/d^2 - 2p/d + 2q = (dT/dt) / alpha_ff
+        интеграл профиля равен фактически накопленному в породах теплу:
+            dT_bound*d + p*d^2 + 2q*d^3 = E_ff
+
+    Исключение `q` дает замкнутую формулу для `p`, а сам `q` в поток не входит и не считается.
+    Поток с единицы площади - K_ff*(dT_bound/d - p), двойка - кровля и подошва, деление на h -
+    переход к единице объема пласта.
+
+    E_ff: numpy.ndarray(Nx, Ny)
+        Состояние метода: накопленный интеграл перегрева пород по глубине, [C*м]. Обновляется
+        здесь же на месте (как `Wps_dep` в уравнении парафина), гонки в prange нет - ячейка пишет
+        только свой [i, j]. Три буфера ему не нужны: это аккумулятор, а не временной слой.
+
+    Скорость изменения температуры границы берется как (T - T_0)/dt. При адаптивном шаге разность
+    накоплена за предыдущий шаг, а делится на текущий - расхождение ограничено `dt_growth` (1.2)
+    и бьет по слагаемому второго порядка. На ступеньке рекурсия сходится к автомодельному режиму
+    с E_ff = (24/11)*d*dT_bound и дает поток на 3.3% ниже точного отклика полубесконечного
+    массива - это и проверяет `tests/test_heat_losses.py`.
+
+    Описание остальных аргументов - в докстринге пакета `paraphin.equations`.
+    """
+    if t <= 0.0:
+        return 0.0
+
+    d = 0.5 * np.sqrt(alpha_ff * t)
+    dT_bound = T[i, j] - init_T
+    dT_dt = (T[i, j] - T_0[i, j]) / dt
+
+    p = (E_ff[i, j] - d * d * d * dT_dt / alpha_ff) / (3.0 * d * d)
+    flux = K_ff * (dT_bound / d - p)
+    E_ff[i, j] += flux * dt / M_ff
+
+    return 2.0 * flux / h
