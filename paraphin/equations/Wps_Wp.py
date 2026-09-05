@@ -11,35 +11,14 @@ alpha_R = alpha / R
 
 
 @njit(cache=True)
-def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, cells_Wp_eq, new_Wp, new_Wps, dt) -> None:
-    """Вычисление концентрации взвешенных частиц (Wps) и растворенного парафина (Wp) парафина по явной схеме.
+def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wp, Wps, T, T_0, cells_Wp_eq, new_Wp, new_Wps, Wps_dep, dt) -> None:
+    """Концентрации растворенного (Wp) и взвешенного (Wps) парафина по явной схеме.
 
-    Parameters
-    ----------
-    i, j : int
-        Индексы текущей ячейки, [-]
-    qp: numpy.ndarray(Nx, Ny)
-         Скорость отложения парафиновых отложений в общем объеме пористой породы
-    m: numpy.ndarray(Nx, Ny)
-        Пористость, [-]
-    m_0: numpy.ndarray(Nx, Ny)
-        Пористость на прошлом временном слое, [-]
-    S: numpy.ndarray(Nx, Ny)
-        Водонасыщенность, [-]
-    S_0: numpy.ndarray(Nx, Ny)
-        Водонасыщенность на прошлом временном слое, [-]
-    Wo: numpy.ndarray(Nx, Ny)
-        Концентрация нефтяного компонента в нефти, [-]
-    Wp: numpy.ndarray(Nx, Ny)
-        Концентрация растворенного парафина, [-]
-    T: numpy.ndarray(Nx, Ny)
-        Температура, [С]
-    cells_Wp_eq: numpy.ndarray(Nx, Ny)
-        Перетоки нефти в ячейках, [Па*м]
-    new_Wp: numpy.ndarray(Nx, Ny)
-        Концентрация растворенного парафина на новом временном слое, [-]
-    new_Wps: numpy.ndarray(Nx, Ny)
-        Концентрация взвешенных частиц парафина на новом временном слое, [-]
+    Считается только ниже начальной температуры. Это нужно, чтобы избежать лишних вычислений в области,
+    где температурный фронт еще не прошел. Читает `cells_Wp_eq` до того, как `flows_in_cells` перезапишет буфер,
+    то есть работает с перетоками предыдущего шага.
+
+    Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     if T[i, j] < init_T * 0.95:
         if Wp[i, j] > min_Wp_bound:
@@ -60,6 +39,11 @@ def wps_wp_equation(i, j, qp, m, m_0, S, S_0, Wo, Wp, Wp_0, Wps, Wps_0, T, T_0, 
             new_Wps[i, j] = max(Wps[i, j] + colmatation, 0)
     else:
         new_Wp[i, j] = Wp[i, j]
+        new_Wps[i, j] = Wps[i, j]  # выше температуры кристаллизации Wps не меняется
+
+    # Осевший на порах парафин
+    Wps_dep[i, j] = min(Wps_dep[i, j] - qp[i, j] * dt * ro_p /
+                        ((1.0 - new_Wps[i, j]) * ro_o + new_Wps[i, j] * ro_p), init_Wp)
 
 
 @njit(cache=True)
@@ -76,22 +60,9 @@ def _get_Wps(Wp: data_type, Wps: data_type, T: data_type) -> data_type:
 
 @njit(cache=True)
 def wps_wp_wells(well, m, S, T, Wp, Wps, new_Wp, dt) -> None:
-    """Вычисление массовой доли взвешенных частиц (Wps) и растворенного парафина (Wp) парафина в нефти по явной схеме.
+    """Вынос парафина добывающей скважиной из уравнения для Wp.
 
-    Parameters
-    ----------
-    well: Well
-        Объект класса скважина
-    m: numpy.ndarray(Nx, Ny)
-        Пористость, [-]
-    S: numpy.ndarray(Nx, Ny)
-        Водонасыщенность, [-]
-    Wp: numpy.ndarray(Nx, Ny)
-        Концентрация растворенного парафина, [-]
-    Wps: numpy.ndarray(Nx, Ny)
-        Концентрация взвешенного парафина, [-]
-    new_Wp: numpy.ndarray(Nx, Ny)
-        Концентрация взвешенных частиц парафина на новом временном слое, [-]
+    Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     i, j = well.i, well.j
     if T[i, j] < init_T * 0.95 and Wp[i, j] > min_Wp_bound:

@@ -1,152 +1,110 @@
 """Вычисление скоростей и толщины осадочного слоя в ячейке."""
 from numba import njit
 
-from paraphin import r1, r2
-from paraphin.constants import data_type, Nr, ro_p, D, g, gamma, betta, Diff, Lk, Cf, S_max, Delta, min_Wps_bound
+from paraphin import r1, r4, cbrt_r1, n_pass
+from paraphin.constants import (data_type, Nr, D, g, betta, Diff, Lk, Cf, S_max, Delta, ro_p,
+                                min_Wps_bound, suffusion)
 
-"""
-Lk: float
-    средняя длина капилляра, [м]
-gamma: float
-    Отношение радиуса горла к радиусу канала
-delta: float
-    Кинетическая константа суффозии, [1/м]
-Diff: float
-    Коэффициент диффузионного осаждения частиц, [м2/сек]
-D: float
-    Размер частицы(диаметр частицы), [м]
-Cf: float
-    Коэффициент сопротивления частицы в нефти, [-]
-Delta: float
-    Кинетическая константа суффозии, [1/м]
-eta: float
-    Коэффициент извилистости, [-]
-"""
 
 b_D_3 = 6.0 * betta / D / D / D
 cf_D2 = Cf * D * D * g / 18.0
 Diff_2 = 2.0 * Diff * Diff / Lk
-D_2_gamma = D * 0.5 / gamma
 So_max = 1.0 - S_max
 
 
 @njit(cache=True)
-def calc_velocitys_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
-    """Вычисление скоростей и толщины осадочного слоя в ячейке.
+def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
+    """Скорости блокирования и сужения капилляров и толщина осадочного слоя в ячейке.
 
-    Parameters
-    ----------
-    i, j : int
-        Индексы текущей ячейки, [-]
-    S: numpy.ndarray(Nx, Ny)
-        Водонасыщенность, [-]
-    Um_r2: numpy.ndarray(Nx, Ny)
-         Средняя скорость в капилляре без множителя r^2, [1/(с*м)]
-    Wps: numpy.ndarray(Nx, Ny)
-        Концентрация взвешенных частиц парафина, [-]
-    mu_o: numpy.ndarray(Nx, Ny)
-        Вязкость нефти, [Па*с]
-    fi: numpy.ndarray(Nx, Ny, Nr)
-        Функция распределения пор по размеру, [-]
-    h_sloy: : numpy.ndarray(Nx, Ny, Nr)
-         Толщина осадочного слоя, [m]
-    Ur: numpy.ndarray(Nx, Ny, Nr)
-        Скорость изменения радиуса капилляра, [м/с]
-    h_sloy_new: : numpy.ndarray(Nx, Ny, Nr)
-         Толщина осадочного слоя на новом временном слое, [m]
-    Ub_new: numpy.ndarray(Nx, Ny, Nr)
-        Скорость блокирования капилляра на новом временном слое, [м/с]
-    Ur_new: numpy.ndarray(Nx, Ny, Nr)
-        Скорость изменения радиуса капилляра на новом временном слое, [м/с]
+    Узкие капилляры частица затыкает целиком (Ub), в широкие проходит и оседает на стенке,
+    сужая их (Ur < 0). Граница - радиус, при котором частица проходит горло; критерий и деление
+    сетки радиусов на два диапазона - в `paraphin/__init__.py` (`r_pass`, `n_pass`).
+    При Wps ниже порога кольматации цикл не имеет смысла и не выполняется.
+
+    Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     # Тк при Wps=0 цикл не имеет смысла
     if Wps[i, j] > min_Wps_bound:
         So = 1.0 - S[i, j] - So_max
-        for ij in range(Nr):
-            um = Um_r2[i, j] * r2[ij]
-            uc = u_c(r=r1[ij], mu=mu_o[i, j], ro=ro_p)
-            Ub_new[i, j, ij] = u_b(So=So, um=um, wps=Wps[i, j], fi=fi[i, j, ij], r=r1[ij])
-            Ur_new[i, j, ij] = u_r(So=So, wps=Wps[i, j], um=um, uc=uc, r=r1[ij], h=h_sloy[i, j, ij])
+        wps = Wps[i, j]
+        um_r2 = Um_r2[i, j]
+
+        # Оба множителя зависят только от ячейки, зависимость от радиуса вынесена в константные массивы.
+        # Скорость блокирования: So*wps*b_D_3 * um*r^2 * fi, где um = um_r2*r^2, то есть um*r^2 = um_r2 * r^4.
+        # Скорость сужения: -So*wps * (um*Diff_2/r)^(1/3), где um*Diff_2/r = um_r2*Diff_2*r,
+        # то есть корень распадается на cbrt(um_r2*Diff_2)*cbrt(r). Было Nr вызовов pow на ячейку, стало один.
+        ub_coef = So * wps * b_D_3 * um_r2
+        ur_coef = -So * wps * (um_r2 * Diff_2) ** (1.0 / 3.0)
+
+        # Блокирование - только узкие капилляры (r < r_pass), сужение - только широкие
+        for ij in range(n_pass):
+            Ub_new[i, j, ij] = ub_coef * r4[ij] * fi[i, j, ij]
+            Ur_new[i, j, ij] = 0.0
+            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
+        for ij in range(n_pass, Nr):
+            Ub_new[i, j, ij] = 0.0
+            Ur_new[i, j, ij] = u_r(ur_coef * cbrt_r1[ij], So, um_r2, r1[ij],
+                                   h_sloy[i, j, ij], mu_o[i, j])
             h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
 
 
 @njit(cache=True)
-def u_r(So: data_type, wps: data_type, um: data_type, uc: data_type, r: data_type, h: data_type) -> data_type:
-    """Скорость изменения радиуса капилляра.
+def u_r(ur_narrowing: data_type, So: data_type, um_r2: data_type, r: data_type,
+        h: data_type, mu: data_type) -> data_type:
+    """Скорость изменения радиуса капилляра, [м/с]: сужение минус вынос.
+
+    Сужение (кольматация) приходит готовым в `ur_narrowing`: множитель -So*wps*cbrt(um_r2*Diff_2)
+    от радиуса не зависит и считается один раз на ячейку, здесь остается только умножение на
+    cbrt(r) - см. `calc_velocities_h`.
+
+    Расширение (суффозия, вынос осевших частиц потоком) включается флагом `suffusion` в
+    `constants.py`. Флаг - константа времени компиляции, поэтому при выключенной суффозии numba
+    выкидывает всю ветку целиком: ни `u_c`, ни `um` не считаются. Раньше `u_c` вызывалась
+    безусловно на каждой паре (ячейка, радиус), а результат никуда не шел.
 
     Parameters
     ----------
+    ur_narrowing: float
+        Готовая скорость сужения для этого радиуса, [м/с]
     So: float
         Нефтенасыщенность, [-]
-    wps: float
-        Массовая доля взвешенных частиц парафина в нефти, [м3/м3]
-    um: float
-        Среднее значение скорости жидкости в канале, [м/c]
-    uc: float
-        Критическая скорость жидкости в канале, [м/c]
+    um_r2: float
+        Средняя скорость в капилляре без множителя r^2, [1/(м*с)]
     r: float
         Радиус капилляра, [м]
     h: float
         Толщина осадочного слоя, [м]
+    mu: float
+        Вязкость нефти, [Па*с]
 
     Returns
     -------
     ur: float
         Скорость изменения радиуса капилляра, [м/с]
     """
-    ur = 0.0
-    if r >= D_2_gamma:
-        # Сужение (кольматация) каналов
-        ur = -So * wps * (um * Diff_2 / r) ** (1.0/3.0)
+    ur = ur_narrowing
 
-        # Расширение (суффозия) каналов
-        # if um > uc and h > 0.0:
-        #     ur += So * Delta * (um - uc) * h * (r + h * 0.5) / r
+    if suffusion:
+        um = um_r2 * r * r
+        uc = u_c(r=r, mu=mu, ro=ro_p)
+        if um > uc and h > 0.0:
+            ur += So * Delta * (um - uc) * h * (r + h * 0.5) / r
 
     return ur
 
 
 @njit(cache=True)
-def u_b(So: data_type, um: data_type, wps: data_type, fi: data_type, r: data_type) -> data_type:
-    """Скорость блокирования капилляров.
-
-    Parameters
-    ----------
-    So: float
-        Нефтенасыщенность, [-]
-    um: float
-        Средняя скорость жидкости в капилляре, [м/с]
-    wps: float
-        Концентрация частиц в потоке, [м3/м3]
-    fi: float
-        Значение функции распределения пор по размерам
-    r: float
-        Радиус капилляра, [м]
-
-    Returns
-    -------
-    ub: float
-        Скорость блокирования капилляров, [м/с]
-    """
-    ub = 0.0
-    if r <= D_2_gamma:
-        ub = So * wps * r * r * fi * um * b_D_3
-
-    return ub
-
-
-@njit(cache=True)
 def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
-    """Критическая скорость.
+    """Критическая скорость потока в капилляре, [м/с]. Нужна только суффозии (`u_r`).
 
     Parameters
     ----------
     r: float
         Радиус капилляра, [м]
     mu: float
-        Вязкость нефти, [Па/с]
+        Вязкость нефти, [Па*с]
     ro: float
-        Плотность парафина, [Кг/м^3]
+        Плотность парафина, [кг/м^3]
 
     Return
     ------
@@ -158,30 +116,32 @@ def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
         x0 = 0.5 * D / r
         if x0 < 1.0:
             x = 1.0 - x0
-            uc =  cf_D2 * ro / (mu * (1.0 - x * x))
+            uc = cf_D2 * ro / (mu * (1.0 - x * x))
 
     return uc
 
 
 @njit(cache=True)
 def sed_h(h0: data_type, ur: data_type, r: data_type, dt: data_type) -> data_type:
-    """
-    Вычисление толщины осадочного слоя.
+    """Вычисление толщины осадочного слоя.
 
     Parameters
     ----------
     h0: float
-        Толщина осадочного слоя, [m].
+        Толщина осадочного слоя, [м]
     ur: float
-        Скорость изменения радиуса капилляра, [m/c]
+        Скорость изменения радиуса капилляра, [м/с]
     r: float
-        Радиус капилляра, [m].
+        Радиус капилляра, [м]
+    dt: float
+        Текущий шаг по времени, [с]
 
     Returns
     -------
     hr: float
-        Толщина осадочного слоя, [m].
+        Толщина осадочного слоя на новом временном слое, [м]
     """
     hr = h0 - dt * ur
     hr = max(0.0, min(hr, r - 1e-7))
+
     return hr

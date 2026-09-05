@@ -1,22 +1,15 @@
 """Решение уравнения давления: сборка матрицы (МКО) и решение ленточной СЛАУ."""
-import numpy as np
 from numba import njit, prange
 
-from paraphin.constants import Nx, Ny, hx, hy, volume, h
-from paraphin.utils import apply_bc, get_bound, calc_well_mult, mid, solve_band_system
-from paraphin.utils.math_utils.FVM_utils import _K_o, _K_w
-
-# Смещения соседей и геометрия граней.
-_DI   = np.array([1, -1, 0, 0])
-_DJ   = np.array([0, 0, 1, -1])
-_HIJ  = np.array([hx, hx, hy, hy])
-_AREA = np.array([hy * h, hy * h, hx * h, hx * h])
+from paraphin.constants import Nx, Ny, volume
+from paraphin.utils import (apply_bc, get_bound, calc_well_mult, mid, solve_band_system,
+                            mobility_o, mobility_w, DI, DJ, HIJ, AREA)
 
 
 @njit(cache=True)
 def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w, wells,
                   diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q,
-                  boundary_condition, band_age, dt):
+                  boundary_condition, band_age, p, dt):
     """Сборка матрицы и решение СЛАУ уравнения давления (МКО).
 
     Матрица собирается не в CSC, а сразу в три диагонали положительно определенной формы
@@ -55,6 +48,8 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w, wells,
         Граничные условия: Граница -> Поле -> Тип, Значение
     band_age: int
         Возраст фактора Холецкого в шагах
+    p: numpy.ndarray(Nx, Ny)
+        Поле давления - результат; заполняется на месте, [Па]
     dt: float
         Текущий шаг по времени, [с]
     """
@@ -64,10 +59,13 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w, wells,
 
     band_age = solve_band_system(diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q, band_age)
 
-    # Неизвестная нумеруется как idx = i + j*Nx (быстрый индекс - i), поэтому строки развернутого
-    # решения отвечают j, а столбцы - i. Без транспонирования поле давления оказывается зеркальным
-    # относительно главной диагонали по отношению ко всем остальным полям, которые индексируются [i, j].
-    return np.ascontiguousarray(p_vec.reshape((Ny, Nx)).T), band_age
+    # Неизвестная нумеруется как idx = i + j*Nx (быстрый индекс - i), поэтому раскладка идет по этой же формуле.
+    # Без нее поле давления оказывается зеркальным относительно главной диагонали (транспонировалось).
+    for i in range(Nx):
+        for j in range(Ny):
+            p[i, j] = p_vec[i + j * Nx]
+
+    return band_age
 
 
 @njit(parallel=True, cache=True)
@@ -90,10 +88,10 @@ def _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w,
             dg = 0.0
 
             for qq in range(4):
-                i1 = i + _DI[qq]
-                j1 = j + _DJ[qq]
-                hij = _HIJ[qq]
-                areaij = _AREA[qq]
+                i1 = i + DI[qq]
+                j1 = j + DJ[qq]
+                hij = HIJ[qq]
+                areaij = AREA[qq]
 
                 if (0 <= i1 < Nx) and (0 <= j1 < Ny):
                     val = mid(lam_ij, lam_o[i1, j1] + lam_w[i1, j1]) * areaij / hij
@@ -106,7 +104,7 @@ def _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w,
                     bound = get_bound(i1, j1)
                     hij *= 0.5
                     S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
-                    lam_gh = _K_o(k[i, j], S_ij, mu_o[i, j]) + _K_w(k[i, j], S_ij, mu_w[i, j])
+                    lam_gh = mobility_o(k[i, j], S_ij, mu_o[i, j]) + mobility_w(k[i, j], S_ij, mu_w[i, j])
                     val = mid(lam_ij, lam_gh) * areaij / hij
                     acc += boundary_conditions[bound, 0, 1] * val
                     if boundary_conditions[bound, 0, 0] == 1:  # Дирихле

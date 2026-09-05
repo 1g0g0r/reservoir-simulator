@@ -11,7 +11,7 @@ from numba.core.errors import NumbaWarning
 # конкретно это сообщение: остальные предупреждения numba остаются видимыми.
 warnings.filterwarnings('ignore', message='.*Cannot cache compiled function', category=NumbaWarning)
 
-from paraphin.constants import data_type, Nx, Ny, Nr
+from paraphin.constants import data_type, Nx, Ny, Nr, D, gamma
 
 
 def _drop_stale_numba_cache() -> None:
@@ -37,8 +37,7 @@ def _drop_stale_numba_cache() -> None:
 
 _drop_stale_numba_cache()
 
-N = Nx * Ny  # размер матрицы
-NN = 5 * Nx * Ny - 2 * (Nx + Ny)  # количество ненулевых элементов в матрице давления
+N = Nx * Ny  # размер матрицы давления
 
 r = np.linspace(0, 40 * 1e-6, Nr, endpoint=True)
 # fi_0 = np.array([0.0, 0.013, 0.023, 0.031, 0.035, 0.034, 0.027, 0.021, 0.016, 0.018, 0.025, 0.032, 0.041, 0.052, 0.061, 0.073, 0.082, 0.086, 0.081, 0.07, 0.059, 0.048, 0.035, 0.024, 0.013, 0])
@@ -57,6 +56,15 @@ r3 = r2 * r
 r4 = r3 * r
 r5 = r4 * r
 r6 = r5 * r
+cbrt_r1 = np.cbrt(r1)
+
+# Критерий прохождения частицы через горло капилляра:
+#   r <  r_pass - частица не пролезает и затыкает капилляр целиком (Ub), осадку взяться неоткуда;
+#   r >= r_pass - частица проходит и оседает на стенке, капилляр сужается (Ur < 0).
+# Сужение со временем схема учитывает не изменением r, а переносом fi по оси радиусов.
+# Границу считаем один раз здесь, чтобы не проверять условие на каждом узле в циклах по Nr.
+r_pass = D * 0.5 / gamma
+n_pass = int(np.searchsorted(r1, r_pass, side='left'))  # первый узел с r >= r_pass
 
 
 if __name__ == '__main__':

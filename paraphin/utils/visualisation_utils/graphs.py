@@ -2,7 +2,7 @@
 import numpy as np
 import plotly.graph_objects as go
 
-from .read_data_files import read_solution_data
+from ..read_data_files import read_solution_data
 from paraphin.constants import pictures_path, bar_to_pa, day_to_sec, S_min, init_T, Twater, geological_reserves, init_Wp
 from paraphin import r, fi_0_np as fi_0
 

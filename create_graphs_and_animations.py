@@ -1,4 +1,4 @@
-from paraphin.utils import create_graphs_and_maps, create_gif
+from paraphin.utils.visualisation_utils import create_graphs_and_maps, create_gif
 
 
 if __name__ == '__main__':

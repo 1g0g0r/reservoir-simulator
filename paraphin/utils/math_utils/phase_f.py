@@ -2,7 +2,7 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import S_min, S_max, n_power, data_type, mu_w, mu_o
+from paraphin.constants import S_min, S_max, n_power, data_type, cpoise_to_Pas
 
 
 @njit(cache=True)
@@ -61,12 +61,15 @@ if __name__ == '__main__':
     f_w = np.zeros(dtype=data_type, shape=n)
     buck_lev = np.zeros(dtype=data_type, shape=n)
 
+    mu_w_nominal = 1.0 * cpoise_to_Pas
+    mu_o_nominal = 5.0 * cpoise_to_Pas
+
     for i in range(n):
         s = i / n
         s_arr[i] = s
         f_o[i] = pf_o(s)
         f_w[i] = pf_w(s)
-        buck_lev[i] = Buckley_Leverett(s, mu_w, mu_o)
+        buck_lev[i] = Buckley_Leverett(s, mu_w_nominal, mu_o_nominal)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=s_arr, y=f_o, mode='lines', name='ОФП нефти',
