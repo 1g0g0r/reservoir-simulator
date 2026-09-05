@@ -150,7 +150,7 @@ class Solver:
         self.integr_r2_fi0, self.integr_r4_fi0 = _calc_integrals()
         self._wells_names = [item['name'] for item in self._wells_buffer]
         self.wells = preprocess_wells(self._wells_buffer)
-        self.max_dfw = _calc_max_dfw()
+        self.max_dfw = _calc_max_dfw(init_T, self.wells)
 
 
     def add_bc(self, field: DataField, bound: Bound, type_bc: TypeBC, value: float) -> None:
@@ -197,11 +197,10 @@ class Solver:
 
 
     def upd_time_step(self, t: float) -> None:
-        """Решение задачи на текущем временном слое."""
+        """Решение задачи на текущем временном слое. Метод IMPES: явный по насыщенности, неявный по давлению."""
         self._t = t
         step_dt = self.dt
 
-        # Метод IMPES: явный по насыщенности, неявный по давлению.
         # Подвижности фаз - общие для сборки матрицы давления и для перетоков
         calc_mobility(self.k, self.S, self.mu_o, self.mu_w, self.lam_o, self.lam_w)
         # Обновление давления
@@ -357,17 +356,23 @@ def _swap_time_steps(_paraphin, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new
                     Ub[i, j, :]     = new_Ub[i, j, :]
 
 
-def _calc_max_dfw() -> float:
+def _calc_max_dfw(init_T, wells) -> float:
     """Максимум производной функции Баклея-Леверетта на рабочем диапазоне насыщенности.
 
-    Именно эта величина задает предел устойчивости явной схемы по насыщенности.
+    Именно эта величина задает предел устойчивости явной схемы по насыщенности: занизишь ее -
+    `_calc_dt` разрешит слишком большой шаг. Функция зависит от отношения вязкостей, а оно - от
+    температуры, и пласт по мере закачки остывает от init_T до температуры нагнетаемой воды.
     """
-    # производная берется при init_T; пересчитать, если диапазон температур расширится
-    s = np.linspace(S_min, S_max, 2001)
-    mu_w_ref, mu_o_ref = calc_mu_w(init_T), calc_mu_o(init_T)
-    f_w = np.array([Buckley_Leverett(x, mu_w_ref, mu_o_ref) for x in s])
+    # Диапазон температур расчета: от начальной пластовой до самой холодной закачиваемой воды
+    temps = [init_T] + [well.T for well in wells if well.is_injector == 1]
 
-    return float(np.abs(np.gradient(f_w, s)).max())
+    s = np.linspace(S_min, S_max, 2001)
+    max_dfw = 0.0
+    for t in np.linspace(min(temps), max(temps), 11):
+        f_w = np.array([Buckley_Leverett(x, calc_mu_w(t), calc_mu_o(t)) for x in s])
+        max_dfw = max(max_dfw, float(np.abs(np.gradient(f_w, s)).max()))
+
+    return max_dfw
 
 
 def _logging_solution(solver, t):
