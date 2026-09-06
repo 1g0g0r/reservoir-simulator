@@ -1,6 +1,6 @@
 """Проверки потерь тепла через кровлю и подошву пласта.
 
-Член `_top_bottom_heat_losses_louwerie` - это обмен пласта с окружающими породами из схемы Ловерье,
+Член `_heat_losses_lauwerier` - это обмен пласта с окружающими породами из схемы Ловерье,
 Theta = -2*K_ff*dT/dz на границах z = +-h/2, посчитанный в приближении ступеньки: температура
 ячейки считается постоянной с начала расчета. Проверок две.
 
@@ -22,7 +22,7 @@ Theta = -2*K_ff*dT/dz на границах z = +-h/2, посчитанный в
 import numpy as np
 
 from paraphin.constants import K_ff, c_ff, ro_ff, c_f, ro_f, h, init_T
-from paraphin.equations.Temperature import (_heat_losses_vw, _top_bottom_heat_losses_louwerie,
+from paraphin.equations.Temperature import (_heat_losses_vw, _heat_losses_lauwerier,
                                             alpha_ff)
 from paraphin.utils.math_utils import erfc
 
@@ -38,7 +38,7 @@ def test_heat_loss_energy_balance():
     T = np.full((1, 1), init_T + dT)
     # Замена t = s^2 снимает особенность 1/sqrt(t) в нуле, иначе трапеции мажут на начале
     s_grid = np.linspace(0.0, np.sqrt(t_end), 20_001)[1:]
-    q = np.array([_top_bottom_heat_losses_louwerie(0, 0, s * s, T) for s in s_grid])
+    q = np.array([_heat_losses_lauwerier(0, 0, s * s, T) for s in s_grid])
     accumulated = np.trapezoid(q * 2.0 * s_grid, s_grid)  # [Дж/м^3 пласта]
 
     # Полубесконечный массив с перегревом dT на границе поглощает 2*K*dT*sqrt(t/(pi*alpha))

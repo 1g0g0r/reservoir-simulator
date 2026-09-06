@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 
 from paraphin import r
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, layers_file, js_path, bar_to_pa,
-                                day_to_sec, CONTOUR_PLOT, S_max, init_Wp)
+                                day_to_sec, CONTOUR_PLOT, S_max, case_name)
 from ..read_data_files import read_solution_data, convert_pkl_files
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
@@ -27,12 +27,12 @@ def visualize_solution():
         # свежее обработанного файла и их надо собрать заново
         if layers_file.is_file():
             convert_pkl_files()
-        _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')  #'(wp5 40)processed_data.pkl'
+        _n_times, input_data = read_solution_data(f'{case_name}_processed_data.pkl')  #'(wp5 40)processed_data.pkl'
 
     # Если файл конвертированных данных отсутствует, то сами создаем его
     except ValueError:
         convert_pkl_files()
-        _n_times, input_data = read_solution_data(f'Wp={init_Wp}_processed_data.pkl')
+        _n_times, input_data = read_solution_data(f'{case_name}_processed_data.pkl')
 
     print('Временных слоев:', _n_times)
 

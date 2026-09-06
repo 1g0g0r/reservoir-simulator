@@ -2,8 +2,7 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import (volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff, c_ff,
-                                vinsome_westerveld)
+from paraphin.constants import volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff, c_ff, heat_losses
 
 # Свойства окружающих пород. Константы уровня модуля: numba вшивает их в машинный код литералами,
 # а не считает корень и деление на каждой ячейке каждый шаг.
@@ -17,20 +16,20 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wps, qp, cells_
     """Вычисление температуры по явной схеме.
 
     Помимо перетоков `cells_T_eq` учитывает изменение теплоемкости смеси за шаг, теплоту
-    кристаллизации парафина (`qp`) и потери через кровлю и подошву пласта. Метод потерь выбирает
-    флаг `vinsome_westerveld` из `constants.py`.
-    # False - схема Ловерье (отклик полубесконечного массива на ступеньку),
-    # True - полуаналитический метод Винсома-Вестервельда.
+    кристаллизации парафина (`qp`) и потери через кровлю и подошву пласта. Сами потери включает
+    флаг `heat_losses`: 0 - нет перетока; 1 - схема Ловерье; 2 - метод Винсома-Вестервельда.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     psi = _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f)
     psi_next = _psi(i, j, new_m, new_S, Wps, C_w, C_o, C_p, C_f)
     derivative_add = T[i, j] * volume * (psi_next - psi) / dt
-    if vinsome_westerveld:
-        T_losses = _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
-    else:
+    if heat_losses == 0:
+        T_losses = 0.0
+    elif heat_losses == 1:
         T_losses = _heat_losses_lauwerier(i, j, t, T)
+    else:
+        T_losses = _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
 
     new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + qp[i, j] * ro_p * C_p[i, j] * volume)
 

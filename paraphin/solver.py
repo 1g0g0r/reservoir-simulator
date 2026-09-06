@@ -32,7 +32,7 @@ class Solver:
         self.wells = []
         self.boundary_conditions = np.zeros(dtype=data_type, shape=(4, 3, 2))  # Граница -> Поле -> Тип, Значение
         # Свойства флюидов
-        self.mu_o = np.full((Nx, Ny), calc_mu_o(init_T), data_type)  # Вязкость нефти, [Па*с]
+        self.mu_o = np.full((Nx, Ny), calc_mu_o(init_T, init_Wps), data_type)  # Вязкость нефти, [Па*с]
         self.mu_w = np.full((Nx, Ny), calc_mu_w(init_T), data_type)  # Вязкость воды, [Па*с]
         self.C_w  = np.full((Nx, Ny), c_w, data_type)  # Теплоемкость воды, [Дж*кг/C]
         self.C_o  = np.full((Nx, Ny), c_o, data_type)  # Теплоемкость нефти, [Дж*кг/C]
@@ -322,7 +322,7 @@ def _swap_time_steps(_paraphin, qp, new_qp, k, new_k, m, m_0, new_m, S, S_0, new
     for i in prange(Nx):
         for j in range(Ny):
             # Пересчет свойств флюидов из-за изменения температуры
-            mu_o[i, j] = calc_mu_o(new_t[i, j])
+            mu_o[i, j] = calc_mu_o(new_t[i, j], new_wps[i, j])
             mu_w[i, j] = calc_mu_w(new_t[i, j])
             # C_w[i, j] = c_w  # calc_c_w(self.T[i, j])
             # C_o[i, j] = c_o  # calc_c_o(self.T[i, j])
@@ -369,8 +369,10 @@ def _calc_max_dfw(init_T, wells) -> float:
     s = np.linspace(S_min, S_max, 2001)
     max_dfw = 0.0
     for t in np.linspace(min(temps), max(temps), 11):
-        f_w = np.array([Buckley_Leverett(x, calc_mu_w(t), calc_mu_o(t)) for x in s])
-        max_dfw = max(max_dfw, float(np.abs(np.gradient(f_w, s)).max()))
+        # Вязкость нефти зависит еще и от доли выпавшего парафина
+        for w_ps in (0.0, init_Wp):
+            f_w = np.array([Buckley_Leverett(x, calc_mu_w(t), calc_mu_o(t, w_ps)) for x in s])
+            max_dfw = max(max_dfw, float(np.abs(np.gradient(f_w, s)).max()))
 
     return max_dfw
 

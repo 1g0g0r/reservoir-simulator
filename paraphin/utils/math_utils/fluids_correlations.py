@@ -2,13 +2,48 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import data_type, R
+from paraphin.constants import data_type, R, ro_o, ro_p, phi_max, E_activation, mu_o_ref, T_mu_ref
+
+# Показатель в формуле Кригера-Догерти. Константа уровня модуля: numba вшивает ее литералом,
+# а не считает произведение на каждой ячейке каждый шаг.
+_KD_EXPONENT = -2.5 * phi_max
+_E_OVER_R = E_activation / R
+_INV_T_REF = 1.0 / (T_mu_ref + 273.15)
 
 
 @njit(cache=True)
-def calc_mu_o(t: data_type) -> data_type:
-    """Вязкость нефти, [Pa*c] Уравнение Аррениуса."""
-    return 0.001 * np.exp(5000 / R / (t + 273.15))
+def calc_mu_o(t: data_type, w_ps: data_type) -> data_type:
+    """Вязкость нефтяной фазы, [Па*с].
+
+    Жидкая основа - уравнение Аррениуса, записанное через опорную точку:
+
+        mu_L(T) = mu_o_ref * exp[(E_a/R) * (1/T - 1/T_ref)].
+
+    Такая запись разделяет два независимых параметра: `mu_o_ref` задает уровень вязкости при
+    пластовой температуре, а `E_activation` - только крутизну зависимости от температуры.
+
+    Выпавшие кристаллы парафина образуют в жидкой основе суспензию и дополнительно повышают
+    вязкость; это учитывается множителем Кригера-Догерти
+
+        mu = mu_L(T) * (1 - phi/phi_max)^(-2.5*phi_max),
+
+    где phi - объемная доля кристаллов. Без этого множителя кристаллизация влияла бы только на
+    проницаемость через кольматацию, хотя экспериментально рост вязкости - основной эффект.
+    При содержании парафина 5% масс. множитель не превышает 1.13: суспензия разбавленная.
+
+    w_ps: массовая доля взвешенного парафина в нефтяной фазе. Перевод в объемную долю точный,
+    а не в разбавленном приближении: при w_ps -> 1 формула не должна давать phi > 1.
+    """
+    mu_liquid = mu_o_ref * np.exp(_E_OVER_R * (1.0 / (t + 273.15) - _INV_T_REF))
+
+    if w_ps <= 0.0:
+        return mu_liquid
+
+    phi = (w_ps / ro_p) / (w_ps / ro_p + (1.0 - w_ps) / ro_o)
+    # Кригер-Догерти расходится при phi -> phi_max, поэтому долю подпираем снизу предела
+    phi = min(phi, 0.99 * phi_max)
+
+    return mu_liquid * (1.0 - phi / phi_max) ** _KD_EXPONENT
 
 
 @njit(cache=True)
@@ -59,7 +94,7 @@ if __name__ == '__main__':
     for i in range(0, n):
         t = t_0 + i * (t_n - t_0) / (n - 1)
         t_arr[i] = t
-        mu_o[i] = calc_mu_o(t)
+        mu_o[i] = calc_mu_o(t, 0.0)
         mu_w[i] = calc_mu_w(t)
 
     fig = go.Figure()

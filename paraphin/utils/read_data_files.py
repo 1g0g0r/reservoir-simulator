@@ -3,7 +3,7 @@ from pickle import dump, load, UnpicklingError
 
 import numpy as np
 
-from paraphin.constants import layers_file, data_path, init_Wp
+from paraphin.constants import layers_file, data_path, case_name
 
 
 def read_solution_data(name: str) -> (int, dict):
@@ -57,7 +57,7 @@ def convert_pkl_files(n_layers: int = None):
         n_layers = n_read
         data = {name: _trim(value, n_layers) for name, value in data.items()}
 
-    with open(data_path / f'Wp={init_Wp}_processed_data.pkl', 'wb') as f:
+    with open(data_path / f'{case_name}_processed_data.pkl', 'wb') as f:
         dump([n_layers, data], f)
 
 
