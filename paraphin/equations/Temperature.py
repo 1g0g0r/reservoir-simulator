@@ -9,6 +9,7 @@ from paraphin.constants import (volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T
 # а не считает корень и деление на каждой ячейке каждый шаг.
 alpha_ff = K_ff / (c_ff * ro_ff)  # температуропроводность, [м^2/с]
 M_ff = c_ff * ro_ff               # объемная теплоемкость, [Дж/(м^3*C)]
+LATENT = latent_heat * ro_p       # скрытая теплота на единицу объема парафина, [Дж/м^3]
 
 
 @njit(cache=True)
@@ -29,6 +30,9 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, ne
     Потери через кровлю и подошву - расширение сверх модели, включает флаг `heat_losses`:
     0 - нет перетока; 1 - схема Ловерье; 2 - метод Винсома-Вестервельда.
 
+    Возвращает `psi` текущего слоя: то же значение нужно ограничению Куранта по температуре в
+    `_equations_loop`, и считать его там второй раз незачем.
+
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     psi = psi_cell(i, j, m, S, Wo[i, j], Wp[i, j], Wps[i, j], C_w, C_o, C_p, C_f)
@@ -37,8 +41,8 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, ne
     derivative_add = T[i, j] * volume * (psi_next - psi) / dt
 
     # Скрытая теплота: уменьшение количества растворенного парафина ее выделяет
-    latent = latent_heat * ro_p * (m[i, j] * (1.0 - S[i, j]) * Wp[i, j]
-                                   - new_m[i, j] * (1.0 - new_S[i, j]) * new_Wp[i, j]) * volume / dt
+    latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * Wp[i, j]
+                       - new_m[i, j] * (1.0 - new_S[i, j]) * new_Wp[i, j]) * volume / dt
 
     if heat_losses == 0:
         T_losses = 0.0
@@ -49,6 +53,8 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, ne
 
     new_T[i, j] = T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add
                                                       - T_losses * volume + latent)
+
+    return psi
 
 
 @njit(cache=True)
@@ -66,23 +72,31 @@ def temperature_source(well, T, C_o, C_w, C_p, Wo, Wp, Wps) -> float:
     Twell = well.T if well.is_injector == 1 else T[i, j]
 
     return (ro_w * C_w[i, j] * well.q[1] * Twell
-            + h_oil(i, j, T[i, j], Wo, Wp, Wps, C_o, C_p) * well.q[0])
+            + h_oil(c_oil(Wo[i, j], Wp[i, j] + Wps[i, j], C_o[i, j], C_p[i, j]),
+                    T[i, j], Wp[i, j]) * well.q[0])
 
 
 @njit(cache=True)
-def c_oil(i, j, Wo, Wp, Wps, C_o, C_p):
+def c_oil(Wo_ij, Wsum_ij, C_o_ij, C_p_ij):
     """Объемная теплоемкость нефтяной фазы, [Дж/(м^3*C)]: c_o = w_o*ro_o*C_o + (w_p + w_ps)*ro_p*C_p.
 
     Растворенный и взвешенный парафин имеют одну плотность ro_p: изменением удельного объема при
     кристаллизации пренебрегаем. Прежняя запись отдавала растворенный парафин нефти (ro_o) и
     считала его долю через (1 - w_ps) вместо w_o.
+
+    Аргументы скалярные, а не поля с индексом: вызывающая сторона все равно держит доли соседа в
+    локальных переменных (`flows_in_cells`), и повторное чтение тех же трех массивов на каждой из
+    четырех граней - чистые лишние обращения к памяти.
     """
-    return ro_o * C_o[i, j] * Wo[i, j] + ro_p * C_p[i, j] * (Wp[i, j] + Wps[i, j])
+    return ro_o * C_o_ij * Wo_ij + ro_p * C_p_ij * Wsum_ij
 
 
 @njit(cache=True)
-def h_oil(i, j, T_ij, Wo, Wp, Wps, C_o, C_p):
+def h_oil(c_o, T_ij, Wp_ij):
     """Объемная энтальпия нефтяной фазы, [Дж/м^3]: h_o = c_o*T + (alpha/M_w)*ro_p*w_p.
+
+    Теплоемкость `c_o` приходит готовой: вызывающая сторона все равно считает ее для осреднения
+    по грани, и пересчитывать `c_oil` внутри было бы лишними пятью вызовами на ячейку.
 
     Второе слагаемое - скрытая теплота плавления, которую несет с собой *растворенный* парафин
     (удельная энтальпия растворенного парафина C_p*T + alpha/M_w, кристаллического - C_p*T).
@@ -91,7 +105,7 @@ def h_oil(i, j, T_ij, Wo, Wp, Wps, C_o, C_p):
     и скважинного члена ячейка, через которую нефть просто протекает, грелась бы или остывала
     на ровном месте - разность накоплений не с чем было бы сократить.
     """
-    return c_oil(i, j, Wo, Wp, Wps, C_o, C_p) * T_ij + latent_heat * ro_p * Wp[i, j]
+    return c_o * T_ij + LATENT * Wp_ij
 
 
 @njit(cache=True)

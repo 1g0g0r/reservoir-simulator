@@ -9,7 +9,7 @@
 import numpy as np
 
 from paraphin import N
-from paraphin.constants import Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_p, init_T, init_Wps, data_type
+from paraphin.constants import Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_m, init_p, init_T, init_Wp, init_Wps, data_type
 from paraphin.equations import calc_pressure
 from paraphin.utils import WellStruct, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility
 
@@ -32,8 +32,9 @@ def _solve_pressure():
 
     k, S = field(init_k), field(init_S)
     mu_o, mu_w = field(calc_mu_o(init_T, init_Wps)), field(calc_mu_w(init_T))
-    lam_o, lam_w = field(0.0), field(0.0)
-    calc_mobility(k, S, mu_o, mu_w, lam_o, lam_w)
+    lam_o, lam_w, lam_h = field(0.0), field(0.0), field(0.0)
+    calc_mobility(k, S, field(init_m), field(1.0 - init_Wp - init_Wps), field(init_Wp),
+                  field(init_Wps), mu_o, mu_w, lam_o, lam_w, lam_h)
 
     diag, ex, ey, rhs = vec(), vec(), vec(), vec()
     p = np.zeros((Nx, Ny), data_type)

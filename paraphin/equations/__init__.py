@@ -22,6 +22,7 @@ numpy-массивами позиционно (jitclass не потянет ве
     mu_o, mu_w  вязкости нефти и воды, [Па*с]
     lam_o, lam_w    подвижности фаз k*pf/mu, посчитанные `calc_mobility` один раз за шаг,
                     [м^2/(Па*с)]
+    lam_h           эффективная теплопроводность ячейки, там же, [Вт/(м*C)]
     C_o, C_w, C_p, C_f          теплоемкости нефти, воды, парафина и пласта,
                                 [Дж/(кг*C)]
     Wo          объемная доля масляного компонента в нефтяной фазе, [-]
@@ -43,8 +44,9 @@ numpy-массивами позиционно (jitclass не потянет ве
                                             уравнения делят их на поля нового слоя
     src_S, src_Wp, src_T                    источники скважин в тех же единицах, заполняет
                                             `_wells_loop` до цикла по ячейкам
-    cells_Q_out, cells_Qo_out, cells_T_out  суммарный отток через грани: объемный, нефтяной фазы
-                                            и тепловой; нужны для трех условий Куранта
+    cells_Q_out суммарный объемный отток через грани, [м^3/с]; его читает еще `_calc_dt` для
+                ячеек со скважинами. Отток нефтяной фазы и тепловой `flows_in_cells` возвращает
+                значениями - вне своей итерации цикла они никому не нужны
 
 Поля (Nx, Ny, Nr) - распределения по радиусам пор (сетка радиусов `r1` в `paraphin/__init__.py`):
     fi          функция распределения пор по размерам, [-]
@@ -68,6 +70,6 @@ from .Flows_in_cells import flows_in_cells
 from .Pressure import calc_pressure
 from .Qp_m_k_fi import calc_qp_m_k_fi
 from .Saturation import saturation_equation
-from .Temperature import temperature_equation, temperature_source, psi_cell
+from .Temperature import temperature_equation, temperature_source
 from .Velocity_h import calc_velocities_h
 from .Wp_balance import wp_equation

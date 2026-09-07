@@ -16,7 +16,7 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs
                         min_Wps_bound)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, temperature_source,
                         temperature_equation, wp_equation, calc_velocities_h, flows_in_cells,
-                        calc_Um_r2, psi_cell)
+                        calc_Um_r2)
 from .utils import (calc_mu_o, calc_mu_w, preprocess_wells, convert_pkl_files, save_fields,
                     Bound, TypeBC, DataField, add_bc, WellStruct, upd_q_and_eta, Buckley_Leverett,
                     calc_mobility)
@@ -78,8 +78,6 @@ class Solver:
         self.cells_Wp_eq = np.zeros((Nx, Ny), data_type)  # Суммарный переток растворенного в ячейке
         self.cells_S_eq  = np.zeros((Nx, Ny), data_type)  # Суммарный переток водонасыщенности в ячейке
         self.cells_Q_out = np.zeros((Nx, Ny), data_type)  # Суммарный отток через грани ячейки, [м^3/с]
-        self.cells_Qo_out = np.zeros((Nx, Ny), data_type) # Отток нефтяной фазы через грани, [м^3/с]
-        self.cells_T_out = np.zeros((Nx, Ny), data_type)  # Тепловой отток: конвекция плюс кондукция, [Вт/C]
         # Источники скважин в тех же единицах, что и перетоки через грани. Скважины неподвижны,
         # поэтому обнулять буферы не нужно: ячейка со скважиной перезаписывается каждый шаг,
         # остальные так и остаются нулями.
@@ -102,6 +100,7 @@ class Solver:
         # Подвижности фаз: считаются один раз за шаг и переиспользуются сборкой матрицы и перетоками
         self.lam_o = np.zeros((Nx, Ny), data_type)
         self.lam_w = np.zeros((Nx, Ny), data_type)
+        self.lam_h = np.zeros((Nx, Ny), data_type)  # эффективная теплопроводность ячейки, [Вт/(м*C)]
         # Матрица давления в трех диагоналях (idx = i + j*Nx) и буферы ленточного решателя
         self.diag  = np.zeros(N, data_type)
         self.ex    = np.zeros(N, data_type)
@@ -207,12 +206,12 @@ class Solver:
         step_dt = self.dt
 
         # Подвижности фаз - общие для сборки матрицы давления и для перетоков
-        calc_mobility(self.k, self.S, self.mu_o, self.mu_w, self.lam_o, self.lam_w)
+        calc_mobility(self.k, self.S, self.m, self.Wo, self.Wp, self.Wps,
+                      self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h)
         # Обновление давления. Проницаемость берется с текущего слоя: блок кольматации идет ниже,
         # в общем цикле по ячейкам, поэтому k отстает от m на полшага.
         self._band_age = calc_pressure(self.k, self.S, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.wells,
-                                       self.diag, self.ex, self.ey, self.rhs, self.band_w, self.p_vec,
-                                       self.pcg_r, self.pcg_z, self.pcg_p, self.pcg_q,
+                                       self.diag, self.ex, self.ey, self.rhs, self.band_w, self.p_vec, self.pcg_r, self.pcg_z, self.pcg_p, self.pcg_q,
                                        self.boundary_conditions, self._band_age, self.p)
         # Обновление данных скважин
         self.KIN = _update_wells_data(self.n_wells, self.wells, self.p, self.S, self.k, self.mu_o, self.mu_w, step_dt)
@@ -221,32 +220,28 @@ class Solver:
                     self.Wo, self.Wp, self.Wps, self.src_S, self.src_Wp, self.src_T)
         # Решение уравнений по явной схеме
         dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp1, self.qp2, self.new_qp1, self.new_qp2, self.k, self.new_k, self.m, self.new_m, self.S, self.new_s, self.Wo, self.Wp, self.new_wp, self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
-                        self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.cells_Qo_out, self.cells_T_out, self.src_S, self.src_Wp, self.src_T, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.max_dfw, step_dt)
+                        self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.src_S, self.src_Wp, self.src_T, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h, self.max_dfw, step_dt)
         # Шаг для следующей итерации из фактического условия устойчивости
         dt_next = _calc_dt(self.n_wells, self.wells, self.m, self.cells_Q_out, self.max_dfw, step_dt, dt_cells)
 
         if not np.isfinite(self.p.sum()):
             raise FloatingPointError('В поле давления появились NaN/Inf')
 
-        _swap_time_steps(self._paraphin, self.qp1, self.new_qp1, self.qp2, self.new_qp2,
-                         self.k, self.new_k, self.m, self.new_m,
-                         self.S, self.new_s, self.Wo, self.Wp, self.new_wp,
-                         self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
-                         self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur,
-                         self.Ub, self.new_Ub, self.mu_o, self.mu_w)
-
+        _swap_time_steps(self._paraphin, self.qp1, self.new_qp1, self.qp2, self.new_qp2, self.k, self.new_k, self.m, self.new_m,
+                         self.S, self.new_s, self.Wo, self.Wp, self.new_wp,self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
+                         self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.mu_o, self.mu_w)
         self.dt = dt_next
-        _logging_solution(self, t)
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[self._producer].eta >= max_eta:
+            _logging_solution(self, t)
             save_fields(self, t)
             self._i_img += 1
 
 
 @njit(parallel=True, cache=True)
 def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, qp2, new_qp1, new_qp2, k, new_k, m, new_m, S, new_s, Wo, Wp, new_wp, Wps, new_wps, T, T_0, new_t,
-                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, cells_Qo_out, cells_T_out, src_S, src_Wp, src_T, mu_o, mu_w, lam_o, lam_w, max_dfw, dt):
+                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, src_S, src_Wp, src_T, mu_o, mu_w, lam_o, lam_w, lam_h, max_dfw, dt):
     """Решение уравнений по явной схеме в цикле по ячейкам.
 
     Порядок повторяет порядок вычислений на шаге из постановки задачи: кольматация (fi -> m, k,
@@ -270,9 +265,9 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
                 calc_qp_m_k_fi(i, j, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma[i], b_tdma[i], new_qp1, new_qp2, new_fi, new_k, new_m, dt)
 
             # ---решение гидродинамики---
-            flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam_w, m, Wo, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, cells_Qo_out, cells_T_out)
-            # Скважины входят в уравнения наравне с перетоками через грани, поэтому делятся на те же
-            # поля нового слоя. Буферы src_* заполнены в `_wells_loop` до цикла.
+            qo_out, t_out = flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wo, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out)
+            # Скважины входят в уравнения наравне с перетоками через грани, поэтому делятся на те же поля нового слоя.
+            # Буферы src_* заполнены в `_wells_loop` до цикла.
             cells_S_eq[i, j] += src_S[i, j]
             cells_Wp_eq[i, j] += src_Wp[i, j]
             cells_T_eq[i, j] += src_T[i, j]
@@ -280,21 +275,18 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
             saturation_equation(i, j, S, m, cells_S_eq, new_m, new_s, dt)
             if _paraphin:
                 wp_equation(i, j, qp1, qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_s, new_wp, new_wps, dt)
-            temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
+            psi = temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
 
-            # Три ограничения на шаг по числу Куранта: по насыщенности, по переносу парафина и по
-            # температуре. Скважинная часть первого добирается в `_calc_dt`.
+            # Три ограничения на шаг по числу Куранта: по насыщенности, по переносу парафина и по температуре.
+            # Скважинная часть первого добирается в `_calc_dt`.
             q_out = cells_Q_out[i, j]
             if q_out > 1e-30:
                 dt_cells = min(dt_cells, CFL_target * m[i, j] * volume / (max_dfw * q_out))
 
-            qo_out = cells_Qo_out[i, j]
             if _paraphin and qo_out > 1e-30:
                 dt_cells = min(dt_cells, CFL_target * m[i, j] * (1.0 - S[i, j]) * volume / qo_out)
 
-            t_out = cells_T_out[i, j]
             if t_out > 1e-30:
-                psi = psi_cell(i, j, m, S, Wo[i, j], Wp[i, j], Wps[i, j], C_w, C_o, C_p, C_f)
                 dt_cells = min(dt_cells, CFL_target * psi * volume / t_out)
 
     return dt_cells
@@ -424,8 +416,7 @@ def _logging_solution(solver, t):
         return None
     solver.logger.info(f"Wps:  min={solver.new_wps.min()}  max={solver.new_wps.max()}")
     solver.logger.info(f"Wp:   min={solver.new_wp.min()}  max={solver.new_wp.max()}")
-    oil_components = solver.new_wp + solver.new_wps + (1.0 - solver.new_wp - solver.new_wps)
-    solver.logger.info(f"Wp+Wps+Wo:   min={oil_components.min()}  max={oil_components.max()}")
+    solver.logger.info(f"Wo:   min={solver.Wo.min()}  max={solver.Wo.max()}")
 
     solver.logger.info(f"qp1:    min={solver.new_qp1.min()}  max={solver.new_qp1.max()}")
     solver.logger.info(f"qp2:    min={solver.new_qp2.min()}  max={solver.new_qp2.max()}")

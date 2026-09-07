@@ -34,6 +34,7 @@ def save_fields(solver, t: float) -> None:
     }
 
     if solver._paraphin:
+        m_mult = solver.m / init_m
         x_idx, y_idx = FI_PROBE
         layer.update({
             'Wo': solver.Wo,
@@ -41,9 +42,9 @@ def save_fields(solver, t: float) -> None:
             'Wps': solver.Wps,
             # Осевший парафин - это ровно потерянный поровый объем (m_0 - m), отдельного поля
             # для него нет: q_p1 + q_p2 = -dm/dt по построению
-            'Wps dep': 1.0 - solver.m / init_m,
+            'Wps dep': 1.0 - m_mult,
             'qp': solver.qp1 + solver.qp2,
-            'm': solver.m / init_m,
+            'm': m_mult,
             'k': solver.k / init_k,
             'plots': {'fi': solver.fi[x_idx, y_idx]},
         })
