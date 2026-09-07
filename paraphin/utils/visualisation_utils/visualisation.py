@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from paraphin import r, fi_0
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, layers_file, js_path, bar_to_pa,
                                 day_to_sec, CONTOUR_PLOT, S_max, case_name)
-from ..read_data_files import read_solution_data, convert_pkl_files
+from paraphin.utils.read_data_files import read_solution_data, convert_pkl_files
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
 y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
@@ -306,3 +306,7 @@ def _get_visibility(data_fields, names, fields_maps, wells_plots, wells_accumula
     visibility[fields_maps + n_button, fields_maps + n_button] = False
 
     return visibility
+
+
+if __name__ == '__main__':
+    visualize_solution()
