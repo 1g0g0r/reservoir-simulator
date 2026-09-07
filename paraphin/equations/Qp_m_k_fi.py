@@ -81,6 +81,7 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     c, d, e, f = 0.0, 0.0, 0.0, 0.0
+
     # Вычисление прогоночных коэффициентов
     if Ur[i, j, 0] > 0:
         d = 1.0 / dt + Ur[i, j, 0] / (r1[1] - r1[0])
@@ -91,22 +92,17 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     a_tdma[0] = -e / d
     b_tdma[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
 
-    # TODO Надо сделать проверку решения в вольфраме
     for ij in range(1, Nr):
         dr = r1[ij] - r1[ij-1]
         f = fi[i, j, ij] / dt - Ub[i, j, ij]
         if Ur[i, j, ij] >= 0:
             c = - Ur[i, j, ij-1] / dr
-            # c = - Ur[i, j, ij] / dr
             d = 1.0 / dt + Ur[i, j, ij] / dr
-            # d = 1.0 / dt + (2.0 * Ur[i, j, ij] - Ur[i, j, ij-1]) / dr
             e = 0.0
         else:
             c = 0.0
             d = 1.0 / dt - Ur[i, j, ij] / dr
-            # d = 1.0 / dt - Ur[i, j, ij-1] / dr
             e = Ur[i, j, ij + 1] / dr if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
-            # e = Ur[i, j, ij] / dr
         denominator = c * a_tdma[ij - 1] + d
         a_tdma[ij] = -e / denominator
         b_tdma[ij] = (f - c * b_tdma[ij - 1]) / denominator
@@ -116,4 +112,82 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     new_fi[i, j, Nr - 1] = max(b_tdma[Nr - 1], 0.0)
     for _ij in range(1, Nr):  # с 1: последний элемент уже посчитан, иначе чтение за границей fi
         ij = Nr - 1 - _ij  # тк обратный ход
+        new_fi[i, j, ij] = max(new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij], 0.0)
+
+@njit(cache=True)
+def _update_fi_two_order(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, g_buf, dt):
+    """Обновление функции пор по размерам по неявной схеме методом прогонки.
+
+    Неявная часть — противопоточная (М-матрица, безусловная устойчивость прогонки).
+    Второй порядок по r добавляется явной поправкой (deferred correction) со старого
+    слоя, с отключением вблизи экстремумов, чтобы не ловить осцилляции на фронтах.
+
+    g_buf — рабочий буфер длины Nr, выделяется вызывающей стороной один раз
+    (так же, как a_tdma / b_tdma).
+
+    Остальные аргументы — в докстринге пакета `paraphin.equations`.
+    """
+    c, d, e, f = 0.0, 0.0, 0.0, 0.0
+
+    # Узловой поток со старого слоя: G = U * f
+    for ij in range(Nr):
+        g_buf[ij] = Ur[i, j, ij] * fi[i, j, ij]
+
+    # ---------- граничный узел ij = 0 ----------
+    # Схема первого порядка: для повышения порядка нужен узел f_{-1}.
+    h0 = r1[1] - r1[0]
+    if Ur[i, j, 0] > 0.0:
+        # поток через левую границу принимаем нулевым (граничное условие)
+        d = 1.0 / dt + Ur[i, j, 0] / h0
+        e = 0.0
+    else:
+        d = 1.0 / dt - Ur[i, j, 0] / h0
+        e = Ur[i, j, 1] / h0
+
+    a_tdma[0] = -e / d
+    b_tdma[0] = (fi[i, j, 0] / dt - Ub[i, j, 0]) / d
+
+    # ---------- внутренние узлы и правая граница ----------
+    for ij in range(1, Nr):
+        hm = r1[ij] - r1[ij - 1]                          # шаг слева
+        hp = r1[ij + 1] - r1[ij] if ij + 1 < Nr else hm   # шаг справа (фиктивный на границе)
+
+        # --- неявная часть: против потока ---
+        if Ur[i, j, ij] >= 0.0:
+            c = -Ur[i, j, ij - 1] / hm
+            d = 1.0 / dt + Ur[i, j, ij] / hm
+            e = 0.0
+            dG_up = (g_buf[ij] - g_buf[ij - 1]) / hm
+        else:
+            c = 0.0
+            d = 1.0 / dt - Ur[i, j, ij] / hp
+            if ij + 1 < Nr:
+                e = Ur[i, j, ij + 1] / hp
+                dG_up = (g_buf[ij + 1] - g_buf[ij]) / hp
+            else:
+                e = 0.0                                   # за Nr-1 соседа нет: поток = 0
+                dG_up = -g_buf[ij] / hp
+
+        # --- явная поправка до второго порядка ---
+        corr = 0.0
+        if ij < Nr - 1:                                   # нужны оба соседа
+            s_m = (g_buf[ij] - g_buf[ij - 1]) / hm
+            s_p = (g_buf[ij + 1] - g_buf[ij]) / hp
+            if s_m * s_p > 0.0:                           # не экстремум -> повышаем порядок
+                # трёхточечная производная на неравномерной сетке
+                dG_ho = (hm * s_p + hp * s_m) / (hm + hp)
+                corr = dG_ho - dG_up
+
+        f = fi[i, j, ij] / dt - Ub[i, j, ij] - corr
+
+        denominator = c * a_tdma[ij - 1] + d
+        a_tdma[ij] = -e / denominator
+        b_tdma[ij] = (f - c * b_tdma[ij - 1]) / denominator
+
+    a_tdma[Nr - 1] = 0.0
+
+    # ---------- обратный ход прогонки ----------
+    new_fi[i, j, Nr - 1] = max(b_tdma[Nr - 1], 0.0)
+    for _ij in range(1, Nr):
+        ij = Nr - 1 - _ij
         new_fi[i, j, ij] = max(new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij], 0.0)

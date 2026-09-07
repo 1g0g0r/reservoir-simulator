@@ -45,9 +45,9 @@ _sigma = 2.0 * np.pi
 _m = np.max(r) / 2
 
 # TODO перейти на лог-нормальное распределение
-fi_0_np = np.exp(-0.5 * ((r - _m) / 1e-6 / _sigma)**2) / _sigma
-fi_0_np[0] = fi_0_np[-1] = 0.0
-fi_0 = fi_0_np / np.sum(fi_0_np)
+_fi_0_np = np.exp(-0.5 * ((r - _m) / 1e-6 / _sigma)**2) / _sigma
+_fi_0_np[0] = _fi_0_np[-1] = 0.0
+fi_0 = _fi_0_np / np.sum(_fi_0_np)
 
 # массивы радиусов пор в необходимых степенях
 r1 = r

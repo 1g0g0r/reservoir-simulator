@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin import r
+from paraphin import r, fi_0
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, layers_file, js_path, bar_to_pa,
                                 day_to_sec, CONTOUR_PLOT, S_max, case_name)
 from ..read_data_files import read_solution_data, convert_pkl_files
@@ -190,6 +190,7 @@ def _visualize_plots_fi(plots_data):
     """Создание графиков зависящих от радиусов пор"""
     time = plots_data['Time'] / day_to_sec
     data = plots_data['plots']
+    data['fi_o'] = np.repeat(fi_0[np.newaxis, :], len(plots_data['plots']['fi']), axis=0)
 
     n_times = len(time)
     data_fields = []

@@ -1,12 +1,10 @@
 """Дозапись полей данных очередного временного слоя в общий файл расчета."""
 from pickle import dump, HIGHEST_PROTOCOL
 
-from paraphin import fi_0_np
 from paraphin.constants import layers_file, init_k, init_m
 
-# Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и
-# `graphs._plot_fi` строят Scatter(x=r, y=...), то есть ждут вектор длины Nr, а не поле (Nx, Ny, Nr).
-FI_PROBE = (0, 0)
+# Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и `graphs._plot_fi`.
+FI_PROBE = (5, 5)
 
 
 def save_fields(solver, t: float) -> None:
@@ -32,9 +30,7 @@ def save_fields(solver, t: float) -> None:
         'Time': t,
         'Pressure': solver.p,
         'Saturation': solver.S,
-        'Temperature': solver.T,
-        'Wells': wells,
-        'Wells_accumulated': wells_accumulated,
+        'Temperature': solver.T
     }
 
     if solver._paraphin:
@@ -47,14 +43,19 @@ def save_fields(solver, t: float) -> None:
             'qp': solver.qp,
             'm': solver.m / init_m,
             'k': solver.k / init_k,
-            'plots': {'fi_o': fi_0_np, 'fi': solver.fi[x_idx, y_idx]},
+            'plots': {'fi': solver.fi[x_idx, y_idx]},
         })
-    else:
-        layer['Other params'] = {
-            'KIN': solver.KIN,
-            'S [0,0]': solver.S[0, 0], 'S [-1,-1]': solver.S[-1, -1],
-            'P [0,0]': solver.p[0, 0], 'p [-1,-1]': solver.p[-1, -1],
-        }
+
+    layer.update({
+        'Wells': wells,
+        'Wells_accumulated': wells_accumulated
+    })
+
+    # layer['Other params'] = {
+    #     'KIN': solver.KIN,
+    #     'S [0,0]': solver.S[0, 0], 'S [-1,-1]': solver.S[-1, -1],
+    #     'P [0,0]': solver.p[0, 0], 'p [-1,-1]': solver.p[-1, -1],
+    # }
 
     if solver._layers_file is None:
         solver._layers_file = open(layers_file, 'wb')
