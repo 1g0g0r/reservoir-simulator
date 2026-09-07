@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
     fig.update_layout(plot_bgcolor='white', width=750, height=350, margin=dict(t=0, b=0),
                       xaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
-                      yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1),
+                      yaxis=dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, type='log'),
                       xaxis_title="T, °C",
                       yaxis_title="μ, Па∙с"
                       )
