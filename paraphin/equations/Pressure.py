@@ -1,15 +1,15 @@
 """Решение уравнения давления: сборка матрицы (МКО) и решение ленточной СЛАУ."""
 from numba import njit, prange
 
-from paraphin.constants import Nx, Ny, volume
+from paraphin.constants import Nx, Ny
 from paraphin.utils import (apply_bc, get_bound, calc_well_mult, mid, solve_band_system,
                             mobility_o, mobility_w, DI, DJ, HIJ, AREA)
 
 
 @njit(cache=True)
-def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w, wells,
+def calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells,
                   diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q,
-                  boundary_condition, band_age, p, dt):
+                  boundary_condition, band_age, p):
     """Сборка матрицы и решение СЛАУ уравнения давления (МКО).
 
     Матрица собирается не в CSC, а сразу в три диагонали положительно определенной формы
@@ -20,14 +20,10 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w, wells,
 
     Parameters
     ----------
-    Wo, Wo_0: numpy.ndarray(Nx, Ny)
-        Массовая доля масляного компонента в нефти на текущем и прошлом временном слое, [-]
-    m, m_0: numpy.ndarray(Nx, Ny)
-        Пористость на текущем и прошлом временном слое, [-]
     k: numpy.ndarray(Nx, Ny)
         Проницаемость, [м^2]
-    S, S_0: numpy.ndarray(Nx, Ny)
-        Водонасыщенность на текущем и прошлом временном слое, [-]
+    S: numpy.ndarray(Nx, Ny)
+        Водонасыщенность, [-]
     mu_o, mu_w: numpy.ndarray(Nx, Ny)
         Вязкости нефти и воды, [Па*с]
     lam_o, lam_w: numpy.ndarray(Nx, Ny)
@@ -50,11 +46,9 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w, wells,
         Возраст фактора Холецкого в шагах
     p: numpy.ndarray(Nx, Ny)
         Поле давления - результат; заполняется на месте, [Па]
-    dt: float
-        Текущий шаг по времени, [с]
     """
-    _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w,
-                         diag, ex, ey, rhs, boundary_condition, dt)
+    _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
+                         diag, ex, ey, rhs, boundary_condition)
     _adding_wells(wells, S, k, mu_o, mu_w, diag, rhs)
 
     band_age = solve_band_system(diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q, band_age)
@@ -69,22 +63,27 @@ def calc_pressure(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w, wells,
 
 
 @njit(parallel=True, cache=True)
-def _fill_matrix_and_rhs(Wo, Wo_0, m, m_0, k, S, S_0, mu_o, mu_w, lam_o, lam_w,
-                         diag, ex, ey, rhs, boundary_conditions, dt):
+def _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
+                         diag, ex, ey, rhs, boundary_conditions):
     """Заполнение диагоналей матрицы и правой части уравнения давления.
 
     Собирается форма `M = -A`: диагональ положительна, внедиагональные элементы отрицательны,
     правая часть - с обратным знаком. Ячейка владеет гранями «вправо» и «вверх», поэтому записи
     независимы и цикл распараллеливается.
+
+    В правой части стоят только дебиты (их добавляет `_adding_wells`) и вклад условий Дирихле.
+    Уравнение давления получается сложением балансов *фаз* (воды и нефтяной фазы целиком), при
+    котором производные по времени сокращаются: sum_j T_ij*(P_i - P_j) = q_w + q_o. Прежний
+    источник -((m - m_0) + m_0*S_0*(Wo - Wo_0)/Wo)/dt*volume возникал из-за сложения баланса воды
+    с балансом отдельного компонента (2) вместо баланса фазы и давал невязку суммарных дебитов
+    нагнетательной и добывающей скважин.
     """
     for i in prange(Nx):
         for j in range(Ny):
             idx = i + j * Nx
             lam_ij = lam_o[i, j] + lam_w[i, j]
 
-            # Источник объема из-за изменения пористости и состава нефти
-            acc = -((m[i, j] - m_0[i, j])
-                    + m_0[i, j] * S_0[i, j] * (Wo[i, j] - Wo_0[i, j]) / Wo[i, j]) / dt * volume
+            acc = 0.0  # только вклад Дирихле: производные по времени сократились при сложении фаз
             dg = 0.0
 
             for qq in range(4):

@@ -13,7 +13,7 @@ So_max = 1.0 - S_max
 
 
 @njit(cache=True)
-def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
+def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
     """Скорости блокирования и сужения капилляров и толщина осадочного слоя в ячейке.
 
     Узкие капилляры частица затыкает целиком (Ub), в широкие проходит и оседает на стенке,
@@ -21,16 +21,23 @@ def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_
     сетки радиусов на два диапазона - в `paraphin/__init__.py` (`r_pass`, `n_pass`).
     При Wps ниже порога кольматации цикл не имеет смысла и не выполняется.
 
+    `Ub` хранит *коэффициент* b(r) блокирования, а не саму скорость: сама скорость
+    ub = b(r)*fi пропорциональна функции пор, и в `_update_fi` слагаемое блокирования берется
+    неявно (b уходит на диагональ прогонки). Иначе при больших b*dt функция `fi` уходит в минус,
+    и «безусловная устойчивость» неявной схемы положительности не гарантирует.
+
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     # Тк при Wps=0 цикл не имеет смысла
     if Wps[i, j] > min_Wps_bound:
-        So = 1.0 - S[i, j] - So_max
+        # max(0, S_o - S_o*): ниже предельной нефтенасыщенности формула меняла знак,
+        # то есть капилляры начинали расширяться без всякой суффозии
+        So = max(0.0, 1.0 - S[i, j] - So_max)
         wps = Wps[i, j]
         um_r2 = Um_r2[i, j]
 
         # Оба множителя зависят только от ячейки, зависимость от радиуса вынесена в константные массивы.
-        # Скорость блокирования: So*wps*b_D_3 * um*r^2 * fi, где um = um_r2*r^2, то есть um*r^2 = um_r2 * r^4.
+        # Коэффициент блокирования: So*wps*b_D_3 * um*r^2, где um = um_r2*r^2, то есть um*r^2 = um_r2 * r^4.
         # Скорость сужения: -So*wps * (um*Diff_2/r)^(1/3), где um*Diff_2/r = um_r2*Diff_2*r,
         # то есть корень распадается на cbrt(um_r2*Diff_2)*cbrt(r). Было Nr вызовов pow на ячейку, стало один.
         ub_coef = So * wps * b_D_3 * um_r2
@@ -38,7 +45,7 @@ def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, fi, h_sloy, Ur, h_sloy_new, Ur_
 
         # Блокирование - только узкие капилляры (r < r_pass), сужение - только широкие
         for ij in range(n_pass):
-            Ub_new[i, j, ij] = ub_coef * r4[ij] * fi[i, j, ij]
+            Ub_new[i, j, ij] = ub_coef * r4[ij]
             Ur_new[i, j, ij] = 0.0
             h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
         for ij in range(n_pass, Nr):

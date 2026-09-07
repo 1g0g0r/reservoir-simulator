@@ -2,7 +2,7 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import data_type, R, ro_o, ro_p, phi_max, E_activation, mu_o_ref, T_mu_ref
+from paraphin.constants import data_type, R, phi_max, E_activation, mu_o_ref, T_mu_ref
 
 # Показатель в формуле Кригера-Догерти. Константа уровня модуля: numba вшивает ее литералом,
 # а не считает произведение на каждой ячейке каждый шаг.
@@ -31,17 +31,16 @@ def calc_mu_o(t: data_type, w_ps: data_type) -> data_type:
     проницаемость через кольматацию, хотя экспериментально рост вязкости - основной эффект.
     При содержании парафина 5% масс. множитель не превышает 1.13: суспензия разбавленная.
 
-    w_ps: массовая доля взвешенного парафина в нефтяной фазе. Перевод в объемную долю точный,
-    а не в разбавленном приближении: при w_ps -> 1 формула не должна давать phi > 1.
+    w_ps - *объемная* доля взвешенного парафина в нефтяной фазе, то есть уже искомая phi:
+    пересчет из массовой доли не нужен.
     """
     mu_liquid = mu_o_ref * np.exp(_E_OVER_R * (1.0 / (t + 273.15) - _INV_T_REF))
 
     if w_ps <= 0.0:
         return mu_liquid
 
-    phi = (w_ps / ro_p) / (w_ps / ro_p + (1.0 - w_ps) / ro_o)
     # Кригер-Догерти расходится при phi -> phi_max, поэтому долю подпираем снизу предела
-    phi = min(phi, 0.99 * phi_max)
+    phi = min(w_ps, 0.99 * phi_max)
 
     return mu_liquid * (1.0 - phi / phi_max) ** _KD_EXPONENT
 

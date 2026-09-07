@@ -3,7 +3,7 @@ import math
 
 from numba import njit
 
-from .FVM_utils import (mid, up_T, up_wp, lam_heat, calc_mobility, up_fraction, mobility_o,
+from .FVM_utils import (mid, up_value, lam_heat, calc_mobility, up_fraction, mobility_o,
                         mobility_w, DI, DJ, HIJ, AREA)
 from .band_solver import solve_band_system
 from .fluids_correlations import calc_mu_o, calc_mu_w, calc_c_f, calc_c_o, calc_c_w, calc_c_p

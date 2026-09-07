@@ -2,7 +2,8 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, K_ff, c_ff, heat_losses
+from paraphin.constants import (volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, init_m, K_ff,
+                                c_ff, heat_losses, latent_heat)
 
 # Свойства окружающих пород. Константы уровня модуля: numba вшивает их в машинный код литералами,
 # а не считает корень и деление на каждой ячейке каждый шаг.
@@ -11,19 +12,34 @@ M_ff = c_ff * ro_ff               # объемная теплоемкость, [
 
 
 @njit(cache=True)
-def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wps, qp, cells_T_eq, t, E_ff,
-                         new_T, new_m, new_S, dt) -> None:
-    """Вычисление температуры по явной схеме.
+def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_Wp, new_Wps,
+                         cells_T_eq, t, E_ff, new_T, new_m, new_S, dt) -> None:
+    """Вычисление температуры по явной схеме, в консервативной форме относительно psi*T.
 
-    Помимо перетоков `cells_T_eq` учитывает изменение теплоемкости смеси за шаг, теплоту
-    кристаллизации парафина (`qp`) и потери через кровлю и подошву пласта. Сами потери включает
-    флаг `heat_losses`: 0 - нет перетока; 1 - схема Ловерье; 2 - метод Винсома-Вестервельда.
+        (psi*T)^new*|V| = (psi*T)*|V| + latent + dt*cells_T_eq - dt*T_losses*|V|,
+        T^new = (psi*T)^new / psi^new
+
+    `latent` - скрытая теплота кристаллизации, основная тепловая связь задачи. Отдельного
+    параметра она не требует: удельная энтальпия растворенного парафина принята равной
+    C_p*T + alpha/M_w, а кристаллического - C_p*T, поэтому при переходе растворенного парафина во
+    взвешенное состояние теплота выделяется, а при растворении поглощается:
+
+        latent = latent_heat*ro_p*[(m*S_o*w_p) - (m*S_o*w_p)^new]*|V|
+
+    Потери через кровлю и подошву - расширение сверх модели, включает флаг `heat_losses`:
+    0 - нет перетока; 1 - схема Ловерье; 2 - метод Винсома-Вестервельда.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
-    psi = _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f)
-    psi_next = _psi(i, j, new_m, new_S, Wps, C_w, C_o, C_p, C_f)
+    psi = psi_cell(i, j, m, S, Wo[i, j], Wp[i, j], Wps[i, j], C_w, C_o, C_p, C_f)
+    psi_next = psi_cell(i, j, new_m, new_S, 1.0 - new_Wp[i, j] - new_Wps[i, j],
+                    new_Wp[i, j], new_Wps[i, j], C_w, C_o, C_p, C_f)
     derivative_add = T[i, j] * volume * (psi_next - psi) / dt
+
+    # Скрытая теплота: уменьшение количества растворенного парафина ее выделяет
+    latent = latent_heat * ro_p * (m[i, j] * (1.0 - S[i, j]) * Wp[i, j]
+                                   - new_m[i, j] * (1.0 - new_S[i, j]) * new_Wp[i, j]) * volume / dt
+
     if heat_losses == 0:
         T_losses = 0.0
     elif heat_losses == 1:
@@ -31,32 +47,70 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wps, qp, cells_
     else:
         T_losses = _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
 
-    new_T[i, j] += T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + qp[i, j] * ro_p * C_p[i, j] * volume)
+    new_T[i, j] = T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add
+                                                      - T_losses * volume + latent)
 
 
 @njit(cache=True)
-def temperature_well(well, T, m, S, C_o, C_w, C_f, C_p, Wps, new_T, dt) -> None:
-    """Учет скважины в уравнении энергии.
+def temperature_source(well, T, C_o, C_w, C_p, Wo, Wp, Wps) -> float:
+    """Приток энергии со скважиной, [Вт].
 
-    У нагнетательной берется температура закачиваемой воды, у добывающей - температура ячейки.
+    У нагнетательной берется температура закачиваемой воды, иначе закачка не охлаждает пласт;
+    у добывающей - температура ячейки. Дебиты знаковые: q > 0 - закачка, q < 0 - отбор.
+    Нефть уносит и скрытую теплоту растворенного в ней парафина - слагаемое q_o*(alpha/M_w)*ro_p*w_p
+    из уравнения энергии.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     i, j = well.i, well.j
-
-    # У нагнетательной берется температура закачки, у добывающей - температура ячейки
     Twell = well.T if well.is_injector == 1 else T[i, j]
 
-    multiplier = dt / _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f) / volume
-
-    new_T[i, j] -= (C_o[i, j] * ro_o * well.q[0] + C_w[i, j] * ro_w * well.q[1]) * multiplier * Twell
+    return (ro_w * C_w[i, j] * well.q[1] * Twell
+            + h_oil(i, j, T[i, j], Wo, Wp, Wps, C_o, C_p) * well.q[0])
 
 
 @njit(cache=True)
-def _psi(i, j, m, S, Wps, C_w, C_o, C_p, C_f):
-    # TODO уточнить энергию осевшего на порах парафина
-    return (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * (ro_o * C_o[i, j] * (1.0 - Wps[i, j]) +
-                                     ro_p * C_p[i, j] * Wps[i, j])) + (1.0 - m[i, j]) * ro_f * C_f[i, j])
+def c_oil(i, j, Wo, Wp, Wps, C_o, C_p):
+    """Объемная теплоемкость нефтяной фазы, [Дж/(м^3*C)]: c_o = w_o*ro_o*C_o + (w_p + w_ps)*ro_p*C_p.
+
+    Растворенный и взвешенный парафин имеют одну плотность ro_p: изменением удельного объема при
+    кристаллизации пренебрегаем. Прежняя запись отдавала растворенный парафин нефти (ro_o) и
+    считала его долю через (1 - w_ps) вместо w_o.
+    """
+    return ro_o * C_o[i, j] * Wo[i, j] + ro_p * C_p[i, j] * (Wp[i, j] + Wps[i, j])
+
+
+@njit(cache=True)
+def h_oil(i, j, T_ij, Wo, Wp, Wps, C_o, C_p):
+    """Объемная энтальпия нефтяной фазы, [Дж/м^3]: h_o = c_o*T + (alpha/M_w)*ro_p*w_p.
+
+    Второе слагаемое - скрытая теплота плавления, которую несет с собой *растворенный* парафин
+    (удельная энтальпия растворенного парафина C_p*T + alpha/M_w, кристаллического - C_p*T).
+    В уравнении энергии она стоит и под производной по времени, и под дивергенцией, и в
+    скважинном члене. Дискретная схема из работы выписывает только накопление: без переноса
+    и скважинного члена ячейка, через которую нефть просто протекает, грелась бы или остывала
+    на ровном месте - разность накоплений не с чем было бы сократить.
+    """
+    return c_oil(i, j, Wo, Wp, Wps, C_o, C_p) * T_ij + latent_heat * ro_p * Wp[i, j]
+
+
+@njit(cache=True)
+def psi_cell(i, j, m, S, Wo_ij, Wp_ij, Wps_ij, C_w, C_o, C_p, C_f):
+    """Объемная теплоемкость единицы объема пласта, [Дж/(м^3*C)].
+
+        psi = m*S_w*ro_w*C_w + m*S_o*c_o + (m_0 - m)*ro_p*C_p + (1 - m_0)*ro_f*C_f
+
+    `m_0` здесь - *начальная* пористость `init_m`, а не предыдущий временной слой. Слагаемое
+    (m_0 - m) описывает выведенный из фильтрации объем (осевший парафин и содержимое
+    заблокированных каналов), теплофизические свойства которого приняты равными свойствам
+    парафина. Прежняя запись (1 - m)*ro_f*C_f с ростом осадка включала отложившийся парафин с
+    теплоемкостью породы; при такой форме источник q_p*ro_p*C_p*T не нужен - энтальпия осевшего
+    парафина остается в той же ячейке.
+    """
+    c_o = ro_o * C_o[i, j] * Wo_ij + ro_p * C_p[i, j] * (Wp_ij + Wps_ij)
+
+    return (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * c_o)
+            + (init_m - m[i, j]) * ro_p * C_p[i, j] + (1.0 - init_m) * ro_f * C_f[i, j])
 
 
 @njit(cache=True)
@@ -112,7 +166,7 @@ def _heat_losses_vw(i, j, t, T, T_0, E_ff, dt):
 
     E_ff: numpy.ndarray(Nx, Ny)
         Состояние метода: накопленный интеграл перегрева пород по глубине, [C*м]. Обновляется
-        здесь же на месте (как `Wps_dep` в уравнении парафина), гонки в prange нет - ячейка пишет
+        здесь же на месте, гонки в prange нет - ячейка пишет
         только свой [i, j]. Три буфера ему не нужны: это аккумулятор, а не временной слой.
 
     Скорость изменения температуры границы берется как (T - T_0)/dt. При адаптивном шаге разность

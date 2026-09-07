@@ -49,8 +49,14 @@ class WellStruct:
 
 @njit(cache=True)
 def upd_q_and_eta(well, p, S, k, mu_o, mu_w, dt) -> WellStruct:
-    """Вычисление дебета скважины."""
-    well.dp = p[well.i, well.j] - well.p
+    """Вычисление дебета скважины по формуле Писмана.
+
+        q_a = 2*pi*k*h/ln(r_o/r_w) * (f_a/mu_a) * (P_w - P_i)
+
+    Знак такой же, как у источников в уравнениях баланса: q > 0 - закачка, q < 0 - отбор.
+    Проницаемость берется текущая: кольматация призабойной зоны - основной эффект задачи.
+    """
+    well.dp = well.p - p[well.i, well.j]
     mult = well.dp * well.productivity_mult * k[well.i, well.j]
 
     if well.is_injector == 1:
