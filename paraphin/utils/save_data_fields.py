@@ -42,7 +42,6 @@ def save_fields(solver, t: float) -> None:
             'Wp': solver.Wp,
             'Wps': solver.Wps,
             'Wps dep': solver.Wps_dep,
-            'qp': solver.qp,
             'plots': {'fi': solver.fi[x_idx, y_idx]},
         })
 
