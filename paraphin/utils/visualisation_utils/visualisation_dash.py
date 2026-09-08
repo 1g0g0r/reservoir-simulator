@@ -1,16 +1,19 @@
 """Интерактивная визуализация больших расчётных данных (Dash) с ленивой загрузкой.
 
-Оптимизации:
-1. Кэш на диске: pkl -> npy (float32, memory-mapped). Повторные запуски мгновенны,
-   в RAM держится только текущий срез времени, а не весь куб данных.
-2. Лёгкая фигура: строится только текущее поле в текущий момент времени;
-   слайдер времени обновляет z/y точечно через dash.Patch (без пересылки layout).
-3. Даунсэмплинг сетки для экрана (MAX_DISPLAY_CELLS).
-4. Сохранение в HTML — всегда полная анимация текущего вида (с именами файлов
-   как в исходной версии: Results.html / fi_func.html).
+Интерфейс повторяет исходный plotly-файл: график слева, вертикальный столбец
+кнопок выбора поля справа, под графиком подпись "Время: ... день" и ползунок.
 
-Оформление фигур соответствует исходным plotly-графикам (размеры, сетка,
-легенды, контуры, подписи слайдера).
+Отсутствие мерцания и минимум запросов:
+1. НЕТ автообновления (никаких dcc.Interval, polling и dcc.Loading вокруг графика).
+2. Слайдер в режиме mouseup: при перетаскивании — 0 запросов к серверу,
+   при отпускании — ровно 1 запрос, и в нём только массив z/y текущего поля (Patch).
+3. Подпись времени обновляется на клиенте (clientside callback) — без сервера.
+4. Все контейнеры фиксированного размера — интерфейс не "вздрагивает".
+5. Сетка в пределах расчётной области: явные range осей + constrain='domain'.
+6. Wildcard-выход (кнопки) всегда получает СПИСОК значений — иначе Dash падает
+   с InvalidCallbackReturnValue (что ломало обновление по слайдеру).
+
+Данные: кэш pkl -> npy (float32, memory-mapped). Сохранение в HTML — полная анимация.
 """
 from __future__ import annotations
 
@@ -36,13 +39,14 @@ from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, resu
 from paraphin.utils.read_data_files import read_solution_data, convert_pkl_files
 
 # ----------------------------- Настройки ------------------------------------
-CACHE_VERSION = 6                       # инкрементируется при изменении формата кэша
+CACHE_VERSION = 7
 CACHE_DIR = results_path.parent / f'{case_name}_vizcache'
-DTYPE = np.float32                      # тип хранения на диске (x2 экономия RAM/диска)
+DTYPE = np.float32
 MAX_DISPLAY_CELLS = 250_000             # максимум точек сетки для экрана (None — без прореживания)
-MAX_MARKS = 12                          # максимум подписей на слайдере времени
-JSON_DECIMALS = 5                       # округление данных перед отправкой в браузер (None — откл.)
-SKIP_FIELDS = {'Pressure', 'Wps', 'Wo', 'Wp', 'Wps dep', 'qp', 'mu_o', 'mu_w'}
+MAX_MARKS = 7                           # подписей под слайдером, как в оригинале
+JSON_DECIMALS = 5
+GRAPH_W, GRAPH_H = 720, 800             # размер фигуры (фиксированный)
+SKIP_FIELDS = {}
 SERIES_GROUPS = ('Wells', 'Wells_accumulated', 'Other params')
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
@@ -51,17 +55,48 @@ y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 names_converter = {'fi': '$$\\varphi$$', 'fi_o': '$$\\varphi_0$$'}
 _HOVER_MAP = 'X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>'
 
-_BTN_ACTIVE = {'fontWeight': 'bold', 'backgroundColor': '#4CAF50', 'color': 'white',
-               'border': 'none', 'padding': '7px 14px', 'borderRadius': '4px', 'cursor': 'pointer'}
-_BTN_INACTIVE = {'fontWeight': 'normal', 'backgroundColor': '#e0e0e0', 'color': 'black',
-                 'border': 'none', 'padding': '7px 14px', 'borderRadius': '4px', 'cursor': 'pointer'}
+_FONT = "'Open Sans', Verdana, Arial, sans-serif"
 _BTN_SAVE = {'backgroundColor': '#2196F3', 'color': 'white', 'fontWeight': 'bold',
-             'border': 'none', 'padding': '7px 14px', 'borderRadius': '4px'}
-_BTN_HEADER = {'fontWeight': 'bold', 'color': '#555', 'fontSize': '13px', 'margin': '0 4px'}
+             'border': '1px solid #1d84c9', 'padding': '7px 11px', 'borderRadius': '3px',
+             'cursor': 'pointer', 'width': '100%', 'marginTop': '10px', 'fontSize': '13px',
+             'fontFamily': _FONT, 'textAlign': 'center'}
+_BTN_ACTIVE = {'backgroundColor': '#e5ecf6'}
+_BTN_INACTIVE = {'backgroundColor': '#ffffff'}
+
+# CSS подключается через html.Style — гарантированно применяется (dcc.Markdown вырезает <style>).
+_CSS = f"""
+.plt-btn{{width:100%;text-align:left;padding:5px 11px;background:#fff;border:1px solid #e2e6ec;
+          border-radius:3px;color:#2a3f5f;font-family:{_FONT};font-size:13px;font-weight:400;
+          cursor:pointer;box-shadow:none;}}
+.plt-btn:hover{{background:#f3f6fb;border-color:#d5dbe5;}}
+.plt-btn:focus,.plt-btn:focus-visible{{outline:none;box-shadow:none;}}
+.plt-btn:active{{background:#eef2f9;}}
+
+.plt-time-label{{font-family:{_FONT};font-size:13px;font-weight:bold;color:#2a3f5f;
+                 height:22px;padding-left:2px;font-variant-numeric:tabular-nums;white-space:nowrap;}}
+
+/* Слайдер в стиле plotly: тонкая серая рельса, светлый круглый бегунок, без фиолетового */
+.plt-slider{{min-height:52px;}}
+.plt-slider .rc-slider-rail{{background-color:#d8d8d8 !important;height:3px;border-radius:2px;}}
+.plt-slider .rc-slider-track{{background-color:#9a9a9a !important;height:3px;border-radius:2px;}}
+.plt-slider .rc-slider-handle{{border:1px solid #9a9a9a !important;background-color:#f6f6f6 !important;
+                               box-shadow:none !important;}}
+.plt-slider .rc-slider-handle:hover,
+.plt-slider .rc-slider-handle:focus,
+.plt-slider .rc-slider-handle:active,
+.plt-slider .rc-slider-handle:focus-visible,
+.plt-slider .rc-slider-handle-dragging{{border-color:#8a8a8a !important;background-color:#efefef !important;
+                                        box-shadow:none !important;outline:none !important;}}
+.plt-slider .rc-slider-dot{{display:none;}}                  /* точки меток — как в plotly, их нет */
+.plt-slider .rc-slider-mark-text{{font-size:11px;color:#2a3f5f;font-family:{_FONT};}}
+/* скрыть всплывающий счётчик шагов у бегунка при наведении/перетаскивании */
+.plt-slider .rc-slider-tooltip{{display:none !important;}}
+.plt-slider .dash-tooltip{{display:none !important;}}
+"""
 
 
 def _day_fmt(t) -> str:
-    """Формат подписи времени как в оригинале: f'{round(time[i], 1)} день'."""
+    """Формат времени как в оригинале: f'{round(time[i], 1)} день'."""
     return f'{round(float(t), 1)} день'
 
 
@@ -145,7 +180,6 @@ class SolutionStore:
         meta['n_times'] = n_times
         meta['time'] = [round(float(t), 6) for t in time]
 
-        # Приводим к "экранному" виду один раз, при сборе кэша
         if 'Pressure' in raw:
             raw['Pressure'] = np.asarray(raw['Pressure']) / bar_to_pa
         if 'plots' in raw and 'Wps' in raw and 'Saturation' in raw:
@@ -176,7 +210,7 @@ class SolutionStore:
         meta['x_display'] = list(np.asarray(x_mesh[::s], dtype=float))
         meta['y_display'] = list(np.asarray(y_mesh[::s], dtype=float))
 
-        # --- временные ряды (маленькие, приводим к экранному виду заранее) ---
+        # --- временные ряды ---
         series = {}
         for g in SERIES_GROUPS:
             d = raw.get(g)
@@ -209,7 +243,7 @@ class SolutionStore:
                 print(f'  {g}: {len(names)} кривых')
         meta['series'] = series
 
-        # --- графики phi(r) (маленькие 2D-массивы) ---
+        # --- графики phi(r) ---
         plots = {}
         for k, v in (raw.get('plots') or {}).items():
             v = np.asarray(v, dtype=DTYPE)
@@ -280,10 +314,23 @@ def _axis_dict() -> dict:
     return dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18))
 
 
+def _map_axes() -> tuple[dict, dict]:
+    """Оси карты: квадратная область, сетка строго в пределах расчётной области.
+
+    constrain='domain' обязателен на ОБЕИХ осях: по умолчанию ('range') ось,
+    подогнанная под scaleanchor, РАСШИРЯЕТ свой диапазон — из-за этого сетка
+    выходила за границы области данных.
+    """
+    xax = _axis_dict()
+    xax.update(range=[float(X_min), float(X_max)], constrain='domain')
+    yax = _axis_dict()
+    yax.update(range=[float(Y_min), float(Y_max)], scaleanchor='x', scaleratio=1, constrain='domain')
+    return xax, yax
+
+
 def _map_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) -> go.Figure:
-    """Поле данных — оформление как в _visualize_fields оригинала (1000×800, Jet, подписи контуров)."""
+    """Поле данных — вид как в оригинале (Jet, подписи контуров), квадратная область."""
     if view.get('sattemp'):
-        # Вид 'Sat and Temp' — точно как в оригинале: заливка насыщенности + чёрные изолинии температуры
         traces = [
             go.Contour(x=store.x, y=store.y, z=store.get_field('Saturation', i), colorscale='Jet',
                        name='Saturation', contours=dict(coloring='fill', showlabels=True),
@@ -306,18 +353,12 @@ def _map_figure(view: dict, i: int, store: SolutionStore, animate: bool = False)
             traces = [go.Heatmap(**common)]
 
     fig = go.Figure(data=traces)
-
-    # Layout оригинала: белый фон, чёрная сетка, легенда справа, размер 1000×800.
-    # scaleanchor/scaleratio — сохранение отношения сторон (по доп. требованию).
-    xax = _axis_dict()
-    xax['constrain'] = 'domain'
-    yax = _axis_dict()
-    yax.update(scaleanchor='x', scaleratio=1)
+    xax, yax = _map_axes()
     fig.update_layout(plot_bgcolor='white', uirevision='map',
                       xaxis=xax, yaxis=yax, legend=dict(x=1.05, y=1.0),
-                      width=1000, height=800)
+                      width=GRAPH_W, height=GRAPH_H)
 
-    if animate:   # полная анимация для сохранения в HTML — слайдер как в оригинале
+    if animate:   # полная анимация для сохранения в HTML
         steps = [dict(method='update',
                       args=[{'z': [store.get_field(nm, j) for nm in view['sources']]}],
                       label=_day_fmt(store.time[j]))
@@ -328,7 +369,7 @@ def _map_figure(view: dict, i: int, store: SolutionStore, animate: bool = False)
 
 
 def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
-    """Скважины / прочие параметры — оформление как в оригинале (часть _visualize_fields)."""
+    """Скважины / прочие параметры — оформление как в оригинале."""
     g = view['group']
     s = store.meta['series'][g]
     M = store.get_series(g)
@@ -352,12 +393,12 @@ def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
                       xaxis=_axis_dict(), yaxis=_axis_dict(),
                       yaxis2=dict(side='right', overlaying='y'),
                       legend=dict(x=1.05, y=1.0),
-                      width=1000, height=800)
+                      width=GRAPH_W, height=GRAPH_H)
     return fig
 
 
 def _fi_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) -> go.Figure:
-    """Графики phi(r) — оформление как в _visualize_plots_fi оригинала (height=600, margin t=0 b=0)."""
+    """Графики phi(r) — оформление как в _visualize_plots_fi оригинала."""
     data = store.get_plot_data()
     traces = []
     for nm, vals in data.items():
@@ -375,7 +416,7 @@ def _fi_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) 
         xaxis=_axis_dict(), yaxis=_axis_dict(),
         yaxis2=dict(side='right', overlaying='y'),
         legend=dict(x=1.01, y=0.8, font=dict(size=18)),
-        height=600,
+        width=GRAPH_W, height=600,
     )
     fig.add_shape(type='rect', xref='paper', yref='paper',
                   x0=0, y0=0, x1=1, y1=1, line=dict(color='black', width=1))
@@ -414,35 +455,28 @@ def _figure_for(view_id: str, i: int, store: SolutionStore, animate: bool = Fals
 
 # ============================ Интерфейс ======================================
 def _valid_view_ids(meta: dict) -> list[str]:
-    """Упорядоченный список доступных видов (порядок совпадает с порядком кнопок)."""
+    """Порядок кнопок как в оригинале: поля, скважины, 'Sat and Temp', φ(r)."""
     ids = [f'field:{n}' for n in meta['fields'] if n not in SKIP_FIELDS]
+    ids += [f'series:{g}' for g in SERIES_GROUPS if g in meta['series']]
     if {'Saturation', 'Temperature'} <= set(meta['fields']):
         ids.append('sattemp')
-    ids += [f'series:{g}' for g in SERIES_GROUPS if g in meta['series']]
     if meta.get('has_plots'):
         ids.append('fi')
     return ids
 
 
 def _view_buttons(meta: dict, current: str | None) -> list:
-    """Кнопки выбора отображения, сгруппированные заголовками."""
+    """Вертикальный столбец кнопок в стиле plotly."""
     def btn(vid: str, label: str) -> html.Button:
         return html.Button(label, id={'type': 'view-btn', 'index': vid}, n_clicks=0,
+                           className='plt-btn',
                            style=_BTN_ACTIVE if vid == current else _BTN_INACTIVE)
 
-    els = []
-    fields = [n for n in meta['fields'] if n not in SKIP_FIELDS]
-    if fields:
-        els.append(html.Span('Поля:', style=_BTN_HEADER))
-        els += [btn(f'field:{n}', n) for n in fields]
-        if {'Saturation', 'Temperature'} <= set(meta['fields']):
-            els.append(btn('sattemp', 'Sat and Temp'))
-    groups = [g for g in SERIES_GROUPS if g in meta['series']]
-    if groups:
-        els.append(html.Span('Скважины / прочее:', style=_BTN_HEADER))
-        els += [btn(f'series:{g}', g) for g in groups]
+    els = [btn(f'field:{n}', n) for n in meta['fields'] if n not in SKIP_FIELDS]
+    els += [btn(f'series:{g}', g) for g in SERIES_GROUPS if g in meta['series']]
+    if {'Saturation', 'Temperature'} <= set(meta['fields']):
+        els.append(btn('sattemp', 'Sat and Temp'))
     if meta.get('has_plots'):
-        els.append(html.Span('φ(r):', style=_BTN_HEADER))
         els.append(btn('fi', 'Графики φ(r)'))
     return els
 
@@ -459,43 +493,51 @@ def _payload(view_id: str | None, store: SolutionStore) -> dict | None:
     return {'id': v['id'], 'kind': v['kind'], 'sources': v.get('sources', []), 'group': v.get('group')}
 
 
-def _slider_style(kind: str, n_times: int = 2) -> dict:
-    if kind == 'series' or n_times <= 1:
-        return {'display': 'none'}
-    return {'display': 'flex', 'alignItems': 'center', 'gap': '16px',
-            'margin': '4px auto 0', 'maxWidth': '1000px', 'minHeight': '36px'}
-
-
 def _marks(store: SolutionStore) -> dict:
     n = len(store.time)
     if n <= 1:
-        return {'0': ''}
+        return {0: _day_fmt(store.time[0])}
     idx = np.unique(np.linspace(0, n - 1, min(n, MAX_MARKS)).astype(int))
     return {int(i): _day_fmt(store.time[i]) for i in idx}
-
-
-def _time_label(store: SolutionStore, i) -> str:
-    """Текущее значение слайдера в формате currentvalue оригинала: 'Время: 123.4 день'."""
-    return f'Время: {_day_fmt(store.time[int(i or 0)])}'
 
 
 def _empty_figure(msg: str) -> go.Figure:
     fig = go.Figure()
     fig.add_annotation(text=msg, showarrow=False, font=dict(size=20))
-    fig.update_layout(width=1000, height=800)
+    fig.update_layout(width=GRAPH_W, height=GRAPH_H)
     return fig
 
 
 app = Dash(__name__)
-app.title = f'Визуализация — {case_name}'
-app.config.suppress_callback_exceptions = True   # кнопки создаются колбэком инициализации
+app.title = f'Визуализация'
+app.config.suppress_callback_exceptions = True
 
+# Стили встраиваем в <head> страницы через index_string — работает во всех версиях Dash
+# (html.Style есть только в новых версиях, а dcc.Markdown вырезает <style>).
+app.index_string = f'''<!DOCTYPE html>
+<html>
+    <head>
+        {{%metas%}}
+        <title>{{%title%}}</title>
+        {{%favicon%}}
+        {{%css%}}
+        <style>{_CSS}</style>
+    </head>
+    <body>
+        {{%app_entry%}}
+        <footer>
+            {{%config%}}
+            {{%scripts%}}
+            {{%renderer%}}
+        </footer>
+    </body>
+</html>'''
+
+# Минимальный статический layout: спиннер только на первичной загрузке данных.
 app.layout = html.Div([
     dcc.Interval(id='boot', interval=50, max_intervals=1),
-    html.Div(
-        dcc.Loading(html.Div(id='ui-root'), type='circle'),
-        style={'margin': '30px'}
-    ),
+    dcc.Download(id='download'),
+    dcc.Loading(html.Div(id='ui-root'), type='circle'),
 ])
 
 
@@ -510,48 +552,64 @@ def _init(_n):
     view_id = _resolve_view(None, store)
     n_times = store.meta['n_times']
     kind = _view_def(view_id, store)['kind'] if view_id else 'series'
-    show_slider = view_id is not None and kind != 'series' and n_times > 1
+    slider_disabled = view_id is None or kind == 'series' or n_times <= 1
 
     return html.Div([
-        html.H3(f'Визуализация решения — {case_name}', style={'textAlign': 'center', 'margin': '8px 0'}),
-
-        html.Div(_view_buttons(store.meta, view_id),
-                 style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '6px', 'alignItems': 'center',
-                        'justifyContent': 'center', 'margin': '6px 0'}),
-
         html.Div([
-            html.Button('💾 Сохранить анимацию в HTML', id='btn-save', n_clicks=0, style=_BTN_SAVE),
-            dcc.Download(id='download'),
-        ], style={'display': 'flex', 'justifyContent': 'center', 'margin': '6px 0'}),
+            # ------- левая колонка: график, подпись времени, ползунок -------
+            html.Div([
+                html.Div(
+                    dcc.Graph(id='main-graph',
+                              figure=_figure_for(view_id, 0, store) if view_id else _empty_figure('Нет данных'),
+                              responsive=False,
+                              config={'displaylogo': False}),
+                    style={'height': f'{GRAPH_H + 10}px', 'width': f'{GRAPH_W + 10}px', 'overflow': 'hidden'}),
+                html.Div(id='time-label',
+                         children=f'Время: {_day_fmt(store.time[0])}' if kind != 'series' else '',
+                         className='plt-time-label'),
+                html.Div(
+                    dcc.Slider(id='time-slider', min=0, max=max(0, n_times - 1), step=1, value=0,
+                               marks=_marks(store), updatemode='mouseup',   # запрос к серверу ТОЛЬКО при отпускании
+                               disabled=slider_disabled),
+                    className='plt-slider',
+                    style={'width': f'{GRAPH_W}px'}),
+            ], style={'width': f'{GRAPH_W + 10}px', 'flexShrink': 0}),
 
-        dcc.Loading(
+            # ------- правая колонка: вертикальный столбец кнопок -------
             html.Div(
-                dcc.Graph(id='main-graph',
-                          figure=_figure_for(view_id, 0, store) if view_id else _empty_figure('Нет данных'),
-                          responsive=False,                      # фиксированный размер фигуры, как в оригинале
-                          style={'width': 'fit-content'}),
-                style={'display': 'flex', 'justifyContent': 'center', 'overflowX': 'auto'},
-            ),
-            type='circle'),
-
-        html.Div([
-            html.Div(id='time-label',
-                     children=_time_label(store, 0) if show_slider else '',
-                     style={'minWidth': '160px', 'fontWeight': 'bold'}),
-            dcc.Slider(id='time-slider', min=0, max=max(0, n_times - 1), step=1, value=0,
-                       marks=_marks(store), disabled=n_times <= 1, tooltip={'placement': 'bottom'}),
-        ], id='slider-box',
-           style=_slider_style(kind, n_times) if show_slider else {'display': 'none'}),
+                _view_buttons(store.meta, view_id) + [
+                    html.Button('Сохранить в HTML', id='btn-save', n_clicks=0, style=_BTN_SAVE),
+                ],
+                style={'width': '185px', 'display': 'flex', 'flexDirection': 'column',
+                       'gap': '3px', 'paddingTop': '60px', 'flexShrink': 0}),
+        ], style={'display': 'flex', 'gap': '30px', 'justifyContent': 'center', 'alignItems': 'flex-start'}),
 
         dcc.Store(id='view-state', data=_payload(view_id, store)),
-    ], style={'maxWidth': '1600px', 'margin': '0 auto', 'padding': '0 10px'})
+        dcc.Store(id='times-store', data=store.meta['time']),
+    ], style={'maxWidth': '1100px', 'margin': '0 auto', 'padding': '0 10px'})
+
+
+# --- клиентский колбэк: живая подпись времени при перетаскивании (БЕЗ запросов к серверу) ---
+app.clientside_callback(
+    """function(dv, v, view, times) {
+        if (!view || view.kind === 'series') return '';
+        const idx = (dv !== null && dv !== undefined) ? dv : ((v !== null && v !== undefined) ? v : 0);
+        const t = (times && times[idx] !== undefined) ? times[idx] : 0;
+        return 'Время: ' + Number(t).toFixed(1) + ' день';
+    }""",
+    Output('time-label', 'children'),
+    Input('time-slider', 'drag_value'),
+    Input('time-slider', 'value'),
+    Input('view-state', 'data'),
+    State('times-store', 'data'),
+    prevent_initial_call=True,
+)
 
 
 @app.callback(
     Output('main-graph', 'figure'),
     Output('view-state', 'data'),
-    Output('slider-box', 'style'),
-    Output('time-label', 'children'),
+    Output('time-slider', 'disabled'),
     Output({'type': 'view-btn', 'index': ALL}, 'style'),
     Input({'type': 'view-btn', 'index': ALL}, 'n_clicks'),
     Input('time-slider', 'value'),
@@ -559,41 +617,56 @@ def _init(_n):
     prevent_initial_call=True,
 )
 def _update(clicks, t, prev):
-    """Кнопки вида и слайдер времени: в браузер уходит только изменившееся."""
+    """Единый колбэк: отпускание ползунка -> Patch (только данные), кнопка -> лёгкая фигура.
+
+    ВАЖНО: wildcard-выход (стили кнопок) должен ВСЕГДА получать список длиной
+    с число кнопок — одиночный no_update для него недопустим (InvalidCallbackReturnValue).
+    """
     store = get_store()
     t = int(t or 0)
-    valid = _valid_view_ids(store.meta)
+    n_btn = len(_valid_view_ids(store.meta))
+    noop_btns = [no_update] * n_btn
 
-    # Защита от срабатывания при динамическом создании кнопок
-    if all(c is None for c in (clicks or [])) and ctx.triggered_id != 'time-slider':
-        return no_update, no_update, no_update, no_update, no_update
+    trig_props = {p['prop_id'] for p in ctx.triggered}
+    slider_fired = 'time-slider.value' in trig_props
+    btn_fired = any(p.startswith('{') for p in trig_props)
 
-    trig = ctx.triggered_id
+    # --- отпускание ползунка: единственный запрос, обновляем только z/y ---
+    if slider_fired and not btn_fired:
+        if not isinstance(prev, dict) or prev['kind'] == 'series':
+            return no_update, no_update, no_update, noop_btns
+        patch = Patch()
+        if prev['kind'] == 'map':
+            for k, name in enumerate(prev['sources']):
+                patch['data'][k]['z'] = store.get_field(name, t).tolist()
+        else:  # fi
+            data = store.get_plot_data()
+            for k, name in enumerate(prev['sources']):
+                patch['data'][k]['y'] = data[name][t].tolist()
+        return patch, no_update, no_update, noop_btns
 
-    # --- нажата кнопка вида: пересобираем лёгкую фигуру из 1-2 трейсов ---
-    if isinstance(trig, dict) and trig.get('type') == 'view-btn':
-        view_id = _resolve_view(trig['index'], store)
+    # --- кнопка вида ---
+    if btn_fired:
+        trig_id = ctx.triggered_id
+        # защита от холостого срабатывания при создании кнопок (n_clicks == 0 / не кнопка)
+        if not (isinstance(trig_id, dict) and trig_id.get('type') == 'view-btn'):
+            return no_update, no_update, no_update, noop_btns
+        if all((c or 0) <= 0 for c in (clicks or [])):
+            return no_update, no_update, no_update, noop_btns
+
+        valid = _valid_view_ids(store.meta)
+        view_id = _resolve_view(trig_id['index'], store)
         if view_id is None:
-            return (_empty_figure('Нет данных для отображения'), None, {'display': 'none'}, '',
+            return (_empty_figure('Нет данных для отображения'), None, True,
                     [_BTN_INACTIVE] * len(valid))
+
         v = _view_def(view_id, store)
-        return (_figure_for(view_id, t, store), _payload(view_id, store), _slider_style(v['kind'], store.meta['n_times']),
-                _time_label(store, t) if v['kind'] != 'series' else '',
+        return (_figure_for(view_id, t, store),
+                _payload(view_id, store),
+                v['kind'] == 'series' or store.meta['n_times'] <= 1,
                 [_BTN_ACTIVE if vid == view_id else _BTN_INACTIVE for vid in valid])
 
-    # --- движение слайдера времени: точечное обновление z/y через Patch ---
-    if not isinstance(prev, dict) or prev['kind'] == 'series':
-        return no_update, no_update, no_update, no_update, no_update
-
-    patch = Patch()
-    if prev['kind'] == 'map':
-        for k, name in enumerate(prev['sources']):
-            patch['data'][k]['z'] = store.get_field(name, t).tolist()
-    else:  # fi
-        data = store.get_plot_data()
-        for k, name in enumerate(prev['sources']):
-            patch['data'][k]['y'] = data[name][t].tolist()
-    return patch, no_update, no_update, _time_label(store, t), no_update
+    return no_update, no_update, no_update, noop_btns
 
 
 @app.callback(
@@ -604,8 +677,8 @@ def _update(clicks, t, prev):
     prevent_initial_call=True,
 )
 def _save_html(n, payload, t):
-    """Сохранение в HTML: всегда полная анимация текущего вида, с оригинальными
-    именами файлов (Results.html / fi_func.html) и оригинальным встроенным слайдером Plotly."""
+    """Сохранение в HTML: всегда полная анимация текущего вида
+    (Results.html / fi_func.html; для временных рядов — статичный график)."""
     if not n or not isinstance(payload, dict):
         return no_update
     store = get_store()
