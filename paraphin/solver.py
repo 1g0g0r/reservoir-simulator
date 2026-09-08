@@ -204,8 +204,7 @@ class Solver:
         calc_mobility(self.k, self.S, self.mu_o, self.mu_w, self.lam_o, self.lam_w)
         # Обновление давления
         self._band_age = calc_pressure(self.Wo, self.Wo_0, self.m, self.m_0, self.k, self.S, self.S_0, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.wells,
-                                       self.diag, self.ex, self.ey, self.rhs, self.band_w, self.p_vec,
-                                       self.pcg_r, self.pcg_z, self.pcg_p, self.pcg_q,
+                                       self.diag, self.ex, self.ey, self.rhs, self.band_w, self.p_vec, self.pcg_r, self.pcg_z, self.pcg_p, self.pcg_q,
                                        self.boundary_conditions, self._band_age, self.p, step_dt)
         # Обновление данных скважин
         self.KIN = _update_wells_data(self.n_wells, self.wells, self.p, self.S, self.k, self.mu_o, self.mu_w, step_dt)
@@ -213,24 +212,21 @@ class Solver:
         _wells_loop(self.n_wells, self.wells, self.m, self.S, self.new_s, self.T, self.new_t, self.Wp, self.new_wp, self.Wps, self.C_o, self.C_w, self.C_f, self.C_p, step_dt)
         # Решение уравнений по явной схеме
         dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wp, self.new_wp, self.Wps, self.new_wps, self.Wps_dep, self.T, self.T_0, self.new_t,
-                        self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.max_dfw, step_dt)
+                                   self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.max_dfw, step_dt)
         # Шаг для следующей итерации из фактического условия устойчивости
         dt_next = _calc_dt(self.n_wells, self.wells, self.m, self.cells_Q_out, self.max_dfw, step_dt, dt_cells)
 
         if not np.isfinite(self.p.sum()):
             raise FloatingPointError('В поле давления появились NaN/Inf')
 
-        _swap_time_steps(self._paraphin, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m,
-                         self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0, self.new_wp,
-                         self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t,
-                         self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur,
+        _swap_time_steps(self._paraphin, self.qp, self.new_qp, self.k, self.new_k, self.m, self.m_0, self.new_m, self.S, self.S_0, self.new_s, self.Wo, self.Wo_0, self.Wp, self.Wp_0, self.new_wp,
+                         self.Wps, self.Wps_0, self.new_wps, self.T, self.T_0, self.new_t, self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur,
                          self.Ub, self.new_Ub, self.mu_o, self.mu_w)
-
         self.dt = dt_next
-        _logging_solution(self, t)
 
         # Запись данных в файл
         if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[self._producer].eta >= max_eta:
+            _logging_solution(self, t)
             save_fields(self, t)
             self._i_img += 1
 
