@@ -36,13 +36,13 @@ def save_fields(solver, t: float) -> None:
     if solver._paraphin:
         x_idx, y_idx = FI_PROBE
         layer.update({
+            'm': solver.m / init_m,
+            'k': solver.k / init_k,
             'Wo': solver.Wo,
             'Wp': solver.Wp,
             'Wps': solver.Wps,
             'Wps dep': solver.Wps_dep,
             'qp': solver.qp,
-            'm': solver.m / init_m,
-            'k': solver.k / init_k,
             'plots': {'fi': solver.fi[x_idx, y_idx]},
         })
 
