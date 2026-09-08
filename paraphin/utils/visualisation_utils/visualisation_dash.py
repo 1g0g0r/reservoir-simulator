@@ -6,7 +6,11 @@
 2. Лёгкая фигура: строится только текущее поле в текущий момент времени;
    слайдер времени обновляет z/y точечно через dash.Patch (без пересылки layout).
 3. Даунсэмплинг сетки для экрана (MAX_DISPLAY_CELLS).
-4. Сохранение в HTML — всегда полная анимация текущего вида.
+4. Сохранение в HTML — всегда полная анимация текущего вида (с именами файлов
+   как в исходной версии: Results.html / fi_func.html).
+
+Оформление фигур соответствует исходным plotly-графикам (размеры, сетка,
+легенды, контуры, подписи слайдера).
 """
 from __future__ import annotations
 
@@ -32,7 +36,7 @@ from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, resu
 from paraphin.utils.read_data_files import read_solution_data, convert_pkl_files
 
 # ----------------------------- Настройки ------------------------------------
-CACHE_VERSION = 5                       # инкрементируется при изменении формата кэша
+CACHE_VERSION = 6                       # инкрементируется при изменении формата кэша
 CACHE_DIR = results_path.parent / f'{case_name}_vizcache'
 DTYPE = np.float32                      # тип хранения на диске (x2 экономия RAM/диска)
 MAX_DISPLAY_CELLS = 250_000             # максимум точек сетки для экрана (None — без прореживания)
@@ -54,6 +58,11 @@ _BTN_INACTIVE = {'fontWeight': 'normal', 'backgroundColor': '#e0e0e0', 'color': 
 _BTN_SAVE = {'backgroundColor': '#2196F3', 'color': 'white', 'fontWeight': 'bold',
              'border': 'none', 'padding': '7px 14px', 'borderRadius': '4px'}
 _BTN_HEADER = {'fontWeight': 'bold', 'color': '#555', 'fontSize': '13px', 'margin': '0 4px'}
+
+
+def _day_fmt(t) -> str:
+    """Формат подписи времени как в оригинале: f'{round(time[i], 1)} день'."""
+    return f'{round(float(t), 1)} день'
 
 
 # ============================ Слой данных ====================================
@@ -266,51 +275,60 @@ def get_store() -> SolutionStore:
 
 
 # ============================ Построение фигур ===============================
-def _axis(title: str | None = None) -> dict:
-    d = dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18))
-    if title:
-        d['title'] = title
-    return d
-
-
-def _map_trace(name: str, z: np.ndarray, store: SolutionStore, mode: str = 'auto') -> go.Trace:
-    rng = dict(zip(('zmin', 'zmax'), (store.meta['fields'][name]['zmin'], store.meta['fields'][name]['zmax'])))
-    if mode == 'lines':   # изолинии температуры поверх насыщенности
-        return go.Contour(x=store.x, y=store.y, z=z, name=name, colorscale=[[0, 'black'], [1, 'black']],
-                          showscale=False, line=dict(width=3),
-                          contours=dict(coloring='lines', showlabels=True, start=25 * 1.001, end=70 * 0.99, size=10),
-                          hovertemplate=_HOVER_MAP)
-    if mode == 'fill' or CONTOUR_PLOT:
-        return go.Contour(x=store.x, y=store.y, z=z, name=name, colorscale='Jet', **rng,
-                          contours=dict(coloring='fill', showlabels=True, labelfont=dict(size=12, color='black')),
-                          hovertemplate=_HOVER_MAP)
-    return go.Heatmap(x=store.x, y=store.y, z=z, name=name, colorscale='Jet', **rng, hovertemplate=_HOVER_MAP)
+def _axis_dict() -> dict:
+    """Оси в стиле оригинала: чёрная сетка, чёрная рамка, шрифт подписи 18."""
+    return dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18))
 
 
 def _map_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) -> go.Figure:
-    traces = []
-    for k, name in enumerate(view['sources']):
-        mode = 'fill' if (view.get('sattemp') and k == 0) else ('lines' if (view.get('sattemp') and k == 1) else 'auto')
-        traces.append(_map_trace(name, store.get_field(name, i), store, mode))
+    """Поле данных — оформление как в _visualize_fields оригинала (1000×800, Jet, подписи контуров)."""
+    if view.get('sattemp'):
+        # Вид 'Sat and Temp' — точно как в оригинале: заливка насыщенности + чёрные изолинии температуры
+        traces = [
+            go.Contour(x=store.x, y=store.y, z=store.get_field('Saturation', i), colorscale='Jet',
+                       name='Saturation', contours=dict(coloring='fill', showlabels=True),
+                       hovertemplate=_HOVER_MAP),
+            go.Contour(x=store.x, y=store.y, z=store.get_field('Temperature', i), name='Temperature',
+                       contours=dict(coloring='lines', showlabels=True,
+                                     start=25 * 1.001, end=70 * 0.99, size=10),
+                       line=dict(width=3), colorscale=[[0, 'black'], [1, 'black']],
+                       showscale=False, showlegend=True, hovertemplate=_HOVER_MAP),
+        ]
+    else:
+        name = view['sources'][0]
+        info = store.meta['fields'][name]
+        common = dict(x=store.x, y=store.y, z=store.get_field(name, i), name=name, colorscale='Jet',
+                      zmin=info['zmin'], zmax=info['zmax'], hovertemplate=_HOVER_MAP)
+        if CONTOUR_PLOT:
+            traces = [go.Contour(**common, contours=dict(coloring='fill', showlabels=True,
+                                                         labelfont=dict(size=12, color='black')))]
+        else:
+            traces = [go.Heatmap(**common)]
+
     fig = go.Figure(data=traces)
 
-    # Фиксируем физическое отношение сторон: 1 ед. X == 1 ед. Y, оси не растягиваются
-    xax = _axis('X, м')
+    # Layout оригинала: белый фон, чёрная сетка, легенда справа, размер 1000×800.
+    # scaleanchor/scaleratio — сохранение отношения сторон (по доп. требованию).
+    xax = _axis_dict()
     xax['constrain'] = 'domain'
-    yax = _axis('Y, м')
+    yax = _axis_dict()
     yax.update(scaleanchor='x', scaleratio=1)
+    fig.update_layout(plot_bgcolor='white', uirevision='map',
+                      xaxis=xax, yaxis=yax, legend=dict(x=1.05, y=1.0),
+                      width=1000, height=800)
 
-    fig.update_layout(plot_bgcolor='white', uirevision='map', margin=dict(l=10, r=10, t=10, b=10),
-                      xaxis=xax, yaxis=yax, legend=dict(x=1.02, y=1.0))
-    if animate:   # полная анимация текущего вида (для сохранения в HTML)
-        steps = [dict(method='update', args=[{'z': [store.get_field(nm, j) for nm in view['sources']]}],
-                      label=f'{store.time[j]:.1f}') for j in range(store.meta['n_times'])]
+    if animate:   # полная анимация для сохранения в HTML — слайдер как в оригинале
+        steps = [dict(method='update',
+                      args=[{'z': [store.get_field(nm, j) for nm in view['sources']]}],
+                      label=_day_fmt(store.time[j]))
+                 for j in range(store.meta['n_times'])]
         fig.update_layout(sliders=[dict(active=min(i, len(steps) - 1),
                                         currentvalue={'prefix': 'Время: '}, steps=steps)])
     return fig
 
 
 def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
+    """Скважины / прочие параметры — оформление как в оригинале (часть _visualize_fields)."""
     g = view['group']
     s = store.meta['series'][g]
     M = store.get_series(g)
@@ -318,38 +336,56 @@ def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
     for j, nm in enumerate(s['names']):
         if not s['visible'][j]:
             continue
-        unit = f" {s['units'][j]}" if s['units'][j] else ''
+        if g == 'Wells':
+            ht = 'x: %{x} день<br>y: %{y}<br>' if s['axes'][j] == 'y2' else 'x: %{x} день<br>y: %{y} м^3/день<br>'
+        elif g == 'Wells_accumulated':
+            ht = 'x: %{x} день<br>y: %{y} м^3<br>'
+        else:
+            ht = 'x: %{x}<br>y: %{y}<br>'
         kw = {'yaxis': 'y2'} if s['axes'][j] == 'y2' else {}
-        traces.append(go.Scatter(x=store.time, y=M[j], mode='lines', name=nm,
-                                 hovertemplate=f'x: %{{x}} день<br>y: %{{y}}{unit}<br><extra>{nm}</extra>', **kw))
+        traces.append(go.Scatter(x=store.time, y=M[j], mode='lines', name=nm, hovertemplate=ht, **kw))
+
     fig = go.Figure(data=traces)
     if not traces:
         fig.add_annotation(text='Нет данных для отображения', showarrow=False, font=dict(size=18))
-    fig.update_layout(plot_bgcolor='white', uirevision=f'series:{g}', margin=dict(l=10, r=10, t=10, b=10),
-                      xaxis=_axis('Время, день'), yaxis=_axis(), yaxis2=dict(side='right', overlaying='y'),
-                      legend=dict(x=1.05, y=1.0))
+    fig.update_layout(plot_bgcolor='white', uirevision=f'series:{g}',
+                      xaxis=_axis_dict(), yaxis=_axis_dict(),
+                      yaxis2=dict(side='right', overlaying='y'),
+                      legend=dict(x=1.05, y=1.0),
+                      width=1000, height=800)
     return fig
 
 
 def _fi_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) -> go.Figure:
+    """Графики phi(r) — оформление как в _visualize_plots_fi оригинала (height=600, margin t=0 b=0)."""
     data = store.get_plot_data()
     traces = []
     for nm, vals in data.items():
         if nm in ('Ur', 'Ub'):
             traces.append(go.Scatter(x=r, y=vals[i], mode='lines', name=nm, yaxis='y2',
-                                     line=dict(width=3), hovertemplate='x: %{x}<br>y: %{y}<br>'))
+                                     hovertemplate='x: %{x}<br>y: %{y}<br>', line=dict(width=3)))
         else:
             traces.append(go.Scatter(x=r, y=vals[i], mode='lines', name=names_converter.get(nm, nm),
-                                     line=dict(width=4), hovertemplate='x: %{x}<br>y: %{y}<br>'))
+                                     hovertemplate='x: %{x}<br>y: %{y}<br>', line=dict(width=4)))
+
     fig = go.Figure(data=traces)
-    fig.update_layout(plot_bgcolor='white', uirevision='fi', margin=dict(l=10, r=10, t=10, b=10),
-                      xaxis=_axis('r, м'), yaxis=_axis(names_converter['fi']),
-                      yaxis2=dict(side='right', overlaying='y'), legend=dict(x=1.01, y=0.8, font=dict(size=18)))
-    fig.add_shape(type='rect', xref='paper', yref='paper', x0=0, y0=0, x1=1, y1=1, line=dict(color='black', width=1))
+    fig.update_layout(
+        xaxis_title='r, м', yaxis_title=names_converter['fi'],
+        plot_bgcolor='white', uirevision='fi', margin=dict(t=0, b=0),
+        xaxis=_axis_dict(), yaxis=_axis_dict(),
+        yaxis2=dict(side='right', overlaying='y'),
+        legend=dict(x=1.01, y=0.8, font=dict(size=18)),
+        height=600,
+    )
+    fig.add_shape(type='rect', xref='paper', yref='paper',
+                  x0=0, y0=0, x1=1, y1=1, line=dict(color='black', width=1))
     fig.add_hline(y=0, line=dict(color='black', width=1))
+    fig.update_traces(marker=dict(size=8, line=dict(width=1)))
+
     if animate:
         steps = [dict(method='update', args=[{'y': [v[j] for v in data.values()]}],
-                      label=f'{store.time[j]:g}') for j in range(store.meta['n_times'])]
+                      label=_day_fmt(store.time[j]))
+                 for j in range(store.meta['n_times'])]
         fig.update_layout(sliders=[dict(active=min(i, len(steps) - 1),
                                         currentvalue={'prefix': 'Время: '}, steps=steps)])
     return fig
@@ -420,13 +456,14 @@ def _payload(view_id: str | None, store: SolutionStore) -> dict | None:
     if view_id is None:
         return None
     v = _view_def(view_id, store)
-    return {'id': v['id'], 'kind': v['kind'], 'sources': v.get('sources', [])}
+    return {'id': v['id'], 'kind': v['kind'], 'sources': v.get('sources', []), 'group': v.get('group')}
 
 
 def _slider_style(kind: str, n_times: int = 2) -> dict:
     if kind == 'series' or n_times <= 1:
         return {'display': 'none'}
-    return {'display': 'flex', 'alignItems': 'center', 'gap': '16px', 'margin': '4px 18px', 'minHeight': '36px'}
+    return {'display': 'flex', 'alignItems': 'center', 'gap': '16px',
+            'margin': '4px auto 0', 'maxWidth': '1000px', 'minHeight': '36px'}
 
 
 def _marks(store: SolutionStore) -> dict:
@@ -434,16 +471,18 @@ def _marks(store: SolutionStore) -> dict:
     if n <= 1:
         return {'0': ''}
     idx = np.unique(np.linspace(0, n - 1, min(n, MAX_MARKS)).astype(int))
-    return {int(i): f'{store.time[i]:g}' for i in idx}
+    return {int(i): _day_fmt(store.time[i]) for i in idx}
 
 
 def _time_label(store: SolutionStore, i) -> str:
-    return f'День: {store.time[int(i or 0)]:.2f}'
+    """Текущее значение слайдера в формате currentvalue оригинала: 'Время: 123.4 день'."""
+    return f'Время: {_day_fmt(store.time[int(i or 0)])}'
 
 
 def _empty_figure(msg: str) -> go.Figure:
     fig = go.Figure()
     fig.add_annotation(text=msg, showarrow=False, font=dict(size=20))
+    fig.update_layout(width=1000, height=800)
     return fig
 
 
@@ -486,17 +525,19 @@ def _init(_n):
         ], style={'display': 'flex', 'justifyContent': 'center', 'margin': '6px 0'}),
 
         dcc.Loading(
-            dcc.Graph(id='main-graph',
-                      figure=_figure_for(view_id, 0, store) if view_id else _empty_figure('Нет данных'),
-                      style={'height': '76vh'},
-                      config={'responsive': True, 'displaylogo': False, 'scrollZoom': True,
-                              'toImageButtonOptions': {'scale': 2}}),
+            html.Div(
+                dcc.Graph(id='main-graph',
+                          figure=_figure_for(view_id, 0, store) if view_id else _empty_figure('Нет данных'),
+                          responsive=False,                      # фиксированный размер фигуры, как в оригинале
+                          style={'width': 'fit-content'}),
+                style={'display': 'flex', 'justifyContent': 'center', 'overflowX': 'auto'},
+            ),
             type='circle'),
 
         html.Div([
             html.Div(id='time-label',
                      children=_time_label(store, 0) if show_slider else '',
-                     style={'minWidth': '110px', 'fontWeight': 'bold'}),
+                     style={'minWidth': '160px', 'fontWeight': 'bold'}),
             dcc.Slider(id='time-slider', min=0, max=max(0, n_times - 1), step=1, value=0,
                        marks=_marks(store), disabled=n_times <= 1, tooltip={'placement': 'bottom'}),
         ], id='slider-box',
@@ -563,8 +604,8 @@ def _update(clicks, t, prev):
     prevent_initial_call=True,
 )
 def _save_html(n, payload, t):
-    """Сохранение в HTML: всегда полная анимация текущего вида
-    (для временных рядов анимации нет — сохраняется статичный график)."""
+    """Сохранение в HTML: всегда полная анимация текущего вида, с оригинальными
+    именами файлов (Results.html / fi_func.html) и оригинальным встроенным слайдером Plotly."""
     if not n or not isinstance(payload, dict):
         return no_update
     store = get_store()
@@ -572,11 +613,14 @@ def _save_html(n, payload, t):
     animate = payload['kind'] in ('map', 'fi')
     fig = _figure_for(payload['id'], t, store, animate=animate)
 
-    suffix = '_animation' if animate else ''
-    fname = _sanitize(f'{case_name}_{payload["id"].replace(":", "-")}{suffix}.html')
-    html_str = fig.to_html(include_plotlyjs=str(js_path), full_html=True,
-                           default_width='100%', default_height='92vh',
-                           config={'responsive': True, 'scrollZoom': True})
+    if payload['kind'] == 'fi':
+        fname = 'fi_func.html'
+    elif payload['kind'] == 'map':
+        fname = 'Results.html'
+    else:
+        fname = f'{_sanitize(payload["group"])}.html'
+
+    html_str = fig.to_html(include_plotlyjs=str(js_path), full_html=True)
     return dcc.send_bytes(html_str.encode('utf-8'), filename=fname)
 
 
