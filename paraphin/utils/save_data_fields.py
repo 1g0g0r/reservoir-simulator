@@ -57,8 +57,8 @@ def save_fields(solver, t: float) -> None:
     #     'P [0,0]': solver.p[0, 0], 'p [-1,-1]': solver.p[-1, -1],
     # }
 
-    if solver._layers_file is None:
-        solver._layers_file = open(layers_file, 'wb')
+    if solver._results_file is None:
+        solver._results_file = open(layers_file, 'wb')
 
-    dump(layer, solver._layers_file, protocol=HIGHEST_PROTOCOL)
+    dump(layer, solver._results_file, protocol=HIGHEST_PROTOCOL)
     solver.logger.info("Данные записаны в файл.")

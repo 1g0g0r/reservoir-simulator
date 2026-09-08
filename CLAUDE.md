@@ -188,7 +188,7 @@ CSC, `sort_mask` и `data[sort_mask]` убраны вместе с прежни�
 
 ### Вывод результатов
 `save_fields` дозаписывает очередной слой (шаг сохранения — `sol_time_step`) в **один** открытый файл
-`outputs/results_wp={init_Wp}/layers.pkl`; хендл живёт в `Solver._layers_file` и открывается при первом сохранении.
+`outputs/results_wp={init_Wp}/layers.pkl`; хендл живёт в `Solver._results_file` и открывается при первом сохранении.
 В `finally` блока `Solver.start()` файл закрывается, `convert_pkl_files(self._i_img)` склеивает слои в
 `outputs/data/Wp={init_Wp}_processed_data.pkl` (формат `[n_layers, data]`, у каждого поля ведущая ось — время),
 после чего `rmtree(results_path)` **удаляет промежуточный файл**. Это происходит и при `KeyboardInterrupt`.

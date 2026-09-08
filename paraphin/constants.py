@@ -2,7 +2,7 @@ from pathlib import Path
 import numpy as np
 
 data_type = np.float64
-LOGGING = True
+LOGGING = False  # Всегда - False. Логирование нужно только в редких случаях при отладке
 CONTOUR_PLOT = False
 
 # Перевод единиц измерения

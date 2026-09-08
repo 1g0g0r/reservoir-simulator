@@ -86,7 +86,7 @@ class Solver:
         # Вспомогательные поля класса
         self._t = 0.0
         self._i_img = 0
-        self._layers_file = None  # общий файл слоев, открывается при первом сохранении
+        self._results_file = None # общий файл слоев, открывается при первом сохранении
         self.dt = dt              # Текущий шаг по времени, подбирается по CFL каждую итерацию, [с]
         self.max_dfw = 1.0        # max|df_w/dS|, задается в initialize()
         self._producer = -1       # Индекс добывающей скважины, ищется в initialize() по is_injector
@@ -189,9 +189,8 @@ class Solver:
         finally:
             print('KIN:', round(self.KIN, 5))
             print('eta:', round(self.wells[self._producer].eta, 5))
-            if self._layers_file is not None:
-                self._layers_file.close()
-                self._layers_file = None
+            if self._results_file is not None:
+                self._results_file.close()
             convert_pkl_files(self._i_img)
             rmtree(results_path)
 
