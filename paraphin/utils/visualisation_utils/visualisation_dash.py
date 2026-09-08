@@ -581,7 +581,7 @@ def _init(_n):
                     html.Button('Сохранить в HTML', id='btn-save', n_clicks=0, style=_BTN_SAVE),
                 ],
                 style={'width': '185px', 'display': 'flex', 'flexDirection': 'column',
-                       'gap': '3px', 'paddingTop': '60px', 'flexShrink': 0}),
+                       'gap': '2px', 'paddingTop': '110px', 'flexShrink': 0}),
         ], style={'display': 'flex', 'gap': '30px', 'justifyContent': 'center', 'alignItems': 'flex-start'}),
 
         dcc.Store(id='view-state', data=_payload(view_id, store)),
@@ -689,7 +689,7 @@ def _save_html(n, payload, t):
     if payload['kind'] == 'fi':
         fname = 'fi_func.html'
     elif payload['kind'] == 'map':
-        fname = 'Results.html'
+        fname = f'{fig.data[0].name}.html'
     else:
         fname = f'{_sanitize(payload["group"])}.html'
 
