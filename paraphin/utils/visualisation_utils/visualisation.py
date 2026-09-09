@@ -82,9 +82,12 @@ def _visualize_fields(data):
                 if 'eta' in _name:
                     trace += [go.Scatter(x=time, y=_val, mode='lines', name=_name, yaxis='y2',
                                          hovertemplate="x: %{x} день<br>y: %{y}<br>")]
+                elif 'bhp' in _name:
+                    trace += [go.Scatter(x=time, y=_val / bar_to_pa, mode='lines', name=_name,
+                                         hovertemplate="x: %{x} день<br>y: %{y} бар<br>")]
                 else:
                     trace += [go.Scatter(x=time, y=abs(_val) * day_to_sec, mode='lines', name=_name,
-                                             hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
+                                         hovertemplate="x: %{x} день<br>y: %{y} м^3/день<br>")]
                 wells_plots += 1
         elif name == 'Wells_accumulated':
             for _name, _val in field.items():

@@ -151,6 +151,12 @@ class Solver:
                              f'сейчас их {len(producers)} из {self.n_wells}')
         self._producer = producers[0]
 
+        # Если все скважины с заданным дебитом, задача с непроницаемыми границами чисто нейманнова:
+        # матрица вырождена, а решение определено с точностью до константы.
+        if all(item['well'].rate_control == 1 for item in self._wells_buffer):
+            raise ValueError('Хотя бы одна скважина должна работать на заданном забойном давлении '
+                             '(аргумент p в add_well): иначе уровень давления ничем не закреплен и матрица вырождена')
+
         self.integr_r2_fi0, self.integr_r4_fi0 = _calc_integrals()
         self._wells_names = [item['name'] for item in self._wells_buffer]
         self.wells = preprocess_wells(self._wells_buffer)
@@ -162,10 +168,30 @@ class Solver:
         add_bc(self.boundary_conditions, bound.value, field.value, type_bc.value, value)
 
 
-    def add_well(self, name: str, i: int, j: int, p: float, is_injector: bool = False, T: float = 0.0,
-                 rw: float = rw, mult: float = 1.0) -> None:
-        """Добавление скважин в расчет."""
-        well = WellStruct(i=i, j=j, p=p, T=T, rw=rw, is_injector=int(is_injector), mult=mult)
+    def add_well(self, name: str, i: int, j: int, p: float | None = None, q: float | None = None,
+                 is_injector: bool = False, T: float = 0.0, rw: float = rw, mult: float = 1.0) -> None:
+        """Добавление скважины в расчет.
+
+        Режим работы задается тем, что передано: `p` - забойное давление, [Па] (дебит считается по формуле Писмана),
+        либо `q` - суммарный дебит, [м^3/с] (забойное давление считается по формуле Писмана). Только одно из двух.
+
+        Дебит задается положительным для любой скважины - это расход, а не знаковый источник.
+        Знак дебита определяется в соответствии с `is_injector`: (`q > 0` - закачка, `q < 0` - отбор),
+        поэтому у добывающей он меняется на противоположный, а у нагнетательной остается как есть.
+        """
+        if (q is None) == (p is None):
+            raise ValueError(f'Скважина {name}: задайте ровно одно - забойное давление p '
+                             f'или дебит q (сейчас p={p}, q={q})')
+
+        if q is not None and q <= 0.0:
+            raise ValueError(f'Скважина {name}: дебит задается положительным для любой скважины, '
+                             f'знак ставится по is_injector; задано q={q}')
+
+        # Внутрь идет знаковый источник: у добывающей расход меняет знак
+        q_set = 0.0 if q is None else (q if is_injector else -q)
+        p_set = 0.0 if q is not None else p
+        well = WellStruct(i=i, j=j, p=p_set, q_set=q_set, rate_control=int(q is not None), T=T, rw=rw,
+                          is_injector=int(is_injector), mult=mult)
         self._wells_buffer.append({'well': well, 'name': name})
         self.n_wells += 1
 
@@ -414,7 +440,11 @@ def _logging_solution(solver, t):
     solver.logger.info(f"Обновлена насыщенность:   min={solver.new_s.min()}  max={solver.new_s.max()}")
     solver.logger.info(f"Обновлена температура:    min={solver.new_t.min()}  max={solver.new_t.max()}")
     for i in range(solver.n_wells):
-        solver.logger.info(f"Дебет скважины {solver._wells_buffer[i]['name']} (м^3/сут): q_o={solver.wells[i].q[0] * day_to_sec}  q_w={solver.wells[i].q[1] * day_to_sec}")
+        mode = 'задан дебит' if solver.wells[i].rate_control == 1 else 'задано P_заб'
+        solver.logger.info(f"Скважина {solver._wells_buffer[i]['name']} ({mode}): "
+                           f"q_o={solver.wells[i].q[0] * day_to_sec} м^3/сут  "
+                           f"q_w={solver.wells[i].q[1] * day_to_sec} м^3/сут  "
+                           f"P_заб={solver.wells[i].p / bar_to_pa} бар")
 
     if not solver._paraphin:
         return None

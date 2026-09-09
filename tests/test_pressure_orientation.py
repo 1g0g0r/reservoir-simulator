@@ -19,8 +19,10 @@ PROD = (Nx - 5, Ny - 10)
 
 def _solve_pressure():
     """Однократное решение уравнения давления на однородном пласте с двумя скважинами."""
-    injector = WellStruct(i=INJ[0], j=INJ[1], p=Pw, T=Twater, rw=rw, is_injector=1, mult=0.25)
-    producer = WellStruct(i=PROD[0], j=PROD[1], p=Po, T=0.0, rw=rw, is_injector=0, mult=0.25)
+    injector = WellStruct(i=INJ[0], j=INJ[1], p=Pw, q_set=0.0, rate_control=0, T=Twater, rw=rw,
+                          is_injector=1, mult=0.25)
+    producer = WellStruct(i=PROD[0], j=PROD[1], p=Po, q_set=0.0, rate_control=0, T=0.0, rw=rw,
+                          is_injector=0, mult=0.25)
     buffer = [{'well': injector, 'name': 'inj'}, {'well': producer, 'name': 'prod'}]
     wells = preprocess_wells(buffer)
 

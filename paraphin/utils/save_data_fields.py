@@ -25,6 +25,7 @@ def save_fields(solver, t: float) -> None:
         wells_accumulated[f'{name}_Q_oil'] = Q[0]
         wells_accumulated[f'{name}_Q_water'] = Q[1]
         wells_accumulated[f'{name}_Q_total'] = Q[2]
+        wells[f'{name}_bhp'] = well.p
 
     layer = {
         'Time': t,

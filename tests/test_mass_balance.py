@@ -6,7 +6,7 @@
 """
 import numpy as np
 
-from paraphin.constants import Nx, Ny, Pw, Po, rw, day_to_sec
+from paraphin.constants import Nx, Ny, Pw, Po, rw, day_to_sec, bar_to_pa
 from paraphin.solver import Solver
 
 # Время, а не число шагов, потому что dt в constants.py меняют.
@@ -17,6 +17,10 @@ T_TEST = 100.0 * day_to_sec
 # блок кольматации не вызывается вовсе, и проверки порового баланса и гонок в prange становятся
 # пустыми: проверять было бы нечего.
 T_INJECTION = 5.0
+
+# Заданный дебит для проверки режима: того же порядка, что дает штатная постановка на забойных
+# давлениях (~78 м^3/сут), иначе перепад получается нефизичным и проверять нечего.
+Q_SET = 50.0 / day_to_sec
 
 
 def _make_solver():
@@ -93,6 +97,66 @@ def test_oil_phase_composition():
     assert solver.Wps.min() >= 0.0, f'отрицательная доля взвешенного парафина: {solver.Wps.min():.3e}'
 
 
+def test_rate_control():
+    """Режим заданного дебита: скважина выдает ровно заданный расход, забойное давление - результат.
+
+    Дебит входит в правую часть уравнения давления известной величиной, поэтому равенство
+    `q[2] == q_set` обязано выполняться с машинной точностью, а не с точностью решателя. Забойное
+    давление восстанавливается из формулы Писмана и обязано быть выше пластового в ячейке -
+    иначе закачка шла бы против перепада.
+    """
+    solver = Solver()
+    solver.add_well(name='Injector', i=0, j=0, q=Q_SET, rw=rw, mult=0.25,
+                    is_injector=True, T=T_INJECTION)
+    solver.add_well(name='Producer', i=Nx - 1, j=Ny - 1, p=Po, rw=rw, mult=0.25, is_injector=False)
+    solver.initialize()
+    solver.upd_time_step(0.0)
+
+    t, worst_set, worst_bal = 0.0, 0.0, 0.0
+    while t < 10.0 * day_to_sec:
+        t += solver.dt
+        solver.upd_time_step(t)
+        worst_set = max(worst_set, abs((solver.wells[0].q[2] - Q_SET) / Q_SET))
+        worst_bal = max(worst_bal, abs((-solver.wells[1].q[2] - Q_SET) / Q_SET))
+
+    assert worst_set < 1e-14, f'заданный дебит не выдерживается: невязка {worst_set:.3e}'
+    assert worst_bal < 1e-6, f'отбор разошелся с заданной закачкой: невязка {worst_bal:.3e}'
+
+    p_bh, p_cell = solver.wells[0].p, solver.p[0, 0]
+    assert p_bh > p_cell, (f'забойное давление нагнетательной {p_bh / bar_to_pa:.2f} бар не выше '
+                           f'пластового {p_cell / bar_to_pa:.2f} бар')
+
+
+def test_rate_control_producer():
+    """Дебит задается положительным для любой скважины, знак ставит `add_well` по `is_injector`.
+
+    Проверяется именно добывающая: у нее знак меняется на противоположный, то есть внутри
+    `q[2] == -q_set`. Забойное давление обязано быть ниже пластового - иначе отбор шел бы
+    против перепада.
+    """
+    solver = Solver()
+    solver.add_well(name='Injector', i=0, j=0, p=Pw, rw=rw, mult=0.25,
+                    is_injector=True, T=T_INJECTION)
+    solver.add_well(name='Producer', i=Nx - 1, j=Ny - 1, q=Q_SET, rw=rw, mult=0.25,
+                    is_injector=False)
+    solver.initialize()
+    solver.upd_time_step(0.0)
+
+    t, worst_set, worst_bal = 0.0, 0.0, 0.0
+    while t < 10.0 * day_to_sec:
+        t += solver.dt
+        solver.upd_time_step(t)
+        worst_set = max(worst_set, abs((-solver.wells[1].q[2] - Q_SET) / Q_SET))
+        worst_bal = max(worst_bal, abs((solver.wells[0].q[2] - Q_SET) / Q_SET))
+
+    assert worst_set < 1e-14, f'заданный отбор не выдерживается: невязка {worst_set:.3e}'
+    assert worst_bal < 1e-6, f'закачка разошлась с заданным отбором: невязка {worst_bal:.3e}'
+
+    p_bh, p_cell = solver.wells[1].p, solver.p[Nx - 1, Ny - 1]
+    assert p_bh < p_cell, (f'забойное давление добывающей {p_bh / bar_to_pa:.2f} бар не ниже '
+                           f'пластового {p_cell / bar_to_pa:.2f} бар')
+
+
 def test_no_race_in_parallel_loop():
     """Два одинаковых прогона обязаны совпасть побитово.
 
@@ -115,5 +179,7 @@ if __name__ == '__main__':
     test_mass_balance()
     test_pore_volume_balance()
     test_oil_phase_composition()
+    test_rate_control()
+    test_rate_control_producer()
     test_no_race_in_parallel_loop()
     print('OK')
