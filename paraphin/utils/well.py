@@ -24,7 +24,8 @@ well_spec = [
     ('q', Array(data_type_nb, 1, 'C')),  # Вектор размера 3
     ('Q', Array(data_type_nb, 1, 'C')),  # Вектор размера 3
     ('eta', data_type_nb),
-    ('dp', data_type_nb),
+    ('prod_o', data_type_nb),  # Коэффициенты продуктивности Писмана по фазам, [м^3/(Па*с)]
+    ('prod_w', data_type_nb),
 ]
 
 
@@ -44,50 +45,65 @@ class WellStruct:
         self.q = np.zeros(3, dtype=np.float64)
         self.Q = np.zeros(3, dtype=np.float64)
         self.eta = 0.0
-        self.dp = 0.0
+        self.prod_o = 0.0
+        self.prod_w = 0.0
 
 
 @njit(cache=True)
-def upd_q_and_eta(well, p, S, k, mu_o, mu_w, dt) -> WellStruct:
-    """Вычисление дебета скважины по формуле Писмана.
+def calc_well_pi(well, S, k, mu_o, mu_w) -> WellStruct:
+    """Коэффициенты продуктивности Писмана по фазам, [м^3/(Па*с)]:
 
-        q_a = 2*pi*k*h/ln(r_o/r_w) * (f_a/mu_a) * (P_w - P_i)
+        prod_a = 2*pi*k^(t+1)*h/ln(r_o/r_w) * (f_a/mu_a)^t,   q_a = prod_a * (P_w - P_i^(t+1)).
 
-    Знак такой же, как у источников в уравнениях баланса: q > 0 - закачка, q < 0 - отбор.
+    Считаются по слою t до решения СЛАУ и остаются на скважине: матрица берет их сумму на
+    диагональ и сумму*P_w в правую часть (`equations/Pressure.py`), а `upd_q_and_eta` после
+    решения умножает те же коэффициенты на перепад. Один источник формулы вместо двух - иначе
+    матрица и дебиты расходятся молча, а вместе с ними разъезжаются закачка и отбор.
+
     Проницаемость берется текущая: кольматация призабойной зоны - основной эффект задачи.
+    В нагнетательную идет только вода, поэтому ее приемистость считается по полной подвижности
+    воды, без ОФП.
     """
-    well.dp = well.p - p[well.i, well.j]
-    mult = well.dp * well.productivity_mult * k[well.i, well.j]
+    mult = well.productivity_mult * k[well.i, well.j]
 
     if well.is_injector == 1:
-        well.q[0] = 0.0
-        well.q[1] = mult / mu_w[well.i, well.j]
-        well.eta = 1.0
-
+        well.prod_o = 0.0
+        well.prod_w = mult / mu_w[well.i, well.j]
     else:
-        well.q[0] = mult * pf_o(S[well.i, well.j]) / mu_o[well.i, well.j]
-        well.q[1] = mult * pf_w(S[well.i, well.j]) / mu_w[well.i, well.j]
-        well.eta = Buckley_Leverett(S[well.i, well.j], mu_w[well.i, well.j], mu_o[well.i, well.j])
+        well.prod_o = mult * pf_o(S[well.i, well.j]) / mu_o[well.i, well.j]
+        well.prod_w = mult * pf_w(S[well.i, well.j]) / mu_w[well.i, well.j]
 
+    return well
+
+
+@njit(cache=True)
+def upd_q_and_eta(well, p, S, mu_o, mu_w, dt) -> WellStruct:
+    """Дебиты скважины по неявной формуле Писмана и обводненность.
+
+        q_a = prod_a * (P_w - P_i^(t+1))
+
+    Давление берется с нового слоя, а `prod_a` - те самые коэффициенты, что уже ушли в матрицу
+    (`calc_well_pi`). Поэтому дебиты согласованы с решенной системой тождественно, и сумма
+    закачки и отбора равна нулю с точностью решателя, а не схемы.
+
+    Знак такой же, как у источников в уравнениях баланса: q > 0 - закачка, q < 0 - отбор.
+    """
+    dp = well.p - p[well.i, well.j]
+
+    well.q[0] = well.prod_o * dp
+    well.q[1] = well.prod_w * dp
     well.q[2] = well.q[0] + well.q[1]
+
+    if well.is_injector == 1:
+        well.eta = 1.0
+    else:
+        well.eta = Buckley_Leverett(S[well.i, well.j], mu_w[well.i, well.j], mu_o[well.i, well.j])
 
     well.Q[0] += well.q[0] * dt
     well.Q[1] += well.q[1] * dt
     well.Q[2] += well.q[2] * dt
 
     return well
-
-
-@njit(cache=True)
-def calc_well_mult(well, S, k, mu_o, mu_w) -> float:
-    """Вычисление множителя дебета скважины."""
-    mult = well.productivity_mult * k[well.i, well.j]
-
-    if well.is_injector == 1:
-        return mult / mu_w[well.i, well.j]
-
-    return mult * (pf_o(S[well.i, well.j]) / mu_o[well.i, well.j] +
-                   pf_w(S[well.i, well.j]) / mu_w[well.i, well.j])
 
 
 def preprocess_wells(wells_buffer):

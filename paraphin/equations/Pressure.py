@@ -2,7 +2,7 @@
 from numba import njit, prange
 
 from paraphin.constants import Nx, Ny
-from paraphin.utils import (apply_bc, get_bound, calc_well_mult, mid, solve_band_system,
+from paraphin.utils import (apply_bc, get_bound, calc_well_pi, mid, solve_band_system,
                             mobility_o, mobility_w, DI, DJ, HIJ, AREA)
 
 
@@ -121,10 +121,20 @@ def _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
 
 @njit(cache=True)
 def _adding_wells(wells, S, k, mu_o, mu_w, diag, rhs):
-    """Учет скважин в уравнении давления."""
+    """Неявный по давлению учет скважин: q = prod*(P_забой - P_ячейки).
+
+    Слагаемое с давлением ячейки уходит на диагональ, с забойным - в правую часть. Явные `q^t`
+    здесь стоять не могут: задача несжимаемая с непроницаемыми границами, то есть чисто
+    нейманнова, матрица вырождена, и решение существует лишь при нулевой сумме дебитов - для
+    `q(P^t)` это не выполняется. При неявной записи равенство суммарных дебитов выполняется
+    тождественно.
+
+    Коэффициенты продуктивности при этом не пересчитываются здесь, а считаются `calc_well_pi` и
+    остаются на скважине: после решения СЛАУ `upd_q_and_eta` умножает те же самые `prod_o`, `prod_w` на перепад.
+    """
     for i in range(len(wells)):
+        wells[i] = calc_well_pi(wells[i], S, k, mu_o, mu_w)
         well = wells[i]
-        # TODO перейти на использование дебитов
-        temp_data = calc_well_mult(well, S, k, mu_o, mu_w)  # well.q[2] / well.dp
-        diag[well.idx_rhs] += temp_data
-        rhs[well.idx_rhs] += temp_data * well.p
+        prod = well.prod_o + well.prod_w
+        diag[well.idx_rhs] += prod
+        rhs[well.idx_rhs] += prod * well.p

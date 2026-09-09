@@ -214,7 +214,7 @@ class Solver:
                                        self.diag, self.ex, self.ey, self.rhs, self.band_w, self.p_vec, self.pcg_r, self.pcg_z, self.pcg_p, self.pcg_q,
                                        self.boundary_conditions, self._band_age, self.p)
         # Обновление данных скважин
-        self.KIN = _update_wells_data(self.n_wells, self.wells, self.p, self.S, self.k, self.mu_o, self.mu_w, step_dt)
+        self.KIN = _update_wells_data(self.n_wells, self.wells, self.p, self.S, self.mu_o, self.mu_w, step_dt)
         # Источники скважин в тех же единицах, что и перетоки через грани
         _wells_loop(self.n_wells, self.wells, self.T, self.C_o, self.C_w, self.C_p,
                     self.Wo, self.Wp, self.Wps, self.src_S, self.src_Wp, self.src_T)
@@ -329,11 +329,15 @@ def _wells_loop(n_wells, wells, T, C_o, C_w, C_p, Wo, Wp, Wps, src_S, src_Wp, sr
 
 
 @njit
-def _update_wells_data(n_wells, wells, p, S, k, mu_o, mu_w, dt):
-    """Обновление дебита и обводненности скважин."""
+def _update_wells_data(n_wells, wells, p, S, mu_o, mu_w, dt):
+    """Обновление дебита и обводненности скважин.
+
+    Зовется после `calc_pressure`: дебиты берутся по давлению нового слоя и по коэффициентам
+    продуктивности, уже ушедшим в матрицу, то есть неявно.
+    """
     Q_oil = 0.0
     for i in range(n_wells):
-        wells[i] = upd_q_and_eta(wells[i], p, S, k, mu_o, mu_w, dt)
+        wells[i] = upd_q_and_eta(wells[i], p, S, mu_o, mu_w, dt)
         if wells[i].is_injector == 0:
             Q_oil -= wells[i].Q[0]  # у добывающей q < 0, а добыча положительна
 
