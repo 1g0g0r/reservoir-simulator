@@ -9,8 +9,7 @@ _RO_P_RO_O = ro_p / ro_o  # множитель у стока q_p1 в (3), под
 
 
 @njit(cache=True)
-def wp_equation(i, j, qp1, qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_S,
-                new_Wp, new_Wps, dt) -> None:
+def wp_equation(i, j, qp1, qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_S, new_Wp, new_Wps, dt, _paraphin) -> None:
     """Перенос парафина и его разделение на растворенный и взвешенный.
 
     Обе формы парафина переносятся нефтяной фазой с одной и той же скоростью, поэтому решается
@@ -36,21 +35,22 @@ def wp_equation(i, j, qp1, qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_S,
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
-    w_sum = Wp[i, j] + Wps[i, j]
-    mSo_new = new_m[i, j] * (1.0 - new_S[i, j])
+    if _paraphin:
+        w_sum = Wp[i, j] + Wps[i, j]
+        mSo_new = new_m[i, j] * (1.0 - new_S[i, j])
 
-    if mSo_new <= 1e-12:  # ячейка промыта водой: нефтяной фазы нет, переносить нечего
-        new_Wp[i, j] = 0.0
-        new_Wps[i, j] = 0.0
-        return None
+        if mSo_new <= 1e-12:  # ячейка промыта водой: нефтяной фазы нет, переносить нечего
+            new_Wp[i, j] = 0.0
+            new_Wps[i, j] = 0.0
+            return None
 
-    w_new = (m[i, j] * (1.0 - S[i, j]) * w_sum
-             + dt * (cells_Wp_eq[i, j] / volume - _RO_P_RO_O * qp1[i, j]
-                     - w_sum * qp2[i, j])) / mSo_new
-    w_new = min(max(w_new, 0.0), 1.0)
+        w_new = (m[i, j] * (1.0 - S[i, j]) * w_sum
+                 + dt * (cells_Wp_eq[i, j] / volume - _RO_P_RO_O * qp1[i, j]
+                         - w_sum * qp2[i, j])) / mSo_new
+        w_new = min(max(w_new, 0.0), 1.0)
 
-    new_Wp[i, j] = _wp_saturated(w_new, T[i, j])
-    new_Wps[i, j] = w_new - new_Wp[i, j]
+        new_Wp[i, j] = _wp_saturated(w_new, T[i, j])
+        new_Wps[i, j] = w_new - new_Wp[i, j]
 
 
 @njit(cache=True)

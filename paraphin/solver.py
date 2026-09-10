@@ -25,11 +25,11 @@ from .utils import (calc_mu_o, calc_mu_w, preprocess_wells, convert_pkl_files, s
 class Solver:
     def __init__(self):
         # Граничные условия и скважины
-        self.KIN = data_type(0.0)
-        self.n_wells = 0
-        self._wells_buffer = []
-        self._wells_names = []
-        self.wells = []
+        self.KIN = data_type(0.0)  # Коэффициент извлечения нефти (КИН), [-]
+        self.n_wells = 0         # Число добавленных скважин
+        self._wells_buffer = []  # Буфер скважин до обработки
+        self._wells_names = []   # Имена скважин по порядку add_well, для логирования и сохранения полей
+        self.wells = []          # Скважины после обработки preprocess_wells (data -> WellStruct)
         self.boundary_conditions = np.zeros(dtype=data_type, shape=(4, 3, 2))  # Граница -> Поле -> Тип, Значение
         # Свойства флюидов
         self.mu_o = np.full((Nx, Ny), calc_mu_o(init_T, init_Wps), data_type)  # Вязкость нефти, [Па*с]
@@ -44,14 +44,14 @@ class Solver:
         self.T     = np.full((Nx, Ny), init_T, data_type)  # Температура, [С]
         self.T_0   = np.full((Nx, Ny), init_T, data_type)  # Температура на прошлом временном слое, [С]
         # Доли компонентов нефтяной фазы - объемные (w_o + w_p + w_ps = 1)
-        self.Wo    = np.full((Nx, Ny), 1.0 - init_Wp - init_Wps, data_type)  # Объемная доля масляного компонента, [-]
-        self.Wp    = np.full((Nx, Ny), init_Wp, data_type)   # Объемная доля растворенного парафина, [-]
-        self.Wps   = np.full((Nx, Ny), init_Wps, data_type)  # Объемная доля взвешенного парафина, [-]
+        self.Wo    = np.full((Nx, Ny), 1.0 - init_Wp - init_Wps, data_type)  # Массовая доля масляного компонента, [-]
+        self.Wp    = np.full((Nx, Ny), init_Wp, data_type)   # Массовая доля растворенного парафина, [-]
+        self.Wps   = np.full((Nx, Ny), init_Wps, data_type)  # Массовая доля взвешенного парафина, [-]
         self.k     = np.full((Nx, Ny), init_k, data_type)  # Проницаемость, [м^2]
         self.m     = np.full((Nx, Ny), init_m, data_type)  # Пористость, [-]
         # Динамика образования парафина (кольматация\суффозия)
-        self.integr_r2_fi0 = data_type(0.0)
-        self.integr_r4_fi0 = data_type(0.0)
+        self.integr_r2_fi0 = data_type(0.0)  # Интеграл r^2*fi_0(r) по сетке радиусов пор, считается в initialize()
+        self.integr_r4_fi0 = data_type(0.0)  # Интеграл r^4*fi_0(r) по сетке радиусов пор, считается в initialize()
         self.fi      = np.ones((Nx, Ny, Nr), data_type) * fi_0               # Функция пор по размерам, [-]
         self.h_sloy  = np.full((Nx, Ny, Nr), init_h_sloy, data_type)  # Толщина осадочного слоя парафина, [м]
         self.qp1     = np.full((Nx, Ny), init_qp, data_type) # Скорость осаждения парафина на стенках пор, [1/сек]
@@ -78,40 +78,38 @@ class Solver:
         self.cells_Wp_eq = np.zeros((Nx, Ny), data_type)  # Суммарный переток растворенного в ячейке
         self.cells_S_eq  = np.zeros((Nx, Ny), data_type)  # Суммарный переток водонасыщенности в ячейке
         self.cells_Q_out = np.zeros((Nx, Ny), data_type)  # Суммарный отток через грани ячейки, [м^3/с]
-        # Источники скважин в тех же единицах, что и перетоки через грани. Скважины неподвижны,
-        # поэтому обнулять буферы не нужно: ячейка со скважиной перезаписывается каждый шаг,
-        # остальные так и остаются нулями.
+        # Источники скважин
         self.src_S  = np.zeros((Nx, Ny), data_type)  # Дебит по воде, [м^3/с]
         self.src_Wp = np.zeros((Nx, Ny), data_type)  # Вынос парафина нефтью, [м^3/с]
         self.src_T  = np.zeros((Nx, Ny), data_type)  # Приток энергии со скважиной, [Вт]
+        # Подвижности фаз: считаются один раз за шаг и переиспользуются сборкой матрицы и перетоками
+        self.lam_o = np.zeros((Nx, Ny), data_type)  # Подвижность нефтяной фазы, [м^2/(Па*с)]
+        self.lam_w = np.zeros((Nx, Ny), data_type)  # Подвижность водной фазы, [м^2/(Па*с)]
+        self.lam_h = np.zeros((Nx, Ny), data_type)  # эффективная теплопроводность ячейки, [Вт/(м*C)]
         # Состояние метода Винсома-Вестервельда: накопленный интеграл перегрева пород, [C*м].
         self.E_ff = np.zeros((Nx, Ny), data_type)
         # Вспомогательные поля класса
-        self._t = 0.0
-        self._i_img = 0
+        self._t = 0.0    # Физическое время текущего слоя, [с]
+        self._i_img = 0  # Индекс следующего сохраняемого слоя (расписание sol_time_step)
         self._layers_file = None  # общий файл слоев, открывается при первом сохранении
         self.dt = dt              # Текущий шаг по времени, подбирается по CFL каждую итерацию, [с]
         self.max_dfw = 1.0        # max|df_w/dS|, задается в initialize()
         self._producer = -1       # Индекс добывающей скважины, ищется в initialize() по is_injector
-        self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)
+        self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)  # Флаг: включен ли блок кольматации/суффозии
         # Прогоночные коэффициенты для fi: своя строка на каждый i, иначе гонка в prange по ячейкам
         self.a_tdma = np.zeros((Nx, Nr), data_type)
         self.b_tdma = np.zeros((Nx, Nr), data_type)
-        # Подвижности фаз: считаются один раз за шаг и переиспользуются сборкой матрицы и перетоками
-        self.lam_o = np.zeros((Nx, Ny), data_type)
-        self.lam_w = np.zeros((Nx, Ny), data_type)
-        self.lam_h = np.zeros((Nx, Ny), data_type)  # эффективная теплопроводность ячейки, [Вт/(м*C)]
         # Матрица давления в трех диагоналях (idx = i + j*Nx) и буферы ленточного решателя
         self.diag  = np.zeros(N, data_type)
         self.ex    = np.zeros(N, data_type)
         self.ey    = np.zeros(N, data_type)
         self.rhs   = np.zeros(N, data_type)
         self.band_w = np.zeros((N, Nx + 1), data_type)  # фактор Холецкого, живет между шагами
-        self.p_vec = np.full(N, init_p, data_type)      # решение и начальное приближение для PCG
-        self.pcg_r = np.zeros(N, data_type)
-        self.pcg_z = np.zeros(N, data_type)
-        self.pcg_p = np.zeros(N, data_type)
-        self.pcg_q = np.zeros(N, data_type)
+        self.p_vec = np.full(N, init_p, data_type)  # решение и начальное приближение для PCG
+        self.pcg_r = np.zeros(N, data_type)  # PCG: невязка
+        self.pcg_z = np.zeros(N, data_type)  # PCG: предобусловленная невязка
+        self.pcg_p = np.zeros(N, data_type)  # PCG: направление поиска
+        self.pcg_q = np.zeros(N, data_type)  # PCG: A*p
         self._band_age = 0  # 0 - фактора еще нет, считаем точно
         results_path.mkdir(parents=True, exist_ok=True)
         data_path.mkdir(parents=True, exist_ok=True)
@@ -207,7 +205,6 @@ class Solver:
             with tqdm(total=Time_end, ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
                       bar_format="{l_bar}{bar}[{elapsed}/{remaining}]{postfix}   ") as pbar:  # {n_fmt}/{total_fmt}
                 while _t < Time_end:
-                    self.dt = min(self.dt, Time_end - _t)  # последний шаг подрезаем ровно до Time_end
                     _t += self.dt
                     pbar.update(self.dt)
                     self.upd_time_step(_t)
@@ -246,7 +243,7 @@ class Solver:
                     self.Wo, self.Wp, self.Wps, self.src_S, self.src_Wp, self.src_T)
         # Решение уравнений по явной схеме
         dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp1, self.qp2, self.new_qp1, self.new_qp2, self.k, self.new_k, self.m, self.new_m, self.S, self.new_s, self.Wo, self.Wp, self.new_wp, self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
-                        self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.src_S, self.src_Wp, self.src_T, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h, self.max_dfw, step_dt)
+                                   self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.a_tdma, self.b_tdma, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.src_S, self.src_Wp, self.src_T, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h, self.max_dfw, step_dt)
         # Шаг для следующей итерации из фактического условия устойчивости
         dt_next = _calc_dt(self.n_wells, self.wells, self.m, self.cells_Q_out, self.max_dfw, step_dt, dt_cells)
 
@@ -293,25 +290,20 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
             # ---решение гидродинамики---
             qo_out, t_out = flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wo, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out)
             # Скважины входят в уравнения наравне с перетоками через грани, поэтому делятся на те же поля нового слоя.
-            # Буферы src_* заполнены в `_wells_loop` до цикла.
             cells_S_eq[i, j] += src_S[i, j]
             cells_Wp_eq[i, j] += src_Wp[i, j]
             cells_T_eq[i, j] += src_T[i, j]
 
             saturation_equation(i, j, S, m, cells_S_eq, new_m, new_s, dt)
-            if _paraphin:
-                wp_equation(i, j, qp1, qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_s, new_wp, new_wps, dt)
+            wp_equation(i, j, qp1, qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_s, new_wp, new_wps, dt, _paraphin)
             psi = temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
 
             # Три ограничения на шаг по числу Куранта: по насыщенности, по переносу парафина и по температуре.
-            # Скважинная часть первого добирается в `_calc_dt`.
             q_out = cells_Q_out[i, j]
-            if q_out > 1e-30:
+            if q_out > 1e-30: # Скважинная часть добирается в `_calc_dt`.
                 dt_cells = min(dt_cells, CFL_target * m[i, j] * volume / (max_dfw * q_out))
-
             if _paraphin and qo_out > 1e-30:
                 dt_cells = min(dt_cells, CFL_target * m[i, j] * (1.0 - S[i, j]) * volume / qo_out)
-
             if t_out > 1e-30:
                 dt_cells = min(dt_cells, CFL_target * psi * volume / t_out)
 
