@@ -1,12 +1,24 @@
-# Для ускорения сборки окружения перед установкой библиотек необходимо использовать uv!!!
+# Для ускорения сборки окружения перед установкой библиотек необходимо использовать uv
+# core utilities
 joblib
-numpy
-pillow
-kaleido==0.*
-matplotlib
-plotly
 psutil
+tqdm
+
+# math / scientific
+numpy
+scipy
 numba
 sparse-numba  # SuperLU идет в колесе; UMFPACK - только сборкой: build_umfpack_windows.sh
-scipy
-tqdm
+
+# visualization
+matplotlib
+plotly
+kaleido==0.*
+
+# images / document export
+pillow
+python-docx
+pypandoc_binary
+
+# build environment with UV
+# uv pip install -r requirements.txt

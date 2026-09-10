@@ -9,7 +9,7 @@
 import numpy as np
 
 from paraphin import N
-from paraphin.constants import Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_m, init_p, init_T, init_Wps, data_type
+from paraphin.constants import Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_m, init_p, init_T, init_Wp, init_Wps, data_type
 from paraphin.equations import calc_pressure
 from paraphin.utils import WellStruct, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility
 
@@ -19,8 +19,10 @@ PROD = (Nx - 5, Ny - 10)
 
 def _solve_pressure():
     """Однократное решение уравнения давления на однородном пласте с двумя скважинами."""
-    injector = WellStruct(i=INJ[0], j=INJ[1], p=Pw, T=Twater, rw=rw, is_injector=1, mult=0.25)
-    producer = WellStruct(i=PROD[0], j=PROD[1], p=Po, T=0.0, rw=rw, is_injector=0, mult=0.25)
+    injector = WellStruct(i=INJ[0], j=INJ[1], p=Pw, q_set=0.0, rate_control=0, T=Twater, rw=rw,
+                          is_injector=1, mult=0.25)
+    producer = WellStruct(i=PROD[0], j=PROD[1], p=Po, q_set=0.0, rate_control=0, T=0.0, rw=rw,
+                          is_injector=0, mult=0.25)
     buffer = [{'well': injector, 'name': 'inj'}, {'well': producer, 'name': 'prod'}]
     wells = preprocess_wells(buffer)
 
@@ -32,16 +34,16 @@ def _solve_pressure():
 
     k, S = field(init_k), field(init_S)
     mu_o, mu_w = field(calc_mu_o(init_T, init_Wps)), field(calc_mu_w(init_T))
-    lam_o, lam_w = field(0.0), field(0.0)
-    calc_mobility(k, S, mu_o, mu_w, lam_o, lam_w)
+    lam_o, lam_w, lam_h = field(0.0), field(0.0), field(0.0)
+    calc_mobility(k, S, field(init_m), field(1.0 - init_Wp - init_Wps), field(init_Wp),
+                  field(init_Wps), mu_o, mu_w, lam_o, lam_w, lam_h)
 
     diag, ex, ey, rhs = vec(), vec(), vec(), vec()
     p = np.zeros((Nx, Ny), data_type)
-    calc_pressure(field(1.0), field(1.0), field(init_m), field(init_m), k, S, S, mu_o, mu_w,
-                  lam_o, lam_w, wells, diag, ex, ey, rhs,
+    calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells, diag, ex, ey, rhs,
                   np.zeros((N, Nx + 1), data_type), np.full(N, init_p, data_type),
                   vec(), vec(), vec(), vec(),
-                  np.zeros((4, 3, 2), data_type), 0, p, 4320.0)
+                  np.zeros((4, 3, 2), data_type), 0, p)
 
     return p, diag, ex, ey, rhs
 

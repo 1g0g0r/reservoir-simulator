@@ -25,6 +25,7 @@ def save_fields(solver, t: float) -> None:
         wells_accumulated[f'{name}_Q_oil'] = Q[0]
         wells_accumulated[f'{name}_Q_water'] = Q[1]
         wells_accumulated[f'{name}_Q_total'] = Q[2]
+        wells[f'{name}_bhp'] = well.p
 
     layer = {
         'Time': t,
@@ -34,6 +35,7 @@ def save_fields(solver, t: float) -> None:
     }
 
     if solver._paraphin:
+        m_mult = solver.m / init_m
         x_idx, y_idx = FI_PROBE
         layer.update({
             'm': solver.m / init_m,
@@ -41,7 +43,11 @@ def save_fields(solver, t: float) -> None:
             'Wo': solver.Wo,
             'Wp': solver.Wp,
             'Wps': solver.Wps,
-            'Wps dep': solver.Wps_dep,
+            # Осевший парафин - это ровно потерянный поровый объем (m_0 - m), отдельного поля нет: q_p1 + q_p2 = -dm/dt по построению
+            'Wps dep': 1.0 - m_mult,
+            'qp': solver.qp1 + solver.qp2,
+            'm': m_mult,
+            'k': solver.k / init_k,
             'plots': {'fi': solver.fi[x_idx, y_idx]},
         })
 

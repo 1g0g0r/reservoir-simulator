@@ -7,8 +7,8 @@ PIL и joblib (полсекунды импорта), а расчету они н
 from .boundary_conditions import Bound, TypeBC, DataField, add_bc, apply_bc, get_bound
 from .read_data_files import convert_pkl_files, read_solution_data
 from .save_data_fields import save_fields
-from .well import WellStruct, upd_q_and_eta, calc_well_mult, preprocess_wells
+from .well import WellStruct, upd_q_and_eta, calc_well_prod, preprocess_wells
 
-from .math_utils import (mid, up_T, up_wp, lam_heat, calc_mu_o, calc_mu_w, pf_o, pf_w,
+from .math_utils import (mid, lam_heat, calc_mu_o, calc_mu_w, pf_o, pf_w,
                          Buckley_Leverett, calc_mobility, up_fraction, solve_band_system,
                          mobility_o, mobility_w, DI, DJ, HIJ, AREA)

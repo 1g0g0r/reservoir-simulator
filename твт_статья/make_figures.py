@@ -13,7 +13,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-from paraphin import r, fi_0_np as fi_0
+from paraphin import r, fi_0
 from paraphin.constants import day_to_sec, geological_reserves
 from paraphin.utils.visualisation_utils import read_solution_data, x_mesh, y_mesh
 
@@ -22,16 +22,17 @@ sys.path.insert(0, str(ROOT))
 
 # (ключ, файл данных, номер в подписи, стиль линии, подпись варианта)
 ARTICLE_CASES = (
-    ('base',      'Wp=0.05_processed_data.pkl',           1, '-',  'с теплопотерями (Винсом-Вестервельд), Wp = 0.05'),
-    ('noheat',    'Wp=0.05_noheat_processed_data.pkl',    2, '--', 'без теплопотерь, Wp = 0.05'),
-    ('nowax',     'Wp=0.0_noheat_processed_data.pkl',     3, ':',  'без теплопотерь, Wp = 0'),
-    ('lauwerier', 'Wp=0.05_lauwerier_processed_data.pkl', 4, '-.', 'с теплопотерями (Ловерье), Wp = 0.05'),
+    ('base',      'Wp=0.2_processed_data.pkl',           1, '-',  'с теплопотерями (Винсом-Вестервельд), Wp = 0.20'),
+    ('noheat',    'Wp=0.2_noheat_processed_data.pkl',    2, '--', 'без теплопотерь, Wp = 0.20'),
+    ('nowax',     'Wp=0.0_noheat_processed_data.pkl',    3, ':',  'без теплопотерь, Wp = 0'),
+    ('lauwerier', 'Wp=0.2_lauwerier_processed_data.pkl', 4, '-.', 'с теплопотерями (Ловерье), Wp = 0.20'),
     ('heat_nowax', 'Wp=0.0_processed_data.pkl',           5, (0, (6, 1, 1, 1, 1, 1)),
      'с теплопотерями (Винсом-Вестервельд), Wp = 0'),
 )
 
 TITLES = {key: title for key, _f, _n, _s, title in ARTICLE_CASES}
 NUMBERS = {key: number for key, _f, number, _s, _t in ARTICLE_CASES}
+FILES = {key: file_name for key, file_name, _n, _s, _t in ARTICLE_CASES}
 
 
 def _delta(value: float, base: float) -> str:
@@ -54,13 +55,15 @@ def main() -> None:
              'Вручную не править — правки затрутся при следующей перегенерации.', '']
 
     lines += ['## Показатели вариантов', '',
-              '| № | Вариант | t₁ (прорыв), сут | t₂, сут | t₃ (η = 98%), сут | КИН | Накопл. нефть, м³ | η на конце |',
-              '|---|---|---|---|---|---|---|---|']
+              '| № | Вариант | t₁ (прорыв), сут | t₂, сут | t₃ (η = 98%), сут | КИН | Накопл. нефть, м³ | '
+              'Средняя T на t₃, °C | η на конце |',
+              '|---|---|---|---|---|---|---|---|---|']
     for key in cases:
         m = cases[key]
         flag = '' if m['reached_limit'] else ' ⚠ не достиг 98%'
         lines.append(f'| {NUMBERS[key]} | {TITLES[key]} | {m["t"][0]:.0f} | {m["t"][1]:.0f} | '
-                     f'{m["t"][2]:.0f} | {m["KIN"]:.4f} | {m["Q_oil"]:.0f} | {m["eta_end"]:.4f}{flag} |')
+                     f'{m["t"][2]:.0f} | {m["KIN"]:.4f} | {m["Q_oil"]:.0f} | {m["mean_T_end"]:.1f} | '
+                     f'{m["eta_end"]:.4f}{flag} |')
 
     if base is not None:
         lines += ['', '## Отклонения от базового варианта (вариант 1)', '',
@@ -102,8 +105,123 @@ def main() -> None:
                       f'- остаток на взаимодействие: {total - main_sum:+.4f} '
                       f'({100.0 * abs(total - main_sum) / abs(total):.1f}% суммарного изменения)']
 
+    lines += text_numbers(cases)
+
     (Path(__file__).parent / 'metrics.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     print('Числа записаны в твт_статья/metrics.md')
+
+
+def _diag_positions() -> np.ndarray:
+    """Расстояния вдоль главной диагонали (0,0)-(Lx,Ly) до каждого узла сетки, м."""
+    return x_mesh * np.sqrt(2.0)
+
+
+def _front_position(field_2d: np.ndarray, level: float):
+    """Первое пересечение `level` вдоль главной диагонали, считая от узла (0,0), м.
+
+    Линейная интерполяция между соседними узлами диагонали `field_2d[k, k]`.
+    """
+    diag = np.diagonal(field_2d)
+    pos = _diag_positions()
+    for k in range(len(diag) - 1):
+        a, b = diag[k] - level, diag[k + 1] - level
+        if a == 0.0:
+            return float(pos[k])
+        if a * b < 0.0:
+            return float(pos[k] + a / (a - b) * (pos[k + 1] - pos[k]))
+    return float('nan')
+
+
+def text_numbers(cases: dict) -> list:
+    """Числа описательного текста результатов, которых нет в агрегированных таблицах выше.
+
+    В отличие от `case_metrics`, требует самих полей `(Nx, Ny)`, а не только скалярных
+    показателей, поэтому читает файлы расчета заново.
+    """
+    from scipy.optimize import brentq
+    from paraphin.constants import Tm, Tm_K, alpha, R, MW, M_o, init_Wp, phi_max as PHI_MAX
+
+    lines = ['', '## Дополнительные числа из описательного текста', '']
+    if 'base' not in cases:
+        return lines
+
+    alpha_r = alpha / R
+
+    def _w_hat(t_celsius: float) -> float:
+        """Равновесная мольная доля (6.1), переведенная в массовую (6.2)."""
+        x_sat = min(1.0, np.exp(-alpha_r * (1.0 / (t_celsius + 273.15) - 1.0 / Tm_K)))
+        return x_sat * MW / (x_sat * MW + (1.0 - x_sat) * M_o)
+
+    # Порог начала кристаллизации T* при заданном wp: температура, при которой предел
+    # растворимости (6.2) сравнивается с wp - см. текст перед (17).
+    t_onset = brentq(lambda t: _w_hat(t) - init_Wp, -50.0, Tm) if 0.0 < init_Wp < 1.0 else float('nan')
+
+    m1 = cases['base']
+    idx1, idx2, idx3 = m1['idx']
+    _, d1 = read_solution_data(FILES['base'])
+
+    def kolm_min(idx):
+        k_field = d1['k'][idx]
+        i, j = np.unravel_index(int(np.argmin(k_field)), k_field.shape)
+        return float(x_mesh[i]), float(y_mesh[j]), float(k_field[i, j]), float(d1['m'][idx][i, j])
+
+    mean_t = [float(d1['Temperature'][idx].mean()) for idx in (idx1, idx2, idx3)]
+    s_front = [_front_position(d1['Saturation'][idx], 0.5) for idx in (idx1, idx2)]
+    t_front = [_front_position(d1['Temperature'][idx], t_onset) for idx in (idx1, idx2)]
+    p_range = [(float(d1['Pressure'][idx].min()) * 1e-6, float(d1['Pressure'][idx].max()) * 1e-6)
+               for idx in (idx1, idx3)]
+    kolm = [kolm_min(idx) for idx in (idx1, idx2, idx3)]
+    t3_range1 = (float(d1['Temperature'][idx3].min()), float(d1['Temperature'][idx3].max()))
+    wps_max = float(d1['Wps'].max())
+    phi = min(wps_max, 0.99 * PHI_MAX)
+    kd_mult = (1.0 - phi / PHI_MAX) ** (-2.5 * PHI_MAX)
+
+    lines += [
+        f'- порог начала кристаллизации T* при wp={init_Wp}: {t_onset:.1f}°C (Tm={Tm:.1f}°C)',
+        f'- средняя температура пласта (вариант 1): t1 {mean_t[0]:.1f}°C, t2 {mean_t[1]:.1f}°C, '
+        f't3 {mean_t[2]:.1f}°C',
+        f'- обводненность на t2: {m1["eta"][idx2]:.3f}',
+        f'- фронт S=0.5 по диагонали: t1 {s_front[0]:.1f} м, t2 {s_front[1]:.1f} м',
+        f'- фронт T=T* по диагонали: t1 {t_front[0]:.1f} м, t2 {t_front[1]:.1f} м',
+        f'- давление, МПа: t1 {p_range[0][0]:.2f}-{p_range[0][1]:.2f}, t3 {p_range[1][0]:.2f}-{p_range[1][1]:.2f}',
+        f'- максимум дебита нефти: {m1["q_oil_max"]:.1f} м3/сут на {m1["q_oil_max_day"]:.0f} сут; '
+        f'дебит на t3: {m1["q_oil_end"]:.1f} м3/сут',
+        '- минимум k/k0 (точка, м) и m/m0 там же: '
+        + '; '.join(f't{n+1} {v:.3f} в ({x:.0f},{y:.0f}), m/m0={mm:.3f}'
+                     for n, (x, y, v, mm) in enumerate(kolm)),
+        f'- диапазон температуры на t3 (вариант 1): {t3_range1[0]:.1f}-{t3_range1[1]:.1f}°C',
+        f'- максимум массовой доли взвешенного парафина: {wps_max:.4f}, '
+        f'множитель Кригера-Догерти при этом {kd_mult:.3f}',
+    ]
+
+    if 'noheat' in cases:
+        m2 = cases['noheat']
+        picks = [int(np.argmin(np.abs(m2['time'] - t))) for t in m1['t']]
+        _, d2 = read_solution_data(FILES['noheat'])
+
+        mean_t2 = [float(d2['Temperature'][p].mean()) for p in picks]
+        t3_range2 = (float(d2['Temperature'][picks[2]].min()), float(d2['Temperature'][picks[2]].max()))
+
+        dT_mean, dT_max, dS_max = [], [], []
+        for own_idx, other_idx in zip((idx1, idx2, idx3), picks):
+            dT = d1['Temperature'][own_idx] - d2['Temperature'][other_idx]
+            dS = d1['Saturation'][own_idx] - d2['Saturation'][other_idx]
+            dT_mean.append(float(dT.mean()))
+            dT_max.append(float(dT.max()))
+            dS_max.append(float(dS.max()))
+        del d2
+
+        lines += [
+            f'- средняя температура (вариант 2, без теплообмена): t1 {mean_t2[0]:.1f}°C, '
+            f't2 {mean_t2[1]:.1f}°C, t3 {mean_t2[2]:.1f}°C',
+            f'- диапазон температуры на t3 (вариант 2): {t3_range2[0]:.1f}-{t3_range2[1]:.1f}°C',
+            '- разность полей (вариант 1 − вариант 2), средняя/максимальная T (°C) и максимальная S: '
+            + '; '.join(f't{n+1} dT_mean={a:.1f} dT_max={b:.1f} dS_max={c:.3f}'
+                         for n, (a, b, c) in enumerate(zip(dT_mean, dT_max, dS_max))),
+        ]
+
+    del d1
+    return lines
 
 
 
@@ -178,6 +296,9 @@ def case_metrics(data: dict) -> dict:
         'KIN': float(Q_oil[idx3] / geological_reserves),
         'Q_oil': float(Q_oil[idx3]),
         'q_oil_max': float(q_oil.max()),
+        'q_oil_max_day': float(time_days[int(np.argmax(q_oil))]),
+        'q_oil_end': float(q_oil[idx3]),
+        'mean_T_end': float(data['Temperature'][idx3].mean()),
         'time': time_days,
         'eta': eta,
         'q_oil': q_oil,
