@@ -20,6 +20,9 @@ FONT = 'Times New Roman'
 HALF_POINTS = 24   # 12 пт
 LINE_SPACING = 360  # полуторный интервал, в двадцатых долях пункта
 
+# Настройка абзацных отступов
+INDENT_CM = 1.25  # Стандартная "красная строка" для российских журналов (1.25 см)
+
 
 def _cap_size(match: re.Match) -> str:
     """Кегль не крупнее 12 пт: правила требуют 12 пт, а в шаблоне заголовки до 28 пт."""
@@ -36,12 +39,33 @@ def _patch_styles(xml: str) -> str:
     return xml
 
 
-def _patch_margins(xml: str) -> str:
-    """Поля страницы по правилам журнала.
+def _patch_paragraphs(xml: str) -> str:
+    """Добавляет выравнивание по ширине и отступ первой строки (красную строку)."""
+    indent_twips = int(round(INDENT_CM * TWIPS_PER_CM))
+    # both = по ширине, firstLine = отступ первой строки
+    props = f'<w:jc w:val="both"/><w:ind w:firstLine="{indent_twips}"/>'
 
-    В шаблоне pandoc секция `w:sectPr` есть, а размеров страницы и полей в ней нет - Word
-    подставляет свои умолчания. Дописываем их в начало секции.
-    """
+    def inject_props(match):
+        """Вставляет свойства в блок <w:pPr> нужного стиля."""
+        style_block = match.group(0)
+        # В шаблоне pandoc свойства абзаца могут быть пустыми <w:pPr/> или с тегами <w:pPr>
+        if '<w:pPr/>' in style_block:
+            style_block = style_block.replace('<w:pPr/>', f'<w:pPr>{props}</w:pPr>', 1)
+        elif '<w:pPr>' in style_block:
+            style_block = style_block.replace('<w:pPr>', f'<w:pPr>{props}', 1)
+        return style_block
+
+    # Применяем правки только к стилям, которые Pandoc использует для текста абзацев
+    xml = re.sub(r'<w:style\b[^>]*w:styleId="BodyText"[^>]*>.*?</w:style>',
+                 inject_props, xml, flags=re.DOTALL)
+    xml = re.sub(r'<w:style\b[^>]*w:styleId="FirstParagraph"[^>]*>.*?</w:style>',
+                 inject_props, xml, flags=re.DOTALL)
+
+    return xml
+
+
+def _patch_margins(xml: str) -> str:
+    """Поля страницы по правилам журнала."""
     values = {name: int(round(cm * TWIPS_PER_CM)) for name, cm in MARGINS.items()}
     page = ('<w:pgSz w:w="11906" w:h="16838" />'  # A4
             f'<w:pgMar w:top="{values["top"]}" w:right="{values["right"]}" '
@@ -60,7 +84,11 @@ def main() -> None:
         for item in src.infolist():
             content = src.read(item.filename)
             if item.filename == 'word/styles.xml':
-                content = _patch_styles(content.decode('utf-8')).encode('utf-8')
+                xml_str = content.decode('utf-8')
+                # Сначала правим шрифты/интервалы, потом добавляем отступы/выравнивание
+                xml_str = _patch_styles(xml_str)
+                xml_str = _patch_paragraphs(xml_str)
+                content = xml_str.encode('utf-8')
             elif item.filename == 'word/document.xml':
                 content = _patch_margins(content.decode('utf-8')).encode('utf-8')
             dst.writestr(item, content)
@@ -71,3 +99,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+    

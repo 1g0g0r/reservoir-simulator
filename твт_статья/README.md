@@ -68,9 +68,9 @@ python твт_статья/make_figures.py
 python твт_статья/make_short.py
 
 # 5. Собрать docx
-conda run -n docbuild pandoc твт_статья/article.md -o твт_статья/article_full.docx \
+pandoc твт_статья/article.md -o твт_статья/article_full.docx \
     --reference-doc=твт_статья/reference.docx
-conda run -n docbuild pandoc твт_статья/article_short.md -o твт_статья/article_new.docx \
+pandoc твт_статья/article_short.md -o твт_статья/article_new.docx \
     --reference-doc=твт_статья/reference.docx
 ```
 
