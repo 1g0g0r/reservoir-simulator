@@ -90,5 +90,5 @@ def main(n_steps: int = 200, warmup_days: float = 0.0) -> None:
 
 
 if __name__ == '__main__':
-    main(int(argv[1]) if len(argv) > 1 else 200,
+    main(int(argv[1]) if len(argv) > 1 else 500,
          float(argv[2]) if len(argv) > 2 else 0.0)

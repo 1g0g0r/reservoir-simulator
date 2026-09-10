@@ -91,10 +91,10 @@ class Solver:
         # Вспомогательные поля класса
         self._t = 0.0    # Физическое время текущего слоя, [с]
         self._i_img = 0  # Индекс следующего сохраняемого слоя (расписание sol_time_step)
-        self._layers_file = None  # общий файл слоев, открывается при первом сохранении
-        self.dt = dt              # Текущий шаг по времени, подбирается по CFL каждую итерацию, [с]
-        self.max_dfw = 1.0        # max|df_w/dS|, задается в initialize()
-        self._producer = -1       # Индекс добывающей скважины, ищется в initialize() по is_injector
+        self._results_file = None  # общий файл слоев, открывается при первом сохранении
+        self.dt = dt               # Текущий шаг по времени, подбирается по CFL каждую итерацию, [с]
+        self.max_dfw = 1.0         # max|df_w/dS|, задается в initialize()
+        self._producer = -1        # Индекс добывающей скважины, ищется в initialize() по is_injector
         self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)  # Флаг: включен ли блок кольматации/суффозии
         # Прогоночные коэффициенты для fi: своя строка на каждый i, иначе гонка в prange по ячейкам
         self.a_tdma = np.zeros((Nx, Nr), data_type)
