@@ -38,11 +38,12 @@ def save_fields(solver, t: float) -> None:
         m_mult = solver.m / init_m
         x_idx, y_idx = FI_PROBE
         layer.update({
+            'm': solver.m / init_m,
+            'k': solver.k / init_k,
             'Wo': solver.Wo,
             'Wp': solver.Wp,
             'Wps': solver.Wps,
-            # Осевший парафин - это ровно потерянный поровый объем (m_0 - m), отдельного поля
-            # для него нет: q_p1 + q_p2 = -dm/dt по построению
+            # Осевший парафин - это ровно потерянный поровый объем (m_0 - m), отдельного поля нет: q_p1 + q_p2 = -dm/dt по построению
             'Wps dep': 1.0 - m_mult,
             'qp': solver.qp1 + solver.qp2,
             'm': m_mult,
@@ -61,8 +62,8 @@ def save_fields(solver, t: float) -> None:
     #     'P [0,0]': solver.p[0, 0], 'p [-1,-1]': solver.p[-1, -1],
     # }
 
-    if solver._layers_file is None:
-        solver._layers_file = open(layers_file, 'wb')
+    if solver._results_file is None:
+        solver._results_file = open(layers_file, 'wb')
 
-    dump(layer, solver._layers_file, protocol=HIGHEST_PROTOCOL)
+    dump(layer, solver._results_file, protocol=HIGHEST_PROTOCOL)
     solver.logger.info("Данные записаны в файл.")

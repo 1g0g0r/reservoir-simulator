@@ -216,9 +216,8 @@ class Solver:
         finally:
             print('KIN:', round(self.KIN, 5))
             print('eta:', round(self.wells[self._producer].eta, 5))
-            if self._layers_file is not None:
-                self._layers_file.close()
-                self._layers_file = None
+            if self._results_file is not None:
+                self._results_file.close()
             convert_pkl_files(self._i_img)
             rmtree(results_path)
 
