@@ -78,7 +78,7 @@ def _visualize_fields(data):
         trace = []
         if name == 'Wells':
             for _name, _val in field.items():
-                if np.all(np.isclose(_val, 0.0)) or np.all(np.isclose(_val, 1.0)): continue
+                if np.allclose(_val, _val.flat[0], rtol=0, atol=1e-9): continue
                 if 'eta' in _name:
                     trace += [go.Scatter(x=time, y=_val, mode='lines', name=_name, yaxis='y2',
                                          hovertemplate="x: %{x} день<br>y: %{y}<br>")]

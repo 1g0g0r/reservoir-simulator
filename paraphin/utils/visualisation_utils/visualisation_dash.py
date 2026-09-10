@@ -75,23 +75,27 @@ _CSS = f"""
 .plt-time-label{{font-family:{_FONT};font-size:13px;font-weight:bold;color:#2a3f5f;
                  height:22px;padding-left:2px;font-variant-numeric:tabular-nums;white-space:nowrap;}}
 
-/* Слайдер в стиле plotly: тонкая серая рельса, светлый круглый бегунок, без фиолетового */
+/* Слайдер в стиле plotly: тонкая серая рельса, светлый круглый бегунок, без фиолетового.
+   dash>=3 рендерит dcc.Slider поверх @radix-ui/react-slider (классы dash-slider-*,
+   не rc-slider-*) и не поставляет для него никакого CSS — Radix-примитивы
+   безликие ("headless"), всю визуальную часть (цвет/размер/форму) задаёт
+   потребитель; позиционирование (left/transform по значению) Radix считает сам
+   через инлайн-стили, поэтому здесь только цвет/размер/форма, без position. */
 .plt-slider{{min-height:52px;}}
-.plt-slider .rc-slider-rail{{background-color:#d8d8d8 !important;height:3px;border-radius:2px;}}
-.plt-slider .rc-slider-track{{background-color:#9a9a9a !important;height:3px;border-radius:2px;}}
-.plt-slider .rc-slider-handle{{border:1px solid #9a9a9a !important;background-color:#f6f6f6 !important;
-                               box-shadow:none !important;}}
-.plt-slider .rc-slider-handle:hover,
-.plt-slider .rc-slider-handle:focus,
-.plt-slider .rc-slider-handle:active,
-.plt-slider .rc-slider-handle:focus-visible,
-.plt-slider .rc-slider-handle-dragging{{border-color:#8a8a8a !important;background-color:#efefef !important;
+.plt-slider .dash-slider-track{{background-color:#d8d8d8 !important;height:3px;border-radius:2px;}}
+.plt-slider .dash-slider-range{{background-color:#9a9a9a !important;border-radius:2px;}}
+.plt-slider .dash-slider-thumb{{width:14px;height:14px;border-radius:50%;
+                               border:1px solid #9a9a9a !important;background-color:#f6f6f6 !important;
+                               box-shadow:none !important;cursor:pointer;}}
+.plt-slider .dash-slider-thumb:hover,
+.plt-slider .dash-slider-thumb:focus,
+.plt-slider .dash-slider-thumb:active,
+.plt-slider .dash-slider-thumb:focus-visible{{border-color:#8a8a8a !important;background-color:#efefef !important;
                                         box-shadow:none !important;outline:none !important;}}
-.plt-slider .rc-slider-dot{{display:none;}}                  /* точки меток — как в plotly, их нет */
-.plt-slider .rc-slider-mark-text{{font-size:11px;color:#2a3f5f;font-family:{_FONT};}}
+.plt-slider .dash-slider-dot{{display:none;}}                  /* точки меток — как в plotly, их нет */
+.plt-slider .dash-slider-mark{{font-size:11px;color:#2a3f5f;font-family:{_FONT};}}
 /* скрыть всплывающий счётчик шагов у бегунка при наведении/перетаскивании */
-.plt-slider .rc-slider-tooltip{{display:none !important;}}
-.plt-slider .dash-tooltip{{display:none !important;}}
+.plt-slider .dash-slider-tooltip{{display:none !important;}}
 """
 
 
@@ -225,9 +229,11 @@ class SolutionStore:
                     print(f'  {g}/{k}: длина {v.size} != {n_times}, пропущено')
                     continue
                 if g == 'Wells':
-                    visible = not (np.all(np.isclose(v, 0.0)) or np.all(np.isclose(v, 1.0)))
+                    visible = not np.allclose(v, v.flat[0], rtol=0, atol=1e-9)
                     if 'eta' in k:
                         y, ax, unit = v, 'y2', ''
+                    elif 'bhp' in k:
+                        y, ax, unit = v, 'y', 'бар'
                     else:
                         y, ax, unit = np.abs(v) * day_to_sec, 'y', 'м^3/день'
                 elif g == 'Wells_accumulated':
@@ -534,10 +540,16 @@ app.index_string = f'''<!DOCTYPE html>
 </html>'''
 
 # Минимальный статический layout: спиннер только на первичной загрузке данных.
+# target_components сужает dcc.Loading ровно до вывода ui-root.children (загрузка
+# при старте): без него dash>=3 подписывает спиннер на ЛЮБОЙ вложенный компонент,
+# и он срабатывает на каждое отпускание слайдера/клик по кнопке (callback _update
+# тоже пишет в потомков ui-root), пряча график и слайдер (visibility:hidden) —
+# отсюда мелькание белого фона страницы.
 app.layout = html.Div([
     dcc.Interval(id='boot', interval=50, max_intervals=1),
     dcc.Download(id='download'),
-    dcc.Loading(html.Div(id='ui-root'), type='circle'),
+    dcc.Loading(html.Div(id='ui-root'), type='circle',
+                target_components={'ui-root': 'children'}),
 ])
 
 
