@@ -45,7 +45,8 @@ DTYPE = np.float32
 MAX_DISPLAY_CELLS = 250_000             # максимум точек сетки для экрана (None — без прореживания)
 MAX_MARKS = 7                           # подписей под слайдером, как в оригинале
 JSON_DECIMALS = 5
-GRAPH_W, GRAPH_H = 720, 800             # размер фигуры (фиксированный)
+GRAPH_W, GRAPH_H = 720, 800             # размер фигуры карты (фиксированный, квадратная область)
+WIDE_W = 950                            # 1D-графики (временные ряды, φ(r)) шире карты — слайдер уже них не растягивается
 SKIP_FIELDS = {}
 SERIES_GROUPS = ('Wells', 'Wells_accumulated', 'Other params')
 
@@ -320,17 +321,25 @@ def _axis_dict() -> dict:
     return dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18))
 
 
-def _map_axes() -> tuple[dict, dict]:
-    """Оси карты: квадратная область, сетка строго в пределах расчётной области.
+def _map_axes(x_range: tuple[float, float], y_range: tuple[float, float]) -> tuple[dict, dict]:
+    """Оси карты: квадратная область, сетка строго в пределах фактического диапазона трассы.
 
     constrain='domain' обязателен на ОБЕИХ осях: по умолчанию ('range') ось,
     подогнанная под scaleanchor, РАСШИРЯЕТ свой диапазон — из-за этого сетка
     выходила за границы области данных.
+
+    Диапазон приходится параметром, а не берётся из X_min/X_max напрямую: Heatmap сам
+    дотягивает крайние ячейки до границ домена (x[0]-hx/2 .. x[-1]+hx/2 == X_min..X_max),
+    а Contour — нет, его область ограничена ровно первой/последней точкой сетки (без
+    полу-ячейки с краёв). На общем [X_min, X_max] Contour оказывается визуально "просевшим"
+    внутрь осей на пол-ячейки с каждой стороны — лечится только двойным кликом (autorange),
+    проверено эмпирически через full_figure_for_development. Поэтому для Contour сюда
+    передают (store.x[0], store.x[-1]), а не (X_min, X_max).
     """
     xax = _axis_dict()
-    xax.update(range=[float(X_min), float(X_max)], constrain='domain')
+    xax.update(range=list(x_range), constrain='domain')
     yax = _axis_dict()
-    yax.update(range=[float(Y_min), float(Y_max)], scaleanchor='x', scaleratio=1, constrain='domain')
+    yax.update(range=list(y_range), scaleanchor='x', scaleratio=1, constrain='domain')
     return xax, yax
 
 
@@ -359,8 +368,20 @@ def _map_figure(view: dict, i: int, store: SolutionStore, animate: bool = False)
             traces = [go.Heatmap(**common)]
 
     fig = go.Figure(data=traces)
-    xax, yax = _map_axes()
-    fig.update_layout(plot_bgcolor='white', uirevision='map',
+    is_contour = bool(view.get('sattemp')) or CONTOUR_PLOT
+    if is_contour:
+        x_range = (float(store.x[0]), float(store.x[-1]))
+        y_range = (float(store.y[0]), float(store.y[-1]))
+    else:
+        x_range = (float(X_min), float(X_max))
+        y_range = (float(Y_min), float(Y_max))
+    xax, yax = _map_axes(x_range, y_range)
+    # uirevision меняется вместе с диапазоном осей выше: иначе при переключении Contour<->Heatmap
+    # plotly попытается перенести старый масштаб на новый (другой!) диапазон и промахнётся —
+    # лечилось бы только двойным кликом (autorange). Между полями (Pressure/Saturation/...) в
+    # одном и том же режиме uirevision не меняется, так что масштаб/зум сохраняется как раньше.
+    uirevision = 'map-sattemp' if view.get('sattemp') else f"map-{'contour' if CONTOUR_PLOT else 'heatmap'}"
+    fig.update_layout(plot_bgcolor='white', uirevision=uirevision,
                       xaxis=xax, yaxis=yax, legend=dict(x=1.05, y=1.0),
                       width=GRAPH_W, height=GRAPH_H)
 
@@ -399,7 +420,7 @@ def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
                       xaxis=_axis_dict(), yaxis=_axis_dict(),
                       yaxis2=dict(side='right', overlaying='y'),
                       legend=dict(x=1.05, y=1.0),
-                      width=GRAPH_W, height=GRAPH_H)
+                      width=WIDE_W, height=GRAPH_H)
     return fig
 
 
@@ -422,7 +443,7 @@ def _fi_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) 
         xaxis=_axis_dict(), yaxis=_axis_dict(),
         yaxis2=dict(side='right', overlaying='y'),
         legend=dict(x=1.01, y=0.8, font=dict(size=18)),
-        width=GRAPH_W, height=600,
+        width=WIDE_W, height=600,
     )
     fig.add_shape(type='rect', xref='paper', yref='paper',
                   x0=0, y0=0, x1=1, y1=1, line=dict(color='black', width=1))
@@ -514,6 +535,22 @@ def _empty_figure(msg: str) -> go.Figure:
     return fig
 
 
+def _graph_width(kind: str | None) -> int:
+    """Карта — квадратная (GRAPH_W), временные ряды и φ(r) — шире (WIDE_W), слайдер под ними уже."""
+    return WIDE_W if kind in ('series', 'fi') else GRAPH_W
+
+
+def _container_style(kind: str | None) -> dict:
+    return {'height': f'{GRAPH_H + 10}px', 'width': f'{_graph_width(kind) + 10}px', 'overflow': 'hidden'}
+
+
+def _column_style(kind: str | None) -> dict:
+    """Левая колонка (график+слайдер) — та же ширина, что и graph-container: иначе при
+    переключении на более широкий вид (fi/series) колонка остаётся старой ширины и кнопки
+    справа не сдвигаются, а виджет графика просто наезжает на них поверх."""
+    return {'width': f'{_graph_width(kind) + 10}px', 'flexShrink': 0}
+
+
 app = Dash(__name__)
 app.title = f'Визуализация'
 app.config.suppress_callback_exceptions = True
@@ -575,17 +612,25 @@ def _init(_n):
                               figure=_figure_for(view_id, 0, store) if view_id else _empty_figure('Нет данных'),
                               responsive=False,
                               config={'displaylogo': False}),
-                    style={'height': f'{GRAPH_H + 10}px', 'width': f'{GRAPH_W + 10}px', 'overflow': 'hidden'}),
+                    id='graph-container', style=_container_style(kind)),
                 html.Div(id='time-label',
                          children=f'Время: {_day_fmt(store.time[0])}' if kind != 'series' else '',
                          className='plt-time-label'),
                 html.Div(
-                    dcc.Slider(id='time-slider', min=0, max=max(0, n_times - 1), step=1, value=0,
-                               marks=_marks(store), updatemode='mouseup',   # запрос к серверу ТОЛЬКО при отпускании
-                               disabled=slider_disabled),
-                    className='plt-slider',
-                    style={'width': f'{GRAPH_W}px'}),
-            ], style={'width': f'{GRAPH_W + 10}px', 'flexShrink': 0}),
+                    [html.Div(dcc.Slider(id='time-slider', min=0, max=max(0, n_times - 1), step=1, value=0,
+                                         marks=_marks(store), updatemode='mouseup', allow_direct_input=False,
+                                         disabled=slider_disabled),
+                              className='plt-slider', style={'width': f'{GRAPH_W}px'}),
+                     html.Button( '▶', id='btn-play', n_clicks=0, disabled=slider_disabled, className='plt-btn',
+                                  style={'width': '28px', 'padding': '5px 0', 'textAlign': 'center', 'flexShrink': 0,
+                                         'marginLeft': 'auto', 'transform': 'translateX(30px)'}),
+                        html.Button(f"Contour: {'вкл' if CONTOUR_PLOT else 'выкл'}", id='btn-contour', n_clicks=0,
+                                    className='plt-btn', style={'width': 'auto', 'whiteSpace': 'nowrap', 'flexShrink': 0,
+                                                                'padding': '5px 11px', 'transform': 'translateX(40px)'}),
+                     ], style={'display': 'flex', 'alignItems': 'center', 'gap': '8px', 'width': '100%'}
+                ),
+                dcc.Interval(id='play-interval', interval=300, disabled=True),
+            ], id='graph-column', style=_column_style(kind)),
 
             # ------- правая колонка: вертикальный столбец кнопок -------
             html.Div(
@@ -594,11 +639,11 @@ def _init(_n):
                 ],
                 style={'width': '185px', 'display': 'flex', 'flexDirection': 'column',
                        'gap': '2px', 'paddingTop': '110px', 'flexShrink': 0}),
-        ], style={'display': 'flex', 'gap': '30px', 'justifyContent': 'center', 'alignItems': 'flex-start'}),
+        ], style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '30px', 'alignItems': 'flex-start'}),
 
         dcc.Store(id='view-state', data=_payload(view_id, store)),
         dcc.Store(id='times-store', data=store.meta['time']),
-    ], style={'maxWidth': '1100px', 'margin': '0 auto', 'padding': '0 10px'})
+    ], style={'padding': '0 10px'})
 
 
 # --- клиентский колбэк: живая подпись времени при перетаскивании (БЕЗ запросов к серверу) ---
@@ -619,9 +664,13 @@ app.clientside_callback(
 
 
 @app.callback(
-    Output('main-graph', 'figure'),
+    Output('main-graph', 'figure', allow_duplicate=True),
     Output('view-state', 'data'),
     Output('time-slider', 'disabled'),
+    Output('btn-play', 'disabled'),
+    Output('play-interval', 'disabled', allow_duplicate=True),
+    Output('graph-container', 'style'),
+    Output('graph-column', 'style'),
     Output({'type': 'view-btn', 'index': ALL}, 'style'),
     Input({'type': 'view-btn', 'index': ALL}, 'n_clicks'),
     Input('time-slider', 'value'),
@@ -643,10 +692,10 @@ def _update(clicks, t, prev):
     slider_fired = 'time-slider.value' in trig_props
     btn_fired = any(p.startswith('{') for p in trig_props)
 
-    # --- отпускание ползунка: единственный запрос, обновляем только z/y ---
+    # --- отпускание ползунка (в т.ч. автопрокрутка): единственный запрос, обновляем только z/y ---
     if slider_fired and not btn_fired:
         if not isinstance(prev, dict) or prev['kind'] == 'series':
-            return no_update, no_update, no_update, noop_btns
+            return no_update, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
         patch = Patch()
         if prev['kind'] == 'map':
             for k, name in enumerate(prev['sources']):
@@ -655,30 +704,80 @@ def _update(clicks, t, prev):
             data = store.get_plot_data()
             for k, name in enumerate(prev['sources']):
                 patch['data'][k]['y'] = data[name][t].tolist()
-        return patch, no_update, no_update, noop_btns
+        return patch, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
 
     # --- кнопка вида ---
     if btn_fired:
         trig_id = ctx.triggered_id
         # защита от холостого срабатывания при создании кнопок (n_clicks == 0 / не кнопка)
         if not (isinstance(trig_id, dict) and trig_id.get('type') == 'view-btn'):
-            return no_update, no_update, no_update, noop_btns
+            return no_update, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
         if all((c or 0) <= 0 for c in (clicks or [])):
-            return no_update, no_update, no_update, noop_btns
+            return no_update, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
 
         valid = _valid_view_ids(store.meta)
         view_id = _resolve_view(trig_id['index'], store)
         if view_id is None:
-            return (_empty_figure('Нет данных для отображения'), None, True,
-                    [_BTN_INACTIVE] * len(valid))
+            return (_empty_figure('Нет данных для отображения'), None, True, True, True,
+                    _container_style(None), _column_style(None), [_BTN_INACTIVE] * len(valid))
 
         v = _view_def(view_id, store)
+        slider_off = v['kind'] == 'series' or store.meta['n_times'] <= 1
+        # переключение на вид без ползунка глушит и автопрокрутку, иначе play-interval
+        # продолжал бы тикать в фоне вхолостую; между картой и φ(r) автовоспроизведение не трогаем
+        stop_play = True if slider_off else no_update
         return (_figure_for(view_id, t, store),
                 _payload(view_id, store),
-                v['kind'] == 'series' or store.meta['n_times'] <= 1,
+                slider_off, slider_off, stop_play,
+                _container_style(v['kind']), _column_style(v['kind']),
                 [_BTN_ACTIVE if vid == view_id else _BTN_INACTIVE for vid in valid])
 
-    return no_update, no_update, no_update, noop_btns
+    return no_update, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
+
+
+@app.callback(
+    Output('main-graph', 'figure', allow_duplicate=True),
+    Output('btn-contour', 'children'),
+    Input('btn-contour', 'n_clicks'),
+    State('view-state', 'data'),
+    State('time-slider', 'value'),
+    prevent_initial_call=True,
+)
+def _toggle_contour(_n, payload, t):
+    """Contour (заливка с изолиниями) <-> Heatmap для карт — тот же CONTOUR_PLOT,
+    что и в constants.py, просто переключаемый в рантайме без перезапуска."""
+    global CONTOUR_PLOT
+    CONTOUR_PLOT = not CONTOUR_PLOT
+    label = f"Contour: {'вкл' if CONTOUR_PLOT else 'выкл'}"
+    if not isinstance(payload, dict) or payload['kind'] != 'map':
+        return no_update, label
+    return _figure_for(payload['id'], int(t or 0), get_store()), label
+
+
+@app.callback(
+    Output('play-interval', 'disabled', allow_duplicate=True),
+    Output('btn-play', 'children'),
+    Output('time-slider', 'value'),
+    Input('btn-play', 'n_clicks'),
+    Input('play-interval', 'n_intervals'),
+    State('play-interval', 'disabled'),
+    State('time-slider', 'value'),
+    State('time-slider', 'max'),
+    State('time-slider', 'disabled'),
+    prevent_initial_call=True,
+)
+def _play(_n_clicks, _n_intervals, is_paused, value, max_value, slider_off):
+    """Кнопка ▶/⏸ — просто крутит time-slider.value через dcc.Interval; сам сдвиг
+    подхватывает существующий колбэк _update (у него уже есть Input на time-slider.value)."""
+    if ctx.triggered_id == 'btn-play':
+        if slider_off:
+            return no_update, no_update, no_update
+        return (not is_paused), ('▶' if is_paused else '⏸'), no_update
+
+    value = int(value or 0)
+    if value >= max_value:  # доехали до конца — стоп на последнем кадре
+        return True, '▶', no_update
+    return no_update, no_update, value + 1
 
 
 @app.callback(
@@ -718,8 +817,6 @@ def visualize_solution(port: int = 8050, debug: bool = False):
 if __name__ == '__main__':
     visualize_solution(debug=True)
     """
-    1. можно ли сделать так, чтобы при изменении слайдера не мелькал белый экран 
-    2. немного вытяни одномерные графики по ширине. путсь они будут левее слайдера
-    3. попробовать сделать динамическое отображение трехмерных данных fi 
+    попробовать сделать динамическое отображение трехмерных данных fi 
     (на двумерной карте выбирать ячейку, при нажатии на которую открывается одномерный график со слайдером)
     """
