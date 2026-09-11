@@ -1,4 +1,3 @@
-# Для ускорения сборки окружения перед установкой библиотек необходимо использовать uv
 # core utilities
 joblib
 psutil
@@ -20,5 +19,5 @@ pillow
 python-docx
 pypandoc_binary
 
-# build environment with UV
+# Для ускорения сборки окружения перед установкой библиотек необходимо использовать UV
 # uv pip install -r requirements.txt

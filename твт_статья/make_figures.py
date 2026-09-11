@@ -30,6 +30,10 @@ ARTICLE_CASES = (
      'с теплопотерями (Винсом-Вестервельд), Wp = 0'),
 )
 
+# Содержание парафина в вариантах статьи. Не `constants.init_Wp`: `run_cases.py` восстанавливает
+# constants.py после прогона, и там остается значение, под которое статья не считалась.
+ARTICLE_WP = 0.20
+
 TITLES = {key: title for key, _f, _n, _s, title in ARTICLE_CASES}
 NUMBERS = {key: number for key, _f, number, _s, _t in ARTICLE_CASES}
 FILES = {key: file_name for key, file_name, _n, _s, _t in ARTICLE_CASES}
@@ -139,7 +143,7 @@ def text_numbers(cases: dict) -> list:
     показателей, поэтому читает файлы расчета заново.
     """
     from scipy.optimize import brentq
-    from paraphin.constants import Tm, Tm_K, alpha, R, MW, M_o, init_Wp, phi_max as PHI_MAX
+    from paraphin.constants import Tm, Tm_K, alpha, R, MW, M_o, Twater, phi_max as PHI_MAX
 
     lines = ['', '## Дополнительные числа из описательного текста', '']
     if 'base' not in cases:
@@ -154,7 +158,7 @@ def text_numbers(cases: dict) -> list:
 
     # Порог начала кристаллизации T* при заданном wp: температура, при которой предел
     # растворимости (6.2) сравнивается с wp - см. текст перед (17).
-    t_onset = brentq(lambda t: _w_hat(t) - init_Wp, -50.0, Tm) if 0.0 < init_Wp < 1.0 else float('nan')
+    t_onset = brentq(lambda t: _w_hat(t) - ARTICLE_WP, -50.0, Tm)
 
     m1 = cases['base']
     idx1, idx2, idx3 = m1['idx']
@@ -166,8 +170,10 @@ def text_numbers(cases: dict) -> list:
         return float(x_mesh[i]), float(y_mesh[j]), float(k_field[i, j]), float(d1['m'][idx][i, j])
 
     mean_t = [float(d1['Temperature'][idx].mean()) for idx in (idx1, idx2, idx3)]
-    s_front = [_front_position(d1['Saturation'][idx], 0.5) for idx in (idx1, idx2)]
-    t_front = [_front_position(d1['Temperature'][idx], t_onset) for idx in (idx1, idx2)]
+    s_front = [_front_position(d1['Saturation'][idx], 0.5) for idx in (idx1, idx2, idx3)]
+    t_front = [_front_position(d1['Temperature'][idx], t_onset) for idx in (idx1, idx2, idx3)]
+    # Внешняя граница зоны кольматации: где множитель проницаемости еще отличим от единицы
+    k_front = [_front_position(d1['k'][idx], 0.99) for idx in (idx1, idx2, idx3)]
     p_range = [(float(d1['Pressure'][idx].min()) * 1e-6, float(d1['Pressure'][idx].max()) * 1e-6)
                for idx in (idx1, idx3)]
     kolm = [kolm_min(idx) for idx in (idx1, idx2, idx3)]
@@ -177,12 +183,15 @@ def text_numbers(cases: dict) -> list:
     kd_mult = (1.0 - phi / PHI_MAX) ** (-2.5 * PHI_MAX)
 
     lines += [
-        f'- порог начала кристаллизации T* при wp={init_Wp}: {t_onset:.1f}°C (Tm={Tm:.1f}°C)',
+        f'- порог начала кристаллизации T* при wp={ARTICLE_WP}: {t_onset:.1f}°C (Tm={Tm:.1f}°C); '
+        f'предел растворимости при T={Twater:.0f}°C: {_w_hat(Twater):.3f}',
         f'- средняя температура пласта (вариант 1): t1 {mean_t[0]:.1f}°C, t2 {mean_t[1]:.1f}°C, '
         f't3 {mean_t[2]:.1f}°C',
         f'- обводненность на t2: {m1["eta"][idx2]:.3f}',
-        f'- фронт S=0.5 по диагонали: t1 {s_front[0]:.1f} м, t2 {s_front[1]:.1f} м',
-        f'- фронт T=T* по диагонали: t1 {t_front[0]:.1f} м, t2 {t_front[1]:.1f} м',
+        f'- фронт S=0.5 по диагонали: t1 {s_front[0]:.1f} м, t2 {s_front[1]:.1f} м, t3 {s_front[2]:.1f} м',
+        f'- фронт T=T* по диагонали: t1 {t_front[0]:.1f} м, t2 {t_front[1]:.1f} м, t3 {t_front[2]:.1f} м',
+        f'- граница зоны кольматации (k/k0=0.99) по диагонали: t1 {k_front[0]:.1f} м, '
+        f't2 {k_front[1]:.1f} м, t3 {k_front[2]:.1f} м',
         f'- давление, МПа: t1 {p_range[0][0]:.2f}-{p_range[0][1]:.2f}, t3 {p_range[1][0]:.2f}-{p_range[1][1]:.2f}',
         f'- максимум дебита нефти: {m1["q_oil_max"]:.1f} м3/сут на {m1["q_oil_max_day"]:.0f} сут; '
         f'дебит на t3: {m1["q_oil_end"]:.1f} м3/сут',
