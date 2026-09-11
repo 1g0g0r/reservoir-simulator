@@ -59,6 +59,33 @@ def _patch_styles(xml: str) -> str:
     return xml
 
 
+def _patch_table_borders(xml: str) -> str:
+    """Добавляет сплошные границы по всем ячейкам в стиль "Table".
+
+    Pandoc ссылается на этот стиль из каждой таблицы (`w:tblStyle w:val="Table"`),
+    а сам стиль по умолчанию задаёт только нижнюю границу первой строки — остальные
+    границы рисует лишь Word при живом просмотре, в файле их нет.
+    """
+    borders = (
+        "<w:tblBorders>"
+        '<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>'
+        '<w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>'
+        '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/>'
+        '<w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/>'
+        '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>'
+        '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>'
+        "</w:tblBorders>"
+    )
+
+    return re.sub(
+        r'(<w:style\b[^>]*w:styleId="Table"[^>]*>.*?<w:tblPr>)',
+        r"\1" + borders,
+        xml,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+
 def _patch_paragraphs(xml: str) -> str:
     """Добавляет выравнивание по ширине, отступ первой строки и интервал."""
     indent_twips = int(round(INDENT_CM * TWIPS_PER_CM))
@@ -175,6 +202,7 @@ def build_reference(reference_path: Path) -> None:
                     xml_str = content.decode("utf-8")
                     xml_str = _patch_styles(xml_str)
                     xml_str = _patch_paragraphs(xml_str)
+                    xml_str = _patch_table_borders(xml_str)
                     content = xml_str.encode("utf-8")
 
                 elif item.filename == "word/document.xml":

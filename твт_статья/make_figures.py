@@ -603,7 +603,7 @@ def figure_pore(data: dict, metrics: dict, name: str = 'fig6') -> None:
     t = metrics['t']
 
     fig, ax = plt.subplots(figsize=(7.0, 3.6))
-    ax.plot(r * 1e6, data['plots']['fi_o'][0], '-', color='0.45', linewidth=1.8,
+    ax.plot(r * 1e6, fi_0, '-', color='0.45', linewidth=1.8,
             label='начальная')
     ax.plot(r * 1e6, fi[i1], '--', color='k', linewidth=1.4, label=f't = {t[0]:.0f} сут')
     ax.plot(r * 1e6, fi[i3], '-.', color='k', linewidth=1.4, label=f't = {t[2]:.0f} сут')
