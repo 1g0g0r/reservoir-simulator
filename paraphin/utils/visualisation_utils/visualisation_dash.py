@@ -140,13 +140,12 @@ class SolutionStore:
         self._series_cache: dict[str, np.ndarray] = {}
         self._plots_cache: OrderedDict | None = None
 
-        if not self._cache_actual():
-            print('Кэш визуализации отсутствует или устарел — однократный сбор...')
-            shutil.rmtree(CACHE_DIR, ignore_errors=True)
-            _n, raw = _load_raw()
-            self._build_cache(raw)
-            del raw
-            gc.collect()
+        # Создание кеша кривых
+        _n, raw = _load_raw()
+        self._build_cache(raw)
+        del raw
+        gc.collect()
+
         self.meta = json.loads((CACHE_DIR / 'meta.json').read_text(encoding='utf-8'))
         self.time = np.asarray(self.meta['time'], dtype=np.float64)
         self.x = np.asarray(self.meta['x_display'])
@@ -163,18 +162,6 @@ class SolutionStore:
                 return {'size': st.st_size, 'mtime': st.st_mtime}
         return None
 
-    def _cache_actual(self) -> bool:
-        meta_file = CACHE_DIR / 'meta.json'
-        if not meta_file.is_file():
-            return False
-        try:
-            meta = json.loads(meta_file.read_text(encoding='utf-8'))
-        except Exception:
-            return False
-        if meta.get('version') != CACHE_VERSION:
-            return False
-        src = self._source_stat()
-        return src is None or meta.get('source') == src
 
     def _build_cache(self, raw: dict):
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -261,7 +248,6 @@ class SolutionStore:
         meta['has_plots'] = bool(plots)
 
         (CACHE_DIR / 'meta.json').write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
-        print('Кэш собран:', CACHE_DIR)
 
     # ---------------------------- доступ к данным ----------------------------
     def _mmap(self, fname: str) -> np.ndarray:
@@ -810,12 +796,16 @@ def _save_html(n, payload, t):
 
 def visualize_solution(port: int = 8050, debug: bool = False):
     """Запуск интерактивной визуализации: http://127.0.0.1:<port>."""
-    runner = getattr(app, 'run', None) or app.run_server
-    runner(host='127.0.0.1', port=port, debug=debug)
+    try:
+        runner = getattr(app, 'run', None) or app.run_server
+        runner(host='127.0.0.1', port=port, debug=debug)
+    finally:
+        shutil.rmtree(CACHE_DIR, ignore_errors=True)
+
 
 
 if __name__ == '__main__':
-    visualize_solution(debug=True)
+    visualize_solution()
     """
     попробовать сделать динамическое отображение трехмерных данных fi 
     (на двумерной карте выбирать ячейку, при нажатии на которую открывается одномерный график со слайдером)

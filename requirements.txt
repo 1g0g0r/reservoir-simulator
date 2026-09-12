@@ -10,6 +10,7 @@ numba
 sparse-numba  # SuperLU идет в колесе; UMFPACK - только сборкой: build_umfpack_windows.sh
 
 # visualization
+dash
 matplotlib
 plotly
 kaleido==0.*
