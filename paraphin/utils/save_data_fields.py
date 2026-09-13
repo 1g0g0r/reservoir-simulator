@@ -45,9 +45,6 @@ def save_fields(solver, t: float) -> None:
             'Wps': solver.Wps,
             # Осевший парафин - это ровно потерянный поровый объем (m_0 - m), отдельного поля нет: q_p1 + q_p2 = -dm/dt по построению
             'Wps dep': 1.0 - m_mult,
-            'qp': solver.qp1 + solver.qp2,
-            'm': m_mult,
-            'k': solver.k / init_k,
             'plots': {'fi': solver.fi[x_idx, y_idx]},
         })
 
