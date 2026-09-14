@@ -14,30 +14,30 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from paraphin import r, fi_0
-from paraphin.constants import day_to_sec, geological_reserves
+from paraphin.constants import day_to_sec, geological_reserves, init_Wp
 from paraphin.utils.visualisation_utils import read_solution_data, x_mesh, y_mesh
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 # (ключ, файл данных, номер в подписи, стиль линии, подпись варианта)
+# Имена файлов - явные литералы, а не f'Wp={constants.init_Wp}...': та константа - лишь
+# отправная точка для `run_cases.py`, после прогона её значение восстанавливается на исходное
+# и не совпадает с тем, чем на самом деле считалась статья. Через неё 'base'/'heat_nowax' и
+# 'noheat'/'nowax' легко схлопнутся в один и тот же файл (Wp=0.0), если в constants.py на
+# момент запуска этого скрипта не то значение - см. ARTICLE_WP ниже, тот же принцип.
 ARTICLE_CASES = (
-    ('base',      'Wp=0.1_processed_data.pkl',           1, '-',  'с теплопотерями (Винсом-Вестервельд), Wp = 0.10'),
-    ('noheat',    'Wp=0.1_noheat_processed_data.pkl',    2, '--', 'без теплопотерь, Wp = 0.10'),
+    ('base',      f'Wp={init_Wp}_processed_data.pkl',           1, '-',  f'с теплопотерями (Винсом-Вестервельд), Wp = {init_Wp}'),
+    ('noheat',    f'Wp={init_Wp}_noheat_processed_data.pkl',    2, '--', f'без теплопотерь, Wp = {init_Wp}'),
     ('nowax',     'Wp=0.0_noheat_processed_data.pkl',    3, ':',  'без теплопотерь, Wp = 0'),
-    ('lauwerier', 'Wp=0.1_lauwerier_processed_data.pkl', 4, '-.', 'с теплопотерями (Ловерье), Wp = 0.10'),
-    ('heat_nowax', 'Wp=0.0_processed_data.pkl',           5, (0, (6, 1, 1, 1, 1, 1)),
-     'с теплопотерями (Винсом-Вестервельд), Wp = 0'),
+    ('lauwerier', f'Wp={init_Wp}_lauwerier_processed_data.pkl', 4, '-.', f'с теплопотерями (Ловерье), Wp = {init_Wp}'),
+    ('heat_nowax', 'Wp=0.0_processed_data.pkl',           5, (0, (6, 1, 1, 1, 1, 1)), 'с теплопотерями (Винсом-Вестервельд), Wp = 0'),
 )
 
 # Маркеры вариантов на графиках: линии одного цвета различаются типом штриха, но на
 # печати тонкий штрих и точки сливаются, поэтому каждая кривая несет еще и свой маркер.
 MARKERS = {1: 'o', 2: 's', 3: '^', 4: 'D', 5: 'v'}
 LINE_WIDTH = 2.0
-
-# Содержание парафина в вариантах статьи. Не `constants.init_Wp`: `run_cases.py` восстанавливает
-# constants.py после прогона, и там остается значение, под которое статья не считалась.
-ARTICLE_WP = 0.10
 
 TITLES = {key: title for key, _f, _n, _s, title in ARTICLE_CASES}
 NUMBERS = {key: number for key, _f, number, _s, _t in ARTICLE_CASES}
@@ -163,7 +163,7 @@ def text_numbers(cases: dict) -> list:
 
     # Порог начала кристаллизации T* при заданном wp: температура, при которой предел
     # растворимости (6.2) сравнивается с wp - см. текст перед (17).
-    t_onset = brentq(lambda t: _w_hat(t) - ARTICLE_WP, -50.0, Tm)
+    t_onset = brentq(lambda t: _w_hat(t) - init_Wp, -50.0, Tm)
 
     m1 = cases['base']
     idx1, idx2, idx3 = m1['idx']
@@ -204,7 +204,7 @@ def text_numbers(cases: dict) -> list:
     wps_t1_t3 = [float(d1['Wps'][idx].max()) for idx in (idx1, idx3)]
 
     lines += [
-        f'- порог начала кристаллизации T* при wp={ARTICLE_WP}: {t_onset:.1f}°C (Tm={Tm:.1f}°C); '
+        f'- порог начала кристаллизации T* при wp={init_Wp}: {t_onset:.1f}°C (Tm={Tm:.1f}°C); '
         f'предел растворимости при T={Twater:.0f}°C: {_w_hat(Twater):.3f}',
         f'- средняя температура пласта (вариант 1): t1 {mean_t[0]:.1f}°C, t2 {mean_t[1]:.1f}°C, '
         f't3 {mean_t[2]:.1f}°C',
@@ -306,13 +306,12 @@ FIGURE_CASES = ('base', 'noheat', 'nowax')
 # Там, где изолиний мало или они сбиваются в узкую полосу (насыщенность, давление,
 # множители ФЕС, разности полей), под них кладется заливка оттенками серого - иначе
 # панель почти пуста. Заливка ограничена светлыми тонами (см. `_fill`), чтобы подписи
-# изолиний оставались читаемыми. Варианты на графиках различаются типом линии и маркером,
-# но не цветом.
+# изолиний оставались читаемыми. Варианты на графиках различаются типом линии и маркером, но не цветом.
 #
 # Строки панели 3x3 - моменты времени, столбцы - величины:
 # (ключ поля, подпись, множитель, заливка)
 MAP_COLUMNS = (
-    ('Temperature', 'T, °C',  1.0,  False),
+    ('Temperature', 'T, °C',  1.0,  True),
     ('Saturation',  'S',      1.0,  True),
     ('Pressure',    'p, МПа', 1e-6, True),
 )
@@ -324,6 +323,7 @@ COLMATATION_COLUMNS = (
 )
 
 PANEL_LETTERS = 'абвгдежзи'
+LETTERS_POSITION = [0.03, 0.97]
 
 
 def _article_figures_path():
@@ -403,13 +403,11 @@ def _label_all_levels(ax, cs, levels, fmt: str, x_mesh, y_mesh,
         if label in present or not segs:
             continue
         longest = max(segs, key=len)
-        bbox_diag = np.hypot(longest[:, 0].max() - longest[:, 0].min(),
-                              longest[:, 1].max() - longest[:, 1].min())
+        bbox_diag = np.hypot(longest[:, 0].max() - longest[:, 0].min(), longest[:, 1].max() - longest[:, 1].min())
         if bbox_diag < min_frac * diag:
             continue
         x, y = longest[len(longest) // 2]
-        ax.text(x, y, label, fontsize=fontsize, ha='center', va='center',
-                bbox=dict(facecolor='white', edgecolor='none', pad=0.5))
+        ax.text(x, y, label, fontsize=fontsize, ha='center', va='center',bbox=dict(facecolor='none', edgecolor='none', pad=0.5))
 
 
 def _isolines(ax, x_mesh, y_mesh, field, levels, fmt: str) -> None:
@@ -529,7 +527,7 @@ def field_panel(data: dict, metrics: dict, columns, name: str, figsize=(7.0, 7.4
             _wells(ax, x_mesh, y_mesh)
             ax.set_aspect('equal')
             letter = PANEL_LETTERS[col * 3 + row] if transpose else PANEL_LETTERS[row * n_col + col]
-            ax.text(0.03, 0.93, f'({letter})', transform=ax.transAxes,
+            ax.text(*LETTERS_POSITION, f'({letter})', transform=ax.transAxes,
                     fontsize=9, va='top', bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
             # Название величины - в подписи панели; у столбцов/строк с заливкой рядом
             # ставится цветовая шкала (см. добавление colorbar ниже)
@@ -614,14 +612,14 @@ def figure_overlay(overlay: dict, name: str = 'fig4') -> None:
         if col == 0:
             ax.set_ylabel('y, м', fontsize=10)
         ax.set_title(label, fontsize=10)
-        ax.text(0.03, 0.95, f'({PANEL_LETTERS[col]})', transform=ax.transAxes, fontsize=9,
+        ax.text(*LETTERS_POSITION, f'({PANEL_LETTERS[col]})', transform=ax.transAxes, fontsize=9,
                 va='top', bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
         ax.tick_params(labelsize=8)
 
     handles = [plt.Line2D([], [], color='k', lw=1.6, label='1'),
                plt.Line2D([], [], color='k', lw=1.3, ls='--', label='2')]
     axes[1].legend(handles=handles, title='вариант', fontsize=9, title_fontsize=9,
-                   loc='lower left', framealpha=1.0)
+                   loc='center left',  bbox_to_anchor=(1.05, 0.95),  borderaxespad=0.0, framealpha=1.0)
     _save(fig, name)
     plt.close(fig)
 
@@ -661,7 +659,7 @@ def figure_difference(overlay: dict, times, name: str = 'fig7') -> None:
             ax.set_ylim(y_mesh[0], y_mesh[-1])
             _wells(ax, x_mesh, y_mesh)
             ax.set_aspect('equal')
-            ax.text(0.03, 0.93, f'({PANEL_LETTERS[row * 3 + col]})', transform=ax.transAxes,
+            ax.text(*LETTERS_POSITION, f'({PANEL_LETTERS[row * 3 + col]})', transform=ax.transAxes,
                     fontsize=9, va='top', bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
             if row == 0:
                 ax.set_title(f't = {times[col]:.0f} сут', fontsize=9)
@@ -705,7 +703,7 @@ def figure_difference_compact(overlay: dict, times, name: str = 'fig8') -> None:
         ax.set_xlabel('x, м', fontsize=10)
         if col == 0:
             ax.set_ylabel('y, м', fontsize=10)
-        ax.text(0.03, 0.95, f'({PANEL_LETTERS[col]})', transform=ax.transAxes, fontsize=9,
+        ax.text(*LETTERS_POSITION, f'({PANEL_LETTERS[col]})', transform=ax.transAxes, fontsize=9,
                 va='top', bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
         ax.tick_params(labelsize=8)
 

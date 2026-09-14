@@ -15,23 +15,17 @@ from pathlib import Path
 from time import perf_counter
 
 from make_figures import main as main_figures
+from paraphin.constants import init_Wp
 
 ROOT = Path(__file__).resolve().parent.parent
 CONSTANTS = ROOT / 'paraphin' / 'constants.py'
 
-# Содержание парафина 0.10, а не 0.05: под исправленной моделью равновесия (6.1)-(6.2) предел
-# растворимости при 20 С (температура закачки, самая холодная точка задачи) равен ~0.082 -
-# при Wp = 0.05 парафин физически не может выпасть нигде в пласте. Wp = 0.10 дает порог
-# кристаллизации ~30 С, оставляя зазор и от температуры закачки, и от Tm = 52.9 С.
-
-# (номер, описание, init_Wp, heat_losses (0 - нет, 1 - Ловерье, 2 - Винсом-Вестервельд), имя файла)
+# (номер, описание, Wp, heat_losses (0 - нет, 1 - Ловерье, 2 - Винсом-Вестервельд), имя файла)
 CASES = [
-    (1, 'базовый: перетоки по Винсому-Вестервельду, Wp = 0.10', 0.10, 2, 'Wp=0.1'),
-    (2, 'без перетоков тепла, Wp = 0.10', 0.10, 0, 'Wp=0.1_noheat'),
-    (3, 'без перетоков тепла, без парафина', 0.0, 0, 'Wp=0.0_noheat'),
-    (4, 'перетоки по схеме Ловерье, Wp = 0.10', 0.10, 1, 'Wp=0.1_lauwerier'),
-    # Четвертая клетка плана 2x2. Без нее вклад теплообмена измеряется только при наличии
-    # парафина, и проверить аддитивность эффектов нечем: разложение через три варианта - тождество, а не результат.
+    (1, f'базовый: перетоки по Винсому-Вестервельду, Wp = {init_Wp}', init_Wp, 2, f'Wp={init_Wp}'),
+    (2, f'без перетоков тепла, Wp = {init_Wp}', init_Wp, 0, f'Wp={init_Wp}_noheat'),
+    (3, f'без перетоков тепла, без парафина', 0.0, 0, 'Wp=0.0_noheat'),
+    (4, f'перетоки по схеме Ловерье, Wp = {init_Wp}', init_Wp, 1, f'Wp={init_Wp}_lauwerier'),
     (5, 'перетоки по Винсому-Вестервельду, без парафина', 0.0, 2, 'Wp=0.0'),
 ]
 
@@ -57,10 +51,9 @@ def main() -> None:
 
             tt = perf_counter()
             result = subprocess.run([sys.executable, 'start.py'], cwd=ROOT)
-            print(f'--- вариант {number} занял {perf_counter() - tt:.0f} с, код возврата {result.returncode}',
-                  flush=True)
-        main_figures()
+            print(f'--- вариант {number} занял {perf_counter() - tt:.0f} с, код возврата {result.returncode}', flush=True)
     finally:
+        main_figures()
         CONSTANTS.write_text(original, encoding='utf-8')
         print('\nconstants.py восстановлен в исходный вид.')
 

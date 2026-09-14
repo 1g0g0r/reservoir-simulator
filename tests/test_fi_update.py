@@ -1,6 +1,7 @@
 """Проверки схемы для функции пор по размерам (`_update_fi`).
 
-1. `test_fi_conserved_across_r_pass` - без блокирования сумма fi по узлам обязана сохраняться:
+1. `test_fi_conserved_across_r_pass` - без блокирования интеграл fi по сетке (сумма fi*dr_cv)
+   обязан сохраняться:
    при u_r = 0 ниже r_pass и u_r < 0 выше поток через r = 0 и приток через r = r_max нулевые.
    Прежняя запись с ветвлением по знаку u_ij теряла поток на стыке r_pass (узел n_pass-1 не видел
    приток из узла n_pass), и сумма убывала.
@@ -10,7 +11,7 @@
 """
 import numpy as np
 
-from paraphin import r1, fi_0, n_pass
+from paraphin import r1, fi_0, n_pass, dr_cv
 from paraphin.constants import Nr
 from paraphin.equations.Qp_m_k_fi import _update_fi
 
@@ -26,21 +27,19 @@ def _fields(u0: float, b0: float):
 
 
 def test_fi_conserved_across_r_pass():
-    """Сужение без блокирования: сумма fi сохраняется, в том числе через стык r_pass."""
-    dr = r1[1] - r1[0]
-    fi, new_fi, Ur, Ub, a, b = _fields(u0=0.3 * dr / dt, b0=0.0)  # Куранта 0.3 за шаг
+    """Сужение без блокирования: интеграл fi сохраняется, в том числе через стык r_pass."""
+    fi, new_fi, Ur, Ub, a, b = _fields(u0=0.3 * dr_cv.min() / dt, b0=0.0)  # Куранта 0.3 за шаг
     for _ in range(200):
         _update_fi(new_fi, fi, Ur, Ub, 0, 0, a, b, dt)
         fi, new_fi = new_fi, fi
 
     assert fi[0, 0, n_pass - 1] > fi_0[n_pass - 1], 'поток из узла n_pass не дошел до n_pass-1'
-    assert abs(fi.sum() - fi_0.sum()) < 1e-12
+    assert abs((fi * dr_cv).sum() - (fi_0 * dr_cv).sum()) < 1e-12 * (fi_0 * dr_cv).sum()
 
 
 def test_fi_positive_under_strong_blocking():
     """b*dt = 1e3: fi узких капилляров обнуляется, но не становится отрицательной."""
-    dr = r1[1] - r1[0]
-    fi, new_fi, Ur, Ub, a, b = _fields(u0=0.3 * dr / dt, b0=1e3 / dt)
+    fi, new_fi, Ur, Ub, a, b = _fields(u0=0.3 * dr_cv.min() / dt, b0=1e3 / dt)
     _update_fi(new_fi, fi, Ur, Ub, 0, 0, a, b, dt)
 
     assert new_fi.min() >= 0.0

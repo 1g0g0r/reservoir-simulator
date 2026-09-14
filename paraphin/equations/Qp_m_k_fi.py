@@ -1,7 +1,7 @@
 """Решение уравнения концентрации взвешенных частиц парафина по явной схеме."""
 from numba import njit
 
-from paraphin import r1, r2, r3, r4, r5, r6, n_pass
+from paraphin import r1, r2, r3, r4, r5, r6, n_pass, dr_cv
 from paraphin.constants import Nr, init_m, init_k, min_Wps_bound
 
 
@@ -122,6 +122,8 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     отрицательные значения - безусловная устойчивость прогонки положительности не гарантирует.
     Матрица - M-матрица (диагональ 1/dt + |u|/dr + b, внедиагональные <= 0), поэтому прогонка
     устойчива и положительность fi сохраняется без зажима.
+    Поток через грань делится на ширину контрольного объема узла `dr_cv[ij]`, а не на общий шаг:
+    схема не привязана к равномерной сетке, сохраняется взвешенная сумма fi*dr_cv.
 
     На правой границе (r = r_max) соседа нет, что равносильно условию fi = 0: капилляров шире
     r_max нет, а те, что на r_max, сужаются внутрь и ничем не замещаются - поэтому правый узел
@@ -129,18 +131,16 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
-    dr = r1[1] - r1[0]
-
     # Вычисление прогоночных коэффициентов
-    d = 1.0 / dt + abs(Ur[i, j, 0]) / dr + Ub[i, j, 0]
-    e = min(Ur[i, j, 1], 0.0) / dr
+    d = 1.0 / dt + abs(Ur[i, j, 0]) / dr_cv[0] + Ub[i, j, 0]
+    e = min(Ur[i, j, 1], 0.0) / dr_cv[0]
     a_tdma[0] = -e / d
     b_tdma[0] = fi[i, j, 0] / dt / d
 
     for ij in range(1, Nr):
-        c = -max(Ur[i, j, ij - 1], 0.0) / dr
-        d = 1.0 / dt + abs(Ur[i, j, ij]) / dr + Ub[i, j, ij]
-        e = min(Ur[i, j, ij + 1], 0.0) / dr if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
+        c = -max(Ur[i, j, ij - 1], 0.0) / dr_cv[ij]
+        d = 1.0 / dt + abs(Ur[i, j, ij]) / dr_cv[ij] + Ub[i, j, ij]
+        e = min(Ur[i, j, ij + 1], 0.0) / dr_cv[ij] if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
         denominator = c * a_tdma[ij - 1] + d
         a_tdma[ij] = -e / denominator
         b_tdma[ij] = (fi[i, j, ij] / dt - c * b_tdma[ij - 1]) / denominator

@@ -24,8 +24,8 @@ FONT = "Times New Roman"
 # Размер шрифта в половинных пунктах: 24 = 12 pt.
 HALF_POINTS = 24
 
-# Интервал 1.15 в двадцатых долях пункта (240 = одинарный).
-LINE_SPACING = 276
+# Интервал в двадцатых долях пункта (240 = одинарный).
+LINE_SPACING = 240  # 276 = 1.15
 
 # Отступ первой строки, «красная строка».
 INDENT_CM = 1.25
@@ -236,7 +236,11 @@ def build_docx(
     )
 
 
-def main(source = 'article') -> None:
+def main(short_docx: bool = False) -> None:
+    if short_docx:
+        source = 'article_short'
+    else:
+        source = 'article'
     source_path = Path.cwd() / f'{source}.md'
     output_path = Path.cwd() / f'{source}.docx'
     reference = Path.cwd() / 'reference.docx'
