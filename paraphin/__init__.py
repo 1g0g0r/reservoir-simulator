@@ -11,7 +11,7 @@ from numba.core.errors import NumbaWarning
 # конкретно это сообщение: остальные предупреждения numba остаются видимыми.
 warnings.filterwarnings('ignore', message='.*Cannot cache compiled function', category=NumbaWarning)
 
-from paraphin.constants import data_type, Nx, Ny, Nr, D, gamma
+from paraphin.constants import data_type, Nx, Ny, Nr, D, gamma, r_m, sigma_r
 
 
 def _drop_stale_numba_cache() -> None:
@@ -41,13 +41,24 @@ N = Nx * Ny  # размер матрицы давления
 
 r = np.linspace(0, 40 * 1e-6, Nr, endpoint=True)
 # fi_0 = np.array([0.0, 0.013, 0.023, 0.031, 0.035, 0.034, 0.027, 0.021, 0.016, 0.018, 0.025, 0.032, 0.041, 0.052, 0.061, 0.073, 0.082, 0.086, 0.081, 0.07, 0.059, 0.048, 0.035, 0.024, 0.013, 0])
-_sigma = 2.0 * np.pi
-_m = np.max(r) / 2
 
-# TODO перейти на лог-нормальное распределение
-_fi_0_np = np.exp(-0.5 * ((r - _m) / 1e-6 / _sigma)**2) / _sigma
-_fi_0_np[0] = _fi_0_np[-1] = 0.0
-fi_0 = _fi_0_np / np.sum(_fi_0_np)
+# Начальная функция пор по размерам - логнормальная модель Косуги (Kosugi K. Lognormal
+# Distribution Model for Unsaturated Soil Hydraulic Properties // Water Resour. Res. 1996.
+# V. 32. No 9. P. 2697):
+#   fi_0(r) = 1/(sqrt(2*pi)*sigma_r*r) * exp(-ln^2(r/r_m) / (2*sigma_r^2)),
+# r_m - медианный радиус (геометрическое среднее), sigma_r - стандартное отклонение ln r;
+# мода лежит в r_m*exp(-sigma_r^2). В узле r = 0 плотность равна нулю (предел).
+# Параметры подобраны под сетку [0, r_max]: sigma_r = 0.4 - верх диапазона, снятого по
+# имбибиционным кривым упаковок шаров (0.32-0.43: Ghanbarian, 2020,
+# resources/литература/ghanbarian2020.pdf, табл. 1), r_max/r_m = 3.3 - как в той же таблице
+# (2.5-3.7). При этом на r_max распределение выходит в нуль (0.3% максимума, у прежнего
+# гауссова было 0.6%), а ниже r_pass = 5 мкм лежит 0.8% капилляров - столько же, сколько прежде,
+# так что блокирование каналов ведет себя как раньше. Нормировка - на единичную сумму по
+# узлам: в уравнения fi входит только отношениями интегралов, а тест сохранения
+# (tests/test_fi_update.py) сравнивает суммы.
+fi_0 = np.zeros(Nr, data_type)
+fi_0[1:] = np.exp(-0.5 * (np.log(r[1:] / r_m) / sigma_r) ** 2) / (np.sqrt(2 * np.pi) * sigma_r * r[1:])
+fi_0 /= fi_0.sum()
 
 # массивы радиусов пор в необходимых степенях
 r1 = r
@@ -71,5 +82,5 @@ if __name__ == '__main__':
     import plotly.graph_objects as go
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=r, y=fi_0_np, mode='lines'))
+    fig.add_trace(go.Scatter(x=r, y=fi_0, mode='lines'))
     fig.show()

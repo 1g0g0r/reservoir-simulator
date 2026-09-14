@@ -4,7 +4,7 @@ from pickle import dump, HIGHEST_PROTOCOL
 from paraphin.constants import layers_file, init_k, init_m
 
 # Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и `graphs._plot_fi`.
-FI_PROBE = (5, 5)
+FI_PROBE = (3, 3)
 
 
 def save_fields(solver, t: float) -> None:

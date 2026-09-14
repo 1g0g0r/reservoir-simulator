@@ -187,6 +187,22 @@ def text_numbers(cases: dict) -> list:
     phi = min(wps_max, 0.99 * PHI_MAX)
     kd_mult = (1.0 - phi / PHI_MAX) ** (-2.5 * PHI_MAX)
 
+    # Доля площади элемента, охлажденной ниже порога кристаллизации T* - охват зоны, где вообще
+    # возможно выпадение парафина (см. текст перед и после (17)); площадной аналог диагонального
+    # фронта t_front, нужен там, где текст говорит о доле площади, а не о положении изотермы.
+    cold_area = [float((d1['Temperature'][idx] < t_onset).mean()) * 100.0 for idx in (idx1, idx2, idx3)]
+    # Площадной аналог k_front: доля площади со сниженной проницаемостью (k/k0<0.99) на t3.
+    kolm_area_t3 = float((d1['k'][idx3] < 0.99).mean()) * 100.0
+    # Водонасыщенность в охлажденной зоне на t3 - показывает, что промытая зона не является
+    # строго остаточной (нефть еще подвижна, см. текст после (13)).
+    s_cooled_t3 = d1['Saturation'][idx3][d1['Temperature'][idx3] < t_onset]
+    # Момент и положение глобального максимума взвешенного парафина по всему расчету - "первые
+    # сутки закачки у забоя нагнетательной скважины" из описательного текста.
+    wps_t_idx, wps_i, wps_j = np.unravel_index(int(np.argmax(d1['Wps'])), d1['Wps'].shape)
+    wps_max_day = float(m1['time'][wps_t_idx])
+    wps_max_xy = (float(x_mesh[wps_i]), float(y_mesh[wps_j]))
+    wps_t1_t3 = [float(d1['Wps'][idx].max()) for idx in (idx1, idx3)]
+
     lines += [
         f'- порог начала кристаллизации T* при wp={ARTICLE_WP}: {t_onset:.1f}°C (Tm={Tm:.1f}°C); '
         f'предел растворимости при T={Twater:.0f}°C: {_w_hat(Twater):.3f}',
@@ -206,15 +222,30 @@ def text_numbers(cases: dict) -> list:
         f'- диапазон температуры на t3 (вариант 1): {t3_range1[0]:.1f}-{t3_range1[1]:.1f}°C',
         f'- максимум массовой доли взвешенного парафина: {wps_max:.4f}, '
         f'множитель Кригера-Догерти при этом {kd_mult:.3f}',
+        f'- площадь с T<T* (вариант 1): t1 {cold_area[0]:.1f}%, t2 {cold_area[1]:.1f}%, '
+        f't3 {cold_area[2]:.1f}%',
+        f'- площадь с k/k0<0.99 на t3 (вариант 1): {kolm_area_t3:.1f}%',
+        f'- водонасыщенность в охлажденной зоне на t3 (вариант 1): мин {float(s_cooled_t3.min()):.3f}, '
+        f'средняя {float(s_cooled_t3.mean()):.3f}',
+        f'- максимум wps по всему расчету (вариант 1): {wps_max:.4f} на {wps_max_day:.0f} сут '
+        f'в точке ({wps_max_xy[0]:.0f},{wps_max_xy[1]:.0f}) м; wps на t1 {wps_t1_t3[0]:.4f}, '
+        f'на t3 {wps_t1_t3[1]:.4f}',
     ]
 
     if 'noheat' in cases:
         m2 = cases['noheat']
+        idx1_2, idx2_2, idx3_2 = m2['idx']
         picks = [int(np.argmin(np.abs(m2['time'] - t))) for t in m1['t']]
         _, d2 = read_solution_data(FILES['noheat'])
 
         mean_t2 = [float(d2['Temperature'][p].mean()) for p in picks]
         t3_range2 = (float(d2['Temperature'][picks[2]].min()), float(d2['Temperature'][picks[2]].max()))
+        # Площадь с T<T* и максимум wps на СВОЕМ (не выровненном по варианту 1) конце расчета:
+        # вариант без теплообмена работает дольше и остывает сильнее к своему собственному t3.
+        cold_area2_t3 = float((d2['Temperature'][idx3_2] < t_onset).mean()) * 100.0
+        wps_max2 = float(d2['Wps'].max())
+        phi2 = min(wps_max2, 0.99 * PHI_MAX)
+        kd_mult2 = (1.0 - phi2 / PHI_MAX) ** (-2.5 * PHI_MAX)
 
         dT_mean, dT_max, dS_max = [], [], []
         for own_idx, other_idx in zip((idx1, idx2, idx3), picks):
@@ -232,6 +263,21 @@ def text_numbers(cases: dict) -> list:
             '- разность полей (вариант 1 − вариант 2), средняя/максимальная T (°C) и максимальная S: '
             + '; '.join(f't{n+1} dT_mean={a:.1f} dT_max={b:.1f} dS_max={c:.3f}'
                          for n, (a, b, c) in enumerate(zip(dT_mean, dT_max, dS_max))),
+            f'- площадь с T<T* на своем t3 (вариант 2): {cold_area2_t3:.1f}%',
+            f'- максимум wps по всему расчету (вариант 2): {wps_max2:.4f}, '
+            f'множитель Кригера-Догерти при этом {kd_mult2:.3f}',
+        ]
+
+    if 'heat_nowax' in cases:
+        m5 = cases['heat_nowax']
+        idx3_5 = m5['idx'][2]
+        _, d5 = read_solution_data(FILES['heat_nowax'])
+        p_max5_t3 = float(d5['Pressure'][idx3_5].max()) * 1e-6
+        del d5
+
+        lines += [
+            f'- максимум давления на своем t3 (вариант 5): {p_max5_t3:.2f} МПа '
+            f'(вариант 1: {p_range[1][1]:.2f} МПа, разница {abs(p_max5_t3 - p_range[1][1]):.2f} МПа)',
         ]
 
     del d1
@@ -334,10 +380,42 @@ def _fmt(span: float) -> str:
     return '%.2f' if span >= 0.05 else '%.3f'
 
 
+def _label_all_levels(ax, cs, levels, fmt: str, x_mesh, y_mesh,
+                       fontsize: float = 7, min_frac: float = 0.05) -> None:
+    """Гарантирует подпись у каждого уровня, включая те, что clabel пропустил.
+
+    Автоматическая расстановка inline-меток пропускает петли короче подписи - в панели
+    3x3 (~2.3 дюйма на подрисунок) так теряются уровни у самой скважины, где изолинии
+    стягиваются в тесный контур. Для пропущенных уровней подпись ставится вручную поверх
+    середины самого длинного сегмента этого уровня (`ax.text`, а не второй вызов
+    `clabel` - он трогает внутреннее состояние `cs` и падает на несуществующем индексе).
+
+    У скважины петля иногда стягивается в точку меньше самой подписи (депрессионная
+    воронка давления) - туда подпись ставить некуда, кроме как поверх значка скважины.
+    Такие уровни (диагональ петли меньше `min_frac` диагонали панели) остаются без
+    подписи - их значение и так видно по цвету заливки на общей шкале.
+    """
+    placed = ax.clabel(cs, inline=True, inline_spacing=2, fontsize=fontsize, fmt=fmt)
+    present = {t.get_text() for t in placed}
+    diag = np.hypot(x_mesh[-1] - x_mesh[0], y_mesh[-1] - y_mesh[0])
+    for level, segs in zip(levels, cs.allsegs):
+        label = fmt % level
+        if label in present or not segs:
+            continue
+        longest = max(segs, key=len)
+        bbox_diag = np.hypot(longest[:, 0].max() - longest[:, 0].min(),
+                              longest[:, 1].max() - longest[:, 1].min())
+        if bbox_diag < min_frac * diag:
+            continue
+        x, y = longest[len(longest) // 2]
+        ax.text(x, y, label, fontsize=fontsize, ha='center', va='center',
+                bbox=dict(facecolor='white', edgecolor='none', pad=0.5))
+
+
 def _isolines(ax, x_mesh, y_mesh, field, levels, fmt: str) -> None:
     """Изолинии с подписанными значениями - основной способ показать поле в статье."""
     cs = ax.contour(x_mesh, y_mesh, field.T, levels=levels, colors='k', linewidths=1.0)
-    ax.clabel(cs, inline=True, inline_spacing=2, fontsize=7, fmt=fmt)
+    _label_all_levels(ax, cs, levels, fmt, x_mesh, y_mesh)
 
 
 def _fill(ax, x_mesh, y_mesh, field, vmin: float, vmax: float, n: int = 32):
@@ -363,7 +441,7 @@ def _zero_line(ax, x_mesh, y_mesh, diff, lim: float) -> None:
     tol = 1e-3 * lim
     clean = np.where(np.abs(diff) < tol, -tol, diff)
     cs = ax.contour(x_mesh, y_mesh, clean.T, levels=[0.0], colors='k', linewidths=1.8)
-    ax.clabel(cs, inline=True, inline_spacing=2, fontsize=7, fmt='%.0f')
+    _label_all_levels(ax, cs, [0.0], '%.0f', x_mesh, y_mesh)
 
 
 def _save(fig, name: str) -> None:
@@ -419,10 +497,15 @@ def field_panel(data: dict, metrics: dict, columns, name: str, figsize=(7.0, 7.4
     times = metrics['t']
     n_col = len(columns)
 
+    # constrained_layout вместо tight_layout: только он умеет резервировать место под
+    # colorbar, приделанный к нескольким Axes сразу (легенда заливки ниже) - на tight_layout
+    # колонка с колонками с заливкой заезжала на соседние панели.
     if transpose:
-        fig, axes = plt.subplots(n_col, 3, figsize=figsize, sharex=True, sharey=True, squeeze=False)
+        fig, axes = plt.subplots(n_col, 3, figsize=figsize, sharex=True, sharey=True,
+                                  squeeze=False, constrained_layout=True)
     else:
-        fig, axes = plt.subplots(3, n_col, figsize=figsize, sharex=True, sharey=True, squeeze=False)
+        fig, axes = plt.subplots(3, n_col, figsize=figsize, sharex=True, sharey=True,
+                                  squeeze=False, constrained_layout=True)
 
     for col, (field_name, label, mult, fill) in enumerate(columns):
         stack = [data[field_name][i] * mult for i in idxs]
@@ -433,12 +516,13 @@ def field_panel(data: dict, metrics: dict, columns, name: str, figsize=(7.0, 7.4
         # момента времени: панели столбца сопоставимы между собой.
         levels = np.linspace(vmin, vmax, n_levels)[1:-1]
         fmt = _fmt(vmax - vmin)
+        im = None
 
         for row, field in enumerate(stack):
             ax = axes[col, row] if transpose else axes[row, col]
             # поле хранится как [i, j] (быстрый индекс - x), contour ждет [y, x]
             if fill:
-                _fill(ax, x_mesh, y_mesh, field, vmin, vmax)
+                im = _fill(ax, x_mesh, y_mesh, field, vmin, vmax)
             _isolines(ax, x_mesh, y_mesh, field, levels, fmt)
             ax.set_xlim(x_mesh[0], x_mesh[-1])
             ax.set_ylim(y_mesh[0], y_mesh[-1])
@@ -447,7 +531,8 @@ def field_panel(data: dict, metrics: dict, columns, name: str, figsize=(7.0, 7.4
             letter = PANEL_LETTERS[col * 3 + row] if transpose else PANEL_LETTERS[row * n_col + col]
             ax.text(0.03, 0.93, f'({letter})', transform=ax.transAxes,
                     fontsize=9, va='top', bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
-            # Величина подписана у панели, а не на шкале: шкалы больше нет
+            # Название величины - в подписи панели; у столбцов/строк с заливкой рядом
+            # ставится цветовая шкала (см. добавление colorbar ниже)
             if transpose:
                 if col == 0:
                     ax.set_title(f't = {times[row]:.0f} сут', fontsize=9)
@@ -464,7 +549,14 @@ def field_panel(data: dict, metrics: dict, columns, name: str, figsize=(7.0, 7.4
                     ax.set_xlabel('x, м', fontsize=9)
             ax.tick_params(labelsize=8)
 
-    fig.tight_layout()
+        # Легенда заливки - привязана к столбцу/строке, а не к каждой панели: шкала
+        # общая на все три момента времени, отдельная лесенка на каждой панели была бы
+        # той же самой шкалой три раза.
+        if fill:
+            cbar = fig.colorbar(im, ax=(axes[col, :] if transpose else axes[:, col]),
+                                 format=fmt, shrink=0.85, pad=0.02, aspect=25)
+            cbar.ax.tick_params(labelsize=7)
+
     _save(fig, name)
     plt.close(fig)
 
@@ -547,7 +639,8 @@ def figure_difference(overlay: dict, times, name: str = 'fig7') -> None:
         return
 
     specs = (('T', 'ΔT, °C', 0), ('S', 'ΔS', 1))
-    fig, axes = plt.subplots(2, 3, figsize=(7.6, 5.4), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 3, figsize=(7.6, 5.4), sharex=True, sharey=True,
+                              constrained_layout=True)
 
     for row, (field_key, label, _digits) in enumerate(specs):
         diffs = [overlay['base'][field_key][i] - overlay['noheat'][field_key][i] for i in range(3)]
@@ -558,9 +651,10 @@ def figure_difference(overlay: dict, times, name: str = 'fig7') -> None:
         levels = levels[np.abs(levels) > 1e-9 * lim]
         fmt = _fmt(2.0 * lim)
 
+        im = None
         for col, diff in enumerate(diffs):
             ax = axes[row, col]
-            _fill(ax, x_mesh, y_mesh, diff, -lim, lim)
+            im = _fill(ax, x_mesh, y_mesh, diff, -lim, lim)
             _isolines(ax, x_mesh, y_mesh, diff, levels, fmt)
             _zero_line(ax, x_mesh, y_mesh, diff, lim)
             ax.set_xlim(x_mesh[0], x_mesh[-1])
@@ -577,7 +671,10 @@ def figure_difference(overlay: dict, times, name: str = 'fig7') -> None:
                 ax.set_ylabel(f'{label}\ny, м', fontsize=9)
             ax.tick_params(labelsize=8)
 
-    fig.tight_layout()
+        # Шкала общая на всю строку (один lim на все три момента) - один colorbar на строку
+        cbar = fig.colorbar(im, ax=axes[row, :], format=fmt, shrink=0.85, pad=0.02, aspect=25)
+        cbar.ax.tick_params(labelsize=7)
+
     _save(fig, name)
     plt.close(fig)
 
@@ -590,14 +687,14 @@ def figure_difference_compact(overlay: dict, times, name: str = 'fig8') -> None:
     if not {'base', 'noheat'} <= set(overlay):
         return
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.4, 3.8), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(7.4, 3.8), sharey=True, constrained_layout=True)
     for col, (field_key, label) in enumerate((('T', 'ΔT, °C'), ('S', 'ΔS'))):
         diff = overlay['base'][field_key][1] - overlay['noheat'][field_key][1]
         lim = abs(diff).max()
         levels = np.linspace(-lim, lim, 9)[1:-1]
         levels = levels[np.abs(levels) > 1e-9 * lim]
         ax = axes[col]
-        _fill(ax, x_mesh, y_mesh, diff, -lim, lim)
+        im = _fill(ax, x_mesh, y_mesh, diff, -lim, lim)
         _isolines(ax, x_mesh, y_mesh, diff, levels, _fmt(2.0 * lim))
         _zero_line(ax, x_mesh, y_mesh, diff, lim)
         ax.set_xlim(x_mesh[0], x_mesh[-1])
@@ -612,8 +709,11 @@ def figure_difference_compact(overlay: dict, times, name: str = 'fig8') -> None:
                 va='top', bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
         ax.tick_params(labelsize=8)
 
+        # У каждого подрисунка свой lim (не общий, как в fig7) - colorbar тоже свой
+        cbar = fig.colorbar(im, ax=ax, format=_fmt(2.0 * lim), shrink=0.85, pad=0.03)
+        cbar.ax.tick_params(labelsize=7)
+
     fig.suptitle(f't = {times[1]:.0f} сут', fontsize=10)
-    fig.tight_layout()
     _save(fig, name)
     plt.close(fig)
 

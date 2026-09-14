@@ -7,7 +7,6 @@
 4. Удаляет временный reference.docx.
 """
 
-import argparse
 import re
 import subprocess
 import zipfile
