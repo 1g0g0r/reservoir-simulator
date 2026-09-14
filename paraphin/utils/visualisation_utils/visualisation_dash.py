@@ -795,7 +795,11 @@ def _save_html(n, payload, t):
 
 
 def visualize_solution(port: int = 8050, debug: bool = False):
-    """Запуск интерактивной визуализации: http://127.0.0.1:<port>."""
+    """Запуск интерактивной визуализации.
+
+    Чтобы открыть с другого устройства, запустите с host='0.0.0.0', и на другом устройстве откройте http://<IP>:<порт>.
+    Разрешите порт в брандмауэре. 0.0.0.0 открывает доступ всем в локальной сети.
+    """
     try:
         runner = getattr(app, 'run', None) or app.run_server
         runner(host='127.0.0.1', port=port, debug=debug)
