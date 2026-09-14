@@ -22,17 +22,22 @@ sys.path.insert(0, str(ROOT))
 
 # (ключ, файл данных, номер в подписи, стиль линии, подпись варианта)
 ARTICLE_CASES = (
-    ('base',      'Wp=0.2_processed_data.pkl',           1, '-',  'с теплопотерями (Винсом-Вестервельд), Wp = 0.20'),
-    ('noheat',    'Wp=0.2_noheat_processed_data.pkl',    2, '--', 'без теплопотерь, Wp = 0.20'),
+    ('base',      'Wp=0.1_processed_data.pkl',           1, '-',  'с теплопотерями (Винсом-Вестервельд), Wp = 0.10'),
+    ('noheat',    'Wp=0.1_noheat_processed_data.pkl',    2, '--', 'без теплопотерь, Wp = 0.10'),
     ('nowax',     'Wp=0.0_noheat_processed_data.pkl',    3, ':',  'без теплопотерь, Wp = 0'),
-    ('lauwerier', 'Wp=0.2_lauwerier_processed_data.pkl', 4, '-.', 'с теплопотерями (Ловерье), Wp = 0.20'),
+    ('lauwerier', 'Wp=0.1_lauwerier_processed_data.pkl', 4, '-.', 'с теплопотерями (Ловерье), Wp = 0.10'),
     ('heat_nowax', 'Wp=0.0_processed_data.pkl',           5, (0, (6, 1, 1, 1, 1, 1)),
      'с теплопотерями (Винсом-Вестервельд), Wp = 0'),
 )
 
+# Маркеры вариантов на графиках: линии одного цвета различаются типом штриха, но на
+# печати тонкий штрих и точки сливаются, поэтому каждая кривая несет еще и свой маркер.
+MARKERS = {1: 'o', 2: 's', 3: '^', 4: 'D', 5: 'v'}
+LINE_WIDTH = 2.0
+
 # Содержание парафина в вариантах статьи. Не `constants.init_Wp`: `run_cases.py` восстанавливает
 # constants.py после прогона, и там остается значение, под которое статья не считалась.
-ARTICLE_WP = 0.20
+ARTICLE_WP = 0.10
 
 TITLES = {key: title for key, _f, _n, _s, title in ARTICLE_CASES}
 NUMBERS = {key: number for key, _f, number, _s, _t in ARTICLE_CASES}
@@ -251,22 +256,25 @@ FIGURE_CASES = ('base', 'noheat', 'nowax')
 
 # Вся графика статьи черно-белая: журнал печатает в одну краску, цветные иллюстрации
 # оплачивает автор (правило 8.5), а TIF требуется в 256 оттенках серого (правило 8.10).
-# Поля показаны изолиниями с подписанными значениями, а не заливкой: подпись на линии
-# читается сразу, тогда как оттенок серого приходится сверять со шкалой, а на печати
-# в одну краску соседние оттенки еще и сливаются. Варианты на графиках различаются
-# типом линии, но не цветом.
+# Поля показаны изолиниями с подписанными значениями: подпись на линии читается сразу.
+# Там, где изолиний мало или они сбиваются в узкую полосу (насыщенность, давление,
+# множители ФЕС, разности полей), под них кладется заливка оттенками серого - иначе
+# панель почти пуста. Заливка ограничена светлыми тонами (см. `_fill`), чтобы подписи
+# изолиний оставались читаемыми. Варианты на графиках различаются типом линии и маркером,
+# но не цветом.
 #
-# Строки панели 3x3 - моменты времени, столбцы - величины: (ключ поля, подпись, множитель)
+# Строки панели 3x3 - моменты времени, столбцы - величины:
+# (ключ поля, подпись, множитель, заливка)
 MAP_COLUMNS = (
-    ('Temperature', 'T, °C',  1.0),
-    ('Saturation',  'S',      1.0),
-    ('Pressure',    'p, МПа', 1e-6),
+    ('Temperature', 'T, °C',  1.0,  False),
+    ('Saturation',  'S',      1.0,  True),
+    ('Pressure',    'p, МПа', 1e-6, True),
 )
 
 # Карты кольматации: множители проницаемости и пористости
 COLMATATION_COLUMNS = (
-    ('k', 'k/k₀', 1.0),
-    ('m', 'm/m₀', 1.0),
+    ('k', 'k/k₀', 1.0, True),
+    ('m', 'm/m₀', 1.0, True),
 )
 
 PANEL_LETTERS = 'абвгдежзи'
@@ -328,8 +336,34 @@ def _fmt(span: float) -> str:
 
 def _isolines(ax, x_mesh, y_mesh, field, levels, fmt: str) -> None:
     """Изолинии с подписанными значениями - основной способ показать поле в статье."""
-    cs = ax.contour(x_mesh, y_mesh, field.T, levels=levels, colors='k', linewidths=0.7)
-    ax.clabel(cs, inline=True, inline_spacing=2, fontsize=6, fmt=fmt)
+    cs = ax.contour(x_mesh, y_mesh, field.T, levels=levels, colors='k', linewidths=1.0)
+    ax.clabel(cs, inline=True, inline_spacing=2, fontsize=7, fmt=fmt)
+
+
+def _fill(ax, x_mesh, y_mesh, field, vmin: float, vmax: float, n: int = 32):
+    """Заливка поля оттенками серого под изолинии.
+
+    Самый темный тон - 0.55 от белого: на нем еще читаются черные изолинии и их
+    подписи, а на печати в одну краску соседние ступени не сливаются в пятно.
+    """
+    from matplotlib.colors import LinearSegmentedColormap
+    cmap = LinearSegmentedColormap.from_list('light_greys', ['1.0', '0.55'])
+    levels = np.linspace(vmin, vmax, n)
+    return ax.contourf(x_mesh, y_mesh, field.T, levels=levels, cmap=cmap, antialiased=False)
+
+
+def _zero_line(ax, x_mesh, y_mesh, diff, lim: float) -> None:
+    """Жирная нулевая изолиния разности - граница областей разного знака.
+
+    Там, где оба варианта еще не отличаются (разность на уровне округления), contour
+    рисовал бы вместо линии шумную сетку. Значения ниже 0.1% размаха относятся к
+    отрицательной стороне: линия проходит только там, где разность действительно
+    меняет знак.
+    """
+    tol = 1e-3 * lim
+    clean = np.where(np.abs(diff) < tol, -tol, diff)
+    cs = ax.contour(x_mesh, y_mesh, clean.T, levels=[0.0], colors='k', linewidths=1.8)
+    ax.clabel(cs, inline=True, inline_spacing=2, fontsize=7, fmt='%.0f')
 
 
 def _save(fig, name: str) -> None:
@@ -348,6 +382,17 @@ def _save(fig, name: str) -> None:
         gray = img.convert('L')
     gray.save(tif, compression='tiff_lzw')
     fig.savefig(path / f'{name}.png', dpi=200, bbox_inches='tight')
+
+
+def _marker(number: int, n_points: int, color: str = 'k', per_curve: int = 12) -> dict:
+    """Параметры маркера кривой: свой символ у каждого варианта, ~12 маркеров на кривую.
+
+    Смещение первого маркера зависит от номера варианта: у совпадающих кривых маркеры
+    иначе легли бы друг на друга.
+    """
+    step = max(1, n_points // per_curve)
+    return dict(marker=MARKERS[number], markevery=(number * step // 5, step), markersize=6,
+                markerfacecolor='white', markeredgecolor=color, markeredgewidth=1.3)
 
 
 def _wells(ax, x_mesh, y_mesh) -> None:
@@ -379,7 +424,7 @@ def field_panel(data: dict, metrics: dict, columns, name: str, figsize=(7.0, 7.4
     else:
         fig, axes = plt.subplots(3, n_col, figsize=figsize, sharex=True, sharey=True, squeeze=False)
 
-    for col, (field_name, label, mult) in enumerate(columns):
+    for col, (field_name, label, mult, fill) in enumerate(columns):
         stack = [data[field_name][i] * mult for i in idxs]
         vmin = min(f.min() for f in stack)
         vmax = max(f.max() for f in stack)
@@ -392,6 +437,8 @@ def field_panel(data: dict, metrics: dict, columns, name: str, figsize=(7.0, 7.4
         for row, field in enumerate(stack):
             ax = axes[col, row] if transpose else axes[row, col]
             # поле хранится как [i, j] (быстрый индекс - x), contour ждет [y, x]
+            if fill:
+                _fill(ax, x_mesh, y_mesh, field, vmin, vmax)
             _isolines(ax, x_mesh, y_mesh, field, levels, fmt)
             ax.set_xlim(x_mesh[0], x_mesh[-1])
             ax.set_ylim(y_mesh[0], y_mesh[-1])
@@ -464,8 +511,8 @@ def figure_overlay(overlay: dict, name: str = 'fig4') -> None:
         a, b = overlay['base'][field_key][2], overlay['noheat'][field_key][2]
         levels = np.linspace(min(a.min(), b.min()), max(a.max(), b.max()), n_lev)
 
-        cs1 = ax.contour(x_mesh, y_mesh, a.T, levels=levels, colors='k', linewidths=1.2)
-        cs2 = ax.contour(x_mesh, y_mesh, b.T, levels=levels, colors='k', linewidths=1.0,
+        cs1 = ax.contour(x_mesh, y_mesh, a.T, levels=levels, colors='k', linewidths=1.6)
+        cs2 = ax.contour(x_mesh, y_mesh, b.T, levels=levels, colors='k', linewidths=1.3,
                          linestyles='dashed')
         ax.clabel(cs1, levels[1::3], inline=True, fontsize=7, fmt='%.0f' if col == 0 else '%.2f')
 
@@ -479,8 +526,8 @@ def figure_overlay(overlay: dict, name: str = 'fig4') -> None:
                 va='top', bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
         ax.tick_params(labelsize=8)
 
-    handles = [plt.Line2D([], [], color='k', lw=1.4, label='1'),
-               plt.Line2D([], [], color='k', lw=1.2, ls='--', label='2')]
+    handles = [plt.Line2D([], [], color='k', lw=1.6, label='1'),
+               plt.Line2D([], [], color='k', lw=1.3, ls='--', label='2')]
     axes[1].legend(handles=handles, title='вариант', fontsize=9, title_fontsize=9,
                    loc='lower left', framealpha=1.0)
     _save(fig, name)
@@ -505,15 +552,17 @@ def figure_difference(overlay: dict, times, name: str = 'fig7') -> None:
     for row, (field_key, label, _digits) in enumerate(specs):
         diffs = [overlay['base'][field_key][i] - overlay['noheat'][field_key][i] for i in range(3)]
         lim = max(abs(d).max() for d in diffs)
-        # Уровни симметричны относительно нуля и общие на все три момента времени
+        # Уровни симметричны относительно нуля и общие на все три момента времени;
+        # нулевой уровень исключен - его рисует `_zero_line`
         levels = np.linspace(-lim, lim, 9)[1:-1]
+        levels = levels[np.abs(levels) > 1e-9 * lim]
         fmt = _fmt(2.0 * lim)
 
         for col, diff in enumerate(diffs):
             ax = axes[row, col]
+            _fill(ax, x_mesh, y_mesh, diff, -lim, lim)
             _isolines(ax, x_mesh, y_mesh, diff, levels, fmt)
-            # Нулевая изолиния - жирнее: она отделяет области разного знака разности
-            ax.contour(x_mesh, y_mesh, diff.T, levels=[0.0], colors='k', linewidths=1.3)
+            _zero_line(ax, x_mesh, y_mesh, diff, lim)
             ax.set_xlim(x_mesh[0], x_mesh[-1])
             ax.set_ylim(y_mesh[0], y_mesh[-1])
             _wells(ax, x_mesh, y_mesh)
@@ -546,10 +595,11 @@ def figure_difference_compact(overlay: dict, times, name: str = 'fig8') -> None:
         diff = overlay['base'][field_key][1] - overlay['noheat'][field_key][1]
         lim = abs(diff).max()
         levels = np.linspace(-lim, lim, 9)[1:-1]
+        levels = levels[np.abs(levels) > 1e-9 * lim]
         ax = axes[col]
+        _fill(ax, x_mesh, y_mesh, diff, -lim, lim)
         _isolines(ax, x_mesh, y_mesh, diff, levels, _fmt(2.0 * lim))
-        # Нулевая изолиния - жирнее: она отделяет области разного знака разности
-        ax.contour(x_mesh, y_mesh, diff.T, levels=[0.0], colors='k', linewidths=1.3)
+        _zero_line(ax, x_mesh, y_mesh, diff, lim)
         ax.set_xlim(x_mesh[0], x_mesh[-1])
         ax.set_ylim(y_mesh[0], y_mesh[-1])
         _wells(ax, x_mesh, y_mesh)
@@ -582,8 +632,9 @@ def figure_cumulative(cases: dict, name: str = 'fig5') -> None:
             continue
         m = cases[key]
         ax.plot(m['time'], m['Q_oil_curve'], linestyle=style, color='k',
-                linewidth=1.4, label=str(number))
-        ax.plot(m['time'][-1], m['Q_oil_curve'][-1], 'o', color='k', markersize=4.5)
+                linewidth=LINE_WIDTH, label=str(number), **_marker(number, len(m['time'])))
+        ax.plot(m['time'][-1], m['Q_oil_curve'][-1], MARKERS[number], color='k',
+                markersize=7, markerfacecolor='k')
 
     ax.set_xlabel('t, сут', fontsize=10)
     ax.set_ylabel('Q$_о$, м$^3$', fontsize=10)
@@ -612,10 +663,12 @@ def figure_pore(data: dict, metrics: dict, name: str = 'fig6') -> None:
     t = metrics['t']
 
     fig, ax = plt.subplots(figsize=(7.0, 3.6))
-    ax.plot(r * 1e6, fi_0, '-', color='0.45', linewidth=1.8,
+    ax.plot(r * 1e6, fi_0, '-', color='0.45', linewidth=2.4,
             label='начальная')
-    ax.plot(r * 1e6, fi[i1], '--', color='k', linewidth=1.4, label=f't = {t[0]:.0f} сут')
-    ax.plot(r * 1e6, fi[i3], '-.', color='k', linewidth=1.4, label=f't = {t[2]:.0f} сут')
+    ax.plot(r * 1e6, fi[i1], '--', color='k', linewidth=LINE_WIDTH, label=f't = {t[0]:.0f} сут',
+            **_marker(1, len(r)))
+    ax.plot(r * 1e6, fi[i3], '-.', color='k', linewidth=LINE_WIDTH, label=f't = {t[2]:.0f} сут',
+            **_marker(2, len(r)))
 
     ax.set_xlabel('r, мкм', fontsize=10)
     ax.set_ylabel('φ', fontsize=11)
@@ -643,10 +696,11 @@ def figure_comparison(cases: dict, name: str = 'fig2') -> None:
         if key not in cases or key not in FIGURE_CASES:
             continue
         m = cases[key]
-        ax.plot(m['time'], m['q_oil'], linestyle=style, color='k', linewidth=1.4,
-                label=str(number))
+        ax.plot(m['time'], m['q_oil'], linestyle=style, color='k', linewidth=LINE_WIDTH,
+                label=str(number), **_marker(number, len(m['time'])))
         # Обводненность - та же линия серой: две группы кривых не должны смешиваться
-        ax2.plot(m['time'], m['eta'], linestyle=style, color='0.55', linewidth=1.1)
+        ax2.plot(m['time'], m['eta'], linestyle=style, color='0.55', linewidth=LINE_WIDTH - 0.4,
+                 **_marker(number, len(m['time']), color='0.55'))
 
     ax.set_xlabel('t, сут', fontsize=10)
     ax.set_ylabel('q$_о$, м$^3$/сут', fontsize=10)

@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from time import perf_counter
 
+from make_figures import main as main_figures
+
 ROOT = Path(__file__).resolve().parent.parent
 CONSTANTS = ROOT / 'paraphin' / 'constants.py'
 
@@ -57,6 +59,7 @@ def main() -> None:
             result = subprocess.run([sys.executable, 'start.py'], cwd=ROOT)
             print(f'--- вариант {number} занял {perf_counter() - tt:.0f} с, код возврата {result.returncode}',
                   flush=True)
+        main_figures()
     finally:
         CONSTANTS.write_text(original, encoding='utf-8')
         print('\nconstants.py восстановлен в исходный вид.')
