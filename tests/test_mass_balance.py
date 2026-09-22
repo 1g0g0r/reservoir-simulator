@@ -6,14 +6,14 @@
 """
 import numpy as np
 
-from paraphin.constants import Nx, Ny, Pw, Po, rw, day_to_sec, bar_to_pa
+from paraphin.constants import Nx, Ny, Pw, Po, rw, day_to_sec, bar_to_pa, ro_o, ro_p, volume
 from paraphin.solver import Solver
 
 # Время, а не число шагов, потому что dt в constants.py меняют.
 T_TEST = 100.0 * day_to_sec
 
 # Температура закачки берется не из constants.py, а заведомо ниже точки помутнения (при штатных
-# init_Wp = 0.05, MW = 350, M_o = 250 она равна ~15 C по (7.1)-(7.2)). Иначе парафин не выпадает,
+# init_Wp = 0.20, MW = 410, M_o = 250 она равна ~41 C по (7.1)-(7.2)). Иначе парафин не выпадает,
 # блок кольматации не вызывается вовсе, и проверки порового баланса и гонок в prange становятся
 # пустыми: проверять было бы нечего.
 T_INJECTION = 5.0
@@ -82,6 +82,42 @@ def test_pore_volume_balance():
     assert solver.m.min() < solver.m.max(), 'пористость не изменилась: кольматация не запускалась'
     assert worst_m < 1e-10, f'сумма q_p1 + q_p2 разошлась с убылью пористости: {worst_m:.3e}'
     assert solver.fi.min() >= 0.0, f'функция пор по размерам ушла в минус: {solver.fi.min():.3e}'
+
+
+def test_paraffin_mass_balance():
+    """Глобальный баланс массы парафина: начальная масса = в фазе + осело + добыто.
+
+    Осевший парафин складывается из стоков `wp_equation` теми же множителями, что стоят в ней:
+    осаждение q_p1 изымает чистый парафин (ro_p), блокирование q_p2 - смесь состава фазы
+    (ro_o*w). Добытый - через дебит нефтяной фазы добывающей скважины и долю парафина в ее ячейке
+    на начало шага, как в `_wells_loop`. Закачивается только вода, приток парафина извне нулевой.
+
+    Схема консервативна, единственный неконсервативный элемент - зажим доли в нуле в `wp_equation`:
+    он срабатывает, когда сток за шаг превышает запас, и создает массу. Именно его ловит проверка,
+    вместе с лагом стоков (q_p1, q_p2 прошлого слоя вместо нового).
+    """
+    solver = _make_solver()
+    producer = solver.wells[solver._producer]
+    i_p, j_p = producer.i, producer.j
+
+    def in_place():
+        return (solver.m * (1.0 - solver.S) * (solver.Wp + solver.Wps)).sum() * ro_o * volume
+
+    mass_0 = in_place()
+    deposited, produced, t = 0.0, 0.0, 0.0
+    while t < T_TEST:
+        step_dt = solver.dt
+        w_sum = solver.Wp + solver.Wps  # доли на начало шага - с ними считаются стоки и добыча
+        t += step_dt
+        solver.upd_time_step(t)
+
+        # После обмена слоев qp1, qp2 - те, что дали убыль пористости на этом шаге
+        deposited += ((ro_p * solver.qp1 + ro_o * w_sum * solver.qp2) * volume).sum() * step_dt
+        produced += -producer.q[0] * ro_o * w_sum[i_p, j_p] * step_dt
+
+    assert deposited > 0.0, 'парафин не осел: баланс ничего не проверяет'
+    residual = abs(mass_0 - in_place() - deposited - produced) / mass_0
+    assert residual < 1e-8, f'баланс массы парафина не сходится: относительная невязка {residual:.3e}'
 
 
 def test_oil_phase_composition():

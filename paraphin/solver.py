@@ -282,9 +282,9 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
             # ---решение задачи кольматации\суффозии---
             if _paraphin:
                 # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и коэффициента блокирования
-                calc_velocities_h(i, j, S, _Um_r2, Wps, mu_o, h_sloy, Ur, new_h, new_Ur, new_Ub, dt)
+                calc_velocities_h(i, j, S, T, _Um_r2, Wps, mu_o, h_sloy, Ur, new_h, new_Ur, new_Ub, dt)
                 # Обновление функции пор по размерам, скоростей потери порового объема, пористости, проницаемости
-                calc_qp_m_k_fi(i, j, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma[i], b_tdma[i], new_qp1, new_qp2, new_fi, new_k, new_m, dt)
+                calc_qp_m_k_fi(i, j, S, Wp, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma[i], b_tdma[i], new_qp1, new_qp2, new_fi, new_k, new_m, dt)
 
             # ---решение гидродинамики---
             qo_out, t_out = flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wo, Wp, Wps, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out)
@@ -294,10 +294,13 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
             cells_T_eq[i, j] += src_T[i, j]
 
             saturation_equation(i, j, S, m, cells_S_eq, new_m, new_s, dt)
-            wp_equation(i, j, qp1, qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_s, new_wp, new_wps, dt, _paraphin)
+            # Стоки q_p1, q_p2 - нового слоя: именно они дают убыль пористости m - new_m на этом шаге. С qp1, qp2
+            # прошлого слоя парафин уходил из фазы на шаг позже, чем терялся поровый объем.
+            wp_equation(i, j, new_qp1, new_qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_s, new_wp, new_wps, dt, _paraphin)
             psi = temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
 
             # Три ограничения на шаг по числу Куранта: по насыщенности, по переносу парафина и по температуре.
+            # Осаждение шаг не ограничивает: его сток зажат подводом взвеси в `calc_qp_m_k_fi`.
             q_out = cells_Q_out[i, j]
             if q_out > 1e-30: # Скважинная часть добирается в `_calc_dt`.
                 dt_cells = min(dt_cells, CFL_target * m[i, j] * volume / (max_dfw * q_out))

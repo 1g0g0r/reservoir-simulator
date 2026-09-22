@@ -43,7 +43,9 @@ def test_fi_positive_under_strong_blocking():
     _update_fi(new_fi, fi, Ur, Ub, 0, 0, a, b, dt)
 
     assert new_fi.min() >= 0.0
-    assert new_fi[0, 0, :n_pass].max() < 1e-3 * fi_0.max()
+    # Неявное блокирование делит узел на (1 + b*dt); сверху в последний блокируемый узел еще притекает
+    # из сужающихся капилляров не больше Куранта (0.3) от их fi - отсюда множитель 1.3.
+    assert new_fi[0, 0, :n_pass].max() < 1.3 * fi_0.max() / (1.0 + 1e3)
 
 
 if __name__ == '__main__':

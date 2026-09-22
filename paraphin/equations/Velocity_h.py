@@ -1,19 +1,22 @@
 """Вычисление скоростей и толщины осадочного слоя в ячейке."""
+import numpy as np
 from numba import njit
 
 from paraphin import r1, r4, cbrt_r1, n_pass
-from paraphin.constants import (data_type, Nr, D, g, betta, Diff, Lk, Cf, S_max, Delta, ro_p,
-                                min_Wps_bound, suffusion)
+from paraphin.constants import (data_type, Nr, D, g, betta, Lk, Cf, S_max, Delta, ro_p,
+                                min_Wps_bound, suffusion, k_B)
 
 
 b_D_3 = 6.0 * betta / D / D / D
 cf_D2 = Cf * D * D * g / 18.0
-Diff_2 = 2.0 * Diff * Diff / Lk
+# Броуновская диффузия частицы по Стоксу-Эйнштейну: D_p = k_B*T/(3*pi*mu*d). От ячейки зависят только T и
+# mu_o, остальное - в множителе. В формулу сужения диффузия входит как 2*D_p^2/Lk (см. `calc_velocities_h`).
+diff_coef = k_B / (3.0 * np.pi * D)
 So_max = 1.0 - S_max
 
 
 @njit(cache=True)
-def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
+def calc_velocities_h(i, j, S, T, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
     """Скорости блокирования и сужения капилляров и толщина осадочного слоя в ячейке.
 
     Узкие капилляры частица затыкает целиком (Ub), в широкие проходит и оседает на стенке,
@@ -25,6 +28,13 @@ def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_new,
     ub = b(r)*fi пропорциональна функции пор, и в `_update_fi` слагаемое блокирования берется
     неявно (b уходит на диагональ прогонки). Иначе при больших b*dt функция `fi` уходит в минус,
     и «безусловная устойчивость» неявной схемы положительности не гарантирует.
+
+    Скорость сужения - формула типа Левека для осаждения из потока в трубе,
+    ur = -R*(2*um*D_p^2/(r*Lk))^(1/3): D_p - коэффициент броуновской диффузии частиц, он считается по
+    Стоксу-Эйнштейну из температуры и вязкости нефти ячейки (при 20 C и d = 10 мкм это ~2e-15 м^2/с).
+    Прежняя константа 1e-19 была на четыре порядка ниже и делала осаждение кинетически незаметным;
+    с физическим D_p оно лимитируется подводом взвеси - обе скорости зажимает `limiter` в
+    `calc_qp_m_k_fi`, чтобы за шаг не осело больше, чем есть в фазе.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
@@ -38,10 +48,12 @@ def calc_velocities_h(i, j, S, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_new,
 
         # Оба множителя зависят только от ячейки, зависимость от радиуса вынесена в константные массивы.
         # Коэффициент блокирования: So*wps*b_D_3 * um*r^2, где um = um_r2*r^2, то есть um*r^2 = um_r2 * r^4.
-        # Скорость сужения: -So*wps * (um*Diff_2/r)^(1/3), где um*Diff_2/r = um_r2*Diff_2*r,
-        # то есть корень распадается на cbrt(um_r2*Diff_2)*cbrt(r). Было Nr вызовов pow на ячейку, стало один.
+        # Скорость сужения: -So*wps * (um*diff_2/r)^(1/3), где um*diff_2/r = um_r2*diff_2*r,
+        # то есть корень распадается на cbrt(um_r2*diff_2)*cbrt(r). Было Nr вызовов pow на ячейку, стало один.
+        d_p = diff_coef * (T[i, j] + 273.15) / mu_o[i, j]  # диффузия частиц по Стоксу-Эйнштейну, [м^2/с]
+        diff_2 = 2.0 * d_p * d_p / Lk
         ub_coef = So * wps * b_D_3 * um_r2
-        ur_coef = -So * wps * (um_r2 * Diff_2) ** (1.0 / 3.0)
+        ur_coef = -So * wps * (um_r2 * diff_2) ** (1.0 / 3.0)
 
         # Блокирование - только узкие капилляры (r < r_pass), сужение - только широкие
         for ij in range(n_pass):
@@ -60,7 +72,7 @@ def u_r(ur_narrowing: data_type, So: data_type, um_r2: data_type, r: data_type,
         h: data_type, mu: data_type) -> data_type:
     """Скорость изменения радиуса капилляра, [м/с]: сужение минус вынос.
 
-    Сужение (кольматация) приходит готовым в `ur_narrowing`: множитель -So*wps*cbrt(um_r2*Diff_2)
+    Сужение (кольматация) приходит готовым в `ur_narrowing`: множитель -So*wps*cbrt(um_r2*diff_2)
     от радиуса не зависит и считается один раз на ячейку, здесь остается только умножение на
     cbrt(r) - см. `calc_velocities_h`.
 

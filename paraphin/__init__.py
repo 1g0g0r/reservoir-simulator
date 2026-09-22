@@ -15,16 +15,18 @@ from paraphin.constants import data_type, Nx, Ny, Nr, D, gamma, r_m, sigma_r
 
 
 def _drop_stale_numba_cache() -> None:
-    """Сброс дискового кеша numba при правке констант.
+    """Сброс дискового кеша numba при правке любого исходника пакета.
 
     Горячие функции помечены njit(cache=True) - без этого компиляция всего графа занимает 25 секунд
     при каждом запуске, что больше самого расчета. Но numba инвалидирует кеш по mtime файла с самой
-    функцией, а значения из constants.py вшиваются в машинный код как константы: поменяв Nx или dt,
-    без этой проверки мы считали бы по старой сетке. Поэтому кеш сбрасывается по хешу констант.
+    функцией, а все, что она вызывает, вшивается в ее машинный код: значения из constants.py - как
+    литералы, njit-функции других модулей - телом. Поменяв Nx или dt, без этой проверки мы считали бы
+    по старой сетке; поправив `calc_qp_m_k_fi`, гоняли бы старое тело внутри кешированной
+    `_equations_loop` из solver.py (проверено: правка не подхватывалась, пока не сброшен кеш).
+    Поэтому кеш сбрасывается по хешу всех .py пакета.
     """
     pkg = Path(__file__).parent
-    digest = hashlib.md5(b''.join((pkg / name).read_bytes()
-                                  for name in ('constants.py', '__init__.py'))).hexdigest()
+    digest = hashlib.md5(b''.join(path.read_bytes() for path in sorted(pkg.rglob('*.py')))).hexdigest()
     stamp = pkg / '__pycache__' / 'constants_hash.txt'
     if stamp.is_file() and stamp.read_text(encoding='ascii') == digest:
         return None

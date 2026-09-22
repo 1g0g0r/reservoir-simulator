@@ -3,10 +3,11 @@ from numba import njit
 
 from paraphin import r1, r2, r3, r4, r5, r6, n_pass, dr_cv
 from paraphin.constants import Nr, init_m, init_k, min_Wps_bound
+from paraphin.equations.Wp_balance import _RO_P_RO_O  # тот же множитель стока q_p1, что в `wp_equation`
 
 
 @njit(cache=True)
-def calc_qp_m_k_fi(i, j, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma,
+def calc_qp_m_k_fi(i, j, S, Wp, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma,
                    new_qp1, new_qp2, new_fi, new_k, new_m, dt) -> None:
     """Скорости потери порового объема, пористость, проницаемость и функция пор по размерам.
 
@@ -27,6 +28,14 @@ def calc_qp_m_k_fi(i, j, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_
     Сумма нормируется на фактическое изменение пористости: q_p1 + q_p2 = (m - m^new)/dt. Этим
     тождеством связаны (9), (11) и (12), и на него опираются уравнения насыщенности и парафина.
 
+    Осаждение ограничено подводом: за шаг из нефтяной фазы не может уйти больше взвеси, чем в ней
+    есть, m*S_o*w_ps. Скорости `Ur`, `Ub` считаются по взвеси на начало шага и с физическим
+    (стоксовским) коэффициентом диффузии на порядки быстрее переноса, так что без ограничителя
+    `wp_equation` зажимала бы долю в нуле и создавала массу. Множитель `limiter` уменьшает обе
+    скорости в прогонке, поэтому цепочка «скорости -> fi -> m -> q_p -> сток» остается замкнутой:
+    осаждение в этом режиме лимитируется переносом, а не кинетикой. Ради той же замкнутости `m`
+    и `k` берутся от `new_fi` этого же шага, а не от `fi` предыдущего.
+
     a_tdma, b_tdma: numpy.ndarray(Nr)
         Прогоночные коэффициенты. Своя строка на каждый i: один общий буфер на все ячейки давал
         гонку в prange - потоки затирали друг другу коэффициенты, и fi считалась по мусору.
@@ -34,13 +43,22 @@ def calc_qp_m_k_fi(i, j, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_
     Описание остальных аргументов - в докстринге пакета `paraphin.equations`.
     """
     if Wps[i, j] > min_Wps_bound:
-        # Вычисление изменения пористости и проницаемости пласта
-        int_r_ur_fi, int_r2_ub, r2fi, r4fi = _calculate_integrals(fi, Ur, Ub, i, j)
-        new_m[i, j] = init_m * r2fi / integr_r2_fi0
-        new_k[i, j] = init_k * r4fi / integr_r4_fi0
-
+        int_r_ur_fi, int_r2_ub, r2fi, _ = _calculate_integrals(fi, Ur, Ub, i, j)
         qp1 = max(-2.0 * m[i, j] * int_r_ur_fi / r2fi, 0.0)
         qp2 = max(m[i, j] * int_r2_ub / r2fi, 0.0)
+
+        # Ограничение подводом: сток парафина из фазы за шаг не больше запаса взвеси
+        sink = _RO_P_RO_O * qp1 + (Wp[i, j] + Wps[i, j]) * qp2
+        avail = m[i, j] * (1.0 - S[i, j]) * Wps[i, j] / dt
+        limiter = avail / sink if sink > avail else 1.0
+        qp1 *= limiter
+        qp2 *= limiter
+
+        # Обновление функции пор по размерам, по ней - пористость и проницаемость
+        _update_fi(new_fi, fi, Ur, Ub, i, j, a_tdma, b_tdma, dt, limiter)
+        _, _, r2fi_new, r4fi_new = _calculate_integrals(new_fi, Ur, Ub, i, j)
+        new_m[i, j] = init_m * r2fi_new / integr_r2_fi0
+        new_k[i, j] = init_k * r4fi_new / integr_r4_fi0
 
         # Нормировка на фактическую убыль пористости: dm/dt = -(q_p1 + q_p2) по построению (9)
         dm_dt = (m[i, j] - new_m[i, j]) / dt
@@ -50,13 +68,14 @@ def calc_qp_m_k_fi(i, j, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_
             qp1 *= scale
             qp2 *= scale
         else:
+            # Нечему оседать (Ur = Ub = 0, например при S_o = S_o*): fi не меняется, а пересчет m и k из нее
+            # дает дрейф ~1e-12 от округления. Тождество q_p1 + q_p2 = (m - m^new)/dt должно быть точным.
             qp1, qp2 = 0.0, 0.0
+            new_m[i, j] = m[i, j]
+            new_k[i, j] = k[i, j]
 
         new_qp1[i, j] = qp1
         new_qp2[i, j] = qp2
-
-        # Обновление функции пор по размерам
-        _update_fi(new_fi, fi, Ur, Ub, i, j, a_tdma, b_tdma, dt)
     else:
         # Ниже порога кольматации поля не меняются: переносим текущие значения, чтобы new_*
         # оставались согласованы с текущим слоем (new_m читает `saturation_equation`).
@@ -108,7 +127,7 @@ def _calculate_integrals(fi, Ur, Ub, i: int, j: int):
 
 
 @njit(cache=True)
-def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
+def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt, limiter=1.0):
     """Обновление функции пор по размерам по неявной схеме методом прогонки.
 
     Поток через грань ij+1/2 расщеплен по знаку скорости:
@@ -125,6 +144,8 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     Поток через грань делится на ширину контрольного объема узла `dr_cv[ij]`, а не на общий шаг:
     схема не привязана к равномерной сетке, сохраняется взвешенная сумма fi*dr_cv.
 
+    `limiter` - общий множитель к обеим скоростям (ограничение подводом взвеси, см. `calc_qp_m_k_fi`).
+
     На правой границе (r = r_max) соседа нет, что равносильно условию fi = 0: капилляров шире
     r_max нет, а те, что на r_max, сужаются внутрь и ничем не замещаются - поэтому правый узел
     проседает первым. Это свойство модели, а не схемы: на сетке в 100 раз мельче падение то же.
@@ -132,15 +153,15 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt):
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     # Вычисление прогоночных коэффициентов
-    d = 1.0 / dt + abs(Ur[i, j, 0]) / dr_cv[0] + Ub[i, j, 0]
-    e = min(Ur[i, j, 1], 0.0) / dr_cv[0]
+    d = 1.0 / dt + (abs(Ur[i, j, 0]) / dr_cv[0] + Ub[i, j, 0]) * limiter
+    e = min(Ur[i, j, 1], 0.0) / dr_cv[0] * limiter
     a_tdma[0] = -e / d
     b_tdma[0] = fi[i, j, 0] / dt / d
 
     for ij in range(1, Nr):
-        c = -max(Ur[i, j, ij - 1], 0.0) / dr_cv[ij]
-        d = 1.0 / dt + abs(Ur[i, j, ij]) / dr_cv[ij] + Ub[i, j, ij]
-        e = min(Ur[i, j, ij + 1], 0.0) / dr_cv[ij] if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
+        c = -max(Ur[i, j, ij - 1], 0.0) / dr_cv[ij] * limiter
+        d = 1.0 / dt + (abs(Ur[i, j, ij]) / dr_cv[ij] + Ub[i, j, ij]) * limiter
+        e = min(Ur[i, j, ij + 1], 0.0) / dr_cv[ij] * limiter if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
         denominator = c * a_tdma[ij - 1] + d
         a_tdma[ij] = -e / denominator
         b_tdma[ij] = (fi[i, j, ij] / dt - c * b_tdma[ij - 1]) / denominator
