@@ -62,7 +62,8 @@ def tables(results: dict) -> dict:
         rows = he2020.summary(results['he2020'])
         out['HE'] = _table(['Зависимость k(m)', 'СКО lg(k/k₀)', 'СКО k/k₀', 'точек вне досягаемости'],
                            [(n, _f(e), _f(l), f'{m} из {tot}') for n, e, l, m, tot in rows])
-    out['SUMMARY'] = summary_table(results)
+    if results:
+        out['SUMMARY'] = summary_table(results)
     if 'pore_models' in results:
         rows = pore_models.summary(results['pore_models'])
         out['PORE'] = _table(['Модель порового пространства', 'СКО k/k₀', 'СКО lg(k/k₀)', 'подобрано параметров',
@@ -125,10 +126,14 @@ def main():
         print(f'=== {name} ({mode}) ===', flush=True)
         results[name] = json.loads(json.dumps(module.run(mode), default=float))  # ключи - строки, как после чтения
         print(f'=== {name}: {time.time() - t0:.0f} с ===', flush=True)
-    try:
-        out = tables(results)
-    except KeyError as err:  # results/*.json прежнего формата: пересчитать модуль
-        raise SystemExit(f'в results нет поля {err}: пересчитайте модуль без --plot')
+    fresh = {}
+    for name, res in results.items():  # results/*.json прежнего формата - без таблиц, с подсказкой
+        try:
+            tables({name: res})
+            fresh[name] = res
+        except (KeyError, TypeError) as err:
+            print(f'{name}: в results нет поля {err} - таблицы пропущены, пересчитайте модуль без --plot')
+    out = tables(fresh)
     path = RESULTS / 'tables.json'
     old = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {}
     old.update(out)
