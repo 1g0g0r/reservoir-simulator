@@ -72,6 +72,26 @@ def lsq_kin(fam, x):
     return kin
 
 
+# Общий набор кинетики (d_p, предел прочности отложения, скорость выноса) и своя вязкость каждой нефти: у обеих
+# принята 3 мПа*с (Ring et al.), не измерена - множитель броуновской диффузии у каждой нефти свой (D ~ 1/mu)
+VISC_X0 = (-4.806, 1.54, -3.527, 0.0, 0.0)  # lg d_p, tau_кр, lg скорость выноса, lg множитель опыта 1 и 2
+VISC_LO, VISC_HI = (-5.7, 0.1, -6.0, -3.0, -3.0), (-4.3, 5.0, -1.0, 3.0, 3.0)
+VISC_STEP = (0.02, 0.05, 0.05, 0.05, 0.05)
+
+
+def visc_kin(x, n):
+    return {'SNOW_A': 0.0, 'D_CRYST': float(10 ** x[0]), 'ENT_TAU': float(x[1]), 'ENT_RATE': float(10 ** x[2]),
+            'DIFF_MULT': float(10 ** x[3 if n == 1 else 4])}
+
+
+def fit_visc():
+    jobs_of = lambda x: [job('visc', n, ENTRAINMENT, visc_kin(x, n)) for n in (1, 2)]
+    resid = lambda res: np.concatenate([k_residuals(r, EXPS[n]['k_pv']) for r, n in zip(res, (1, 2))])
+    x, best, _ = lsq('пучок + вынос, общая кинетика и своя вязкость нефти', jobs_of, resid, VISC_X0, VISC_STEP,
+                     VISC_LO, VISC_HI)
+    return x, dict(zip((1, 2), best))
+
+
 def fit_lsq(fam, exps=(1, 2), x0=None):
     """least_squares семейства по опытам exps (оба - общий набор). Возвращает x, прогоны по опытам, СКО."""
     f = LSQ_FAMILIES[fam]
@@ -202,9 +222,19 @@ def run(mode: str = 'full') -> dict:
         print(f'{LSQ_FAMILIES[fam]["title"]}: общий {e["joint"]["kin"]} СКО {e["joint"]["rms"][1]:.3f} / '
               f'{e["joint"]["rms"][2]:.3f}; свой {e["own1"]["rms"][1]:.3f} / {e["own2"]["rms"][2]:.3f}; '
               f'перекрестно 1->2 {e["cross"]["1to2"]:.3f}, 2->1 {e["cross"]["2to1"]:.3f}', flush=True)
+    # общая кинетика и своя вязкость каждой нефти
     if mode == 'full':
-        save_params('sutton_roberts_lsq', {fam: {k: out['lsq'][fam][k]['x'] for k in ('joint', 'own1', 'own2')}
-                                           for fam in LSQ_FAMILIES})
+        xv, runs_v = fit_visc()
+    else:
+        xv = p_lsq['visc']
+        runs_v = dict(zip((1, 2), run_many([job('visc', n, ENTRAINMENT, visc_kin(xv, n)) for n in (1, 2)])))
+    out['visc'] = dict(x=xv, kin={n: visc_kin(xv, n) for n in (1, 2)}, rms={n: rms(runs_v[n], n) for n in (1, 2)},
+                       curves=runs_v)
+    print(f'общая кинетика + своя вязкость: {out["visc"]["kin"]}, СКО {out["visc"]["rms"][1]:.3f} / '
+          f'{out["visc"]["rms"][2]:.3f}', flush=True)
+    if mode == 'full':
+        save_params('sutton_roberts_lsq', dict({fam: {k: out['lsq'][fam][k]['x'] for k in ('joint', 'own1', 'own2')}
+                                                for fam in LSQ_FAMILIES}, visc=xv))
     for name, f in (('пучок + вынос', ent), ('глубинная фильтрация', filt)):
         b = f['best']
         print(f'{name}, общий набор {b["params"]}: СКО {b["rms1"]:.3f} / {b["rms2"]:.3f}; свой на опыт: '
@@ -228,6 +258,10 @@ def summary(out) -> list:
         rows.append((f'{name}, общий набор', f['best']['rms1'], f['best']['rms2'], 'оба опыта'))
         rows.append((f'{name}, свой набор на опыт', g(f['own'], 1)['rms1'], g(f['own'], 2)['rms2'], 'каждый опыт'))
         rows.append((f'{name}, перекрестный прогноз', f['cross']['2to1'], f['cross']['1to2'], 'по другому опыту'))
+    if 'visc' in out:
+        v = out['visc']
+        rows.append(('пучок + вынос, общая кинетика и своя вязкость нефти', g(v['rms'], 1), g(v['rms'], 2),
+                     'оба опыта (множитель диффузии - у каждого)'))
     for fam, e in out.get('lsq', {}).items():
         name = LSQ_FAMILIES[fam]['title']
         rows.append((f'{name}, общий набор', g(e['joint']['rms'], 1), g(e['joint']['rms'], 2), 'оба опыта'))
@@ -249,15 +283,19 @@ def plot(out):
         series = [(g(out['legacy'], n), '-', 'прежняя модель'),
                   (g(out['entrainment']['curves'], n), '-.', 'пучок + вынос (общий набор)'),
                   (g(out['filtration']['own_curves'], n), (0, (5, 1, 1, 1)), 'глубинная фильтрация (свой набор)')]
+        if 'lsq' in out and 'rate_entrainment' in out['lsq']:
+            e = out['lsq']['rate_entrainment']
+            series += [(g(e[f'own{n}']['curves'], n), (0, (1, 1)), 'пучок + вынос, least_squares (свой набор)')]
+        if 'visc' in out:
+            series += [(g(out['visc']['curves'], n), '--', 'пучок + вынос, общая кинетика, своя вязкость')]
         if 'lsq' in out and 'thermal_network' in out['lsq']:
             e = out['lsq']['thermal_network']
-            series += [(g(e['joint']['curves'], n), '--', 'сеть пор и горл, горячий вход (общий набор)'),
-                       (g(e[f'own{n}']['curves'], n), (0, (1, 1)), 'сеть пор и горл, горячий вход (свой набор)')]
+            series += [(g(e[f'own{n}']['curves'], n), (0, (3, 1, 1, 1, 1, 1)), 'сеть пор и горл, горячий вход')]
         for r, style, label in series:
             ax.plot(r['pv'], r['k'], ls=style, label=f'{label}: {rms(r, n):.3f}')
-        for name, pts in EXPS[n]['models'].items():
+        for (name, pts), ls in zip(EXPS[n]['models'].items(), (':', (0, (4, 2)))):
             x, y = np.array(pts).T
-            ax.plot(x, y, ':', lw=1.0, color='0.4',
+            ax.plot(x, y, ls=ls, lw=1.0, color='0.4',
                     label=f'{name}: {rms_k({"pv": x.tolist(), "k": y.tolist(), "plugged": None}, EXPS[n]["k_pv"]):.3f}')
         ax.set_title(f'опыт {n}', fontsize=9)
         ax.set_xlabel('прокачано, PV')

@@ -365,7 +365,7 @@ sum Dep_wax/ro_p + (Dep_af + Dep_r)/ro_asph_dep = m0 - m.
 асфальтенов и смол (1e-16 фактически), тождества пористости и осадка, отсутствие гонок (два прогона
 побитово), устойчивость геля и режим 'single' против эталона. `demo_composition.py` - так же.
 
-## Кинетика осаждения (флаги `wax_kinetics`, `wall_transport`, `entrainment`, `asph_aggregation`, `snowball`, `adsorption`, `wettability`, `deposit_aging`, `thermal_nonequilibrium`, `deposition_model`, `perm_model`)
+## Кинетика осаждения (флаги `wax_kinetics`, `wall_transport`, `entrainment`, `asph_aggregation`, `snowball`, `adsorption`, `wettability`, `deposit_aging`, `thermal_nonequilibrium`, `pore_network`, `deposition_model`, `perm_model`)
 
 Постановка с формулами и источниками - `docs/кинетика_осаждения.md`, сравнение с опытами - `experiments/`
 (`сравнение_с_опытами.md`). Все флаги выключены по умолчанию и требуют `wax_components`; адсорбция и агрегация -
@@ -396,6 +396,17 @@ sum Dep_wax/ro_p + (Dep_af + Dep_r)/ro_asph_dep = m0 - m.
 Скорость адсорбции растет с T/mu (Уилки-Чанг). Удержанные смолы и асфальтены в пучке не сужают каналы, а
 умножают k на функцию повреждения (Civan) - баланс массы исключает равномерный слой (разд. 13.7 описания).
 LTNE (`equations/Thermal_ltne.py`) - температура породы в `kx[..., KX_TS]`, обмен точной экспонентой за шаг.
+Форма кинетики адсорбции - runtime `ADS_FILM` (0 - со стороны твердой фазы, 1 - пленочная, неявный Эйлер).
+Диаметр кристалла в ядре - runtime `D_CRYST` (по умолчанию `D`: порог блокирования d/(2*gamma), объем пробки
+`plug_cv*(d/D)^3`), множитель броуновской диффузии - runtime `DIFF_MULT` поверх compile-time `diff_mult`: на них
+держится подбор по керновым опытам без перекомпиляции.
+
+**Сеть пор и горл (`pore_network`, разд. 13.13 описания).** Проводимость ячейки - не сумма по каналам пучка
+(`init_k*r4fi/integr_r4_fi0`), а эффективная проводимость сети горл (`_network_ratio` в `Deposition.py`,
+`Kinetics_math.ema_conductance` - приближение эффективной среды Киркпатрика): горло `net_gamma*(r + h) - h`,
+закрытые и блокированные горла сеть обходит до порога протекания 2/z. Пористость и тождество пористости сеть не
+меняет. Скратчи - строки `dep_rows` (`ROW_TMP`, `ROW_UE`: к концу ядра они отработали). Эффективная среда сверена с
+прямым расчетом случайной решетки (`experiments/pore_models.py`, 0.008 по k/k0).
 
 Формулы с аналитическими решениями - в `equations/Kinetics_math.py` (njit-функции без состояния), их проверяет
 `tests/test_kinetics_math.py` (Смолуховский, Ленгмюр, Шуман, пределы корреляций), интеграционные балансы -
