@@ -352,23 +352,32 @@ def plot(out):
     for ax, (t, _) in zip(axes, STAGES):
         pv, k = np.array(DATA['k_pv'][str(int(t))]).T
         ax.plot(pv, k, 'o', mfc='white', mec='k', ms=4, label='опыт')
-        for r, style, label in ((out['legacy'], '-', 'прежняя'), (out['scn'], '--', '4 группы + гель'),
-                                (out['forms']['solid']['result'], ':', 'удержание, кинетика твердой фазы'),
-                                (out['forms']['film']['result'], '-.', 'удержание, пленочная кинетика'),
-                                (out['cold']['result'] if 'cold' in out else None, (0, (5, 1, 1, 1)),
-                                 '+ кинетика кристаллизации (подбор 25 °C)')):
+        # цвет закреплен за вариантом: закупоренные прогоны доходят не до всех ступеней, и цикл цветов сбивался бы
+        series = ((out['legacy'], '-', '#2a78d6', 'прежняя (закупорка после 90 °C)'),
+                  (out['scn'], '--', '#eb6834', '4 группы + гель (закупорка после 90 °C)'),
+                  (out['forms']['solid']['result'], ':', '#1baf7a', 'удержание, кинетика твердой фазы'),
+                  (out['forms']['film']['result'], '-.', '#e87ba4', 'удержание, пленочная кинетика'),
+                  (out['cold']['result'] if 'cold' in out else None, '-', '#4a3aa7',
+                   '+ кинетика кристаллизации (подбор 25 °C)'))
+        for r, style, color, label in series:
             if r is None:
                 continue
             curves = stage_curves(r)
             if float(t) in curves or t in curves:
                 x, y = curves[float(t)] if float(t) in curves else curves[t]
-                ax.plot(x, y, style, label=label)
+                ax.plot(x, y, ls=style, color=color, lw=1.8, label=label)
         ax.set_title(f'{t:.0f} °C', fontsize=9)
         ax.set_xlabel('PV ступени')
         ax.set_xlim(0, 5.1)
         ax.set_ylim(0, 1.05)
     axes[0].set_ylabel('k / k₀ ступени')
-    axes[0].legend(fontsize=6.5)
+    handles, labels = [], []
+    for ax in axes:  # легенда - по всем панелям, варианты есть не везде
+        for h, l in zip(*ax.get_legend_handles_labels()):
+            if l not in labels:
+                handles.append(h)
+                labels.append(l)
+    axes[0].legend(handles, labels, fontsize=6.5, loc='lower left')
     fig.tight_layout()
     fig.savefig(FIGURES / 'li2024.png', dpi=200)
     plt.close(fig)
