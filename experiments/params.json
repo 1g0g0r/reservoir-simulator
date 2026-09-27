@@ -16,5 +16,13 @@
    -3.199307760688956
   ],
   "x_names": "lg ADS_GMAX [кг/м^2], lg ADS_K, -ADS_DH/1e4 [Дж/моль], lg ADS_RATE [1/с]"
+ },
+ "sandyga2020": {
+  "best": [
+   0.01,
+   1.0,
+   0.001
+  ],
+  "kin": "K_WALL [1/с], AGE_C0, K_CRYST [1/с]; AGE_RATE = 0"
  }
 }

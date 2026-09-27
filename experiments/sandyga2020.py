@@ -16,7 +16,10 @@
   - гель-отложение (`deposit_aging`, разд. 13.9): отложение - гель с долей парафина C0, проводящие каналы
     сужаются по объему геля; проводящая пористость и есть то, что видит томография;
   - гель в поре со статическим порогом 2 % (Létoffé et al. 1995).
-Подбор: k_wall, C0 и k_cryst по росту градиента; пористость после опыта и потери по классам пор - проверка.
+Подбор: k_wall, C0 и k_cryst по росту градиента (сетка, затем least_squares), пористость после опыта и потери по
+классам пор - проверка. WAT пористой среды - тоже параметр: авторы дают 33.8 C, но градиент в опыте растет уже с
+34.5 C (в 1.4 раза при 34.5 C, в 2 раза при 34.0 C), а на такой крутой кривой сдвиг начала на 0.5 C меняет
+расхождение в разы. Перебираются 33.8, 34.3 и 34.8 C (константа Tm - копия пакета на каждое значение).
 
 Шумовой порог: у кривой почти скачок (в 3.5 раза за 0.3 C), и ошибка оцифровки температуры 0.1 C дает там
 ошибку lg(grad) 0.2; вместе с ошибкой 0.3 МПа/м по градиенту это и есть нижняя граница СКО lg (`noise_log`).
@@ -37,6 +40,9 @@ SINGLE = {'wax_components': 'True', 'wax_characterization': "'single'"}
 GEL2 = dict(SINGLE, gelation='True', wax_viscosity='1', gel_time='300.0', gel_phi='0.02')
 KINETICS = dict(GEL2, wax_kinetics='True', deposit_aging='True')
 GRID = list(itertools.product((1e-4, 1e-3, 1e-2), (0.03, 0.1, 0.3, 1.0), (1e-3, 1e-2)))  # k_wall, C0, k_cryst
+WATS = (33.8, 34.3, 34.8)  # WAT пористой среды, C: по авторам и по началу роста градиента
+FIT_STEP = np.array([0.05, 0.05, 0.05])  # шаги производных по lg k_wall, lg C0, lg k_cryst
+FIT_LO, FIT_HI = [-6.0, -2.0, -5.0], [0.0, 0.0, 0.0]
 POINTS = (35.0, 34.0, 33.5, 33.0, 32.8)  # температуры критерия «в пределах 1.25 раза»
 T_ERR, G_ERR = 0.1, 0.3                 # точность оцифровки: C и МПа/м
 
@@ -80,11 +86,13 @@ def core_k0(r_m, sigma):
     return CORE['porosity'] * np.sum(r ** 4 * fi) / (8.0 * DATA['berea_tortuosity'] ** 2 * np.sum(r ** 2 * fi))
 
 
-def exp_case():
+def exp_case(wat=None):
+    """Постановка опыта; wat - WAT пористой среды, C (по умолчанию - по авторам, 33.8 C): по ней ставится Tm."""
     cf = _cf()
     r_m, sigma = pore_fit()
-    tm = brentq(lambda t: float(cf.w_saturated(SOL['wax'], SOL['WAT_core'], SOL['MW_wax'], SOL['M_kerosene'], t,
-                                               SOL['dH'])) - SOL['wax'] + 1e-9, SOL['WAT_core'] + 0.1, 200.0)
+    wat = SOL['WAT_core'] if wat is None else wat
+    tm = brentq(lambda t: float(cf.w_saturated(SOL['wax'], wat, SOL['MW_wax'], SOL['M_kerosene'], t,
+                                               SOL['dH'])) - SOL['wax'] + 1e-9, wat + 0.1, 200.0)
     area = np.pi * CORE['diameter'] ** 2 / 4.0
     pv0 = CORE['length'] * area * CORE['porosity']
     exp = dict(length=CORE['length'], side=float(np.sqrt(area)), porosity=CORE['porosity'],
@@ -139,6 +147,39 @@ def kin(k_wall, c0, k_cr):
     return {'K_WALL': k_wall, 'AGE_C0': c0, 'K_CRYST': k_cr, 'AGE_RATE': 0.0}
 
 
+def kin_case(wat, p):
+    """Прогон с кристаллизацией на стенках и гель-отложением: (имя копии, константы, case)."""
+    exp, extra = exp_case(wat)
+    base = dict(core_constants(exp, dt=2.0), **extra)
+    return (f'exp_sd_kin_{wat:g}', dict(base, **KINETICS), {'exp': exp, 'mode': 'ramp', 'kin': kin(*p)})
+
+
+def residuals(res):
+    t_exp, g_exp = np.array(DATA['gradient']['points']).T
+    t, g = curve(res)
+    return np.log10(np.interp(t_exp, t, g)) - np.log10(g_exp / g_exp[0])
+
+
+def refine(wat, p0, max_nfev=10):
+    """least_squares по lg k_wall, lg C0, lg k_cryst при заданной WAT; якобиан - параллельными прогонами."""
+    def runs(xs):
+        return [residuals(r) for r in run_many([kin_case(wat, tuple(10.0 ** np.asarray(x))) for x in xs])]
+
+    def fun(x):
+        r = runs([x])[0]
+        print(f'  подбор (WAT {wat} C): x = {np.round(x, 3).tolist()}, СКО lg {np.sqrt(np.mean(r ** 2)):.4f}', flush=True)
+        return r
+
+    def jac(x):
+        xs = [np.array(x)] + [np.array(x) + FIT_STEP[n] * np.eye(len(x))[n] for n in range(len(x))]
+        rs = runs(xs)
+        return np.array([(rs[n + 1] - rs[0]) / FIT_STEP[n] for n in range(len(x))]).T
+
+    fit = least_squares(fun, np.log10(p0), jac=jac, bounds=(FIT_LO, FIT_HI), max_nfev=max_nfev,
+                        x_scale=FIT_STEP * 5, ftol=1e-3, xtol=1e-3)
+    return tuple(float(v) for v in 10.0 ** fit.x)
+
+
 def run(mode: str = 'full') -> dict:
     if mode == 'plot':
         out = load_results('sandyga2020')
@@ -147,20 +188,36 @@ def run(mode: str = 'full') -> dict:
     exp, extra = exp_case()
     base = dict(core_constants(exp, dt=2.0), **extra)
     case = {'exp': exp, 'mode': 'ramp'}
-    grid = GRID if mode == 'full' else [tuple(load_params('sandyga2020')['best'])]
-    jobs = [('exp_sd_legacy', base, dict(case, kin={})), ('exp_sd_gel2', dict(base, **GEL2), dict(case, kin={}))]
-    jobs += [('exp_sd_kin', dict(base, **KINETICS), dict(case, kin=kin(*p))) for p in grid]
-    res = run_many(jobs)
-    out = {'legacy': dict(result=res[0], **metrics(res[0])), 'gel2': dict(result=res[1], **metrics(res[1])),
-           'kinetics': [dict(k_wall=p[0], c0=p[1], k_cryst=p[2], result=r, **metrics(r)) for p, r in zip(grid, res[2:])],
-           'noise_log': noise_log(), 'porosity_exp': CORE['porosity_after'] / CORE['porosity']}
-    best = min(out['kinetics'], key=lambda e: e['rms_log'])
-    out['best'] = {k: v for k, v in best.items() if k != 'result'}
+    head = run_many([('exp_sd_legacy', base, dict(case, kin={})), ('exp_sd_gel2', dict(base, **GEL2), dict(case, kin={}))])
     if mode == 'full':
-        save_params('sandyga2020', {'best': [best['k_wall'], best['c0'], best['k_cryst']],
-                                    'kin': 'K_WALL [1/с], AGE_C0, K_CRYST [1/с]; AGE_RATE = 0'})
+        grid = [(wat, p) for wat in WATS for p in GRID]
+        res = run_many([kin_case(wat, p) for wat, p in grid])
+        table = [dict(wat=wat, k_wall=p[0], c0=p[1], k_cryst=p[2], rms_log=metrics(r)['rms_log'])
+                 for (wat, p), r in zip(grid, res)]
+        start_pt = min(table, key=lambda e: e['rms_log'])
+        wat = start_pt['wat']
+        p_best = refine(wat, (start_pt['k_wall'], start_pt['c0'], start_pt['k_cryst']))
+        # тот же подбор при WAT по авторам - для сравнения, что дает сдвиг начала
+        start_ref = min((e for e in table if e['wat'] == SOL['WAT_core']), key=lambda e: e['rms_log'])
+        p_ref = refine(SOL['WAT_core'], (start_ref['k_wall'], start_ref['c0'], start_ref['k_cryst']))
+        save_params('sandyga2020', {'best': [wat, *p_best], 'wat_authors': [SOL['WAT_core'], *p_ref],
+                                    'kin': 'WAT [C], K_WALL [1/с], AGE_C0, K_CRYST [1/с]; AGE_RATE = 0'})
+    else:
+        params = load_params('sandyga2020')
+        wat, p_best = params['best'][0], tuple(params['best'][1:])
+        p_ref, table = tuple(params['wat_authors'][1:]), []
+    r_best, r_ref = run_many([kin_case(wat, p_best), kin_case(SOL['WAT_core'], p_ref)])
+    out = {'legacy': dict(result=head[0], **metrics(head[0])), 'gel2': dict(result=head[1], **metrics(head[1])),
+           'grid': table, 'noise_log': noise_log(), 'porosity_exp': CORE['porosity_after'] / CORE['porosity'],
+           'wat_authors': dict(wat=SOL['WAT_core'], k_wall=p_ref[0], c0=p_ref[1], k_cryst=p_ref[2], result=r_ref,
+                               **metrics(r_ref)),
+           'kinetics_best': dict(wat=wat, k_wall=p_best[0], c0=p_best[1], k_cryst=p_best[2], result=r_best,
+                                 **metrics(r_best))}
+    out['best'] = {k: v for k, v in out['kinetics_best'].items() if k != 'result'}
     print(f'шумовой порог СКО lg {out["noise_log"]:.3f}; пористость после опыта {out["porosity_exp"]:.3f}', flush=True)
-    for name, e in (('прежняя', out['legacy']), ('гель 2 %', out['gel2']), ('кинетика, лучший', best)):
+    for name, e in (('прежняя', out['legacy']), ('гель 2 %', out['gel2']),
+                    (f'кинетика, WAT {SOL["WAT_core"]} C', out['wat_authors']),
+                    (f'кинетика, WAT {wat} C (подбор)', out['kinetics_best'])):
         print(f'{name}: СКО lg {e["rms_log"]:.3f}, grad/grad0 {[round(x, 1) for x in e["at"]]} '
               f'(опыт {[round(x, 1) for x in e["exp_at"]]}), проводящая пористость {e["m_conductive"]:.2f}, '
               f'полная {e["m_total"]:.2f}', flush=True)
@@ -173,7 +230,8 @@ def summary(out) -> list:
     """Строки сводной таблицы: (вариант, СКО lg, наибольшее расхождение в 5 точках, раз, проводящая пористость)."""
     rows = [('шумовой порог опыта', out['noise_log'], None, out['porosity_exp'])]
     for name, e in (('прежняя модель', out['legacy']), ('гель, порог 2 %', out['gel2']),
-                    ('кристаллизация на стенках + гель-отложение', out['best'])):
+                    (f'стенки + гель-отложение, WAT {out["wat_authors"]["wat"]:g} °C (авторы)', out['wat_authors']),
+                    (f'стенки + гель-отложение, WAT {out["best"]["wat"]:g} °C (подбор)', out['best'])):
         rows.append((name, e['rms_log'], e['max_factor'], e['m_conductive']))
     return rows
 
@@ -183,12 +241,13 @@ def plot(out):
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     FIGURES.mkdir(parents=True, exist_ok=True)
-    best = min(out['kinetics'], key=lambda e: e['rms_log'])
+    best = out['kinetics_best']
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(8.6, 3.4), gridspec_kw={'width_ratios': [1.35, 1]})
     t_exp, g_exp = np.array(DATA['gradient']['points']).T
     ax.plot(t_exp, g_exp / g_exp[0], 'o', mfc='white', mec='k', ms=4.5, label='опыт')
     for e, style, label in ((out['legacy'], '-', 'прежняя модель'), (out['gel2'], '--', 'гель, порог 2 %'),
-                            (best, '-.', 'кристаллизация на стенках + гель-отложение')):
+                            (out['wat_authors'], ':', f'стенки + гель, WAT {out["wat_authors"]["wat"]:g} °C'),
+                            (best, '-.', f'стенки + гель, WAT {best["wat"]:g} °C (подбор)')):
         t, g = curve(e['result'])
         ax.plot(t, g, ls=style, label=f'{label}: СКО lg {e["rms_log"]:.2f}')
     ax.set_yscale('log')

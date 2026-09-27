@@ -41,7 +41,7 @@ from paraphin.constants import (Nr, init_m, init_k, min_Wps_bound, ro_o, ro_p, r
                                 asphaltenes, wax_kinetics, wall_transport, entrainment, asph_aggregation,
                                 snowball, adsorption, deposit_aging, thermal_nonequilibrium, perm_model)
 from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, ENT_RATE, ENT_TAU, AGG_D0, AGG_DF,
-                                      SNOW_A, ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN, AGE_C0,
+                                      SNOW_A, ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN, ADS_FILM, AGE_C0,
                                       AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR, PERM_N, PERM_BETA,
                                       PERM_SMAX, PERM_GAMMA, PERM_ALPHA, LTNE_DG, LTNE_DM,
                                       KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR,
@@ -50,8 +50,8 @@ from paraphin.oil_composition import N_W, IA_D, IA_F, I_R, IN_F
 from paraphin.utils import crystal_volume_fraction
 from .Thermo_wax import sle_split
 from .Kinetics_math import (brownian_diffusivity, shear_diffusivity, stokes_velocity, leveque_velocity, floc_size,
-                            wall_fraction, langmuir_constant, langmuir_eq, perm_kozeny_carman, perm_power,
-                            perm_damage, perm_surface)
+                            wall_fraction, langmuir_constant, langmuir_eq, langmuir_film_step, perm_kozeny_carman,
+                            perm_power, perm_damage, perm_surface)
 
 _SO_MAX = 1.0 - S_max
 _A_W = 0.5 * D                                  # радиус кристалла парафина, [м]
@@ -243,7 +243,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     # --- адсорбция асфальтенов и смол (объем слоя, [1/с]; отрицательный - десорбция)
     q_ada, q_adr = 0.0, 0.0
     if adsorption:
-        q_ada, q_adr = _adsorption(i, j, T_K, Wc, kx, kin, mso_dt, dt, new_kx)
+        q_ada, q_adr = _adsorption(i, j, T_K, Wc, kx, kin, mso, mso_dt, dt, new_kx)
 
     # --- старение гель-отложения: парафин входит в гель при постоянном его объеме (объем кристаллов, [1/с])
     q_age = 0.0
@@ -406,11 +406,12 @@ def _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, ne
 
 
 @njit(cache=True)
-def _adsorption(i, j, T_K, Wc, kx, kin, mso_dt, dt, new_kx):
+def _adsorption(i, j, T_K, Wc, kx, kin, mso, mso_dt, dt, new_kx):
     """Адсорбция растворенных асфальтенов и смол на стенках: кинетический Ленгмюр (линейная движущая сила).
 
         G_eq = G_max*K*c/(1 + K*c),  K(T) = ads_K*exp(-ads_dH/R*(1/T - 1/T_ref)),  G_max = ads_gmax*a_v,
-        dG/dt = k_ads*(G_eq - G)  ->  за шаг точно  dG = (G_eq - G)*(1 - exp(-k_ads*dt)),
+        ads_film = 0:  dG/dt = k_ads*(G_eq - G)  ->  за шаг точно  dG = (G_eq - G)*(1 - exp(-k_ads*dt)),
+        ads_film = 1:  dG/dt = k_ads*m*S_o*ro_o*(c - c*(G))  (пленочная, `langmuir_film_step`),
         k_ads = ads_rate*(T/T_ref)*mu(T_ref)/mu(T).
     Скорость - массообмен к стенке (линейная движущая сила Глюкауфа), k_ads ~ D_m/delta^2, а коэффициент
     молекулярной диффузии по Уилки-Чангу D_m ~ T/mu: от 90 до 45 C в нефти Li et al. (2024) он падает втрое.
@@ -423,18 +424,23 @@ def _adsorption(i, j, T_K, Wc, kx, kin, mso_dt, dt, new_kx):
     k_l = langmuir_constant(kin[ADS_K], kin[ADS_DH], T_K, kin[ADS_T_REF] + 273.15, R)
     t_ref = kin[ADS_T_REF] + 273.15
     k_ads = kin[ADS_RATE] * T_K / t_ref * math.exp(E_activation / R * (1.0 / t_ref - 1.0 / T_K))
-    frac = 1.0 - math.exp(-k_ads * dt)
+    film = kin[ADS_FILM] > 0.5
+    frac = k_ads * mso * ro_o * dt if film else 1.0 - math.exp(-k_ads * dt)
     g_max = kin[ADS_GMAX] * surf_0
     new_kx[i, j, KX_GMAX] = g_max
-    q_a = _langmuir_step(Wc[i, j, IA_D], kx[i, j, KX_GA], g_max, k_l, frac, mso_dt, dt)
-    q_r = _langmuir_step(Wc[i, j, I_R], kx[i, j, KX_GR], g_max * kin[ADS_RESIN], k_l, frac, mso_dt, dt)
+    q_a = _langmuir_step(Wc[i, j, IA_D], kx[i, j, KX_GA], g_max, k_l, frac, film, mso_dt, dt)
+    q_r = _langmuir_step(Wc[i, j, I_R], kx[i, j, KX_GR], g_max * kin[ADS_RESIN], k_l, frac, film, mso_dt, dt)
     return q_a, q_r
 
 
 @njit(cache=True)
-def _langmuir_step(c, g_now, g_max, k_l, frac, mso_dt, dt):
-    """Объем слоя, адсорбируемого за единицу времени, [1/с]: шаг к изотерме Ленгмюра, не больше растворенного."""
-    dg = (langmuir_eq(g_max, k_l, c) - g_now) * frac  # [кг/м^3 породы]
+def _langmuir_step(c, g_now, g_max, k_l, frac, film, mso_dt, dt):
+    """Объем слоя, адсорбируемого за единицу времени, [1/с]: шаг к изотерме Ленгмюра, не больше растворенного.
+    frac - доля пути к равновесию за шаг (кинетика твердой фазы) или A*dt (пленочная)."""
+    if film:
+        dg = langmuir_film_step(g_now, g_max, k_l, c, frac) - g_now
+    else:
+        dg = (langmuir_eq(g_max, k_l, c) - g_now) * frac  # [кг/м^3 породы]
     if dg > 0.0:
         dg = min(dg, mso_dt * dt * c * ro_o)
     return dg / ro_asph_dep / dt
@@ -531,7 +537,7 @@ def calc_filtration(i, j, S, T, p, m, k, fi, Wc, Ws, Wps, Dep, grad_p, lam_o, kx
         q_wall = _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, new_kx)
     q_ada, q_adr = 0.0, 0.0
     if adsorption:
-        q_ada, q_adr = _adsorption(i, j, T[i, j] + 273.15, Wc, kx, kin, mso_dt, dt, new_kx)
+        q_ada, q_adr = _adsorption(i, j, T[i, j] + 273.15, Wc, kx, kin, mso, mso_dt, dt, new_kx)
     q_age = 0.0
     if deposit_aging:
         q_age = _aging(i, j, Wc, Ws, Dep, kx, kin, mso_dt, tmp, new_kx)

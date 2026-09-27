@@ -146,3 +146,30 @@ def test_ltne_schumann_breakthrough():
         val, _ = quad(lambda s: math.exp(-s) * i0(2.0 * math.sqrt(s * z)), 0.0, y, limit=200)
         exact = 1.0 - math.exp(-z) * val
         assert 0.2 < exact < 0.9 and abs(num - exact) < 1e-3, (t, num, exact)
+
+
+def test_langmuir_film_step():
+    """Пленочная кинетика: корень в [0, G_max), сходимость к изотерме при постоянной c, линейный предел совпадает
+    с кинетикой твердой фазы (k = A/(G_max*K)), при выпуклой изотерме скорость постоянна почти до насыщения."""
+    from paraphin.equations.Kinetics_math import langmuir_film_step
+    g_max, c = 2.0, 0.01
+    for k_l in (1.0, 100.0, 1e4):
+        g = 0.0
+        for _ in range(4000):
+            g = langmuir_film_step(g, g_max, k_l, c, 0.5)
+            assert 0.0 <= g < g_max
+        assert np.isclose(g, langmuir_eq(g_max, k_l, c), rtol=1e-8)
+    # Линейный предел: неявный Эйлер твердой фазы с k = A/(G_max*K)
+    k_l, a_dt, g0 = 1e-3, 0.3, 1e-7
+    film = langmuir_film_step(g0, g_max, k_l, c, a_dt)
+    k_dt = a_dt / (g_max * k_l)  # (k*dt) твердой фазы
+    solid = (g0 + k_dt * langmuir_eq(g_max, k_l, c)) / (1.0 + k_dt)
+    assert np.isclose(film, solid, rtol=1e-3)
+    # Выпуклая изотерма (K*c = 100): до 90 % насыщения скорость не ниже 90 % начальной
+    k_l, a_dt = 1e4, 1e-3
+    g, steps = 0.0, []
+    while g < 0.9 * langmuir_eq(g_max, k_l, c):
+        g_new = langmuir_film_step(g, g_max, k_l, c, a_dt)
+        steps.append(g_new - g)
+        g = g_new
+    assert min(steps) > 0.9 * steps[0]

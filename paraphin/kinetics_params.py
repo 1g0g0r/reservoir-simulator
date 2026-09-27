@@ -28,7 +28,7 @@ _PARAMS = (
     ('AGG_D0', c.agg_d0), ('AGG_DF', c.agg_df), ('AGG_W', c.agg_W), ('SNOW_A', c.snow_a),
     # 6-7. адсорбция и смачиваемость
     ('ADS_GMAX', c.ads_gmax), ('ADS_K', c.ads_K), ('ADS_DH', c.ads_dH), ('ADS_T_REF', c.ads_T_ref),
-    ('ADS_RATE', c.ads_rate), ('ADS_RESIN', c.ads_resin),
+    ('ADS_RATE', c.ads_rate), ('ADS_RESIN', c.ads_resin), ('ADS_FILM', c.ads_film),
     ('OW_S_MIN', c.ow_S_min), ('OW_S_MAX', c.ow_S_max), ('OW_N_O', c.ow_n_o), ('OW_N_W', c.ow_n_w),
     # 8. старение гель-отложения
     ('AGE_C0', c.age_c0), ('AGE_CMAX', c.age_cmax), ('AGE_RATE', c.age_rate),
@@ -41,7 +41,7 @@ _PARAMS = (
 )
 KIN_NAMES = tuple(name for name, _ in _PARAMS)
 (K_CRYST, K_DISS, K_WALL, SHEAR_DISP, GRAV_EFF, ENT_RATE, ENT_TAU, AGG_D0, AGG_DF, AGG_W, SNOW_A,
- ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN, OW_S_MIN, OW_S_MAX, OW_N_O, OW_N_W,
+ ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN, ADS_FILM, OW_S_MIN, OW_S_MAX, OW_N_O, OW_N_W,
  AGE_C0, AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR, PERM_N, PERM_BETA, PERM_SMAX, PERM_GAMMA,
  PERM_ALPHA, LTNE_DG, LTNE_DM) = range(len(_PARAMS))
 NK = len(_PARAMS)

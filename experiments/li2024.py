@@ -65,6 +65,17 @@ SCN = {'wax_components': 'True', 'wax_viscosity': '1', 'gelation': 'True', 'gel_
 # Удержание смол и асфальтенов в горлах (адсорбция + функция повреждения), парафин - пучок капилляров с d_p, L_k
 # по Sutton & Roberts, гель с объемным пределом текучести
 RETENTION = dict(SCN, adsorption='True')
+# Семейство «ниже WAT» (ступень 25 C): к удержанию добавляется конечная скорость кристаллизации (`wax_kinetics`),
+# перебираются тиксотропное время геля (константа - копия пакета на значение; у парафинистых нефтей - от минут до
+# часов, Dimitriou & McKinley 2014) и константа кристаллизации в объеме k_cryst. Удержание - из подбора выше WAT.
+COLD_GEL_TIMES = (300.0, 1800.0, 7200.0)
+COLD_KCRYST = (1e-4, 1e-3, 1e-2)
+
+
+def cold_job(gel_time, k_cryst, kin_ret):
+    flags = dict(RETENTION, wax_kinetics='True', gel_time=repr(gel_time))
+    return (f'exp_li_cold_{gel_time:g}', constants(flags),
+            {'mode': 'stages', 'exp': exp_dict(), 'kin': dict(kin_ret, K_CRYST=k_cryst)})
 
 
 def cumulative_plateaus():
@@ -148,13 +159,29 @@ FIT_STEP = np.array([0.02, 0.02, 0.05, 0.02])
 FIT_LO, FIT_HI = [-7.0, -2.0, 0.0, -6.0], [-2.0, 6.0, 15.0, -1.0]
 
 
-def fit_kin(x) -> dict:
+# Формы кинетики адсорбции (`constants.ads_film`): со стороны твердой фазы - экспоненциальный подход к изотерме,
+# пленочная - постоянная скорость до насыщения при выпуклой изотерме. Подбираются обе, сравниваются по опыту.
+FORMS = {'solid': 0.0, 'film': 1.0}
+FORM_NAMES = {'solid': 'кинетика твердой фазы', 'film': 'пленочная кинетика'}
+
+
+def fit_kin(x, film=0.0) -> dict:
     return {'ADS_GMAX': 10 ** x[0], 'ADS_K': 10 ** x[1], 'ADS_DH': -x[2] * 1e4, 'ADS_RATE': 10 ** x[3],
-            'PERM_SMAX': SIGMA_MAX, 'PERM_BETA': 1.0, 'PERM_GAMMA': 1.0}
+            'PERM_SMAX': SIGMA_MAX, 'PERM_BETA': 1.0, 'PERM_GAMMA': 1.0, 'ADS_FILM': film}
 
 
-def fit_case(x, stages) -> dict:
-    return {'mode': 'stages', 'exp': dict(exp_dict(), stages=stages), 'kin': fit_kin([float(v) for v in x])}
+def fit_case(x, stages, film=0.0) -> dict:
+    return {'mode': 'stages', 'exp': dict(exp_dict(), stages=stages), 'kin': fit_kin([float(v) for v in x], film)}
+
+
+def film_start(x_solid):
+    """Начальная точка пленочной формы из подбора формы твердой фазы: в линейном пределе изотермы формы совпадают
+    при k_solid = k_film*m0*ro_o/(G_max*K_ref) (`Kinetics_math.langmuir_film_step`)."""
+    m0, ro = DATA['core']['porosity'], DATA['oil']['density']
+    g_max = 10 ** x_solid[0] * surface_area(m0)
+    x = list(x_solid)
+    x[3] = x_solid[3] + math.log10(g_max * 10 ** x_solid[1] / (m0 * ro))
+    return np.array(x)
 
 
 def stage_residuals(res, stages):
@@ -174,7 +201,7 @@ def stage_residuals(res, stages):
     return np.concatenate(out)
 
 
-def dynamic_fit(x0, max_nfev=14):
+def dynamic_fit(x0, film=0.0, max_nfev=14):
     """Подбор G_s, K_ref, dH, k_ads прогонами ступенчатого протокола (а не аналитическим равновесием): удержание
     идет фронтом от входа, подвод асфальтенов ограничен, а при 45 C к нему добавляется парафин - равновесная
     оценка плато этого не видит. Якобиан - разностный, все его прогоны идут параллельно (`run_many`), параметры
@@ -182,12 +209,13 @@ def dynamic_fit(x0, max_nfev=14):
     consts = constants(RETENTION)
 
     def runs(xs):
-        res = run_many([('exp_li_retA', consts, fit_case(x, FIT_STAGES)) for x in xs])
+        res = run_many([('exp_li_retA', consts, fit_case(x, FIT_STAGES, film)) for x in xs])
         return [stage_residuals(r, FIT_STAGES) for r in res]
 
     def fun(x):
         r = runs([x])[0]
-        print(f'  подбор: x = {np.round(x, 3).tolist()}, СКО {np.sqrt(np.mean(r ** 2)):.4f}', flush=True)
+        print(f'  подбор ({"пленочная" if film else "твердая фаза"}): x = {np.round(x, 3).tolist()}, '
+              f'СКО {np.sqrt(np.mean(r ** 2)):.4f}', flush=True)
         return r
 
     def jac(x):
@@ -219,28 +247,57 @@ def run(mode: str = 'full') -> dict:
     base = {'mode': 'stages', 'exp': exp_dict()}
     x_eq = np.array([math.log10(fit_all['ads_gmax']), math.log10(fit_all['ads_K']), -fit_all['ads_dH'] / 1e4,
                      math.log10(4e-4)])
+    xs, nfev = {}, {}
     if mode == 'full':
-        fit = dynamic_fit(x_eq)
-        x_best, nfev = [float(v) for v in fit.x], int(fit.nfev)
-        save_params('li2024', {'x': x_best, 'kin': fit_kin(x_best),
-                               'x_names': 'lg ADS_GMAX [кг/м^2], lg ADS_K, -ADS_DH/1e4 [Дж/моль], lg ADS_RATE [1/с]'})
+        for form, film in FORMS.items():
+            x0 = x_eq if form == 'solid' else film_start(xs['solid'])
+            fit = dynamic_fit(x0, film)
+            xs[form], nfev[form] = [float(v) for v in fit.x], int(fit.nfev)
     else:
-        x_best, nfev = load_params('li2024')['x'], 0
+        params = load_params('li2024')
+        xs = {form: params[form]['x'] for form in FORMS}
     res = run_many([('exp_li_legacy', constants({}), dict(base, kin={})),
                     ('exp_li_scn', constants(SCN), dict(base, kin={})),
-                    ('exp_li_retA', constants(RETENTION), fit_case(x_eq, STAGES)),
-                    ('exp_li_retA', constants(RETENTION), fit_case(x_best, STAGES))])
+                    ('exp_li_retA', constants(RETENTION), fit_case(x_eq, STAGES))]
+                   + [('exp_li_retA', constants(RETENTION), fit_case(xs[form], STAGES, film))
+                      for form, film in FORMS.items()])
     out = {'plateaus': plateaus, 'cumulative': cum, 'fit_all': fit_all, 'fit_cross': fit_cross, 'fit_b': fit_b,
            'noise': {str(int(t)): noise_floor(DATA['k_pv'][str(int(t))]) for t, _ in STAGES},
            'legacy': res[0], 'scn': res[1],
            'equilibrium': dict(x=x_eq.tolist(), kin=fit_kin(x_eq), rms=stage_rms(res[2]), result=res[2]),
-           'dynamic': dict(x=x_best, kin=fit_kin(x_best), rms=stage_rms(res[3]), result=res[3],
-                           nfev=nfev, calibrated=[t for t, _ in FIT_STAGES])}
+           'forms': {form: dict(x=xs[form], kin=fit_kin(xs[form], film), rms=stage_rms(r), result=r,
+                                nfev=nfev.get(form, 0), calibrated=[t for t, _ in FIT_STAGES])
+                     for (form, film), r in zip(FORMS.items(), res[3:])}}
+    calib = lambda e: float(np.sqrt(np.mean([e['rms'][t] ** 2 for t, _ in FIT_STAGES])))
+    best = min(out['forms'], key=lambda f: calib(out['forms'][f]))
+    out['best_form'] = best
+    out['dynamic'] = out['forms'][best]
+    if mode == 'full':
+        save_params('li2024', dict({form: {'x': xs[form], 'kin': fit_kin(xs[form], film)} for form, film in FORMS.items()},
+                                   best=best, x_names='lg ADS_GMAX [кг/м^2], lg ADS_K, -ADS_DH/1e4 [Дж/моль], '
+                                                      'lg ADS_RATE [1/с]'))
+    # Ступень 25 C: сетка по тиксотропному времени геля и k_cryst при удержании из подбора выше WAT
+    kin_ret = out['dynamic']['kin']
+    if mode == 'full':
+        grid = [(gt, kc) for gt in COLD_GEL_TIMES for kc in COLD_KCRYST]
+        cold = run_many([cold_job(gt, kc, kin_ret) for gt, kc in grid])
+        table = [dict(gel_time=gt, k_cryst=kc, rms=stage_rms(r)) for (gt, kc), r in zip(grid, cold)]
+        best_cold = min(table, key=lambda e: e['rms'].get(25.0, 1.0))
+        save_params('li2024_cold', {'gel_time': best_cold['gel_time'], 'k_cryst': best_cold['k_cryst']})
+    else:
+        pc = load_params('li2024_cold')
+        best_cold, table = {'gel_time': pc['gel_time'], 'k_cryst': pc['k_cryst']}, []
+    r_cold = run_many([cold_job(best_cold['gel_time'], best_cold['k_cryst'], kin_ret)])[0]
+    out['cold'] = dict(gel_time=best_cold['gel_time'], k_cryst=best_cold['k_cryst'], rms=stage_rms(r_cold),
+                       result=r_cold, table=table)
     for name, key in (('прежняя', 'legacy'), ('4 группы + гель', 'scn')):
         print(name, {t: round(v, 3) for t, v in stage_rms(out[key]).items()}, flush=True)
-    for name, key in (('удержание, равновесный подбор плато', 'equilibrium'), ('удержание, подбор прогонами', 'dynamic')):
-        e = out[key]
-        print(name, {t: round(v, 3) for t, v in e['rms'].items()},
+    print(f'ниже WAT: гель {best_cold["gel_time"]:g} с, k_cryst {best_cold["k_cryst"]:g} 1/с:',
+          {t: round(v, 3) for t, v in out['cold']['rms'].items()}, flush=True)
+    print('удержание, равновесный подбор плато', {t: round(v, 3) for t, v in out['equilibrium']['rms'].items()})
+    for form in FORMS:
+        e = out['forms'][form]
+        print(f'удержание, {FORM_NAMES[form]}:', {t: round(v, 3) for t, v in e['rms'].items()},
               {k: float(f'{v:.4g}') for k, v in e['kin'].items()}, flush=True)
     save_results('li2024', out)
     plot(out)
@@ -255,8 +312,13 @@ def summary(out) -> list:
     for name, key in (('прежняя модель', 'legacy'), ('4 группы парафина + гель', 'scn')):
         r = stage_rms(out[key])
         rows.append((name, [r.get(float(t), float('nan')) for t in temps]))
-    for name, key in (('удержание, плато по равновесию', 'equilibrium'), ('удержание, подбор прогонами', 'dynamic')):
-        rows.append((name, [get(out[key]['rms'], t) for t in temps]))
+    rows.append(('удержание, плато по равновесию', [get(out['equilibrium']['rms'], t) for t in temps]))
+    for form in FORMS:
+        rows.append((f'удержание, {FORM_NAMES[form]} (подбор 90-45 °C)', [get(out['forms'][form]['rms'], t) for t in temps]))
+    if 'cold' in out:
+        c = out['cold']
+        rows.append((f'+ кинетика кристаллизации, гель {c["gel_time"]:g} с (подбор 25 °C)',
+                     [get(c['rms'], t) for t in temps]))
     return rows
 
 
@@ -270,8 +332,12 @@ def plot(out):
         pv, k = np.array(DATA['k_pv'][str(int(t))]).T
         ax.plot(pv, k, 'o', mfc='white', mec='k', ms=4, label='опыт')
         for r, style, label in ((out['legacy'], '-', 'прежняя'), (out['scn'], '--', '4 группы + гель'),
-                                (out['equilibrium']['result'], ':', 'удержание, плато по равновесию'),
-                                (out['dynamic']['result'], '-.', 'удержание, подбор прогонами')):
+                                (out['forms']['solid']['result'], ':', 'удержание, кинетика твердой фазы'),
+                                (out['forms']['film']['result'], '-.', 'удержание, пленочная кинетика'),
+                                (out['cold']['result'] if 'cold' in out else None, (0, (5, 1, 1, 1)),
+                                 '+ кинетика кристаллизации (подбор 25 °C)')):
+            if r is None:
+                continue
             curves = stage_curves(r)
             if float(t) in curves or t in curves:
                 x, y = curves[float(t)] if float(t) in curves else curves[t]
