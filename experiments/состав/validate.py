@@ -1,9 +1,9 @@
 """Сравнение модели детального состава нефти с опытами: прогоны керна прежней и новой моделью.
 
-    python docs/validate.py           # прогоны (~40 мин) -> docs/validation.json, затем рисунки и таблицы
-    python docs/validate.py --plot    # только рисунки docs/figures/val*.png и таблицы docs/validation_tables.md
+    python experiments/состав/validate.py           # прогоны (~40 мин) -> validation.json рядом, затем рисунки и таблицы
+    python experiments/состав/validate.py --plot    # только рисунки figures/val*.png и таблицы validation_tables.json
 
-Опыты и данные - те же, что в `твт_статья/VALIDATION.md` (оцифровка там же, в `core_flood.py`,
+Опыты и данные - те же, что в `experiments/исходная_модель/VALIDATION.md` (оцифровка там же, в `core_flood.py`,
 `validation_li2024.py`, `validation_sandyga2020.py`); d_p = 15 мкм и L_k = 0.3 мм - калибровка по опыту 1
 Sutton & Roberts (`constants.py`). Здесь к прежней модели добавляются механизмы детального состава:
   1. Sutton & Roberts (1974), опыты 1 и 2: гель с осадком в порах. Множитель `gel_tau_mult` - единственный
@@ -15,7 +15,7 @@ Sutton & Roberts (`constants.py`). Здесь к прежней модели д�
   4. Li et al. (2024), 45-90 C: может ли асфальтеновый блок объяснить повреждение выше WAT.
 
 Каждый вариант считается в копии пакета с поправленными константами (`tests/_patched_copy.py`),
-рабочий процесс - `docs/core_worker.py`. Тиксотропное время геля в опыте - 5 мин (`LAB_GEL_TIME`), а не
+рабочий процесс - `core_worker.py` рядом. Тиксотропное время геля в опыте - 5 мин (`LAB_GEL_TIME`), а не
 сутки, как в поле: опыт короче суток, а тиксотропия парафинистой нефти - минуты (Dimitriou & McKinley, 2014).
 """
 import json
@@ -28,9 +28,9 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent
+ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / 'твт_статья'))
+sys.path.insert(0, str(ROOT / 'experiments' / 'исходная_модель'))
 
 import core_flood as cf  # noqa: E402
 import validation_sandyga2020 as sd  # noqa: E402
@@ -76,7 +76,7 @@ li = _li_module()
 
 # --- Прогон ------------------------------------------------------------------------------------------------
 
-_DONE = {}  # прогоны из прошлого docs/validation.json: при повторном запуске считаются только новые варианты
+_DONE = {}  # прогоны из прошлого validation.json: при повторном запуске считаются только новые варианты
 
 
 def run(name: str, exp: dict, flags: dict = None, mode: str = 'rate', extra: dict = None, dt: float = cf.DT) -> dict:

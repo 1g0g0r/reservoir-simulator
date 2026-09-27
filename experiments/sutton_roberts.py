@@ -1,0 +1,201 @@
+"""Керновые опыты Sutton & Roberts (1974): прокачка парафинистой нефти через керн Berea ниже точки помутнения.
+
+    python experiments/sutton_roberts.py           # подбор по сеткам (прогоны кэшируются) -> results + params.json
+    python experiments/sutton_roberts.py --quick   # только итоговые наборы из params.json (~5 мин)
+    python experiments/sutton_roberts.py --plot    # только рисунок по results/sutton_roberts.json
+
+Данные - `data/sutton_roberts_{1,2}.json` (опыт, керн, кривые моделей Ring et al. 1994 и Wang & Civan 2005).
+Прежняя модель: d_p = 15 мкм и L_k = 0.3 мм подобраны по опыту 1 (СКО 0.048), опыт 2 - прогноз (СКО 0.246,
+закупорка к 4.4 PV вместо плато ~0.3). К ней добавляются механизмы кинетики (`docs/кинетика_осаждения.md`):
+
+  - новое ядро без дополнительных механизмов - что меняет само ядро (скорости по текущему слою);
+  - пучок капилляров + вынос отложений (entrainment): равновесие осаждение - вынос дает плато k/k0, как в опыте 2;
+  - модель глубинной фильтрации (Civan 2015; обзор 3.6) со степенной проницаемостью и выносом - так опыты
+    моделировали Wang & Civan (2005).
+
+Подбор - общий на семейство (оба опыта одним набором, решение пользователя), плюс набор на каждый опыт отдельно
+(так подбирали Wang & Civan: коэффициент осаждения у них свой на опыт) и перекрестная проверка: параметры по
+одному опыту - прогноз другого. Цель - СКО k/k0 не больше max(0.03, шумовой порог опыта). Кривые чужих моделей
+оцениваются той же метрикой по тем же точкам.
+"""
+import itertools
+import sys
+
+import numpy as np
+
+from common import (load, core_constants, run_many, rms_k, noise_floor, mode_from_argv, load_params, save_params,
+                    save_results, load_results, FIGURES)
+
+EXPS = {n: load(f'sutton_roberts_{n}') for n in (1, 2)}
+PV_END = 5.2
+# Детальный состав с одной группой ('single') - ровно прежняя термодинамика, через новый перенос компонентов
+SINGLE = {'wax_components': 'True', 'wax_characterization': "'single'"}
+# Новое ядро без механизмов: snowball с нулевым коэффициентом (флаг только включает ядро `Deposition.py`)
+KERNEL = dict(SINGLE, snowball='True')
+ENTRAINMENT = dict(KERNEL, entrainment='True')
+FILTRATION = dict(SINGLE, deposition_model="'filtration'", perm_model="'power'", entrainment='True')
+# Сетки подбора. tau_w в этом керне 0.8-2.6 Па (каналы 12-40 мкм), поэтому ent_tau - в этом диапазоне, ent_rate -
+# от «вынос не успевает» до «мгновенный». Показатель n степенного закона: 8-19 по обзору (разд. 4.2) и ~6 по
+# парам (m/m0, k/k0) кернов He et al. (2020, `he2020.py`).
+ENT_GRID = list(itertools.product((0.3, 0.6, 1.0, 1.5, 2.0), (1e-4, 3e-4, 1e-3, 3e-3, 1e-2)))
+FILT_GRID = list(itertools.product((0.005, 0.01, 0.02, 0.04), (0.0, 30.0, 100.0, 300.0), (6.0, 10.0, 16.0)))
+FILT_UCR = 1e-5
+
+
+def exp_dict(n: int) -> dict:
+    e = EXPS[n]
+    c, o = e['core'], e['oil']
+    return dict(length=c['length'], side=c['side'], porosity=c['porosity'], k0=c['k0_darcy'], T=c['T'],
+                T_hot=c['T_hot'], P_out=c['P_out'], mu=c['mu_oil'], q=e['q'], pv_end=PV_END,
+                w=o['w'], MW=o['MW'], M_o=o['M_o'], ro_o=o['ro_o'], ro_p=o['ro_p'], Tm=o['Tm'], dH=o['dH'])
+
+
+def job(tag: str, n: int, flags: dict, kin: dict = None, mode: str = 'rate'):
+    exp = exp_dict(n)
+    constants = dict(core_constants(exp), **flags)
+    return (f'exp_sr{n}_{tag}', constants, {'exp': exp, 'mode': mode, 'kin': kin or {'SNOW_A': 0.0}})
+
+
+def ent_kin(tau, rate):
+    return {'SNOW_A': 0.0, 'ENT_TAU': tau, 'ENT_RATE': rate}
+
+
+def filt_kin(kd, ke, n_pow):
+    return {'FILT_KD': kd, 'FILT_KE': ke, 'FILT_UCR': FILT_UCR, 'PERM_N': n_pow, 'SNOW_A': 0.0}
+
+
+def rms(res, n):
+    return rms_k(res, EXPS[n]['k_pv'])
+
+
+def fit_grid(tag, flags, grid, make_kin):
+    """Все наборы сетки на оба опыта: общий набор (min СКО по двум опытам), свой на каждый опыт, перекрестный
+    прогноз (набор по опыту 1 -> опыт 2 и наоборот)."""
+    jobs, keys = [], []
+    for params in grid:
+        for n in (1, 2):
+            jobs.append(job(tag, n, flags, make_kin(*params)))
+            keys.append((params, n))
+    res = dict(zip(keys, run_many(jobs)))
+    table = []
+    for params in grid:
+        r1, r2 = rms(res[(params, 1)], 1), rms(res[(params, 2)], 2)
+        table.append(dict(params=list(params), rms1=r1, rms2=r2, joint=float(np.sqrt((r1 ** 2 + r2 ** 2) / 2))))
+    best = min(table, key=lambda r: r['joint'])
+    own = {n: min(table, key=lambda r: r[f'rms{n}']) for n in (1, 2)}
+    cross = {'1to2': own[1]['rms2'], '2to1': own[2]['rms1']}
+    return dict(table=table, best=best, own=own, cross=cross,
+                curves={n: res[(tuple(best['params']), n)] for n in (1, 2)},
+                own_curves={n: res[(tuple(own[n]['params']), n)] for n in (1, 2)})
+
+
+def final_sets(tag, flags, sets, make_kin):
+    """Прогоны по итоговым наборам (режим --quick): {'joint': params, 'own1': params, 'own2': params}."""
+    jobs, keys = [], []
+    for name in ('joint', 'own1', 'own2'):
+        for n in (1, 2):
+            jobs.append(job(tag, n, flags, make_kin(*sets[name])))
+            keys.append((name, n))
+    res = dict(zip(keys, run_many(jobs)))
+    entry = lambda name: dict(params=list(sets[name]), rms1=rms(res[(name, 1)], 1), rms2=rms(res[(name, 2)], 2))
+    best = entry('joint')
+    best['joint'] = float(np.sqrt((best['rms1'] ** 2 + best['rms2'] ** 2) / 2))
+    own = {1: entry('own1'), 2: entry('own2')}
+    return dict(best=best, own=own, cross={'1to2': own[1]['rms2'], '2to1': own[2]['rms1']},
+                curves={n: res[('joint', n)] for n in (1, 2)}, own_curves={n: res[(f'own{n}', n)] for n in (1, 2)})
+
+
+def others():
+    """СКО кривых чужих моделей (оцифровка) по тем же точкам и той же метрикой."""
+    out = {}
+    for n in (1, 2):
+        for name, pts in EXPS[n]['models'].items():
+            x, y = np.array(pts).T
+            out.setdefault(name, {})[n] = rms_k({'pv': x.tolist(), 'k': y.tolist(), 'plugged': None}, EXPS[n]['k_pv'])
+    return out
+
+
+def run(mode: str = 'full') -> dict:
+    if mode == 'plot':
+        out = load_results('sutton_roberts')
+        plot(out)
+        return out
+    base = run_many([job('legacy', n, {}) for n in (1, 2)] + [job('kernel', n, KERNEL) for n in (1, 2)])
+    out = {'legacy': {n: base[n - 1] for n in (1, 2)}, 'kernel': {n: base[n + 1] for n in (1, 2)},
+           'noise': {n: noise_floor(EXPS[n]['k_pv']) for n in (1, 2)}, 'others': others()}
+    for n in (1, 2):
+        print(f'опыт {n}: шум {out["noise"][n]:.3f}; прежняя модель СКО {rms(out["legacy"][n], n):.3f}; '
+              f'новое ядро {rms(out["kernel"][n], n):.3f}', flush=True)
+    if mode == 'full':
+        ent = fit_grid('ent', ENTRAINMENT, ENT_GRID, ent_kin)
+        filt = fit_grid('filt', FILTRATION, FILT_GRID, filt_kin)
+        save_params('sutton_roberts', {
+            'entrainment': {'joint': ent['best']['params'], 'own1': ent['own'][1]['params'],
+                            'own2': ent['own'][2]['params'], 'kin': 'ENT_TAU [Па], ENT_RATE [1/с]'},
+            'filtration': {'joint': filt['best']['params'], 'own1': filt['own'][1]['params'],
+                           'own2': filt['own'][2]['params'], 'kin': 'FILT_KD [1/с], FILT_KE [1/м], PERM_N'}})
+    else:
+        p = load_params('sutton_roberts')
+        ent = final_sets('ent', ENTRAINMENT, p['entrainment'], ent_kin)
+        filt = final_sets('filt', FILTRATION, p['filtration'], filt_kin)
+    out['entrainment'], out['filtration'] = ent, filt
+    for name, f in (('пучок + вынос', ent), ('глубинная фильтрация', filt)):
+        b = f['best']
+        print(f'{name}, общий набор {b["params"]}: СКО {b["rms1"]:.3f} / {b["rms2"]:.3f}; свой на опыт: '
+              f'{f["own"][1]["rms1"]:.3f} / {f["own"][2]["rms2"]:.3f}; перекрестно 1->2 {f["cross"]["1to2"]:.3f}, '
+              f'2->1 {f["cross"]["2to1"]:.3f}', flush=True)
+    print('чужие модели:', {k: {n: round(v, 3) for n, v in d.items()} for k, d in out['others'].items()}, flush=True)
+    save_results('sutton_roberts', out)
+    plot(out)
+    return out
+
+
+def summary(out) -> list:
+    """Строки сводной таблицы: (опыт, вариант, СКО опыт 1, СКО опыт 2, что подобрано)."""
+    g = lambda d, n: d[n] if n in d else d[str(n)]
+    rows = [('шумовой порог опыта', g(out['noise'], 1), g(out['noise'], 2), '-')]
+    for name, d in out['others'].items():
+        rows.append((name, g(d, 1), g(d, 2), 'по публикации'))
+    rows.append(('прежняя модель (пучок)', rms(g(out['legacy'], 1), 1), rms(g(out['legacy'], 2), 2), 'd_p, L_k по опыту 1'))
+    for key, name in (('entrainment', 'пучок + вынос'), ('filtration', 'глубинная фильтрация')):
+        f = out[key]
+        rows.append((f'{name}, общий набор', f['best']['rms1'], f['best']['rms2'], 'оба опыта'))
+        rows.append((f'{name}, свой набор на опыт', g(f['own'], 1)['rms1'], g(f['own'], 2)['rms2'], 'каждый опыт'))
+        rows.append((f'{name}, перекрестный прогноз', f['cross']['2to1'], f['cross']['1to2'], 'по другому опыту'))
+    return rows
+
+
+def plot(out):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    FIGURES.mkdir(parents=True, exist_ok=True)
+    g = lambda d, n: d[n] if n in d else d[str(n)]
+    fig, axes = plt.subplots(1, 2, figsize=(8.4, 3.5), sharey=True)
+    for ax, n in zip(axes, (1, 2)):
+        pv, k = np.array(EXPS[n]['k_pv']).T
+        ax.plot(pv, k, 'o', mfc='white', mec='k', ms=4.5, label='опыт')
+        for r, style, label in ((g(out['legacy'], n), '-', 'прежняя модель'),
+                                (g(out['entrainment']['curves'], n), '-.', 'пучок + вынос (общий набор)'),
+                                (g(out['filtration']['curves'], n), '--', 'глубинная фильтрация (общий набор)'),
+                                (g(out['filtration']['own_curves'], n), (0, (5, 1, 1, 1)),
+                                 'глубинная фильтрация (свой набор)')):
+            ax.plot(r['pv'], r['k'], ls=style, label=f'{label}: {rms(r, n):.3f}')
+        for name, pts in EXPS[n]['models'].items():
+            x, y = np.array(pts).T
+            ax.plot(x, y, ':', lw=1.0, color='0.4',
+                    label=f'{name}: {rms_k({"pv": x.tolist(), "k": y.tolist(), "plugged": None}, EXPS[n]["k_pv"]):.3f}')
+        ax.set_title(f'опыт {n}', fontsize=9)
+        ax.set_xlabel('прокачано, PV')
+        ax.set_xlim(0, 5.1)
+        ax.set_ylim(0, 1.05)
+        ax.legend(fontsize=6.3, handlelength=3.0)
+    axes[0].set_ylabel('k / k₀')
+    fig.tight_layout()
+    fig.savefig(FIGURES / 'sutton_roberts.png', dpi=200)
+    plt.close(fig)
+
+
+if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8')
+    run(mode_from_argv())

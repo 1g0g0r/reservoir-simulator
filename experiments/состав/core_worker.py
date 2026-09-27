@@ -1,8 +1,8 @@
-"""Рабочий процесс прогона керна в копии пакета с поправленными константами (`docs/validate.py`).
+"""Рабочий процесс прогона керна в копии пакета с поправленными константами (`experiments/состав/validate.py`).
 
     python core_worker.py case.json out.json режим
 
-То же, что `твт_статья/core_flood.worker` (одномерный керн, постоянный расход, k/k0 = dP_0/dP), но пакет
+То же, что `experiments/исходная_модель/core_flood.worker` (одномерный керн, постоянный расход, k/k0 = dP_0/dP), но пакет
 `paraphin` берется из PYTHONPATH - из копии, а не из репозитория: флаги детального состава и геля -
 константы уровня модуля, и править ради них `constants.py` на месте опасно (см. `tests/_patched_copy.py`).
 
@@ -19,8 +19,8 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT / 'твт_статья'))  # в конец: paraphin должен браться из копии (PYTHONPATH)
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(ROOT / 'experiments' / 'исходная_модель'))  # в конец: paraphin должен браться из копии (PYTHONPATH)
 import core_flood as cf  # noqa: E402
 
 

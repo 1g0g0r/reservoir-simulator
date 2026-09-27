@@ -15,12 +15,12 @@ Reservoirs // Processes. 2024. V. 12. P. 421 - кривая выпадения �
 код. Поэтому, как в `run_cases.py`, каждый вариант - отдельный процесс: скрипт правит `constants.py`,
 запускает сам себя с `--worker` и восстанавливает файл в `finally`.
 
-    python твт_статья/core_flood.py          # калибровка d_p, L_k по опыту 1, прогноз опыта 2
-    python твт_статья/core_flood.py --fit    # подгонка Tm, alpha по кривой Li
-    python твт_статья/core_flood.py --check  # сходимость по сетке и шагу при найденных d_p, L_k
-    python твт_статья/core_flood.py --ring   # оба опыта с долей взвеси по расчету Ring
-    python твт_статья/core_flood.py --diag   # разложение расхождения с опытом по причинам
-    python твт_статья/core_flood.py --thermal  # калибровка в неизотермической постановке опыта
+    python experiments/исходная_модель/core_flood.py          # калибровка d_p, L_k по опыту 1, прогноз опыта 2
+    python experiments/исходная_модель/core_flood.py --fit    # подгонка Tm, alpha по кривой Li
+    python experiments/исходная_модель/core_flood.py --check  # сходимость по сетке и шагу при найденных d_p, L_k
+    python experiments/исходная_модель/core_flood.py --ring   # оба опыта с долей взвеси по расчету Ring
+    python experiments/исходная_модель/core_flood.py --diag   # разложение расхождения с опытом по причинам
+    python experiments/исходная_модель/core_flood.py --thermal  # калибровка в неизотермической постановке опыта
 
 Результат - `outputs/data/core_flood.json`, его читает `make_figures.py`.
 """
@@ -34,7 +34,7 @@ from pathlib import Path
 import numpy as np
 from scipy.optimize import brentq, least_squares
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 CONSTANTS = ROOT / 'paraphin' / 'constants.py'
 RESULT = ROOT / 'outputs' / 'data' / 'core_flood.json'
 
@@ -402,7 +402,7 @@ def main() -> None:
 
 
 def check() -> None:
-    """Сходимость по сетке и шагу при найденных d_p, L_k (результаты - в WAX_PRECIPITATION_FINDINGS.md)."""
+    """Сходимость по сетке и шагу при найденных d_p, L_k (результаты - в docs/WAX_PRECIPITATION_FINDINGS.md)."""
     sys.stdout.reconfigure(encoding='utf-8')
     best = json.loads(RESULT.read_text(encoding='utf-8'))['best']['1']
     for ny, dt in ((30, DT), (60, DT), (120, DT), (60, DT / 2)):
@@ -429,7 +429,7 @@ OIL_KEYS = ('MW', 'M_o', 'ro_o', 'ro_p', 'Tm', 'dH')
 
 
 def diagnose() -> None:
-    """Разложение расхождения с опытом по причинам (см. WAX_PRECIPITATION_FINDINGS.md).
+    """Разложение расхождения с опытом по причинам (см. docs/WAX_PRECIPITATION_FINDINGS.md).
 
     Все прогоны - при найденных d_p, L_k; меняется по одному фактору. Результат - `core_flood_diag.json`
     и таблица в консоли.

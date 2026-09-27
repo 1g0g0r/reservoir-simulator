@@ -16,7 +16,7 @@ doi:10.1038/s41598-020-71065-z (resources/литература/парафино�
   - Козени-Кармана, которую для той же задачи берут Sandyga et al. (2020, ур. 17).
 Комментарии и выводы - VALIDATION.md.
 
-    python твт_статья/validation_he2020.py
+    python experiments/исходная_модель/validation_he2020.py
 """
 import json
 import sys

@@ -27,6 +27,6 @@ Unpaywall); платные остаются в таблице без файла.
 
 | Файл | Что взято |
 |---|---|
-| `../парафиновое/li2024_zhetybai_cooling_damage.pdf` | Кривая выпадения и WAT по ДСК нефти Жетыбая, SARA (смолы 5.52 %, асфальтены 0.91 %) — `scn_slope`, `wax_alpha_eff`, `wax_Tm_shift` (`docs/calibrate.py`, разд. A) |
+| `../парафиновое/li2024_zhetybai_cooling_damage.pdf` | Кривая выпадения и WAT по ДСК нефти Жетыбая, SARA (смолы 5.52 %, асфальтены 0.91 %) — `scn_slope`, `wax_alpha_eff`, `wax_Tm_shift` (`experiments/calibrate.py`, разд. A) |
 | `../парафиновое/togasheva2026_uzen_cooling_WAT.pdf` | Узень XIII: парафин 22–29 %, смолы до 21 %, асфальтены 0.94–3 %, P_b = 9–10 МПа |
 | `../../full_review.pdf` | Обзор: SARA, SCN, multi-solid и твердый раствор, Флори–Хаггинс, PC-SAFT — разд. 1 |

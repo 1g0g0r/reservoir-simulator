@@ -14,11 +14,11 @@
 при r_max = 40 мкм распределения шире базового обрезаются (sigma_r = 0.6 теряет 65% проводимости), и прежние
 прогоны `core_flood.py --diag` с sigma_r = 0.6, 0.8 и r_m = 16 мкм считались по обрезанным распределениям.
 
-    python твт_статья/pore_distribution.py            # статика + все прогоны (~150 шт., ~1.2 ч, правят constants.py)
-    python твт_статья/pore_distribution.py --static   # только моменты распределений
-    python твт_статья/pore_distribution.py --table    # таблица по сохраненному json
+    python experiments/исходная_модель/pore_distribution.py            # статика + все прогоны (~150 шт., ~1.2 ч, правят constants.py)
+    python experiments/исходная_модель/pore_distribution.py --static   # только моменты распределений
+    python experiments/исходная_модель/pore_distribution.py --table    # таблица по сохраненному json
 
-Результат - outputs/data/pore_distribution.json, комментарии - WAX_PRECIPITATION_FINDINGS.md.
+Результат - outputs/data/pore_distribution.json, комментарии - docs/WAX_PRECIPITATION_FINDINGS.md.
 """
 import json
 import sys

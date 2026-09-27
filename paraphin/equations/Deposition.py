@@ -34,9 +34,10 @@ import math
 import numpy as np
 from numba import njit
 
-from paraphin import r1, r2, r3, r4, r5, r6, n_pass, w2_cv, plug_cv, dr_cv, eta
+from paraphin import r1, r2, r3, r4, r5, r6, n_pass, w2_cv, plug_cv, dr_cv, eta, surf_0
 from paraphin.constants import (Nr, init_m, init_k, min_Wps_bound, ro_o, ro_p, ro_asph, ro_asph_dep,
                                 resin_in_deposit, volume, D, D_asph, Lk, betta, gamma, g, k_B, diff_mult, S_max, R,
+                                E_activation,
                                 asphaltenes, wax_kinetics, wall_transport, entrainment, asph_aggregation,
                                 snowball, adsorption, deposit_aging, thermal_nonequilibrium, perm_model)
 from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, ENT_RATE, ENT_TAU, AGG_D0, AGG_DF,
@@ -242,7 +243,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     # --- адсорбция асфальтенов и смол (объем слоя, [1/с]; отрицательный - десорбция)
     q_ada, q_adr = 0.0, 0.0
     if adsorption:
-        q_ada, q_adr = _adsorption(i, j, T_K, Wc, kx, kin, surf, mso_dt, dt, new_kx)
+        q_ada, q_adr = _adsorption(i, j, T_K, Wc, kx, kin, mso_dt, dt, new_kx)
 
     # --- старение гель-отложения: парафин входит в гель при постоянном его объеме (объем кристаллов, [1/с])
     q_age = 0.0
@@ -257,11 +258,12 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
             if tw > kin[ENT_TAU] and h[i, j, ij] > 0.0:
                 ue[ij] = kin[ENT_RATE] * (tw / kin[ENT_TAU] - 1.0) * h[i, j, ij]
 
-    # Однородные по r скорости (стеночная кристаллизация и адсорбция) - через удельную поверхность
+    # Однородная по r скорость - стеночная кристаллизация (через удельную поверхность). Удержанные асфальтены и
+    # смолы в сужение каналов не входят: они сидят в горлах, и их вклад в проводимость - функция повреждения ниже
     u_uni = 0.0
     if surf > 0.0:
-        u_uni = -(q_wall / c0 + q_ada + q_adr) / surf
-    active = lim_w > 0.0 or lim_a > 0.0 or u_uni != 0.0 or entrainment
+        u_uni = -(q_wall / c0) / surf
+    active = lim_w > 0.0 or lim_a > 0.0 or u_uni != 0.0 or entrainment or adsorption
 
     if not active and q_age == 0.0:
         for ij in range(Nr):
@@ -294,14 +296,13 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     qp2 = lim_w * to_m * _weighted(new_fi, i, j, bw, plug_cv, 1.0)            # пробки парафина
     qpa_plug = lim_a * to_m * _weighted(new_fi, i, j, ba, plug_cv, plug_scale)  # пробки флокул
     narrow = to_m * (r2fi - r2fi_n) / dt - blocked                            # сужение + вынос, [1/с]
-    e_w = lim_w * i_w / c0          # оценки до прогонки: объем геля парафина, флокул, стеночный, слой
+    e_w = lim_w * i_w / c0          # оценки до прогонки: объем геля парафина, флокул, стеночный
     e_a = lim_a * i_a
     e_wall = q_wall / c0
-    e_ads = q_ada + q_adr
     e_ent = 0.0
     if entrainment:
         e_ent = 2.0 * to_m * _int_r_u_fi(fi, i, j, ue)  # объем, освобожденный выносом, [1/с]
-    pos = e_w + e_a + e_wall + e_ads
+    pos = e_w + e_a + e_wall
     scale = (narrow + e_ent) / pos if pos > 1e-300 else 0.0
     if scale < 0.0:
         scale = 0.0
@@ -326,9 +327,6 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     qp1 = c0 * e_w * scale - ent_wax
     q_w = c0 * e_wall * scale
     qpa = e_a * scale + qpa_plug - ent_asph
-    ads_scale = scale if e_ads != 0.0 else 0.0
-    q_ada *= ads_scale
-    q_adr *= ads_scale
 
     new_qp1[i, j] = qp1
     new_qp2[i, j] = qp2
@@ -350,6 +348,11 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
 
     new_m[i, j] = m[i, j] - (qp1 + qp2 + qpa + q_w + q_age + q_ada + q_adr) * dt
     new_k[i, j] = init_k * r4fi_n / integr_r4_fi0
+    if adsorption:
+        # Удержание в горлах: малый объем - большая потеря проводимости (обзор 4.1, структурный эффект), функция
+        # повреждения Civan (2015) по объему удержанного, sigma = (G_a + G_r)/ro_ad
+        sigma_v = (kx[i, j, KX_GA] + kx[i, j, KX_GR]) / ro_asph_dep + (q_ada + q_adr) * dt
+        new_k[i, j] *= perm_damage(sigma_v / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA])
 
 
 @njit(cache=True)
@@ -403,16 +406,25 @@ def _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, ne
 
 
 @njit(cache=True)
-def _adsorption(i, j, T_K, Wc, kx, kin, surf, mso_dt, dt, new_kx):
+def _adsorption(i, j, T_K, Wc, kx, kin, mso_dt, dt, new_kx):
     """Адсорбция растворенных асфальтенов и смол на стенках: кинетический Ленгмюр (линейная движущая сила).
 
         G_eq = G_max*K*c/(1 + K*c),  K(T) = ads_K*exp(-ads_dH/R*(1/T - 1/T_ref)),  G_max = ads_gmax*a_v,
-        dG/dt = ads_rate*(G_eq - G)  ->  за шаг точно  dG = (G_eq - G)*(1 - exp(-ads_rate*dt)).
-    a_v - удельная поверхность проводящих каналов. Возвращает объем слоя за единицу времени для асфальтенов
+        dG/dt = k_ads*(G_eq - G)  ->  за шаг точно  dG = (G_eq - G)*(1 - exp(-k_ads*dt)),
+        k_ads = ads_rate*(T/T_ref)*mu(T_ref)/mu(T).
+    Скорость - массообмен к стенке (линейная движущая сила Глюкауфа), k_ads ~ D_m/delta^2, а коэффициент
+    молекулярной диффузии по Уилки-Чангу D_m ~ T/mu: от 90 до 45 C в нефти Li et al. (2024) он падает втрое.
+    mu - вязкость жидкой основы по Аррениусу с E_activation (гель и кристаллы на диффузию молекул не влияют).
+    a_v = surf_0 - удельная поверхность породы (пучок fi_0), а не текущих проводящих каналов: емкость Ленгмюра
+    измеряют на единицу массы породы, и адсорбированное в канале, который потом заткнул парафин, остается на месте.
+    С поверхностью проводящих каналов емкость падала вместе с закупоркой, и смолы десорбировались - на ступени
+    45 C опыта Li et al. (2024) проницаемость от этого росла к концу ступени. Возвращает объем слоя за единицу времени для асфальтенов
     и смол, [1/с] (отрицательный - десорбция); сами количества G обновляет `components_equation`."""
     k_l = langmuir_constant(kin[ADS_K], kin[ADS_DH], T_K, kin[ADS_T_REF] + 273.15, R)
-    frac = 1.0 - math.exp(-kin[ADS_RATE] * dt)
-    g_max = kin[ADS_GMAX] * surf
+    t_ref = kin[ADS_T_REF] + 273.15
+    k_ads = kin[ADS_RATE] * T_K / t_ref * math.exp(E_activation / R * (1.0 / t_ref - 1.0 / T_K))
+    frac = 1.0 - math.exp(-k_ads * dt)
+    g_max = kin[ADS_GMAX] * surf_0
     new_kx[i, j, KX_GMAX] = g_max
     q_a = _langmuir_step(Wc[i, j, IA_D], kx[i, j, KX_GA], g_max, k_l, frac, mso_dt, dt)
     q_r = _langmuir_step(Wc[i, j, I_R], kx[i, j, KX_GR], g_max * kin[ADS_RESIN], k_l, frac, mso_dt, dt)
@@ -492,8 +504,6 @@ def calc_filtration(i, j, S, T, p, m, k, fi, Wc, Ws, Wps, Dep, grad_p, lam_o, kx
     mso_dt = max(mso / dt - out_o / volume, 0.0)
     u_o = lam_o[i, j] * grad_p[i, j]
     ex = max(u_o - kin[FILT_UCR], 0.0)
-    rfi, _, _ = _moments(fi, i, j)
-    surf = 2.0 * init_m / integr_r2_fi0 * rfi
     for ij in range(Nr):
         new_fi[i, j, ij] = fi[i, j, ij]
 
@@ -521,7 +531,7 @@ def calc_filtration(i, j, S, T, p, m, k, fi, Wc, Ws, Wps, Dep, grad_p, lam_o, kx
         q_wall = _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, new_kx)
     q_ada, q_adr = 0.0, 0.0
     if adsorption:
-        q_ada, q_adr = _adsorption(i, j, T[i, j] + 273.15, Wc, kx, kin, surf, mso_dt, dt, new_kx)
+        q_ada, q_adr = _adsorption(i, j, T[i, j] + 273.15, Wc, kx, kin, mso_dt, dt, new_kx)
     q_age = 0.0
     if deposit_aging:
         q_age = _aging(i, j, Wc, Ws, Dep, kx, kin, mso_dt, tmp, new_kx)

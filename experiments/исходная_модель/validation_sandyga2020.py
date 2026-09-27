@@ -13,8 +13,8 @@ doi:10.1007/s13202-020-00924-2 (resources/литература/парафино�
      какие поры закупорены (рис. 6).
 Комментарии и выводы - VALIDATION.md.
 
-    python твт_статья/validation_sandyga2020.py          # A, B и прогоны C (правят constants.py)
-    python твт_статья/validation_sandyga2020.py --plot   # только рисунок по сохраненному json
+    python experiments/исходная_модель/validation_sandyga2020.py          # A, B и прогоны C (правят constants.py)
+    python experiments/исходная_модель/validation_sandyga2020.py --plot   # только рисунок по сохраненному json
 """
 import json
 import sys

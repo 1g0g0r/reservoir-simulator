@@ -1,8 +1,8 @@
 """Калибровка параметров детального состава нефти по опубликованным измерениям.
 
-    python docs/calibrate.py
+    python experiments/calibrate.py
 
-Печатает таблицы и пишет `docs/calibration.json` (его читают `make_model_figures.py` и текст docx).
+Печатает таблицы и пишет `experiments/results/calibration.json` (его читают `docs/make_model_figures.py` и текст docx).
 Найденные значения переносятся в `paraphin/constants.py` вручную, с комментарием, - как Tm и alpha.
 
 A. SCN-распределение и эффективные параметры растворимости групп (scn_slope, wax_alpha_eff, wax_Tm_shift) -
@@ -22,17 +22,17 @@ from scipy.optimize import brentq, least_squares
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / 'твт_статья'))
+sys.path.insert(0, str(ROOT / 'experiments' / 'исходная_модель'))
 
 import core_flood as cf  # noqa: E402
 from paraphin import oil_composition as oc  # noqa: E402
 from paraphin.constants import (MW, M_o, Tm, alpha, R, ro_o, ro_p, gel_phi_ref, scn_bounds, scn_first,  # noqa: E402
                                 scn_last, scn_slope, P_ref_wax, wax_alpha_eff, wax_Tm_shift, wax_dv_frac)
 
-OUT = Path(__file__).resolve().parent / 'calibration.json'
+OUT = Path(__file__).resolve().parent / 'results' / 'calibration.json'
 GAMMA_LI = 150.0  # скорость сдвига реометра Li et al. (2024), [1/с]
 
-# Данные те же, что в `твт_статья/validation_li2024.py` и `validation_sandyga2020.py` (там же - оцифровка и
+# Данные те же, что в `experiments/исходная_модель/validation_li2024.py` и `validation_sandyga2020.py` (там же - оцифровка и
 # точность); сюда скопированы, потому что те модули при импорте читают результаты прогонов керна.
 # Вязкость нефти Жетыбая при охлаждении, 150 1/с (Li et al., 2024, рис. 4а): (T, C; мПа*с)
 LI_VISCOSITY = [(24.4, 443.0), (25.6, 321.0), (28.2, 150.0), (30.9, 73.0), (33.8, 47.5), (36.5, 38.0),

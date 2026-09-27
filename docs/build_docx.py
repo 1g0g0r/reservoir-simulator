@@ -1,14 +1,21 @@
-"""Сборка docx из исходников в `docs/`: pandoc переводит формулы TeX в формулы Word (OMML).
+"""Сборка docx из markdown-исходников: pandoc переводит формулы TeX в формулы Word (OMML).
 
-    python docs/build_docx.py              # оба документа
-    python docs/build_docx.py валидация    # один: модель_АСПО или валидация_АСПО
+    python docs/build_docx.py                       # все документы из DOCS
+    python docs/build_docx.py модель_АСПО           # один или несколько по имени
+    python docs/build_docx.py путь/к/файлу.md       # любой markdown рядом со своими рисунками
 
-`модель_АСПО.md` - математическое описание; вместо {{DEMO}} подставляется `demo_results.md`
-(пишет `make_model_figures.py`). `валидация_АСПО.md` - сравнение с опытами; вместо {{КЛЮЧ}} подставляются
-таблицы из `validation_tables.json` (пишет `validate.py`).
+Документы (DOCS): описания моделей лежат в `docs/`, сравнения с опытами - в `experiments/`.
+  - `docs/модель_АСПО.md` - математическое описание; вместо {{DEMO}} подставляется `demo_results.md`
+    (пишет `make_model_figures.py`);
+  - `docs/кинетика_осаждения.md` - кинетика выпадения и осаждения, сопутствующие модели кольматации;
+  - `experiments/сравнение_с_опытами.md` - сравнение с опытами всех механизмов; вместо {{КЛЮЧ}} - таблицы из
+    `experiments/results/tables.json` (пишет `experiments/run_all.py`);
+  - `experiments/состав/валидация_АСПО.md` - первое сравнение детального состава; таблицы из
+    `validation_tables.json` рядом (пишет `experiments/состав/validate.py`).
 
 Стили (Times New Roman 12, выравнивание, поля) - те же, что у статьи: reference.docx собирается функциями
 `твт_статья/make_docx.py`. pandoc берется из пакета `pypandoc_binary` (requirements.txt), если его нет в PATH.
+Пути рисунков в тексте - относительно папки документа.
 """
 import json
 import os
@@ -21,8 +28,32 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 DEMO = HERE / 'demo_results.md'
-TABLES = HERE / 'validation_tables.json'
-DOCS = ('модель_АСПО', 'валидация_АСПО')
+
+
+def _demo() -> dict:
+    demo = DEMO.read_text(encoding='utf-8') if DEMO.is_file() else \
+        '*Демонстрационный расчет не выполнен: `python demo_composition.py`, затем `python docs/make_model_figures.py`.*'
+    return {'DEMO': demo.strip()}
+
+
+def _tables(path: Path, how: str):
+    def load() -> dict:
+        if not path.is_file():
+            raise SystemExit(f'нет {path.relative_to(ROOT)}: сначала {how}')
+        return json.loads(path.read_text(encoding='utf-8'))
+    return load
+
+
+# имя -> (markdown-исходник, подстановки {{КЛЮЧ}})
+DOCS = {
+    'модель_АСПО': (HERE / 'модель_АСПО.md', _demo),
+    'кинетика_осаждения': (HERE / 'кинетика_осаждения.md', dict),
+    'сравнение_с_опытами': (ROOT / 'experiments' / 'сравнение_с_опытами.md',
+                            _tables(ROOT / 'experiments' / 'results' / 'tables.json', 'python experiments/run_all.py')),
+    'валидация_АСПО': (ROOT / 'experiments' / 'состав' / 'валидация_АСПО.md',
+                       _tables(ROOT / 'experiments' / 'состав' / 'validation_tables.json',
+                               'python experiments/состав/validate.py')),
+}
 
 sys.path.insert(0, str(ROOT / 'твт_статья'))
 from make_docx import build_reference, build_docx  # noqa: E402
@@ -35,30 +66,21 @@ def _pandoc_on_path() -> None:
     os.environ['PATH'] = str(Path(pypandoc.get_pandoc_path()).parent) + os.pathsep + os.environ.get('PATH', '')
 
 
-def _substitutions(name: str) -> dict:
-    if name == 'модель_АСПО':
-        demo = DEMO.read_text(encoding='utf-8') if DEMO.is_file() else \
-            '*Демонстрационный расчет не выполнен: `python demo_composition.py`, затем `python docs/make_model_figures.py`.*'
-        return {'DEMO': demo.strip()}
-    if not TABLES.is_file():
-        raise SystemExit('нет docs/validation_tables.json: сначала python docs/validate.py')
-    return json.loads(TABLES.read_text(encoding='utf-8'))
-
-
-def build(name: str) -> None:
-    source, target = HERE / f'{name}.md', HERE / f'{name}.docx'
+def build(source: Path, substitutions=dict) -> None:
+    folder = source.parent
+    target = source.with_suffix('.docx')
     text = source.read_text(encoding='utf-8')
-    for key, value in _substitutions(name).items():
+    for key, value in substitutions().items():
         text = text.replace('{{' + key + '}}', value)
     missing = re.findall(r'\{\{[^}]+\}\}', text)
     if missing:
         raise SystemExit(f'{source.name}: не подставлено {missing}')
-    work = HERE / '_build.md'
-    reference = HERE / 'reference.docx'
+    work = folder / '_build.md'
+    reference = folder / 'reference.docx'
     cwd = Path.cwd()
     try:
         work.write_text(text, encoding='utf-8')
-        os.chdir(HERE)  # пути рисунков в тексте - относительно docs/
+        os.chdir(folder)  # пути рисунков в тексте - относительно папки документа
         build_reference(reference)
         build_docx(work, target, reference)
     finally:
@@ -76,7 +98,12 @@ def build(name: str) -> None:
 def main() -> None:
     _pandoc_on_path()
     for name in (sys.argv[1:] or DOCS):
-        build(name if name.endswith('_АСПО') else f'{name}_АСПО')
+        if name in DOCS:
+            build(*DOCS[name])
+        elif name.endswith('.md'):
+            build(Path(name).resolve())
+        else:
+            raise SystemExit(f'неизвестный документ {name}: {", ".join(DOCS)} или путь к .md')
 
 
 if __name__ == '__main__':

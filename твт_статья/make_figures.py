@@ -19,6 +19,7 @@ from paraphin.utils.visualisation_utils import read_solution_data, x_mesh, y_mes
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / 'experiments' / 'исходная_модель'))  # core_flood.py - проверка по керну
 
 # (ключ, файл данных, номер в подписи, стиль линии, подпись варианта)
 # Имена файлов - явные литералы, а не f'Wp={constants.init_Wp}...': та константа - лишь
@@ -899,7 +900,7 @@ def core_flood_numbers() -> list:
 
     result = _load_core_flood()
     if result is None:
-        return lines + ['- расчета керна нет: python твт_статья/core_flood.py']
+        return lines + ['- расчета керна нет: python experiments/исходная_модель/core_flood.py']
 
     best1 = result['best']['1']
     lines.append(f'- калибровка по опыту 1: d_p = {best1["d_p"] * 1e6:.1f} мкм, L_k = {best1["lk"] * 1e6:.0f} мкм, '

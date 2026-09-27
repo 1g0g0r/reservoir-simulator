@@ -10,8 +10,8 @@ P. 421. doi:10.3390/pr12020421 (resources/литература/парафино�
   B. прокачка нефти через керн 2 (табл. 1: 18.81 мД, 16.9%, 5 см) при 90, 65, 45 и 25 C, k/k0 от PV (рис. 5).
 Комментарии и выводы - VALIDATION.md.
 
-    python твт_статья/validation_li2024.py          # A и B (прогоны керна ~20 шт., правят constants.py)
-    python твт_статья/validation_li2024.py --plot   # только рисунок по сохраненному json
+    python experiments/исходная_модель/validation_li2024.py          # A и B (прогоны керна ~20 шт., правят constants.py)
+    python experiments/исходная_модель/validation_li2024.py --plot   # только рисунок по сохраненному json
 """
 import json
 import sys

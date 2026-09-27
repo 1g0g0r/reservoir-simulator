@@ -1,6 +1,6 @@
 """Рисунки к математическому описанию модели детального состава нефти (`docs/модель_АСПО.md`).
 
-    python docs/calibrate.py            # сначала: калибровка -> docs/calibration.json
+    python experiments/calibrate.py     # сначала: калибровка -> experiments/results/calibration.json
     python demo_composition.py          # затем: демонстрационные расчеты -> outputs/data/demo_*
     python docs/make_model_figures.py   # рисунки -> docs/figures/*.png
 
@@ -411,7 +411,7 @@ def demo_text():
   скважины. Там нефть почти неподвижна (подвижность ограничена снизу долей {gel_mobility_min} от пластической),
   и вода ее обходит. Вклад геля в КИН мал: неподвижная нефть заперта в зоне, которую вода уже прошла.
   Предел текучести в поре взят объемным (`gel_tau_mult` = 1): так его подтверждает керн той же нефти
-  (`docs/валидация_АСПО.docx`, раздел 5). Для легких нефтей он в десятки раз меньше.
+  (`experiments/состав/валидация_АСПО.docx`, раздел 5). Для легких нефтей он в десятки раз меньше.
 
 WAT в полной модели. В начале расчета WAT составляет {wat0.min():.1f}–{wat0.max():.1f} °C: при 12 МПа
 поправка Пойнтинга не перекрывает понижения растворенным газом (рис. 4), и WAT ниже, чем у дегазированной нефти
@@ -439,7 +439,7 @@ k/k0. Осадок асфальтенов со смолами и флокулы 
 
 
 def main():
-    cal = json.loads((HERE / 'calibration.json').read_text(encoding='utf-8'))
+    cal = json.loads((ROOT / 'experiments' / 'results' / 'calibration.json').read_text(encoding='utf-8'))
     print('Рисунки:')
     fig_scheme()
     fig_scn(cal)

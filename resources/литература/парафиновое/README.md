@@ -1,7 +1,7 @@
 # Литература по парафиновой кольматации пласта: что лежит здесь и с чем можно сравнивать модель
 
 Отбор — работы не старше 15 лет (2011–2026), кроме уже использованных ранее классических. Для каждой — что в ней
-есть для проверки модели (`paraphin`, `твт_статья/core_flood.py`, `validation_*.py`) и что уже сделано.
+есть для проверки модели (`paraphin`, `experiments/исходная_модель/core_flood.py`, `validation_*.py`) и что уже сделано.
 Поиск 27.09.2026; скачано только то, что открыто законно (сайты издателей, репозитории вузов, Europe PMC).
 Пиратские копии (dokumen.pub, scribd и т. п.) не брались.
 
@@ -48,7 +48,7 @@
 `hammami1997.pdf`, `kord2014.pdf`, `fallahnejad2015.pdf`, `solaimany-nazar2011.pdf`, `subramanian2015.pdf`,
 `issledovanie-kinetiki-vydeleniya-parafinov-iz-nefti.pdf`, `супер казах.pdf`, `О переносе частиц.doc`, `2340901.pdf`,
 `Solid Phase Equation of State ... .pdf`. Ring et al. (1994), Wang & Civan (2005), Sutton & Roberts (1974),
-Maloney & Oesthus (2004) — опорные данные калибровки, см. `твт_статья/WAX_PRECIPITATION_FINDINGS.md`.
+Maloney & Oesthus (2004) — опорные данные калибровки, см. `docs/WAX_PRECIPITATION_FINDINGS.md`.
 
 ## Что стоит сделать дальше
 

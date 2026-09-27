@@ -1,4 +1,4 @@
-"""Рисунки и таблицы к сравнению с опытами (`docs/validate.py`): docs/figures/val*.png, docs/validation_tables.json.
+"""Рисунки и таблицы к сравнению с опытами (`validate.py`): figures/val*.png, validation_tables.json.
 
 Стиль и палитра - как у рисунков описания модели (`make_model_figures.py`): опыт - черные маркеры,
 прежняя модель - первый цвет, варианты новой - следующие по порядку; у вариантов свой тип линии.
@@ -11,11 +11,20 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from make_model_figures import SERIES, STYLES, INK, INK2, _save, plt  # noqa: E402
+sys.path.insert(0, str(HERE.parents[1] / 'docs'))  # стиль рисунков - общий с описанием модели
+from make_model_figures import SERIES, STYLES, INK, INK2, plt  # noqa: E402
 from validate import cf, li, sd  # noqa: E402
 
 TABLES = HERE / 'validation_tables.json'
+FIG = HERE / 'figures'
 LINE_STYLES = STYLES + [(0, (6, 1.5, 1, 1.5, 1, 1.5)), (0, (1, 1))]
+
+
+def _save(fig, name):
+    FIG.mkdir(parents=True, exist_ok=True)
+    fig.savefig(FIG / f'{name}.png', bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    print('  ', name)
 
 
 def _mult_label(m):

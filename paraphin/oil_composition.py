@@ -92,7 +92,7 @@ def lump_groups(n, M, w, bounds=scn_bounds, tm_shift=wax_Tm_shift):
 
 def group_properties(slope=scn_slope, alpha_eff=wax_alpha_eff, tm_shift=wax_Tm_shift, bounds=scn_bounds,
                      n_first=scn_first, n_last=scn_last, total=WAX_TOTAL, dv_frac=wax_dv_frac):
-    """Свойства групп при заданных параметрах характеризации - для калибровки и рисунков (`docs/calibrate.py`).
+    """Свойства групп при заданных параметрах характеризации - для калибровки и рисунков (`experiments/calibrate.py`).
 
     Returns
     -------
