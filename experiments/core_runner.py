@@ -157,11 +157,16 @@ def run(case: dict) -> dict:
             if hold > 0.0:
                 solver.boundary_conditions[Bound.Left.value, DataField.Pressure.value, 1] = p_out
                 t_hold = 0.0
-                while t_hold < hold:
+                while t_hold < hold and plugged is None:
                     step = solver.dt
-                    solver.upd_time_step(t + step)
+                    try:
+                        solver.upd_time_step(t + step)
+                    except ValueError:  # вырожденная матрица давления: где-то нулевая подвижность - закупорка
+                        plugged = pv[-1]
                     t += step
                     t_hold += step
+                if plugged is not None:
+                    break
                 impose_temperature()
             if gelation:
                 _gel_equilibrium(solver, exp['q'] / area, gel_mobility_min)
@@ -187,7 +192,11 @@ def run(case: dict) -> dict:
                 break
             solver.boundary_conditions[Bound.Left.value, DataField.Pressure.value, 1] = p_out + dp
             step = solver.dt
-            solver.upd_time_step(t + step)
+            try:
+                solver.upd_time_step(t + step)
+            except ValueError:  # вырожденная матрица давления - керн закупорен
+                plugged = pv[-1]
+                break
             t += step
             injected += exp['q'] * step
             pv.append(injected / pv0)

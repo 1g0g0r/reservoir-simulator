@@ -69,6 +69,9 @@ NROWS = 7
 
 # --- Интегралы по радиусам -------------------------------------------------------------------------------------
 
+_K_FLOOR = 1e-8  # остаточная проницаемость, доли init_k
+
+
 @njit(cache=True)
 def _moments(fi, i, j):
     """Интегралы r*fi, r^2*fi, r^4*fi по кусочно-линейной fi (точно по отрезкам, как `_calculate_integrals`)."""
@@ -361,6 +364,9 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
         # повреждения Civan (2015) по объему удержанного, sigma = (G_a + G_r)/ro_ad
         sigma_v = (kx[i, j, KX_GA] + kx[i, j, KX_GR]) / ro_asph_dep + (q_ada + q_adr) * dt
         new_k[i, j] *= perm_damage(sigma_v / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA])
+    # Остаточная проницаемость: функция повреждения при sigma >= sigma_max и сеть ниже порога протекания дают
+    # ноль, а нулевая подвижность делает матрицу давления вырожденной
+    new_k[i, j] = max(new_k[i, j], _K_FLOOR * init_k)
 
 
 @njit(cache=True)
