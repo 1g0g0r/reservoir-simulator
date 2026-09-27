@@ -4,7 +4,7 @@ from numba import njit, int32, float32, float64
 from numba.experimental import jitclass
 from numba.types import Array
 
-from paraphin.constants import data_type, h, _re, Nx
+from paraphin.constants import data_type, h, _re, Nx, wettability
 from .math_utils import pf_w, pf_o, Buckley_Leverett
 
 if data_type == np.float32:
@@ -49,7 +49,7 @@ class WellStruct:
 
 
 @njit(cache=True)
-def calc_well_prod(well, S, k, mu_o, mu_w) -> WellStruct:
+def calc_well_prod(well, S, k, mu_o, mu_w, lam_o, lam_w) -> WellStruct:
     """Коэффициенты продуктивности Писмана по фазам, [м^3/(Па*с)]:
 
         prod_a = 2*pi*k^(t+1)*h/ln(r_o/r_w) * (f_a/mu_a)^t,   q_a = prod_a * (P_w - P_i^(t+1)).
@@ -67,6 +67,10 @@ def calc_well_prod(well, S, k, mu_o, mu_w) -> WellStruct:
     if well.is_injector == 1:
         well.prod[0] = 0.0
         well.prod[1] = mult / mu_w[well.i, well.j]
+    elif wettability:
+        # ОФП со сменой смачиваемости уже в подвижностях ячейки (`calc_mobility_w`): lam = k*pf/mu
+        well.prod[0] = well.prod_mult * lam_o[well.i, well.j]
+        well.prod[1] = well.prod_mult * lam_w[well.i, well.j]
     else:
         well.prod[0] = mult * pf_o(S[well.i, well.j]) / mu_o[well.i, well.j]
         well.prod[1] = mult * pf_w(S[well.i, well.j]) / mu_w[well.i, well.j]

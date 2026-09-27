@@ -3,11 +3,11 @@ import math
 
 from numba import njit
 
-from .FVM_utils import (mid, lam_heat, calc_mobility, up_fraction, mobility_o,
+from .FVM_utils import (mid, lam_heat, calc_mobility, calc_mobility_w, up_fraction, mobility_o,
                         mobility_w, DI, DJ, HIJ, AREA)
 from .band_solver import solve_band_system
 from .fluids_correlations import calc_mu_o, calc_mu_p, calc_mu_w, crystal_volume_fraction, calc_c_f, calc_c_o, calc_c_w, calc_c_p
-from .phase_f import pf_o, pf_w, Buckley_Leverett
+from .phase_f import pf_o, pf_w, pf_o_mix, pf_w_mix, Buckley_Leverett
 
 
 @njit(cache=True)

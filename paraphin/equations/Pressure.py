@@ -49,7 +49,7 @@ def calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells,
     """
     _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
                          diag, ex, ey, rhs, boundary_condition)
-    _adding_wells(wells, S, k, mu_o, mu_w, diag, rhs)
+    _adding_wells(wells, S, k, mu_o, mu_w, lam_o, lam_w, diag, rhs)
 
     band_age = solve_band_system(diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q, band_age)
 
@@ -122,7 +122,7 @@ def _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
 
 
 @njit(cache=True)
-def _adding_wells(wells, S, k, mu_o, mu_w, diag, rhs):
+def _adding_wells(wells, S, k, mu_o, mu_w, lam_o, lam_w, diag, rhs):
     """Учет скважин в уравнении давления, неявный по давлению.
 
         q = prod*(P_забой - P_ячейки)
@@ -136,7 +136,7 @@ def _adding_wells(wells, S, k, mu_o, mu_w, diag, rhs):
     после решения СЛАУ `upd_q_and_eta` умножает те же самые `prod` на перепад.
     """
     for i in range(len(wells)):
-        wells[i] = calc_well_prod(wells[i], S, k, mu_o, mu_w)
+        wells[i] = calc_well_prod(wells[i], S, k, mu_o, mu_w, lam_o, lam_w)
         well = wells[i]
 
         if well.rate_control == 1:

@@ -3,7 +3,7 @@ import numpy as np
 from numba import njit, prange
 
 from paraphin.constants import data_type, K_o, K_f, K_w, K_p, Nx, Ny, hx, hy, h, init_m
-from .phase_f import pf_o, pf_w
+from .phase_f import pf_o, pf_w, pf_o_mix, pf_w_mix
 
 # Обход соседей ячейки: вправо, влево, вверх, вниз. Смещение индексов, расстояние между центрами и площадь грани.
 # Одни и те же таблицы нужны и сборке матрицы давления, и расчету перетоков, поэтому лежат здесь.
@@ -28,6 +28,21 @@ def calc_mobility(k, S, m, Wo, Wp, Wps, mu_o, mu_w, lam_o, lam_w, lam_h) -> None
         for j in range(Ny):
             lam_o[i, j] = mobility_o(k[i, j], S[i, j], mu_o[i, j])
             lam_w[i, j] = mobility_w(k[i, j], S[i, j], mu_w[i, j])
+            lam_h[i, j] = lam_heat(S[i, j], m[i, j], Wo[i, j], Wp[i, j] + Wps[i, j])
+
+
+@njit(parallel=True, cache=True)
+def calc_mobility_w(k, S, m, Wo, Wp, Wps, mu_o, mu_w, lam_o, lam_w, lam_h, g_ads, g_max, s_min_ow, s_max_ow, n_o_ow,
+                    n_w_ow) -> None:
+    """`calc_mobility` при смене смачиваемости (`wettability`): ОФП - смесь водо- и нефтесмачиваемых наборов
+    по доле покрытия поверхности адсорбированными асфальтенами omega = min(G/G_max, 1) (`pf_o_mix`, `pf_w_mix`).
+    g_ads, g_max - поля адсорбированных асфальтенов и предельной адсорбции (`kx[..., KX_GA]`, `kx[..., KX_GMAX]`)."""
+    for i in prange(Nx):
+        for j in range(Ny):
+            omega = min(g_ads[i, j] / g_max[i, j], 1.0) if g_max[i, j] > 0.0 else 0.0
+            s = S[i, j]
+            lam_o[i, j] = k[i, j] * pf_o_mix(s, omega, s_min_ow, s_max_ow, n_o_ow) / mu_o[i, j]
+            lam_w[i, j] = k[i, j] * pf_w_mix(s, omega, s_min_ow, s_max_ow, n_w_ow) / mu_w[i, j]
             lam_h[i, j] = lam_heat(S[i, j], m[i, j], Wo[i, j], Wp[i, j] + Wps[i, j])
 
 

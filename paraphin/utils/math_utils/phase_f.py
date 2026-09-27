@@ -44,6 +44,31 @@ def pf_w(s: data_type) -> data_type:
 
 
 @njit(cache=True)
+def _corey(x, n):
+    """(x)^n на [0, 1] с насыщением за пределами."""
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+    return x ** n
+
+
+@njit(cache=True)
+def pf_o_mix(s, omega, s_min_ow, s_max_ow, n_o_ow):
+    """ОФП нефти при смене смачиваемости (`wettability`; Qin et al., Ind Eng Chem Res 2000, 39:2644):
+    (1 - omega)*pf_o(s) + omega*pf_o^ow(s), omega - доля нефтесмачиваемой поверхности."""
+    ow = _corey((s_max_ow - s) / (s_max_ow - s_min_ow), n_o_ow)
+    return (1.0 - omega) * pf_o(s) + omega * ow
+
+
+@njit(cache=True)
+def pf_w_mix(s, omega, s_min_ow, s_max_ow, n_w_ow):
+    """ОФП воды при смене смачиваемости - то же смешение, что `pf_o_mix`."""
+    ow = _corey((s - s_min_ow) / (s_max_ow - s_min_ow), n_w_ow)
+    return (1.0 - omega) * pf_w(s) + omega * ow
+
+
+@njit(cache=True)
 def Buckley_Leverett(s: data_type, mu_w: data_type, mu_o: data_type) -> data_type:
     """Функция Баклея-Леверетта:
                       pf_w

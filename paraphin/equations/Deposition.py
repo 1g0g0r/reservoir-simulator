@@ -44,7 +44,7 @@ from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, ENT
                                       AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR, PERM_N, PERM_BETA,
                                       PERM_SMAX, PERM_GAMMA, PERM_ALPHA, LTNE_DG, LTNE_DM,
                                       KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR,
-                                      KX_VGEL, KX_TS)
+                                      KX_VGEL, KX_TS, KX_GMAX)
 from paraphin.oil_composition import N_W, IA_D, IA_F, I_R, IN_F
 from paraphin.utils import crystal_volume_fraction
 from .Thermo_wax import sle_split
@@ -413,6 +413,7 @@ def _adsorption(i, j, T_K, Wc, kx, kin, surf, mso_dt, dt, new_kx):
     k_l = langmuir_constant(kin[ADS_K], kin[ADS_DH], T_K, kin[ADS_T_REF] + 273.15, R)
     frac = 1.0 - math.exp(-kin[ADS_RATE] * dt)
     g_max = kin[ADS_GMAX] * surf
+    new_kx[i, j, KX_GMAX] = g_max
     q_a = _langmuir_step(Wc[i, j, IA_D], kx[i, j, KX_GA], g_max, k_l, frac, mso_dt, dt)
     q_r = _langmuir_step(Wc[i, j, I_R], kx[i, j, KX_GR], g_max * kin[ADS_RESIN], k_l, frac, mso_dt, dt)
     return q_a, q_r

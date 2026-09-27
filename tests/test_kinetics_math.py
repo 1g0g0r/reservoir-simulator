@@ -94,3 +94,55 @@ def test_hawkins_skin():
     assert hawkins_skin(1.0, 1.0, 5.0, 0.1) == 0.0
     assert np.isclose(hawkins_skin(1.0, 0.25, 5.0, 0.1), 3 * math.log(50), rtol=1e-14)
     assert hawkins_skin(1.0, 2.0, 5.0, 0.1) < 0.0  # стимулированная зона
+
+
+def test_wettability_mix_limits():
+    """omega = 0 - водосмачиваемые ОФП базовой модели, omega = 1 - нефтесмачиваемый набор."""
+    from paraphin.constants import S_min, S_max
+    from paraphin.utils.math_utils import pf_o, pf_w, pf_o_mix, pf_w_mix
+    for s in np.linspace(0.0, 1.0, 41):
+        assert pf_o_mix(s, 0.0, 0.1, 0.8, 3.0) == pf_o(s)
+        assert pf_w_mix(s, 0.0, 0.1, 0.8, 1.5) == pf_w(s)
+    s = 0.5
+    assert np.isclose(pf_o_mix(s, 1.0, 0.1, 0.8, 3.0), ((0.8 - s) / 0.7) ** 3, rtol=1e-14)
+    assert np.isclose(pf_w_mix(s, 1.0, 0.1, 0.8, 1.5), ((s - 0.1) / 0.7) ** 1.5, rtol=1e-14)
+
+
+def test_ltne_exchange_conserves_energy_and_relaxes():
+    """Теплообмен флюид - порода за шаг: энергия C_f*T + C_s*T_s сохраняется, разность убывает по экспоненте."""
+    from paraphin.equations.Thermal_ltne import exchange_step
+    c_f, c_s, h, dt = 1.2e6, 2.0e6, 5e3, 100.0
+    t_f, t_s = exchange_step(20.0, 70.0, c_f, c_s, h, dt)
+    assert np.isclose(c_f * t_f + c_s * t_s, c_f * 20.0 + c_s * 70.0, rtol=1e-14)
+    assert np.isclose(t_f - t_s, -50.0 * math.exp(-h * (1 / c_f + 1 / c_s) * dt), rtol=1e-12)
+    t_f, t_s = exchange_step(20.0, 70.0, c_f, c_s, 1e12, dt)  # мгновенный обмен - равновесие
+    assert np.isclose(t_f, t_s, atol=1e-10)
+
+
+def test_ltne_schumann_breakthrough():
+    """Шуман (J Franklin Inst 1929, 208:405): холодный флюид входит в горячий слой без теплопроводности. Перенос
+    против потока с числом Куранта 1 - точный сдвиг, поэтому ошибка только от расщепления с точным обменом за шаг
+    (первый порядок). Температура на выходе сверяется с решением Шумана (Anzelius):
+        T_f = 1 - exp(-z)*int_0^y exp(-s)*I0(2*sqrt(s*z)) ds,  y = h*L/(c_f*u),  z = h*(t - L/u)/c_s."""
+    from scipy.special import i0
+    from scipy.integrate import quad
+    from paraphin.equations.Thermal_ltne import exchange_step
+    L, u, c_f, c_s, h = 1.0, 1e-3, 1.0e6, 2.0e6, 5000.0  # y = 5: развитый тепловой фронт
+    n = 400
+    dt = L / n / u
+    y = h * L / (c_f * u)
+    tf, ts = np.zeros(n), np.zeros(n)
+    checks = {2000.0: None, 3000.0: None, 4000.0: None}
+    for step in range(1, int(4000.0 / dt) + 1):
+        tf[1:] = tf[:-1].copy()
+        tf[0] = 1.0
+        for k in range(n):
+            tf[k], ts[k] = exchange_step(tf[k], ts[k], c_f, c_s, h, dt)
+        t = step * dt
+        if t in checks:
+            checks[t] = tf[-1]
+    for t, num in checks.items():
+        z = h * (t - L / u) / c_s
+        val, _ = quad(lambda s: math.exp(-s) * i0(2.0 * math.sqrt(s * z)), 0.0, y, limit=200)
+        exact = 1.0 - math.exp(-z) * val
+        assert 0.2 < exact < 0.9 and abs(num - exact) < 1e-3, (t, num, exact)

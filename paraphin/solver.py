@@ -18,18 +18,20 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs
                         min_Wps_bound, wax_components, asphaltenes, gelation, pressure_viscosity,
                         gel_time, gel_mobility_min, alpha_p_visc, P_ref_wax, sara_asphaltenes, case_name,
                         ro_asph_dep, ro_p, ro_asph, deposition_kinetics, deposition_model, wax_kinetics,
-                        asph_aggregation)
+                        asph_aggregation, wettability, thermal_nonequilibrium)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, temperature_source,
                         temperature_equation, wp_equation, calc_velocities_h, flows_in_cells,
                         calc_Um_r2, components_equation, calc_qp_m_k_fi_2, calc_velocity_asph,
                         yield_stress, gel_phi_eq, pore_solid_fraction, calc_wat_field, sle_split)
 from .equations.Asphaltene import asph_soluble
 from .equations.Deposition import calc_deposition, calc_filtration, NROWS
-from .kinetics_params import default_kin, NKX, KX_WEQ, KX_TS, AGG_D0
+from .kinetics_params import (default_kin, NKX, KX_WEQ, KX_TS, KX_GA, KX_GMAX, AGG_D0, OW_S_MIN, OW_S_MAX, OW_N_O,
+                              OW_N_W)
+from .equations.Thermal_ltne import temperature_equation_ltne
 from .oil_composition import N_W, NC, IA_D, IA_F, I_R, IS0, IN_F, WAX_W0, F_SAT_REST, initial_components
 from .utils import (calc_mu_o, calc_mu_p, calc_mu_w, crystal_volume_fraction, preprocess_wells, convert_pkl_files,
                     save_fields, Bound, TypeBC, DataField, add_bc, WellStruct, upd_q_and_eta, Buckley_Leverett,
-                    calc_mobility)
+                    calc_mobility, calc_mobility_w)
 
 
 class Solver:
@@ -329,8 +331,14 @@ class Solver:
         step_dt = self.dt
 
         # Подвижности фаз - общие для сборки матрицы давления и для перетоков
-        calc_mobility(self.k, self.S, self.m, self.Wo, self.Wp, self.Wps,
-                      self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h)
+        if wettability:  # ОФП - смесь водо- и нефтесмачиваемых по адсорбированным асфальтенам
+            kin = self.kin
+            calc_mobility_w(self.k, self.S, self.m, self.Wo, self.Wp, self.Wps, self.mu_o, self.mu_w,
+                            self.lam_o, self.lam_w, self.lam_h, self.kx[..., KX_GA], self.kx[..., KX_GMAX],
+                            kin[OW_S_MIN], kin[OW_S_MAX], kin[OW_N_O], kin[OW_N_W])
+        else:
+            calc_mobility(self.k, self.S, self.m, self.Wo, self.Wp, self.Wps,
+                          self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h)
         # Обновление давления. Проницаемость берется с текущего слоя: блок кольматации идет ниже,
         # в общем цикле по ячейкам, поэтому k отстает от m на полшага.
         self._band_age = calc_pressure(self.k, self.S, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.wells,
@@ -440,7 +448,12 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
                                     src_Qo, new_qp1, new_qp2, new_qpa, new_wp, new_wps, new_Hl, Dep, kin, kx, new_kx, mu_p, dt)
             else:
                 wp_equation(i, j, new_qp1, new_qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_s, new_wp, new_wps, dt, _paraphin)
-            psi = temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, Hl, new_Hl, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
+            if thermal_nonequilibrium:
+                u_abs = (lam_o[i, j] + lam_w[i, j]) * grad_p[i, j]  # скорость фильтрации для теплообмена с породой
+                psi = temperature_equation_ltne(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, Hl, new_Hl,
+                                                cells_T_eq, _t, E_ff, new_t, new_m, new_s, kx, new_kx, u_abs, mu_o, kin, dt)
+            else:
+                psi = temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, Hl, new_Hl, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
 
             # Три ограничения на шаг по числу Куранта: по насыщенности, по переносу парафина и по температуре.
             # Осаждение шаг не ограничивает: его сток зажат подводом взвеси в `calc_qp_m_k_fi`.
@@ -626,6 +639,19 @@ def _calc_max_dfw(init_T, wells) -> float:
             for mult in mults:
                 f_w = np.array([Buckley_Leverett(x, calc_mu_w(t), calc_mu_o(t, w_ps) * mult) for x in s])
                 max_dfw = max(max_dfw, float(np.abs(np.gradient(f_w, s)).max()))
+
+    if wettability:
+        # Смена смачиваемости меняет и форму функции Баклея-Леверетта: скан по доле нефтесмачиваемой поверхности
+        from .utils.math_utils import pf_o_mix, pf_w_mix
+        from .constants import ow_S_min, ow_S_max, ow_n_o, ow_n_w
+        s_scan = np.linspace(min(S_min, ow_S_min), max(S_max, ow_S_max), 2001)
+        for t in np.linspace(min(temps), max(temps), 11):
+            mu_w_t, mu_o_t = calc_mu_w(t), calc_mu_o(t, 0.0)
+            for omega in (0.25, 0.5, 0.75, 1.0):
+                lw = np.array([pf_w_mix(x, omega, ow_S_min, ow_S_max, ow_n_w) for x in s_scan]) / mu_w_t
+                lo = np.array([pf_o_mix(x, omega, ow_S_min, ow_S_max, ow_n_o) for x in s_scan]) / mu_o_t
+                f_w = lw / np.maximum(lw + lo, 1e-300)
+                max_dfw = max(max_dfw, float(np.abs(np.gradient(f_w, s_scan)).max()))
 
     return max_dfw
 
