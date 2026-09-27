@@ -38,7 +38,8 @@ from paraphin.constants import (data_type, init_Wp, init_Wps, init_T, MW, M_o, T
                                 scn_slope, wax_alpha_eff, wax_Tm_shift, wax_dv_frac, ro_wax_liq,
                                 sara_aromatics, sara_resins, sara_asphaltenes, P_bubble, Rs_bubble,
                                 T_sc_gas, P_sc_gas, v_gas, delta_gas, P_onset_asph, v_asph, ro_asph,
-                                delta_sat, delta_aro, delta_res, c_oil_comp, beta_oil, P_ref_wax)
+                                delta_sat, delta_aro, delta_res, c_oil_comp, beta_oil, P_ref_wax,
+                                wax_kinetics, asph_aggregation)
 
 WAX_TOTAL = init_Wp + init_Wps  # суммарная доля парафина в нефтяной фазе, [-]
 
@@ -158,7 +159,13 @@ WAX_DV_R = (WAX_DV / R).astype(data_type)   # dv/R, [м^3*K/Дж]
 IA_D = N_W
 IA_F = N_W + 1
 I_R = N_W + 2
-NC = N_W + 3
+NCB = N_W + 3  # «массовые» компоненты: по ним сходятся балансы массы, их сумма с остатком - единица
+# Дальше - переносимые с нефтью величины, которые компонентами не являются (включаются флагами кинетики):
+#   Wc[..., IS0 + k] - взвешенные кристаллы группы k, часть Wc[..., k] (`wax_kinetics`: взвесь не равновесная);
+#   Wc[..., IN_F]    - число флокул асфальтенов на килограмм нефти (`asph_aggregation`), [1/кг].
+IS0 = NCB
+IN_F = IS0 + (N_W if wax_kinetics else 0)
+NC = IN_F + (1 if asph_aggregation else 0)
 
 # --- Нефть без парафина: растворитель, SARA ----------------------------------------------------------------
 SAT0 = 1.0 - sara_aromatics - sara_resins - sara_asphaltenes  # насыщенные вместе с парафином

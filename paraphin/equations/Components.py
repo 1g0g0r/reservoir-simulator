@@ -21,13 +21,19 @@ F_f - объемный поток нефтяной фазы через гран�
 асфальтены релаксируют к равновесной доле флокул (`Asphaltene.floc_relax`). Отложения копятся в `Dep`,
 [кг/м^3 породы]: sum_k Dep_k/ro_p + (Dep_af + Dep_r)/ro_ad = m0 - m.
 """
+import math
+
 from numba import njit
 
-from paraphin.constants import Nx, Ny, volume, ro_o, ro_p, ro_asph_dep, resin_in_deposit, asphaltenes
-from paraphin.oil_composition import N_W, NC, IA_D, IA_F, I_R, F_SAT_REST
+from paraphin.constants import (Nx, Ny, volume, ro_o, ro_p, ro_asph, ro_asph_dep, resin_in_deposit, asphaltenes, k_B,
+                                wax_kinetics, asph_aggregation, adsorption, deposition_kinetics)
+from paraphin.kinetics_params import (K_CRYST, K_DISS, AGG_D0, AGG_W, KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG,
+                                      KX_QADA, KX_QADR, KX_GA, KX_GR)
+from paraphin.oil_composition import N_W, NCB, NC, IA_D, IA_F, I_R, IS0, IN_F, F_SAT_REST, WAX_L_REL
 from paraphin.utils import get_bound, DI, DJ
 from .Asphaltene import asph_soluble, floc_relax
 from .Thermo_wax import sle_split
+from .Kinetics_math import relax_exp, coagulation_kernel, smoluchowski_step
 
 _RO_P_O = ro_p / ro_o
 _RO_AD_O = ro_asph_dep / ro_o
@@ -36,7 +42,7 @@ _RO_AD_O = ro_asph_dep / ro_o
 @njit(cache=True)
 def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, T, m, S, new_m, new_S,
                         Wc, new_Wc, Ws, new_Ws, src_Qo, new_qp1, new_qp2, new_qpa, new_Wp, new_Wps, new_Hl,
-                        Dep, dt) -> None:
+                        Dep, kin, kx, new_kx, mu_p, dt) -> None:
     """Перенос (1), стоки в отложения, равновесие. Пишет new_Wc, new_Ws, суммы new_Wp, new_Wps и new_Hl.
 
     Fo_row: numpy.ndarray(4)
@@ -45,6 +51,17 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
         Состав нефти, втекающей через границу с ГУ Дирихле `DataField.Paraffin`.
     Dep: numpy.ndarray(Nx, Ny, NC)
         Накопленные отложения по компонентам, [кг/м^3 породы]; обновляется на месте.
+    kin, kx, new_kx
+        Параметры и поля кинетических моделей (`paraphin/kinetics_params.py`); без флагов кинетики не читаются.
+
+    Флаги кинетики (`equations/Deposition.py`) добавляют:
+      - стоки стеночной кристаллизации и старения (из растворенного парафина, по долям групп `KX_WSH`,
+        `KX_GSH`) и адсорбции (из растворенных асфальтенов и смол);
+      - отрицательные стоки - вынос: осадок возвращается во взвесь и флокулы по своему составу;
+      - `wax_kinetics`: взвесь групп - переносимое состояние Wc[IS0 + k], релаксирующее к равновесию
+        с k_cryst (кристаллизация) или k_diss (растворение), d w_s/dt = k*(w_s^eq - w_s), точно за шаг;
+      - `asph_aggregation`: число флокул Wc[IN_F] - новые первичные частицы из выпадения и броуновская
+        коагуляция Смолуховского dN/dt = -K*N^2/2, K = 8*k_B*T/(3*mu*W), точно за шаг N/(1 + K*N*dt/2).
     """
     if not _paraphin:
         return None
@@ -57,17 +74,50 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
     ws_sum = 0.0
     for k in range(N_W):
         ws_sum += Ws[i, j, k]
-    s_af = _RO_AD_O * (1.0 - resin_in_deposit) * new_qpa[i, j]
-    s_r = _RO_AD_O * resin_in_deposit * new_qpa[i, j]
+    dep_w_sum = 0.0
+    if deposition_kinetics:
+        for k in range(N_W):
+            dep_w_sum += Dep[i, j, k]
     for k in range(N_W):
-        s_k = _RO_P_O * qw * Ws[i, j, k] / ws_sum if ws_sum > 0.0 else 0.0
+        if deposition_kinetics and qw < 0.0:
+            # вынос: возвращается осадок в своем составе
+            s_cap = _RO_P_O * qw * Dep[i, j, k] / dep_w_sum if dep_w_sum > 0.0 else 0.0
+        else:
+            s_cap = _RO_P_O * qw * Ws[i, j, k] / ws_sum if ws_sum > 0.0 else 0.0
+        s_k = s_cap
+        if deposition_kinetics:
+            s_k += _RO_P_O * (new_kx[i, j, KX_QW] * new_kx[i, j, KX_WSH + k]
+                              + new_kx[i, j, KX_QG] * new_kx[i, j, KX_GSH + k])
         Dep[i, j, k] += dt * ro_o * s_k
         new_Wc[i, j, k] = mso * Wc[i, j, k] - dt * s_k
+        if wax_kinetics:  # захват уносит взвесь, вынос ее возвращает
+            new_Wc[i, j, IS0 + k] = mso * Wc[i, j, IS0 + k] - dt * s_cap
+    qpa = new_qpa[i, j]
+    if deposition_kinetics and qpa < 0.0:
+        dep_a = Dep[i, j, IA_F] + Dep[i, j, I_R]
+        f_af = Dep[i, j, IA_F] / dep_a if dep_a > 0.0 else 1.0 - resin_in_deposit
+        s_af = _RO_AD_O * f_af * qpa
+        s_r = _RO_AD_O * (1.0 - f_af) * qpa
+    else:
+        s_af = _RO_AD_O * (1.0 - resin_in_deposit) * qpa
+        s_r = _RO_AD_O * resin_in_deposit * qpa
     Dep[i, j, IA_F] += dt * ro_o * s_af
     Dep[i, j, I_R] += dt * ro_o * s_r
     new_Wc[i, j, IA_D] = mso * Wc[i, j, IA_D]
     new_Wc[i, j, IA_F] = mso * Wc[i, j, IA_F] - dt * s_af
     new_Wc[i, j, I_R] = mso * Wc[i, j, I_R] - dt * s_r
+    if adsorption:
+        s_ada = _RO_AD_O * new_kx[i, j, KX_QADA]
+        s_adr = _RO_AD_O * new_kx[i, j, KX_QADR]
+        new_kx[i, j, KX_GA] = kx[i, j, KX_GA] + dt * ro_o * s_ada
+        new_kx[i, j, KX_GR] = kx[i, j, KX_GR] + dt * ro_o * s_adr
+        new_Wc[i, j, IA_D] -= dt * s_ada
+        new_Wc[i, j, I_R] -= dt * s_adr
+    if asph_aggregation:
+        # Осевшие и вынесенные флокулы уносят (возвращают) число флокул со средней массой флокулы
+        n_now = Wc[i, j, IN_F]
+        w_now = Wc[i, j, IA_F]
+        new_Wc[i, j, IN_F] = mso * n_now - (dt * s_af * n_now / w_now if w_now > 0.0 else 0.0)
 
     # Перенос: поток через грань и дебит скважины (у добывающей - свой состав, у нагнетательной q_o = 0)
     coef = dt / volume
@@ -106,12 +156,29 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
 
     wax_total = 0.0
     for c in range(NC):
-        new_Wc[i, j, c] = min(max(new_Wc[i, j, c] / mso_new, 0.0), 1.0)
+        v = max(new_Wc[i, j, c] / mso_new, 0.0)
+        new_Wc[i, j, c] = min(v, 1.0) if c < IN_F else v  # число флокул - не доля
         if c < N_W:
             wax_total += new_Wc[i, j, c]
 
-    # Равновесие групп парафина при температуре текущего слоя (как в `wp_equation`) и новом давлении
-    w_dis, w_sus, hl = sle_split(new_Wc[i, j, :N_W], T[i, j], p[i, j], new_Ws[i, j, :])
+    if wax_kinetics:
+        # Равновесная взвесь - цель релаксации; фактическая взвесь - переносимое состояние
+        sle_split(new_Wc[i, j, :N_W], T[i, j], p[i, j], new_Ws[i, j, :])
+        w_dis, w_sus, hl = 0.0, 0.0, 0.0
+        for k in range(N_W):
+            eq = new_Ws[i, j, k]
+            new_kx[i, j, KX_WEQ + k] = eq
+            s_k = min(new_Wc[i, j, IS0 + k], new_Wc[i, j, k])
+            s_k = relax_exp(s_k, eq, kin[K_CRYST] if s_k < eq else kin[K_DISS], dt)
+            new_Wc[i, j, IS0 + k] = s_k
+            new_Ws[i, j, k] = s_k
+            dis = new_Wc[i, j, k] - s_k
+            w_dis += dis
+            w_sus += s_k
+            hl += WAX_L_REL[k] * dis
+    else:
+        # Равновесие групп парафина при температуре текущего слоя (как в `wp_equation`) и новом давлении
+        w_dis, w_sus, hl = sle_split(new_Wc[i, j, :N_W], T[i, j], p[i, j], new_Ws[i, j, :])
     new_Wp[i, j] = w_dis
     new_Wps[i, j] = w_sus
     new_Hl[i, j] = hl
@@ -123,6 +190,20 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
         rest = max(1.0 - wax_total - a_tot - w_res, 0.0)
         w_max = asph_soluble(rest * F_SAT_REST + w_dis, rest * (1.0 - F_SAT_REST), w_res, p[i, j], T[i, j])
         af_eq = max(a_tot - w_max, 0.0)
-        af = min(max(floc_relax(new_Wc[i, j, IA_F], af_eq, dt), 0.0), a_tot)
+        af_pre = new_Wc[i, j, IA_F]
+        af = min(max(floc_relax(af_pre, af_eq, dt), 0.0), a_tot)
         new_Wc[i, j, IA_F] = af
         new_Wc[i, j, IA_D] = a_tot - af
+        if asph_aggregation:
+            d0 = kin[AGG_D0]
+            m0 = ro_asph * math.pi * d0 * d0 * d0 / 6.0
+            n = new_Wc[i, j, IN_F]
+            if af > af_pre:
+                n += (af - af_pre) / m0              # выпавшее - новые первичные частицы
+            elif af_pre > 0.0:
+                n *= af / af_pre                     # растворение уменьшает число пропорционально массе
+            if n <= 0.0 and af > 0.0:
+                n = af / m0
+            k_coag = coagulation_kernel(T[i, j] + 273.15, mu_p[i, j], kin[AGG_W])
+            n_vol = smoluchowski_step(n * ro_o, k_coag, dt)  # число флокул в 1 м^3 нефти после коагуляции
+            new_Wc[i, j, IN_F] = min(n_vol / ro_o, af / m0) if af > 0.0 else 0.0

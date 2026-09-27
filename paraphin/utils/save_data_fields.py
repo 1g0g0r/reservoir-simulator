@@ -4,7 +4,9 @@ from pickle import dump, HIGHEST_PROTOCOL
 import numpy as np
 
 from paraphin.constants import (layers_file, init_k, init_m, Nx, Ny, wax_components, gelation, ro_o, ro_p,
-                                ro_asph_dep, volume)
+                                ro_asph_dep, volume, _re, deposition_kinetics, adsorption, deposit_aging,
+                                asph_aggregation, wax_kinetics, thermal_nonequilibrium)
+from paraphin.kinetics_params import KX_GA, KX_GR, KX_VGEL, KX_TS
 
 # Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и `graphs._plot_fi`.
 # Прижата к сетке: на одномерном керне (Nx = 1) точки (3, 3) нет.
@@ -30,6 +32,8 @@ def save_fields(solver, t: float) -> None:
         wells_accumulated[f'{name}_Q_water'] = Q[1]
         wells_accumulated[f'{name}_Q_total'] = Q[2]
         wells[f'{name}_bhp'] = well.p
+        # Скин-фактор по Хокинсу (обзор 4.3): ячейка скважины - поврежденная зона радиуса r_e (Писман)
+        wells[f'{name}_skin'] = (init_k / solver.k[well.i, well.j] - 1.0) * np.log(_re / well.rw)
 
     layer = {
         'Time': t,
@@ -106,4 +110,40 @@ def _composition_fields(solver) -> dict:
         totals[f'{name} in oil'] = float((oil * wc[..., c]).sum())
         totals[f'{name} deposited'] = float(dep[..., c].sum() * volume)
 
+    if deposition_kinetics:
+        comp.update(_kinetics_fields(solver))
+        totals['asph adsorbed'] = float(solver.kx[..., KX_GA].sum() * volume)
+        totals['resins adsorbed'] = float(solver.kx[..., KX_GR].sum() * volume)
+
     return {'Wps dep': dep[..., :N_W].sum(axis=-1) / ro_p / init_m, 'Composition': comp, 'Totals': totals}
+
+
+def _kinetics_fields(solver) -> dict:
+    """Поля моделей кинетики осаждения (`equations/Deposition.py`).
+
+    'm conductive' - пористость проводящих каналов m0*int r^2*fi/int r^2*fi0, в долях m0: ее, а не m, видит
+    томография (гель в тупиковых порах и захваченная нефть для нее - отложение, Sandyga et al. 2020)."""
+    from paraphin import w2_cv
+    from paraphin.oil_composition import N_W, IA_F, IN_F
+    from paraphin.equations.Deposition import floc_diameter
+
+    out = {'m conductive': (solver.fi * w2_cv).sum(axis=-1) / solver.integr_r2_fi0}
+    if adsorption:
+        out['Adsorbed asph'] = solver.kx[..., KX_GA]    # [кг/м^3 породы]
+        out['Adsorbed resins'] = solver.kx[..., KX_GR]
+    if deposit_aging:
+        v_gel = solver.kx[..., KX_VGEL]
+        wax_v = solver.Dep[..., :N_W].sum(axis=-1) / ro_p
+        out['Gel volume'] = v_gel / init_m
+        out['Gel wax fraction'] = np.where(v_gel > 0.0, wax_v / np.maximum(v_gel, 1e-30), 0.0)
+    if wax_kinetics:
+        out['Supersaturation'] = np.maximum(solver.kx[..., :N_W] - solver.Ws, 0.0).sum(axis=-1)
+    if asph_aggregation:
+        d = np.zeros(solver.kx.shape[:2])
+        for i in range(d.shape[0]):
+            for j in range(d.shape[1]):
+                d[i, j] = floc_diameter(solver.Wc[i, j, IA_F], solver.Wc[i, j, IN_F], solver.kin)
+        out['Floc diameter'] = d
+    if thermal_nonequilibrium:
+        out['T rock'] = solver.kx[..., KX_TS]
+    return out

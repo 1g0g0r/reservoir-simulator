@@ -251,8 +251,116 @@ gel_mobility_min = 0.05     # нижняя граница множителя п�
 # pressure_viscosity вязкость живой нефти - оценка сверху (в демо +20% при 12 МПа, -2.3 п.п. КИН).
 alpha_p_visc = 1.5e-8     # [1/Па], оценочное значение для дегазированных нефтей
 
+# --- Кинетика осаждения и сопутствующие модели кольматации (docs/модель_АСПО.md, разд. 13) ------------------
+# Механизмы по обзору (твт_статья/full_review.pdf, разд. 2-5). Флаги - константы уровня модуля, как и прочие,
+# по умолчанию выключены. Любой из них переключает расчет кольматации на ядро `equations/Deposition.py`:
+# скорости переноса к стенке считаются в нем по текущему слою, без запаздывания на шаг. Числовые параметры
+# ниже - только начальные значения runtime-вектора `solver.kin` (`paraphin/kinetics_params.py`): калибровка
+# по опытам меняет его, не перекомпилируя пакет. У каждого значения - источник или пометка «оценка».
+wax_kinetics = False           # кинетика кристаллизации в объеме и на стенках пор (Huang et al., 2011)
+wall_transport = False         # перенос частиц к стенке: + сдвиговая дисперсия и гравитационное оседание
+entrainment = False            # вынос (сдвиговое сдирание) отложений потоком (Gruesbeck & Collins, 1982)
+asph_aggregation = False       # агрегация флокул асфальтенов (Смолуховский) и закупорка горл флокулами
+snowball = False               # «снежный ком»: захват растет с количеством осадка (Onaka & Sato, 2021)
+adsorption = False             # адсорбция асфальтенов и смол на породе (кинетический Ленгмюр)
+wettability = False            # смена смачиваемости адсорбированными асфальтенами (Qin et al., 2000)
+deposit_aging = False          # отложение - гель с захваченной нефтью, старение встречной диффузией (Singh et al., 2000)
+thermal_nonequilibrium = False  # отдельная температура породы и молекулярная диффузия к стенке (LTNE + Фик)
+deposition_model = 'bundle'    # 'bundle' - пучок капилляров fi(r); 'filtration' - глубинная фильтрация (Civan)
+perm_model = 'kozeny_carman'   # k(phi, sigma) для 'filtration': 'kozeny_carman' | 'power' | 'damage' | 'surface'
+
+# 1. Кинетика кристаллизации (Huang, Lee, Senra, Fogler, AIChE J 2011, 57:2955; обзор 2.3.1):
+#    d w_s,k/dt = k_cryst*(w_s,k^eq - w_s,k) в объеме нефти; пересыщение уходит и на стенки пор со скоростью
+#    k_wall; кристаллы растворяются к равновесию со скоростью k_diss. Оценки: время кристаллизации при
+#    охлаждении в опытах - минуты (ДСК, Li et al. 2024: пик при скорости 5 C/мин), растворение быстрее.
+#    k_wall - доля переноса молекул к стенке: диффузия к стенке поры за r^2/D_m ~ 0.1 с (D_m ~ 1e-9 м^2/с,
+#    Hayduk & Minhas 1982), но прирост кристаллов на стенке лимитируется встраиванием - поэтому подбирается.
+k_cryst = 1.0e-2   # [1/с], оценка
+k_diss  = 1.0e-1   # [1/с], оценка
+k_wall  = 1.0e-2   # [1/с], оценка
+# 2. Перенос частиц к стенке (обзор 2.2): сдвиговая дисперсия D_sh = shear_disp*phi_s^2*gamma*a^2
+#    (Leighton & Acrivos, J Fluid Mech 1987, 181:415: коэффициент ~0.5 при малой доле частиц phi_s; Eckstein
+#    et al. 1977), gamma = 4*u_m/r - скорость сдвига у стенки капилляра, a = D/2. Гравитационное оседание по
+#    Стоксу u_s = 2*a^2*(ro_p - ro_o)*g/(9*mu): поток на стенку горизонтального капилляра c*u_s/pi, для
+#    изотропной ориентации капилляров среднее sin = pi/4, отсюда множитель grav_eff = 1/4.
+shear_disp = 0.5   # [-], Leighton & Acrivos (1987)
+grav_eff   = 0.25  # [-], геометрия изотропного пучка
+# 3. Вынос отложений (обзор 2.2.5, 3.6; Gruesbeck & Collins, SPE J 1982, 22:847; Wang & Civan, SPE 64991, 2001):
+#    толщина осадка в капилляре убывает как dh/dt = -ent_rate*(tau_w/ent_tau - 1)*h при tau_w > ent_tau,
+#    tau_w = r*|grad p|/(2*eta). Оценки: предел прочности молодого парафинового геля - единицы Па (Venkatesan
+#    et al., CES 2005, 60:3587).
+ent_rate = 1.0e-4  # [1/с], оценка
+ent_tau  = 1.0     # [Па], оценка
+# 4. Агрегация флокул (обзор 2.3.3, 5.2): броуновское ядро Смолуховского K = 8*k_B*T/(3*mu*W) (DLCA при W = 1,
+#    RLCA при W >> 1), dN/dt = -K*N^2/2 для числа флокул в единице объема; размер флокулы из фрактальной
+#    размерности: d_f = d_0*(m_f/m_0)^(1/D_f). Первичные частицы - кластеры наноагрегатов ~5 нм (Mullins
+#    et al., Energy Fuels 2012, 26:3986) образуют выпадающие частицы ~0.1 мкм, дорастающие до микрон за
+#    минуты-часы (Maqbool et al., Energy Fuels 2009, 23:3681). D_f 1.8-2.1 (DLCA-RLCA).
+agg_d0 = 1.0e-7    # [м], диаметр первичной выпавшей частицы
+agg_df = 2.0       # [-], фрактальная размерность
+agg_W  = 1.0       # [-], коэффициент устойчивости (1 - каждое столкновение слипает)
+# 5. «Снежный ком» (Onaka & Sato, 2021; обзор 5.4): захват частиц растет с осадком, k_d*(1 + snow_a*sigma/m0).
+snow_a = 10.0      # [-], оценка
+# 6. Адсорбция асфальтенов и смол (кинетический Ленгмюр, линейная движущая сила):
+#    dG/dt = ads_rate*(G_eq - G), G_eq = G_max*K*c/(1 + K*c), K(T) = ads_K*exp(-ads_dH/R*(1/T - 1/T_ref)).
+#    G_max = ads_gmax*a_v, a_v - удельная поверхность пучка. Асфальтены на песчанике - 1-5 мг/м^2, с
+#    многослойной адсорбцией до 10 и более (Dubey & Waxman, SPE RE 1991, 6:389);
+#    адсорбция экзотермична (-10...-40 кДж/моль): при охлаждении растет. Смолы - с долей ads_resin от асфальтенов.
+ads_gmax  = 3.0e-6   # [кг/м^2] (3 мг/м^2)
+ads_K     = 200.0    # [1/доля масс.] при ads_T_ref, оценка
+ads_dH    = -2.0e4   # [Дж/моль], оценка
+ads_T_ref = 70.0     # [C]
+ads_rate  = 1.0e-4   # [1/с], оценка
+ads_resin = 0.5      # [-], отношение предельной адсорбции смол к асфальтенам, оценка
+# 7. Смачиваемость (Qin et al., Ind Eng Chem Res 2000, 39:2644; обзор 5.5): ОФП - интерполяция между водосмачиваемым набором
+#    (S_min, S_max, n_power) и нефтесмачиваемым по доле омега = G/G_max. Нефтесмачиваемый набор - оценка:
+#    меньше связанной воды, меньше остаточной нефти, вода подвижнее.
+ow_S_min = 0.10
+ow_S_max = 0.80
+ow_n_o   = 3.0
+ow_n_w   = 1.5
+# 8. Старение гель-отложения (Singh et al., AIChE J 2000, 46:1059; обзор 2.4): новое отложение - гель с долей
+#    парафина age_c0 (остальное - захваченная нефть), сужение проводящих каналов идет по объему геля.
+#    Старение: dC/dt = age_rate*(age_cmax - C) за счет растворенного парафина насыщенных групп при постоянном
+#    объеме геля. Singh et al.: молодой гель - несколько процентов парафина, за сутки-недели - 20-60 %.
+age_c0   = 0.1     # [-], оценка
+age_cmax = 0.6     # [-]
+age_rate = 1.0e-6  # [1/с], оценка
+# 9-10. Глубинная фильтрация (Ивс; Civan, Transp Porous Media 2015; обзор 3.6, 4.2, 5.4):
+#    d sigma/dt = filt_kd*m*S_o*c + filt_kpl*|u|*c - filt_ke*sigma*(|u| - filt_ucr)+,  c - масса взвеси в 1 м^3 нефти.
+#    Проницаемость: Козени-Карман (m/m0)^3*((1 - m0)/(1 - m))^2; степенная (m/m0)^perm_n (Krauss & Mays 2013:
+#    n = 8-19); функция повреждения (1 - perm_beta*sigma/perm_smax)^perm_gamma (Civan 2015); КК с удельной
+#    поверхностью S_v = S_v0*(1 + perm_alpha*sigma_v/m0).
+filt_kd    = 2.0e-2  # [1/с]: Wang & Civan (2005) для опытов Sutton & Roberts - 0.018-0.024 1/с
+filt_kpl   = 0.0     # [1/м]
+filt_ke    = 0.0     # [1/м]
+filt_ucr   = 1.0e-5  # [м/с]
+perm_n     = 10.0    # [-]
+perm_beta  = 1.0     # [-]
+perm_smax  = 0.3     # [-], объемная доля отложений на единицу m0
+perm_gamma = 2.0     # [-]
+perm_alpha = 10.0    # [-]
+# 11. Локальное тепловое неравновесие (обзор 4.5) и молекулярная диффузия к стенке (обзор 2.2.1): обмен
+#    теплом h_v*(T_s - T), h_v = 6*(1 - m)/d_g * Nu*lam_f/d_g, Nu = 2 + 1.1*Re^0.6*Pr^(1/3) (Wakao & Kaguei,
+#    1982); стеночная кристаллизация по пересыщению нефти относительно равновесия при T_s с коэффициентом
+#    массоотдачи Sh*D_m/d_g (Sh = 2 + 1.1*Re^0.6*Sc^(1/3)).
+ltne_dg = 2.0e-4   # [м], диаметр зерна
+ltne_Dm = 1.0e-9   # [м^2/с], молекулярная диффузия н-алканов в нефти (Hayduk & Minhas 1982)
+
 if (wax_pressure or asphaltenes) and not wax_components:
     raise ValueError('wax_pressure и asphaltenes работают только вместе с wax_components = True')
+deposition_kinetics = (wax_kinetics or wall_transport or entrainment or asph_aggregation or snowball or adsorption
+                       or wettability or deposit_aging or thermal_nonequilibrium or deposition_model != 'bundle')
+if deposition_kinetics and not wax_components:
+    raise ValueError('модели кинетики осаждения работают только вместе с wax_components = True')
+if (asph_aggregation or adsorption) and not asphaltenes:
+    raise ValueError('asph_aggregation и adsorption требуют asphaltenes = True')
+if wettability and not adsorption:
+    raise ValueError('wettability считается по адсорбированным асфальтенам: нужен adsorption = True')
+if deposition_model not in ('bundle', 'filtration'):
+    raise ValueError(f"deposition_model = '{deposition_model}': ожидается 'bundle' или 'filtration'")
+if perm_model not in ('kozeny_carman', 'power', 'damage', 'surface'):
+    raise ValueError(f"perm_model = '{perm_model}'")
 if asphaltenes and P_onset_asph <= P_bubble:
     raise ValueError('P_onset_asph должно быть выше P_bubble: максимум выпадения асфальтенов - у давления насыщения')
 if wax_characterization not in ('scn', 'single'):
