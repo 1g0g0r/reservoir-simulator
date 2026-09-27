@@ -48,8 +48,11 @@ def tables(results: dict) -> dict:
     if 'li2024' in results:
         o = results['li2024']
         rows = li2024.summary(o)
+        # nan у ступени - прогон до нее не дошел: керн закупорен на предыдущей
+        plug = lambda v: 'закупорка' if isinstance(v, float) and math.isnan(v) else _f(v)
         out['LI'] = _table(['Вариант', '90 °C', '65 °C', '45 °C', '25 °C'],
-                           [(n, *[_f(v) for v in vals]) for n, vals in rows])
+                           [(n, *([_f(v) for v in vals] if i == 0 else [plug(v) for v in vals]))
+                            for i, (n, vals) in enumerate(rows)])
         calib = lambda rms: math.sqrt(sum(rms[t] ** 2 for t in ('90.0', '65.0', '45.0')) / 3.0)
         out['LI_SOLID'] = _f(calib(o['forms']['solid']['rms']))
         out['LI_FILM'] = _f(calib(o['forms']['film']['rms']))
@@ -102,15 +105,14 @@ def summary_table(results: dict) -> str:
     if 'li2024' in results:
         import li2024 as li
         o = results['li2024']
-        best = o['forms'][o['best_form']]['rms']
         legacy = li.stage_rms(o['legacy'])
-        for t in ('90.0', '65.0', '45.0'):
-            rows.append((f'Li et al., {float(t):.0f} °C', _f(o['noise'][str(int(float(t)))]), _f(legacy[float(t)]),
-                         _f(best[t] if t in best else best[float(t)]), '—', '—'))
-        if 'cold' in o:
-            c = o['cold']['rms']
-            rows.append(('Li et al., 25 °C', _f(o['noise']['25']), _f(legacy[25.0]),
-                         _f(c['25.0'] if '25.0' in c else c[25.0]), '—', '—'))
+        # лучшая модель - удержание выше WAT и кинетика кристаллизации ниже (подбор 25 C) в одном прогоне
+        best = o['cold']['rms'] if 'cold' in o else o['forms'][o['best_form']]['rms']
+        get = lambda d, t: d[t] if t in d else d.get(float(t))
+        for t in ('90.0', '65.0', '45.0', '25.0'):
+            old_v = legacy.get(float(t))
+            rows.append((f'Li et al., {float(t):.0f} °C', _f(o['noise'][str(int(float(t)))]),
+                         _f(old_v) if old_v is not None else 'закупорка', _f(get(best, t)), '—', '—'))
     if 'sandyga2020' in results:
         o = results['sandyga2020']
         rows.append(('Sandyga et al., ∇p(T)', '—', _f(o['legacy'].get('rms_k')), _f(o['best'].get('rms_k')), '—', '—'))
