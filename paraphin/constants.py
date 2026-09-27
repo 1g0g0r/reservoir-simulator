@@ -266,6 +266,7 @@ adsorption = False             # адсорбция асфальтенов и с
 wettability = False            # смена смачиваемости адсорбированными асфальтенами (Qin et al., 2000)
 deposit_aging = False          # отложение - гель с захваченной нефтью, старение встречной диффузией (Singh et al., 2000)
 thermal_nonequilibrium = False  # отдельная температура породы и молекулярная диффузия к стенке (LTNE + Фик)
+pore_network = False           # проводимость по сети пор и горл (эффективная среда), а не по пучку каналов
 deposition_model = 'bundle'    # 'bundle' - пучок капилляров fi(r); 'filtration' - глубинная фильтрация (Civan)
 perm_model = 'kozeny_carman'   # k(phi, sigma) для 'filtration': 'kozeny_carman' | 'power' | 'damage' | 'surface'
 
@@ -318,6 +319,20 @@ ads_resin = 0.5      # [-], отношение предельной адсорб
 # при выпуклой изотерме удержание идет с постоянной скоростью и резко останавливается - как в опыте Li et al.
 # (2024) при 65 и 45 C, `experiments/li2024.py`. Runtime-параметр: формы сравниваются без перекомпиляции.
 ads_film  = 0.0
+# Множитель к броуновскому коэффициенту диффузии частиц в ядре кинетики (`Deposition._particle_rows`), поверх
+# `diff_mult`: runtime-параметр подбора по опыту. Стокс-Эйнштейн для кристалла d_p в нефти известной вязкости -
+# оценка сверху для рыхлых агрегатов и снизу при неизвестной вязкости легкой нефти (Sutton & Roberts: 3 мПа*с
+# принята, не измерена); в сужение он входит как D^(2/3) (формула Левека).
+kin_diff_mult = 1.0
+# 12. Сеть пор и горл (`pore_network`): проводимость пучка по сети с координационным числом net_z через
+#     приближение эффективной среды (Kirkpatrick 1973; Fatt 1956 - сеть вместо пучка). Каналы fi(r) - поры,
+#     проводимость дают горла радиуса net_gamma*r, которые тот же слой отложения закрывает раньше пор: горло
+#     net_gamma*(r + h) - h. Закрытое или заблокированное горло не выключает путь, пока доля открытых выше порога
+#     протекания 2/z. Песчаники: z = 3-6, отношение горла к поре 0.3-0.6; по умолчанию горло - то же gamma, что в
+#     пороге блокирования частицей. Пары (m/m0, k/k0) кернов He et al. (2020): при z = 4-8 горло 0.40-0.49, СКО k/k0
+#     0.044-0.046 против 0.28 у пучка (`experiments/he2020.py`, docs/кинетика_осаждения.md, разд. 13.13).
+net_z     = 6.0
+net_gamma = gamma
 # 7. Смачиваемость (Qin et al., Ind Eng Chem Res 2000, 39:2644; обзор 5.5): ОФП - интерполяция между водосмачиваемым набором
 #    (S_min, S_max, n_power) и нефтесмачиваемым по доле омега = G/G_max. Нефтесмачиваемый набор - оценка:
 #    меньше связанной воды, меньше остаточной нефти, вода подвижнее.
@@ -356,13 +371,16 @@ ltne_Dm = 1.0e-9   # [м^2/с], молекулярная диффузия н-а�
 if (wax_pressure or asphaltenes) and not wax_components:
     raise ValueError('wax_pressure и asphaltenes работают только вместе с wax_components = True')
 deposition_kinetics = (wax_kinetics or wall_transport or entrainment or asph_aggregation or snowball or adsorption
-                       or wettability or deposit_aging or thermal_nonequilibrium or deposition_model != 'bundle')
+                       or wettability or deposit_aging or thermal_nonequilibrium or pore_network
+                       or deposition_model != 'bundle')
 if deposition_kinetics and not wax_components:
     raise ValueError('модели кинетики осаждения работают только вместе с wax_components = True')
 if (asph_aggregation or adsorption) and not asphaltenes:
     raise ValueError('asph_aggregation и adsorption требуют asphaltenes = True')
 if wettability and not adsorption:
     raise ValueError('wettability считается по адсорбированным асфальтенам: нужен adsorption = True')
+if pore_network and deposition_model != 'bundle':
+    raise ValueError('pore_network - проводимость по fi(r) пучка: нужен deposition_model = \'bundle\'')
 if deposition_model not in ('bundle', 'filtration'):
     raise ValueError(f"deposition_model = '{deposition_model}': ожидается 'bundle' или 'filtration'")
 if perm_model not in ('kozeny_carman', 'power', 'damage', 'surface'):

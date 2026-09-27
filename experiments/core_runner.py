@@ -59,10 +59,24 @@ def _gel_equilibrium(solver, u, phi_min):
     solver.mu_o[0] = solver.mu_p[0] / np.maximum(solver.Phi[0], phi_min)
 
 
+def _inflow_suspension(solver, t_c):
+    """Взвесь групп во втекающей нефти - равновесная при t_c (флаг `wax_kinetics`: взвесь - переносимое
+    состояние). Нужна ступенчатому протоколу: нефть охлаждали до температуры ступени до закачки (Li et al., 2024,
+    разд. 2.2.3), а `Solver.initialize` ставит взвесь по температуре границы один раз, при первой ступени."""
+    from paraphin.constants import init_p, data_type
+    from paraphin.oil_composition import N_W, IS0
+    from paraphin.equations.Thermo_wax import sle_split
+    from paraphin.solver import Bound
+    left = Bound.Left.value
+    sus = np.zeros(N_W, data_type)
+    sle_split(solver.bc_Wc[left, :N_W].copy(), float(t_c), float(init_p), sus)
+    solver.bc_Wc[left, IS0:IS0 + N_W] = sus
+
+
 def run(case: dict) -> dict:
     from paraphin import eta, r, fi_0, w2_cv
     from paraphin.constants import (Ny, hy, hx, h, init_Wp, init_Wps, _re, init_m, gelation,
-                                    gel_mobility_min, wax_components, deposition_kinetics)
+                                    gel_mobility_min, wax_components, deposition_kinetics, wax_kinetics)
     from paraphin.kinetics_params import kin_index
     import paraphin.solver as solver_module
     from paraphin.solver import Solver, Bound, TypeBC, DataField
@@ -133,6 +147,8 @@ def run(case: dict) -> dict:
             profile[:] = t_stage
             impose_temperature()
             solver.boundary_conditions[Bound.Left.value, DataField.Temperature.value, 1] = t_stage
+            if wax_kinetics:
+                _inflow_suspension(solver, t_stage)
             if gelation:
                 _gel_equilibrium(solver, exp['q'] / area, gel_mobility_min)
             dp0 = pressure_drop()  # проницаемость ступени нормируется на ее начало, как в опыте

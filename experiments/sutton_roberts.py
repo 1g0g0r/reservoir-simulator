@@ -24,7 +24,7 @@ import sys
 import numpy as np
 
 from common import (load, core_constants, run_many, rms_k, noise_floor, mode_from_argv, load_params, save_params,
-                    save_results, load_results, FIGURES)
+                    save_results, load_results, lsq, k_residuals, FIGURES)
 
 EXPS = {n: load(f'sutton_roberts_{n}') for n in (1, 2)}
 PV_END = 5.2
@@ -38,8 +38,48 @@ FILTRATION = dict(SINGLE, deposition_model="'filtration'", perm_model="'power'",
 # от «вынос не успевает» до «мгновенный». Показатель n степенного закона: 8-19 по обзору (разд. 4.2) и ~6 по
 # парам (m/m0, k/k0) кернов He et al. (2020, `he2020.py`).
 ENT_GRID = list(itertools.product((0.3, 0.6, 1.0, 1.5, 2.0), (1e-4, 3e-4, 1e-3, 3e-3, 1e-2)))
-FILT_GRID = list(itertools.product((0.005, 0.01, 0.02, 0.04), (0.0, 30.0, 100.0, 300.0), (6.0, 10.0, 16.0)))
+FILT_GRID = list(itertools.product((0.005, 0.01, 0.02, 0.04), (0.0, 30.0, 300.0), (6.0, 10.0, 16.0)))
 FILT_UCR = 1e-5
+
+# Неизотермическая постановка опыта (режим 'thermal'): нефть входит горячей (54.4 C), охлаждается только выходной
+# конец керна (Wang & Civan 2005, с. 320) - кристаллы выпадают в самом керне, а не приходят взвесью. Параметры
+# подбираются least_squares прогонами: диаметр кристалла d_p (порог блокирования d_p/(2*gamma), `D_CRYST`) и
+# множитель броуновской диффузии (`DIFF_MULT`: вязкость нефти опыта 2 не измерена, 3 мПа*с - допущение Ring),
+# у сети пор и горл еще отношение горла к поре. Семейства: общий набор на оба опыта и свой на каждый.
+LSQ_FAMILIES = {
+    'rate_bundle': dict(flags=KERNEL, names=('D_CRYST', 'DIFF_MULT'), mode='rate',
+                        x0=(-4.824, 0.0), lo=(-5.7, -3.0), hi=(-4.3, 3.0), step=(0.02, 0.05), log=(True, True),
+                        title='пучок, изотермический керн'),
+    'rate_entrainment': dict(flags=ENTRAINMENT, names=('D_CRYST', 'DIFF_MULT', 'ENT_TAU', 'ENT_RATE'), mode='rate',
+                             x0=(-4.824, 0.0, 1.5, -3.5), lo=(-5.7, -3.0, 0.1, -6.0), hi=(-4.3, 3.0, 5.0, -1.0),
+                             step=(0.02, 0.05, 0.05, 0.05), log=(True, True, False, True),
+                             title='пучок + вынос, изотермический керн'),
+    'thermal_bundle': dict(flags=dict(SINGLE, snowball='True'), names=('D_CRYST', 'DIFF_MULT'), mode='thermal',
+                           x0=(-4.824, 0.0), lo=(-5.7, -3.0), hi=(-4.3, 3.0), step=(0.02, 0.05), log=(True, True),
+                           title='пучок, неизотермический керн'),
+    'thermal_network': dict(flags=dict(SINGLE, pore_network='True'), names=('D_CRYST', 'DIFF_MULT', 'NET_GAMMA'),
+                            mode='thermal',
+                            x0=(-5.1, -1.0, 0.4), lo=(-5.7, -3.0, 0.2), hi=(-4.3, 3.0, 0.9), step=(0.02, 0.05, 0.02),
+                            log=(True, True, False), title='сеть пор и горл, неизотермический керн'),
+}
+
+
+def lsq_kin(fam, x):
+    f = LSQ_FAMILIES[fam]
+    kin = {'SNOW_A': 0.0, 'NET_Z': 6.0}
+    for name, v, is_log in zip(f['names'], x, f['log']):
+        kin[name] = float(10.0 ** v) if is_log else float(v)
+    return kin
+
+
+def fit_lsq(fam, exps=(1, 2), x0=None):
+    """least_squares семейства по опытам exps (оба - общий набор). Возвращает x, прогоны по опытам, СКО."""
+    f = LSQ_FAMILIES[fam]
+    jobs_of = lambda x: [job(fam, n, f['flags'], lsq_kin(fam, x), mode=f['mode']) for n in exps]
+    resid = lambda res: np.concatenate([k_residuals(r, EXPS[n]['k_pv']) for r, n in zip(res, exps)])
+    x, best, _ = lsq(f'{f["title"]}, опыт {"+".join(map(str, exps))}', jobs_of, resid,
+                     f['x0'] if x0 is None else x0, f['step'], f['lo'], f['hi'])
+    return x, dict(zip(exps, best))
 
 
 def exp_dict(n: int) -> dict:
@@ -139,6 +179,32 @@ def run(mode: str = 'full') -> dict:
         ent = final_sets('ent', ENTRAINMENT, p['entrainment'], ent_kin)
         filt = final_sets('filt', FILTRATION, p['filtration'], filt_kin)
     out['entrainment'], out['filtration'] = ent, filt
+    # Неизотермическая постановка, подбор least_squares: общий набор и свой на каждый опыт
+    p_lsq = {} if mode == 'full' else load_params('sutton_roberts_lsq')
+    out['lsq'] = {}
+    for fam in LSQ_FAMILIES:
+        e = {}
+        for key, exps in (('joint', (1, 2)), ('own1', (1,)), ('own2', (2,))):
+            if mode == 'full':
+                x, runs = fit_lsq(fam, exps, None if key == 'joint' else e['joint']['x'])
+            else:
+                x = p_lsq[fam][key]
+                runs = dict(zip(exps, run_many([job(fam, n, LSQ_FAMILIES[fam]['flags'], lsq_kin(fam, x),
+                                                    mode=LSQ_FAMILIES[fam]['mode'])
+                                                for n in exps])))
+            e[key] = dict(x=x, kin=lsq_kin(fam, x), rms={n: rms(runs[n], n) for n in exps}, curves=runs)
+        # перекрестный прогноз: набор по одному опыту - на другом
+        fm = LSQ_FAMILIES[fam]['mode']
+        cross = run_many([job(fam, 2, LSQ_FAMILIES[fam]['flags'], lsq_kin(fam, e['own1']['x']), mode=fm),
+                          job(fam, 1, LSQ_FAMILIES[fam]['flags'], lsq_kin(fam, e['own2']['x']), mode=fm)])
+        e['cross'] = {'1to2': rms(cross[0], 2), '2to1': rms(cross[1], 1)}
+        out['lsq'][fam] = e
+        print(f'{LSQ_FAMILIES[fam]["title"]}: общий {e["joint"]["kin"]} СКО {e["joint"]["rms"][1]:.3f} / '
+              f'{e["joint"]["rms"][2]:.3f}; свой {e["own1"]["rms"][1]:.3f} / {e["own2"]["rms"][2]:.3f}; '
+              f'перекрестно 1->2 {e["cross"]["1to2"]:.3f}, 2->1 {e["cross"]["2to1"]:.3f}', flush=True)
+    if mode == 'full':
+        save_params('sutton_roberts_lsq', {fam: {k: out['lsq'][fam][k]['x'] for k in ('joint', 'own1', 'own2')}
+                                           for fam in LSQ_FAMILIES})
     for name, f in (('пучок + вынос', ent), ('глубинная фильтрация', filt)):
         b = f['best']
         print(f'{name}, общий набор {b["params"]}: СКО {b["rms1"]:.3f} / {b["rms2"]:.3f}; свой на опыт: '
@@ -162,6 +228,11 @@ def summary(out) -> list:
         rows.append((f'{name}, общий набор', f['best']['rms1'], f['best']['rms2'], 'оба опыта'))
         rows.append((f'{name}, свой набор на опыт', g(f['own'], 1)['rms1'], g(f['own'], 2)['rms2'], 'каждый опыт'))
         rows.append((f'{name}, перекрестный прогноз', f['cross']['2to1'], f['cross']['1to2'], 'по другому опыту'))
+    for fam, e in out.get('lsq', {}).items():
+        name = LSQ_FAMILIES[fam]['title']
+        rows.append((f'{name}, общий набор', g(e['joint']['rms'], 1), g(e['joint']['rms'], 2), 'оба опыта'))
+        rows.append((f'{name}, свой набор на опыт', g(e['own1']['rms'], 1), g(e['own2']['rms'], 2), 'каждый опыт'))
+        rows.append((f'{name}, перекрестный прогноз', e['cross']['2to1'], e['cross']['1to2'], 'по другому опыту'))
     return rows
 
 
@@ -175,11 +246,14 @@ def plot(out):
     for ax, n in zip(axes, (1, 2)):
         pv, k = np.array(EXPS[n]['k_pv']).T
         ax.plot(pv, k, 'o', mfc='white', mec='k', ms=4.5, label='опыт')
-        for r, style, label in ((g(out['legacy'], n), '-', 'прежняя модель'),
-                                (g(out['entrainment']['curves'], n), '-.', 'пучок + вынос (общий набор)'),
-                                (g(out['filtration']['curves'], n), '--', 'глубинная фильтрация (общий набор)'),
-                                (g(out['filtration']['own_curves'], n), (0, (5, 1, 1, 1)),
-                                 'глубинная фильтрация (свой набор)')):
+        series = [(g(out['legacy'], n), '-', 'прежняя модель'),
+                  (g(out['entrainment']['curves'], n), '-.', 'пучок + вынос (общий набор)'),
+                  (g(out['filtration']['own_curves'], n), (0, (5, 1, 1, 1)), 'глубинная фильтрация (свой набор)')]
+        if 'lsq' in out and 'thermal_network' in out['lsq']:
+            e = out['lsq']['thermal_network']
+            series += [(g(e['joint']['curves'], n), '--', 'сеть пор и горл, горячий вход (общий набор)'),
+                       (g(e[f'own{n}']['curves'], n), (0, (1, 1)), 'сеть пор и горл, горячий вход (свой набор)')]
+        for r, style, label in series:
             ax.plot(r['pv'], r['k'], ls=style, label=f'{label}: {rms(r, n):.3f}')
         for name, pts in EXPS[n]['models'].items():
             x, y = np.array(pts).T

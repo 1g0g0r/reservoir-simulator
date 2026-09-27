@@ -21,7 +21,8 @@ _PARAMS = (
     # 1. кинетика кристаллизации
     ('K_CRYST', c.k_cryst), ('K_DISS', c.k_diss), ('K_WALL', c.k_wall),
     # 2. перенос к стенке
-    ('SHEAR_DISP', c.shear_disp), ('GRAV_EFF', c.grav_eff),
+    ('SHEAR_DISP', c.shear_disp), ('GRAV_EFF', c.grav_eff), ('DIFF_MULT', c.kin_diff_mult),
+    ('D_CRYST', c.D),  # диаметр кристалла в ядре кинетики: по умолчанию D, подбор по опыту - без перекомпиляции
     # 3. вынос
     ('ENT_RATE', c.ent_rate), ('ENT_TAU', c.ent_tau),
     # 4-5. агрегация и снежный ком
@@ -38,12 +39,14 @@ _PARAMS = (
     ('PERM_ALPHA', c.perm_alpha),
     # 11. тепловое неравновесие
     ('LTNE_DG', c.ltne_dg), ('LTNE_DM', c.ltne_Dm),
+    # 12. сеть пор и горл
+    ('NET_Z', c.net_z), ('NET_GAMMA', c.net_gamma),
 )
 KIN_NAMES = tuple(name for name, _ in _PARAMS)
-(K_CRYST, K_DISS, K_WALL, SHEAR_DISP, GRAV_EFF, ENT_RATE, ENT_TAU, AGG_D0, AGG_DF, AGG_W, SNOW_A,
+(K_CRYST, K_DISS, K_WALL, SHEAR_DISP, GRAV_EFF, DIFF_MULT, D_CRYST, ENT_RATE, ENT_TAU, AGG_D0, AGG_DF, AGG_W, SNOW_A,
  ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN, ADS_FILM, OW_S_MIN, OW_S_MAX, OW_N_O, OW_N_W,
  AGE_C0, AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR, PERM_N, PERM_BETA, PERM_SMAX, PERM_GAMMA,
- PERM_ALPHA, LTNE_DG, LTNE_DM) = range(len(_PARAMS))
+ PERM_ALPHA, LTNE_DG, LTNE_DM, NET_Z, NET_GAMMA) = range(len(_PARAMS))
 NK = len(_PARAMS)
 
 

@@ -117,6 +117,48 @@ def langmuir_film_step(g, g_max, k_l, c, a_dt):
     return 2.0 * cc / (b + math.sqrt(disc)) if b > 0.0 else g
 
 
+# --- Сеть пор и горл: эффективная среда ------------------------------------------------------------------------
+
+@njit(cache=True)
+def ema_conductance(g, w, w_blocked, z):
+    """Эффективная проводимость горла сети с координационным числом z по приближению эффективной среды
+    (Kirkpatrick S. // Rev. Mod. Phys. 1973. V. 45. P. 574): g_m - корень
+
+        sum_i w_i*(g_m - g_i)/(g_i + (z/2 - 1)*g_m) + w_blocked/(z/2 - 1) = 0,
+
+    w_i - доли горл с проводимостью g_i (открытых), w_blocked - доля закрытых (g = 0). При одинаковых горлах
+    g_m = g*(p - 2/z)/(1 - 2/z), p - доля открытых: проводимость исчезает на пороге протекания p_c = 2/z, а не при
+    закрытии всех каналов, как у пучка. При z -> inf - среднее арифметическое (пучок). Корень - бисекцией по
+    lg g_m: функция монотонна по g_m. Ниже порога протекания возвращает 0."""
+    a = 0.5 * z - 1.0
+    g_top = 0.0
+    for n in range(g.shape[0]):
+        if w[n] > 0.0 and g[n] > g_top:
+            g_top = g[n]
+    if g_top <= 0.0:
+        return 0.0
+    lo, hi = math.log(g_top) - 40.0, math.log(g_top)
+    f_lo = w_blocked / a
+    x = math.exp(lo)
+    for n in range(g.shape[0]):
+        if w[n] > 0.0:
+            f_lo += w[n] * (x - g[n]) / (g[n] + a * x)
+    if f_lo >= 0.0:
+        return 0.0
+    for _ in range(80):
+        mid = 0.5 * (lo + hi)
+        x = math.exp(mid)
+        f = w_blocked / a
+        for n in range(g.shape[0]):
+            if w[n] > 0.0:
+                f += w[n] * (x - g[n]) / (g[n] + a * x)
+        if f < 0.0:
+            lo = mid
+        else:
+            hi = mid
+    return math.exp(0.5 * (lo + hi))
+
+
 # --- Проницаемость от отложений (обзор 4.2) ---------------------------------------------------------------------
 
 @njit(cache=True)

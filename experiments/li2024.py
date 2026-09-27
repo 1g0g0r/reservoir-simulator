@@ -33,7 +33,7 @@ import numpy as np
 from scipy.optimize import brentq, least_squares
 
 from common import (load, core_constants, run_many, rms_k, noise_floor, mode_from_argv, load_params, save_params,
-                    save_results, load_results, FIGURES)
+                    save_results, load_results, lsq, FIGURES)
 
 DATA = load('li2024')
 STAGES = [[90.0, 5.0], [65.0, 5.0], [45.0, 5.0], [25.0, 5.0]]
@@ -65,17 +65,25 @@ SCN = {'wax_components': 'True', 'wax_viscosity': '1', 'gelation': 'True', 'gel_
 # Удержание смол и асфальтенов в горлах (адсорбция + функция повреждения), парафин - пучок капилляров с d_p, L_k
 # по Sutton & Roberts, гель с объемным пределом текучести
 RETENTION = dict(SCN, adsorption='True')
-# Семейство «ниже WAT» (ступень 25 C): к удержанию добавляется конечная скорость кристаллизации (`wax_kinetics`),
-# перебираются тиксотропное время геля (константа - копия пакета на значение; у парафинистых нефтей - от минут до
-# часов, Dimitriou & McKinley 2014) и константа кристаллизации в объеме k_cryst. Удержание - из подбора выше WAT.
-COLD_GEL_TIMES = (300.0, 1800.0, 7200.0)
-COLD_KCRYST = (1e-4, 1e-3, 1e-2)
+# Семейство «ниже WAT» (ступень 25 C): к удержанию добавляется конечная скорость кристаллизации (`wax_kinetics`).
+# Подбираются least_squares диаметр кристалла (порог блокирования; d_p = 15 мкм подобран на Berea, а у керна Li
+# поры мельче - 18.8 мД), множитель броуновской диффузии и константа кристаллизации в объеме; тиксотропное время
+# геля - сеткой (константа, копия пакета на значение; у парафинистых нефтей - от минут до часов, Dimitriou &
+# McKinley 2014). Удержание смол и асфальтенов - из подбора выше WAT.
+COLD_GEL_TIMES = (300.0, 3600.0)
+COLD_X0 = (-4.824, 0.0, -3.0)  # lg D_CRYST, lg DIFF_MULT, lg K_CRYST
+COLD_LO, COLD_HI = (-6.0, -3.0, -5.0), (-4.3, 2.0, -1.0)
+COLD_STEP = (0.02, 0.05, 0.05)
 
 
-def cold_job(gel_time, k_cryst, kin_ret):
+def cold_kin(x, kin_ret):
+    return dict(kin_ret, D_CRYST=float(10 ** x[0]), DIFF_MULT=float(10 ** x[1]), K_CRYST=float(10 ** x[2]))
+
+
+def cold_job(gel_time, x, kin_ret):
     flags = dict(RETENTION, wax_kinetics='True', gel_time=repr(gel_time))
     return (f'exp_li_cold_{gel_time:g}', constants(flags),
-            {'mode': 'stages', 'exp': exp_dict(), 'kin': dict(kin_ret, K_CRYST=k_cryst)})
+            {'mode': 'stages', 'exp': exp_dict(), 'kin': cold_kin(x, kin_ret)})
 
 
 def cumulative_plateaus():
@@ -249,8 +257,14 @@ def run(mode: str = 'full') -> dict:
                      math.log10(4e-4)])
     xs, nfev = {}, {}
     if mode == 'full':
+        # Старт - сохраненный оптимум (params.json), если он есть: после правки кода кэш прогонов сбрасывается,
+        # и подбор с равновесной точки заново стоит ~40 мин на форму; без сохраненного - с равновесной точки
+        try:
+            saved = load_params('li2024')
+        except SystemExit:
+            saved = {}
         for form, film in FORMS.items():
-            x0 = x_eq if form == 'solid' else film_start(xs['solid'])
+            x0 = saved[form]['x'] if form in saved else (x_eq if form == 'solid' else film_start(xs['solid']))
             fit = dynamic_fit(x0, film)
             xs[form], nfev[form] = [float(v) for v in fit.x], int(fit.nfev)
     else:
@@ -276,23 +290,27 @@ def run(mode: str = 'full') -> dict:
         save_params('li2024', dict({form: {'x': xs[form], 'kin': fit_kin(xs[form], film)} for form, film in FORMS.items()},
                                    best=best, x_names='lg ADS_GMAX [кг/м^2], lg ADS_K, -ADS_DH/1e4 [Дж/моль], '
                                                       'lg ADS_RATE [1/с]'))
-    # Ступень 25 C: сетка по тиксотропному времени геля и k_cryst при удержании из подбора выше WAT
+    # Ступень 25 C: least_squares по d_p, множителю диффузии и k_cryst при каждом тиксотропном времени геля
     kin_ret = out['dynamic']['kin']
+    stage25 = [[25.0, 5.0]]
     if mode == 'full':
-        grid = [(gt, kc) for gt in COLD_GEL_TIMES for kc in COLD_KCRYST]
-        cold = run_many([cold_job(gt, kc, kin_ret) for gt, kc in grid])
-        table = [dict(gel_time=gt, k_cryst=kc, rms=stage_rms(r)) for (gt, kc), r in zip(grid, cold)]
-        best_cold = min(table, key=lambda e: e['rms'].get(25.0, 1.0))
-        save_params('li2024_cold', {'gel_time': best_cold['gel_time'], 'k_cryst': best_cold['k_cryst']})
+        table = []
+        for gt in COLD_GEL_TIMES:
+            x, res, err = lsq(f'ниже WAT, гель {gt:g} с', lambda x, gt=gt: [cold_job(gt, x, kin_ret)],
+                              lambda rr: stage_residuals(rr[0], stage25), COLD_X0, COLD_STEP, COLD_LO, COLD_HI)
+            table.append(dict(gel_time=gt, x=x, rms25=err))
+        best_cold = min(table, key=lambda e: e['rms25'])
+        save_params('li2024_cold', {'gel_time': best_cold['gel_time'], 'x': best_cold['x'],
+                                    'x_names': 'lg D_CRYST [м], lg DIFF_MULT, lg K_CRYST [1/с]'})
     else:
         pc = load_params('li2024_cold')
-        best_cold, table = {'gel_time': pc['gel_time'], 'k_cryst': pc['k_cryst']}, []
-    r_cold = run_many([cold_job(best_cold['gel_time'], best_cold['k_cryst'], kin_ret)])[0]
-    out['cold'] = dict(gel_time=best_cold['gel_time'], k_cryst=best_cold['k_cryst'], rms=stage_rms(r_cold),
-                       result=r_cold, table=table)
+        best_cold, table = {'gel_time': pc['gel_time'], 'x': pc['x']}, []
+    r_cold = run_many([cold_job(best_cold['gel_time'], best_cold['x'], kin_ret)])[0]
+    out['cold'] = dict(gel_time=best_cold['gel_time'], x=best_cold['x'], kin=cold_kin(best_cold['x'], {}),
+                       rms=stage_rms(r_cold), result=r_cold, table=table)
     for name, key in (('прежняя', 'legacy'), ('4 группы + гель', 'scn')):
         print(name, {t: round(v, 3) for t, v in stage_rms(out[key]).items()}, flush=True)
-    print(f'ниже WAT: гель {best_cold["gel_time"]:g} с, k_cryst {best_cold["k_cryst"]:g} 1/с:',
+    print(f'ниже WAT: гель {best_cold["gel_time"]:g} с, {out["cold"]["kin"]}:',
           {t: round(v, 3) for t, v in out['cold']['rms'].items()}, flush=True)
     print('удержание, равновесный подбор плато', {t: round(v, 3) for t, v in out['equilibrium']['rms'].items()})
     for form in FORMS:

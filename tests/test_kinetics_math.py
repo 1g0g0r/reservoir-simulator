@@ -173,3 +173,21 @@ def test_langmuir_film_step():
         steps.append(g_new - g)
         g = g_new
     assert min(steps) > 0.9 * steps[0]
+
+
+def test_ema_network():
+    """Эффективная среда Киркпатрика: одинаковые горла - та же проводимость; доля p открытых одинаковых горл -
+    g*(p - 2/z)/(1 - 2/z) и ноль ниже порога протекания 2/z; при z -> inf - среднее арифметическое (пучок)."""
+    from paraphin.equations.Kinetics_math import ema_conductance
+    g = np.full(5, 2.0)
+    w = np.full(5, 0.2)
+    assert np.isclose(ema_conductance(g, w, 0.0, 4.0), 2.0, rtol=1e-10)
+    for z, p in ((4.0, 0.8), (6.0, 0.5), (3.0, 0.9)):
+        gm = ema_conductance(g, w * p, 1.0 - p, z)
+        assert np.isclose(gm, 2.0 * (p - 2.0 / z) / (1.0 - 2.0 / z), rtol=1e-9)
+    assert ema_conductance(g, w * 0.45, 0.55, 4.0) == 0.0  # p = 0.45 < 2/z = 0.5
+    g2 = np.array([1.0, 3.0, 8.0])
+    w2 = np.array([0.5, 0.3, 0.2])
+    assert np.isclose(ema_conductance(g2, w2, 0.0, 1e9), np.sum(g2 * w2), rtol=1e-6)
+    # Разброс проводимостей при конечном z снижает эффективную ниже среднего (сеть чувствительнее пучка)
+    assert ema_conductance(g2, w2, 0.0, 4.0) < np.sum(g2 * w2)

@@ -212,3 +212,50 @@ def noise_floor(points) -> float:
 def interp_at(res: dict, x_points):
     pv, k = np.array(res['pv']), np.array(res['k'])
     return [float(np.interp(x, pv, k)) if x <= pv[-1] else 0.0 for x in x_points]
+
+
+# --- Подбор ----------------------------------------------------------------------------------------------------
+
+def lsq(label, jobs_of, residual_of, x0, step, lo, hi, max_nfev=12, ftol=1e-3, xtol=1e-3):
+    """least_squares по прогонам с параллельным разностным якобианом.
+
+    jobs_of(x) -> список заданий `run_many` для одной точки (например, оба опыта семейства), residual_of(results) ->
+    вектор невязок по этим прогонам. Прогоны точек якобиана (n + 1 точка) идут одним `run_many`, повторные точки
+    берутся из кэша. Возвращает (x, results лучшей точки, СКО)."""
+    from scipy.optimize import least_squares
+    step = np.asarray(step, float)
+
+    def runs(xs):
+        jobs, sizes = [], []
+        for x in xs:
+            js = jobs_of(np.asarray(x, float))
+            jobs += js
+            sizes.append(len(js))
+        res, out, pos = run_many(jobs), [], 0
+        for n in sizes:
+            out.append(res[pos:pos + n])
+            pos += n
+        return out
+
+    def fun(x):
+        r = residual_of(runs([x])[0])
+        print(f'  {label}: x = {np.round(x, 3).tolist()}, СКО {np.sqrt(np.mean(r ** 2)):.4f}', flush=True)
+        return r
+
+    def jac(x):
+        xs = [np.asarray(x, float)] + [np.asarray(x, float) + step[n] * np.eye(len(x))[n] for n in range(len(x))]
+        rs = [residual_of(r) for r in runs(xs)]
+        return np.array([(rs[n + 1] - rs[0]) / step[n] for n in range(len(x))]).T
+
+    fit = least_squares(fun, np.clip(np.asarray(x0, float), lo, hi), jac=jac, bounds=(lo, hi), max_nfev=max_nfev,
+                        x_scale=step * 5, ftol=ftol, xtol=xtol)
+    best = runs([fit.x])[0]
+    return [float(v) for v in fit.x], best, float(np.sqrt(np.mean(residual_of(best) ** 2)))
+
+
+def k_residuals(res, points):
+    """Модель минус опыт k/k0 во всех точках (PV > 0), после закупорки модель - ноль (как `rms_k`)."""
+    pv, k = np.array(res['pv']), np.array(res['k'])
+    pts = np.array([p for p in points if p[0] > 0.0])
+    model = np.where(pts[:, 0] <= pv[-1] + 1e-12, np.interp(pts[:, 0], pv, k), 0.0 if res['plugged'] else k[-1])
+    return model - pts[:, 1]

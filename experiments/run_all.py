@@ -19,7 +19,7 @@ import time
 
 from common import RESULTS, mode_from_argv
 
-ORDER = ('sutton_roberts', 'li2024', 'sandyga2020', 'he2020')
+ORDER = ('sutton_roberts', 'li2024', 'sandyga2020', 'he2020', 'pore_models')
 TARGET = 0.03  # СКО k/k0 (решение автора); где шумовой порог опыта выше, цель - порог
 
 
@@ -36,6 +36,7 @@ def _table(head, rows):
 def tables(results: dict) -> dict:
     """Markdown-таблицы отчета по результатам модулей: {ключ подстановки: таблица}."""
     import he2020
+    import pore_models
     import li2024
     import sandyga2020
     import sutton_roberts
@@ -50,17 +51,22 @@ def tables(results: dict) -> dict:
                            [(n, *[_f(v) for v in vals]) for n, vals in rows])
     if 'sandyga2020' in results:
         rows = sandyga2020.summary(results['sandyga2020'])
-        out['SD'] = _table(['Вариант', 'СКО lg(∇p/∇p₀)', 'наибольшее расхождение в 5 точках, раз',
+        out['SD'] = _table(['Вариант', 'СКО lg(∇p/∇p₀)', 'СКО k/k₀', 'наибольшее расхождение в 5 точках, раз',
                             'проводящая пористость, доли m₀'],
-                           [(n, _f(a), _f(b, 1), _f(c, 2)) for n, a, b, c in rows])
+                           [(n, _f(a), _f(k), _f(b, 1), _f(c, 2)) for n, a, k, b, c in rows])
         best = results['sandyga2020']['best']
         out['SD_PORES'] = _table(['Диаметр пор, мкм'] + [str(d) for d in sandyga2020.DATA['pores']['d_um']],
                                  [['томография'] + [_f(v, 2) for v in best['pore_loss_exp']],
                                   ['модель'] + [_f(v, 2) for v in best['pore_loss']]])
     if 'he2020' in results:
         rows = he2020.summary(results['he2020'])
-        out['HE'] = _table(['Зависимость k(m)', 'СКО lg(k/k₀)', 'точек вне досягаемости'],
-                           [(n, _f(e), f'{m} из {tot}') for n, e, m, tot in rows])
+        out['HE'] = _table(['Зависимость k(m)', 'СКО lg(k/k₀)', 'СКО k/k₀', 'точек вне досягаемости'],
+                           [(n, _f(e), _f(l), f'{m} из {tot}') for n, e, l, m, tot in rows])
+    if 'pore_models' in results:
+        rows = pore_models.summary(results['pore_models'])
+        out['PORE'] = _table(['Модель порового пространства', 'СКО k/k₀', 'СКО lg(k/k₀)', 'подобрано параметров',
+                              'примечание'], [(n, _f(a), _f(b), c, d) for n, a, b, c, d in rows])
+        out['EMA_LATTICE'] = _f(results['pore_models']['ema_vs_lattice'])
     return out
 
 

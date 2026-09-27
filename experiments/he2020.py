@@ -11,6 +11,10 @@
   - Козени-Карман и степенной закон (m/m0)^n - замыкания модели глубинной фильтрации (`perm_model`); показатель
     n подбирается по точкам и сравнивается с диапазоном 8-19 из обзора (разд. 4.2);
   - пучок капилляров, сужение всех каналов слоем кристаллов (C0 = 1, прежняя модель);
+  - сеть пор и горл (`pore_network`, разд. 13.13): поры fi(r) соединены горлами радиуса gamma*r, сеть с
+    координационным числом z, проводимость - по эффективной среде (Kirkpatrick 1973, `ema_conductance` пакета).
+    Слой отложения закрывает горла раньше, чем заполняет поры, а закрытые горла сеть обходит до порога
+    протекания 2/z. Априорные z = 6, gamma = 0.4 (по умолчанию пакета) - прогноз; подбор - для сравнения;
   - пучок капилляров с гель-отложением (`deposit_aging`): сужение идет по объему геля, а пористость теряет только
     кристаллы, m/m0 = 1 - C0*(1 - m_c/m0). Порозиметр видит полную пористость: нефть, захваченную гелем, при
     подготовке образца вымывают. C0 - та же доля парафина в свежем геле, что подобрана по опыту Sandyga et al.
@@ -54,6 +58,30 @@ def narrowing(c0: float):
     return np.array(out)
 
 
+NET_PRIOR = (6.0, 0.4)  # z, gamma - по умолчанию пакета (constants.net_z, net_gamma = gamma)
+
+
+def network(z: float, gam: float):
+    """(m/m0, k/k0) сети пор и горл при сужении слоем толщины h: поры r - h (объем), горла gamma*r - h
+    (проводимость ~ r_t^4), закрытые горла - проводимость 0; эффективная среда с координационным числом z."""
+    from paraphin.equations.Kinetics_math import ema_conductance
+    r = np.linspace(1e-3, 5.0, 4000)
+    fi = np.exp(-0.5 * (np.log(r) / SIGMA_R) ** 2) / r
+    w0 = fi / fi.sum()
+    g0 = ema_conductance((gam * r) ** 4, w0, 0.0, z)
+    out = []
+    for h in np.linspace(0.0, 2.5, 400):
+        rt = gam * r - h
+        open_ = rt > 0.0
+        if not open_.any():
+            break
+        g = np.where(open_, rt, 0.0) ** 4
+        w = np.where(open_, w0, 0.0)
+        gm = ema_conductance(g, w, float(w0[~open_].sum()), z)
+        out.append((np.sum(np.maximum(r - h, 0.0) ** 2 * fi) / np.sum(r ** 2 * fi), gm / g0))
+    return np.array(out)
+
+
 def kozeny_carman(m_rel, m0=M0_HE):
     return m_rel ** 3 * ((1.0 - m0) / (1.0 - m_rel * m0)) ** 2
 
@@ -69,6 +97,17 @@ def log_error(curve, points):
         return float('nan'), int(len(pts))
     model = np.interp(pts[reach, 0], m_c, k_c)
     return float(np.sqrt(np.mean((np.log10(model) - np.log10(pts[reach, 1])) ** 2))), int((~reach).sum())
+
+
+def lin_error(curve, points):
+    """СКО k/k0 (в линейной шкале - та же метрика, что у кривых k/k0(PV) остальных опытов) по досягаемым точкам."""
+    order = np.argsort(curve[:, 0])
+    pts = np.array(points)
+    reach = pts[:, 0] >= curve[order[0], 0]
+    if not reach.any():
+        return float('nan')
+    model = np.interp(pts[reach, 0], curve[order, 0], curve[order, 1])
+    return float(np.sqrt(np.mean((model - pts[reach, 1]) ** 2)))
 
 
 def c0_from_sandyga():
@@ -95,21 +134,41 @@ def run(mode: str = 'full') -> dict:
     # C0 по точкам He - только среди тех, при которых кривая доходит до всех точек (C0 > 1 - min m/m0)
     c0_min = 1.0 - min(m for m, _ in pts) + 1e-3
     fit = minimize_scalar(lambda c: log_error(narrowing(c), pts)[0], bounds=(c0_min, 1.0), method='bounded')
+    # z и gamma вдоль оврага взаимозаменяемы (при z -> inf сеть вырождается в пучок с узкими горлами), поэтому
+    # z - в диапазоне песчаников 3-8, при каждом z подбирается gamma
+    # Подбор gamma - по СКО k/k0 (метрика цели 0.05, общая с кривыми k/k0(PV)); по СКО lg оптимум другой
+    # (gamma выше на 0.1): одной степенью (m/m0)^n обе метрики удовлетворяются лучше - это ограничение формы
+    net_table = []
+    for z in (3.0, 4.0, 5.0, 6.0, 8.0):
+        res = minimize_scalar(lambda gm: lin_error(network(z, gm), pts), bounds=(0.2, 0.9), method='bounded',
+                              options=dict(xatol=1e-3))
+        res_lg = minimize_scalar(lambda gm: log_error(network(z, gm), pts)[0], bounds=(0.2, 0.9), method='bounded',
+                                 options=dict(xatol=1e-3))
+        net_table.append((z, float(res.x), float(res.fun), float(res_lg.x), float(res_lg.fun)))
+        print(f'  сеть: z = {z:g}: по k/k0 горло {res.x:.3f}, СКО {res.fun:.3f}; по lg горло {res_lg.x:.3f}, '
+              f'СКО lg {res_lg.fun:.3f}', flush=True)
+    z_fit, gam_fit = min(net_table, key=lambda e: e[2])[:2]
+    z_lg, gam_lg = min(net_table, key=lambda e: e[4])[0], min(net_table, key=lambda e: e[4])[3]
     curves = {
         'Козени-Карман': np.column_stack([m_grid, kozeny_carman(m_grid)]),
         f'(m/m0)^n, n = {n_fit:.1f} (подбор)': np.column_stack([m_grid, m_grid ** n_fit]),
         'пучок: сужение слоем кристаллов (C0 = 1)': narrowing(1.0),
         f'пучок: гель-отложение, C0 = {c0:.2f} ({c0_source})': narrowing(c0),
         f'пучок: гель-отложение, C0 = {fit.x:.2f} (подбор по He)': narrowing(fit.x),
+        f'сеть пор и горл: z = {NET_PRIOR[0]:g}, горло {NET_PRIOR[1]:g} (априори)': network(*NET_PRIOR),
+        f'сеть пор и горл: z = {z_fit:g}, горло {gam_fit:.2f} (подбор по k/k0)': network(z_fit, gam_fit),
+        f'сеть пор и горл: z = {z_lg:g}, горло {gam_lg:.2f} (подбор по lg)': network(z_lg, gam_lg),
     }
-    errors, missed = {}, {}
+    errors, missed, lin = {}, {}, {}
     for name, curve in curves.items():
         errors[name], missed[name] = log_error(curve, pts)
-        print(f'{name}: СКО lg(k/k0) {errors[name]:.3f}' + (f', не достает до {missed[name]} из {len(pts)} точек'
-                                                            if missed[name] else ''), flush=True)
+        lin[name] = lin_error(curve, pts)
+        print(f'{name}: СКО lg(k/k0) {errors[name]:.3f}, СКО k/k0 {lin[name]:.3f}'
+              + (f', не достает до {missed[name]} из {len(pts)} точек' if missed[name] else ''), flush=True)
     print(f'показатель степенного закона по He: n = {n_fit:.1f} (обзор, разд. 4.2: 8-19)', flush=True)
     out = dict(pairs={w: [list(p) for p in rows] for w, rows in data.items()}, n_fit=n_fit, c0=c0,
-               c0_source=c0_source, c0_fit=float(fit.x), errors=errors, missed=missed,
+               c0_source=c0_source, c0_fit=float(fit.x), errors=errors, missed=missed, lin=lin, net_prior=list(NET_PRIOR),
+               net_fit=[z_fit, gam_fit], net_fit_lg=[z_lg, gam_lg], net_table=net_table,
                curves={name: curve.tolist() for name, curve in curves.items()})
     save_results('he2020', out)
     plot(out)
@@ -117,9 +176,10 @@ def run(mode: str = 'full') -> dict:
 
 
 def summary(out) -> list:
-    """Строки сводной таблицы: (зависимость k(m), СКО lg(k/k0), точек вне досягаемости)."""
+    """Строки сводной таблицы: (зависимость k(m), СКО lg(k/k0), СКО k/k0, точек вне досягаемости, всего)."""
     n_pts = sum(len(rows) for rows in out['pairs'].values())
-    return [(name, e, out['missed'][name], n_pts) for name, e in out['errors'].items()]
+    return [(name, e, out.get('lin', {}).get(name, float('nan')), out['missed'][name], n_pts)
+            for name, e in out['errors'].items()]
 
 
 def plot(out):
@@ -131,7 +191,8 @@ def plot(out):
     for (well, rows), marker in zip(out['pairs'].items(), ('^', 'D', 's', 'v')):
         p = np.array(rows)
         ax.semilogy(p[:, 0], p[:, 1], marker, color='k', mfc='white', ms=4.5, label=f'He et al., {well}')
-    for (name, curve), style in zip(out['curves'].items(), ('-.', ':', '--', '-', (0, (5, 1, 1, 1)))):
+    styles = ('-.', ':', '--', '-', (0, (5, 1, 1, 1)), (0, (3, 1)), (0, (1, 1)), (0, (6, 2)))
+    for (name, curve), style in zip(out['curves'].items(), styles):
         c = np.array(curve)
         order = np.argsort(c[:, 0])
         ax.semilogy(c[order, 0], np.maximum(c[order, 1], 1e-3), ls=style,

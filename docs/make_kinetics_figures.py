@@ -8,7 +8,8 @@
   kin02 - агрегация по Смолуховскому: численные шаги против точного решения, размер фрактальных флокул;
   kin03 - изотерма удержания смол и асфальтенов от температуры: подобранные по Li et al. (2024) параметры;
   kin04 - замыкания проницаемости модели глубинной фильтрации против пучка капилляров;
-  kin05 - тепловое неравновесие: численная схема (перенос + точный обмен) против решения Шумана.
+  kin05 - тепловое неравновесие: численная схема (перенос + точный обмен) против решения Шумана;
+  kin06 - сеть пор и горл (эффективная среда) против пучка: k(m) и порог протекания.
 Стиль - общий с рисунками описания модели (`make_model_figures.py`).
 """
 import json
@@ -189,6 +190,49 @@ def fig_schumann():
     _save(fig, 'kin05_schumann')
 
 
+def fig_network():
+    """Сеть пор и горл (эффективная среда) против пучка: k(m) при равномерном сужении и порог протекания."""
+    from paraphin.equations.Kinetics_math import ema_conductance
+    r = np.linspace(1e-3, 5.0, 3000)
+    fi = np.exp(-0.5 * (np.log(r) / 0.4) ** 2) / r
+    w0 = fi / fi.sum()
+    gam = 0.4
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8.4, 3.3))
+    bundle = []
+    for h in np.linspace(0.0, 2.0, 200):
+        rr = np.maximum(r - h, 0.0)
+        bundle.append((np.sum(rr ** 2 * fi) / np.sum(r ** 2 * fi), np.sum(rr ** 4 * fi) / np.sum(r ** 4 * fi)))
+    bundle = np.array(bundle)
+    ax1.semilogy(bundle[:, 0], bundle[:, 1], color=INK, ls=STYLES[3], label='пучок капилляров')
+    for n_z, z in enumerate((3.0, 4.0, 6.0, 1e6)):
+        g0 = ema_conductance((gam * r) ** 4, w0, 0.0, z)
+        pts = []
+        for h in np.linspace(0.0, 2.0, 300):
+            rt = gam * r - h
+            op = rt > 0
+            if not op.any():
+                break
+            gm = ema_conductance(np.where(op, rt, 0.0) ** 4, np.where(op, w0, 0.0), float(w0[~op].sum()), z)
+            pts.append((np.sum(np.maximum(r - h, 0.0) ** 2 * fi) / np.sum(r ** 2 * fi), max(gm / g0, 1e-6)))
+        pts = np.array(pts)
+        label = 'сеть, z → ∞' if z > 1e5 else f'сеть, z = {z:g}'
+        ax1.semilogy(pts[:, 0], pts[:, 1], color=SERIES[n_z], ls=STYLES[n_z % 3], label=label)
+    ax1.set_xlim(0.3, 1.0)
+    ax1.set_ylim(1e-3, 1.2)
+    ax1.set_xlabel('m / m₀')
+    ax1.set_ylabel('k / k₀')
+    ax1.legend(fontsize=6.5, handlelength=3.2)
+    p = np.linspace(0.0, 1.0, 201)
+    for n_z, z in enumerate((3.0, 4.0, 6.0)):
+        ax2.plot(p, [ema_conductance(np.array([1.0]), np.array([x]), 1.0 - x, z) for x in p], color=SERIES[n_z],
+                 ls=STYLES[n_z % 3], label=f'z = {z:g}, порог {2 / z:.2f}')
+    ax2.plot(p, p, color=INK, ls=STYLES[3], label='пучок')
+    ax2.set_xlabel('доля открытых горл')
+    ax2.set_ylabel('g_m / g')
+    ax2.legend(fontsize=6.5, handlelength=3.2)
+    _save(fig, 'kin06_network')
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     fig_transport()
@@ -196,6 +240,7 @@ def main():
     fig_langmuir()
     fig_permeability()
     fig_schumann()
+    fig_network()
 
 
 if __name__ == '__main__':

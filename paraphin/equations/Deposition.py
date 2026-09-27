@@ -34,29 +34,29 @@ import math
 import numpy as np
 from numba import njit
 
-from paraphin import r1, r2, r3, r4, r5, r6, n_pass, w2_cv, plug_cv, dr_cv, eta, surf_0
+from paraphin import r1, r2, r3, r4, r5, r6, w2_cv, plug_cv, dr_cv, eta, surf_0, fi_0
 from paraphin.constants import (Nr, init_m, init_k, min_Wps_bound, ro_o, ro_p, ro_asph, ro_asph_dep,
-                                resin_in_deposit, volume, D, D_asph, Lk, betta, gamma, g, k_B, diff_mult, S_max, R,
+                                resin_in_deposit, volume, D, D_asph, Lk, betta, gamma, g, diff_mult, S_max, R,
                                 E_activation,
                                 asphaltenes, wax_kinetics, wall_transport, entrainment, asph_aggregation,
-                                snowball, adsorption, deposit_aging, thermal_nonequilibrium, perm_model)
-from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, ENT_RATE, ENT_TAU, AGG_D0, AGG_DF,
-                                      SNOW_A, ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN, ADS_FILM, AGE_C0,
-                                      AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR, PERM_N, PERM_BETA,
-                                      PERM_SMAX, PERM_GAMMA, PERM_ALPHA, LTNE_DG, LTNE_DM,
-                                      KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR,
-                                      KX_VGEL, KX_TS, KX_GMAX)
+                                snowball, adsorption, deposit_aging, thermal_nonequilibrium, perm_model, pore_network)
+from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, DIFF_MULT, D_CRYST, ENT_RATE, ENT_TAU, AGG_D0,
+                                      AGG_DF, SNOW_A, ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN,
+                                      ADS_FILM, AGE_C0, AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR,
+                                      PERM_N, PERM_BETA, PERM_SMAX, PERM_GAMMA, PERM_ALPHA, LTNE_DG, LTNE_DM, NET_Z,
+                                      NET_GAMMA, KX_WEQ,
+                                      KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR, KX_VGEL, KX_TS,
+                                      KX_GMAX)
 from paraphin.oil_composition import N_W, IA_D, IA_F, I_R, IN_F
 from paraphin.utils import crystal_volume_fraction
 from .Thermo_wax import sle_split
 from .Kinetics_math import (brownian_diffusivity, shear_diffusivity, stokes_velocity, leveque_velocity, floc_size,
                             wall_fraction, langmuir_constant, langmuir_eq, langmuir_film_step, perm_kozeny_carman,
-                            perm_power, perm_damage, perm_surface)
+                            perm_power, perm_damage, perm_surface, ema_conductance)
 
 _SO_MAX = 1.0 - S_max
 _A_W = 0.5 * D                                  # радиус кристалла парафина, [м]
 _B_D3 = 6.0 * betta / (D * D * D)               # блокирование кристаллами: So*w*_B_D3*um*r^2 (Velocity_h)
-_DIFF_W = diff_mult * k_B / (3.0 * math.pi * D)  # Стокс-Эйнштейн для кристалла без T/mu
 _SETTLE_W = 2.0 * _A_W * _A_W * (ro_p - ro_o) * g / 9.0  # скорость оседания кристалла без 1/mu, [Па*м/с]
 _RO_P_O = ro_p / ro_o
 _RO_AD_O = ro_asph_dep / ro_o
@@ -139,10 +139,11 @@ def _particle_rows(u, b, so_eff, w, d_p, rho_p, um_r2, T_K, mu, kin, snow, phi_v
         D = k_B*T/(3*pi*mu*d_p) + shear_disp*phi^2*gamma_w*a^2,   gamma_w = 4*um/r  (Leighton & Acrivos 1987)
     плюс гравитационное оседание grav_eff*u_s, u_s = 2*a^2*(rho_p - rho_o)*g/(9*mu) (обзор 2.2.3-2.2.4):
         u(r) = -So*w*(k(r) + grav_eff*u_s)*snow.
-    Без `wall_transport` остается только броуновская часть - ровно формула прежних ядер."""
+    Без `wall_transport` остается только броуновская часть - ровно формула прежних ядер. Броуновский
+    коэффициент умножается на runtime-множитель kin[DIFF_MULT] (подбор по опыту без перекомпиляции)."""
     a = 0.5 * d_p
     r_pass = a / gamma
-    d_b = diff_mult * brownian_diffusivity(T_K, mu, d_p)
+    d_b = diff_mult * kin[DIFF_MULT] * brownian_diffusivity(T_K, mu, d_p)
     ug = kin[GRAV_EFF] * stokes_velocity(a, rho_p - ro_o, mu) if wall_transport else 0.0
     b_coef = so_eff * w * 6.0 * betta / (d_p * d_p * d_p) * um_r2 * snow
     for ij in range(Nr):
@@ -206,13 +207,17 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
         ue[ij] = 0.0
 
     # --- кристаллы парафина из взвеси
+    # Диаметр кристалла - runtime (kin[D_CRYST], по умолчанию D): порог блокирования d/(2*gamma) - по нему, объем
+    # пробки - plug_cv с множителем (d/D)^3, как у флокул
     wps = Wps[i, j]
+    d_w = kin[D_CRYST]
+    plug_w = (d_w / D) ** 3
     lim_w, i_w, p_w = 0.0, 0.0, 0.0
     if wps > min_Wps_bound:
-        _particle_rows(uw, bw, so_eff, wps, D, ro_p, um_r2[i, j], T_K, mu, kin, snow,
-                       crystal_volume_fraction(wps), n_pass)
+        _particle_rows(uw, bw, so_eff, wps, d_w, ro_p, um_r2[i, j], T_K, mu, kin, snow,
+                       crystal_volume_fraction(wps), Nr)
         i_w = max(-2.0 * to_m * _int_r_u_fi(fi, i, j, uw), 0.0)  # кристаллы, [1/с]
-        p_w = to_m * _weighted(fi, i, j, bw, plug_cv, 1.0)
+        p_w = to_m * _weighted(fi, i, j, bw, plug_cv, plug_w)
         sink = _RO_P_O * (i_w + p_w)
         avail = mso_dt * wps
         lim_w = avail / sink if sink > avail else 1.0
@@ -293,7 +298,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     # Разбор фактической убыли проводящих каналов по механизмам
     blocked = to_m * (lim_w * _weighted(new_fi, i, j, bw, w2_cv, 1.0)
                       + lim_a * _weighted(new_fi, i, j, ba, w2_cv, 1.0))       # каналы -> тупиковые, [1/с]
-    qp2 = lim_w * to_m * _weighted(new_fi, i, j, bw, plug_cv, 1.0)            # пробки парафина
+    qp2 = lim_w * to_m * _weighted(new_fi, i, j, bw, plug_cv, plug_w)         # пробки парафина
     qpa_plug = lim_a * to_m * _weighted(new_fi, i, j, ba, plug_cv, plug_scale)  # пробки флокул
     narrow = to_m * (r2fi - r2fi_n) / dt - blocked                            # сужение + вынос, [1/с]
     e_w = lim_w * i_w / c0          # оценки до прогонки: объем геля парафина, флокул, стеночный
@@ -347,12 +352,49 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     new_kx[i, j, KX_VGEL] = max(gel, 0.0)
 
     new_m[i, j] = m[i, j] - (qp1 + qp2 + qpa + q_w + q_age + q_ada + q_adr) * dt
-    new_k[i, j] = init_k * r4fi_n / integr_r4_fi0
+    if pore_network:
+        new_k[i, j] = init_k * _network_ratio(new_fi, new_h, i, j, kin, tmp, ue)  # скратчи уже отработали
+    else:
+        new_k[i, j] = init_k * r4fi_n / integr_r4_fi0
     if adsorption:
         # Удержание в горлах: малый объем - большая потеря проводимости (обзор 4.1, структурный эффект), функция
         # повреждения Civan (2015) по объему удержанного, sigma = (G_a + G_r)/ro_ad
         sigma_v = (kx[i, j, KX_GA] + kx[i, j, KX_GR]) / ro_asph_dep + (q_ada + q_adr) * dt
         new_k[i, j] *= perm_damage(sigma_v / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA])
+
+
+@njit(cache=True)
+def _network_ratio(fi, h, i, j, kin, g, w):
+    """k/k0 сети пор и горл (`pore_network`, docs/кинетика_осаждения.md, разд. 13.13).
+
+    Каналы fi(r) - поры, их горла - net_gamma от исходного радиуса поры: у поры радиуса r с отложением толщины h
+    горло net_gamma*(r + h) - h (тот же слой h). Проводимость горла ~ r_t^4, доля горл класса - fi*dr_cv
+    (sum(fi_0*dr_cv) = 1). Закрытые горла сети - блокированные каналы (ушли из fi) и горла, закрытые слоем.
+    Эффективная проводимость - `ema_conductance` с координационным числом net_z, нормированная на исходную сеть
+    (fi_0, h = 0). g, w - скратч-строки длины Nr (нарезаны по i, как все скратчи ядра)."""
+    z, gam = kin[NET_Z], kin[NET_GAMMA]
+    scale = 1.0 / r1[Nr - 1]
+    # исходная сеть
+    for ij in range(Nr):
+        g[ij] = (gam * r1[ij] * scale) ** 4
+        w[ij] = fi_0[ij] * dr_cv[ij] if ij > 0 else 0.0
+    w_open = 0.0
+    for ij in range(Nr):
+        w_open += w[ij]
+    gm0 = ema_conductance(g, w, max(1.0 - w_open, 0.0), z)
+    # текущая
+    w_open = 0.0
+    for ij in range(Nr):
+        rt = gam * (r1[ij] + h[i, j, ij]) - h[i, j, ij]
+        if ij > 0 and rt > 0.0 and fi[i, j, ij] > 0.0:
+            g[ij] = (rt * scale) ** 4
+            w[ij] = fi[i, j, ij] * dr_cv[ij]
+            w_open += w[ij]
+        else:
+            g[ij] = 0.0
+            w[ij] = 0.0
+    gm = ema_conductance(g, w, max(1.0 - w_open, 0.0), z)
+    return max(gm / gm0, 1e-8) if gm0 > 0.0 else 1.0
 
 
 @njit(cache=True)

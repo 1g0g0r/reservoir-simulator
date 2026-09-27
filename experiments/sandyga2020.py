@@ -39,8 +39,12 @@ SOL, CORE = DATA['solution'], DATA['core']
 SINGLE = {'wax_components': 'True', 'wax_characterization': "'single'"}
 GEL2 = dict(SINGLE, gelation='True', wax_viscosity='1', gel_time='300.0', gel_phi='0.02')
 KINETICS = dict(GEL2, wax_kinetics='True', deposit_aging='True')
-GRID = list(itertools.product((1e-4, 1e-3, 1e-2), (0.03, 0.1, 0.3, 1.0), (1e-3, 1e-2)))  # k_wall, C0, k_cryst
+GRID = list(itertools.product((1e-3, 1e-2), (0.1, 0.3, 1.0), (1e-3,)))  # k_wall, C0, k_cryst
 WATS = (33.8, 34.3, 34.8)  # WAT пористой среды, C: по авторам и по началу роста градиента
+# Модель порового пространства: пучок капилляров или сеть пор и горл (z = 6) с отношением горла к поре
+# (docs/кинетика_осаждения.md, разд. 13.13): у сети проводимость рушится на пороге протекания - кандидат на рост
+# градиента в 44 раза за 1.2 C
+PORE_VARIANTS = (None, 0.3, 0.4)
 FIT_STEP = np.array([0.05, 0.05, 0.05])  # шаги производных по lg k_wall, lg C0, lg k_cryst
 FIT_LO, FIT_HI = [-6.0, -2.0, -5.0], [0.0, 0.0, 0.0]
 POINTS = (35.0, 34.0, 33.5, 33.0, 32.8)  # температуры критерия «в пределах 1.25 раза»
@@ -138,20 +142,26 @@ def metrics(res):
     exp_at = [float(np.interp(-x, -t_exp, ratio_exp)) for x in POINTS]
     loss_model, loss_exp = pore_loss(res)
     return dict(rms_log=float(np.sqrt(np.mean((np.log10(model) - np.log10(ratio_exp)) ** 2))),
+                rms_k=float(np.sqrt(np.mean((1.0 / model - 1.0 / ratio_exp) ** 2))),
                 at=at, exp_at=exp_at, max_factor=float(max(max(a / e, e / a) for a, e in zip(at, exp_at))),
                 m_conductive=float(np.mean(res['m_conductive_profile'])), m_total=float(np.mean(res['m_profile'])),
                 pore_loss=loss_model, pore_loss_exp=loss_exp)
 
 
-def kin(k_wall, c0, k_cr):
-    return {'K_WALL': k_wall, 'AGE_C0': c0, 'K_CRYST': k_cr, 'AGE_RATE': 0.0}
+def kin(k_wall, c0, k_cr, net=None):
+    out = {'K_WALL': k_wall, 'AGE_C0': c0, 'K_CRYST': k_cr, 'AGE_RATE': 0.0}
+    if net is not None:
+        out.update(NET_Z=6.0, NET_GAMMA=net)
+    return out
 
 
-def kin_case(wat, p):
-    """Прогон с кристаллизацией на стенках и гель-отложением: (имя копии, константы, case)."""
+def kin_case(wat, p, net=None):
+    """Прогон с кристаллизацией на стенках и гель-отложением (net - горло сети пор или None - пучок)."""
     exp, extra = exp_case(wat)
     base = dict(core_constants(exp, dt=2.0), **extra)
-    return (f'exp_sd_kin_{wat:g}', dict(base, **KINETICS), {'exp': exp, 'mode': 'ramp', 'kin': kin(*p)})
+    flags = dict(KINETICS, pore_network='True') if net is not None else KINETICS
+    name = f'exp_sd_{"net" if net is not None else "kin"}_{wat:g}'
+    return (name, dict(base, **flags), {'exp': exp, 'mode': 'ramp', 'kin': kin(*p, net)})
 
 
 def residuals(res):
@@ -160,10 +170,10 @@ def residuals(res):
     return np.log10(np.interp(t_exp, t, g)) - np.log10(g_exp / g_exp[0])
 
 
-def refine(wat, p0, max_nfev=10):
+def refine(wat, p0, net=None, max_nfev=10):
     """least_squares по lg k_wall, lg C0, lg k_cryst при заданной WAT; якобиан - параллельными прогонами."""
     def runs(xs):
-        return [residuals(r) for r in run_many([kin_case(wat, tuple(10.0 ** np.asarray(x))) for x in xs])]
+        return [residuals(r) for r in run_many([kin_case(wat, tuple(10.0 ** np.asarray(x)), net) for x in xs])]
 
     def fun(x):
         r = runs([x])[0]
@@ -190,28 +200,31 @@ def run(mode: str = 'full') -> dict:
     case = {'exp': exp, 'mode': 'ramp'}
     head = run_many([('exp_sd_legacy', base, dict(case, kin={})), ('exp_sd_gel2', dict(base, **GEL2), dict(case, kin={}))])
     if mode == 'full':
-        grid = [(wat, p) for wat in WATS for p in GRID]
-        res = run_many([kin_case(wat, p) for wat, p in grid])
-        table = [dict(wat=wat, k_wall=p[0], c0=p[1], k_cryst=p[2], rms_log=metrics(r)['rms_log'])
-                 for (wat, p), r in zip(grid, res)]
+        grid = [(wat, p, net) for net in PORE_VARIANTS for wat in WATS for p in GRID]
+        res = run_many([kin_case(wat, p, net) for wat, p, net in grid])
+        table = [dict(wat=wat, k_wall=p[0], c0=p[1], k_cryst=p[2], net=net, rms_log=metrics(r)['rms_log'])
+                 for (wat, p, net), r in zip(grid, res)]
         start_pt = min(table, key=lambda e: e['rms_log'])
-        wat = start_pt['wat']
-        p_best = refine(wat, (start_pt['k_wall'], start_pt['c0'], start_pt['k_cryst']))
+        wat, net = start_pt['wat'], start_pt['net']
+        p_best = refine(wat, (start_pt['k_wall'], start_pt['c0'], start_pt['k_cryst']), net)
         # тот же подбор при WAT по авторам - для сравнения, что дает сдвиг начала
         start_ref = min((e for e in table if e['wat'] == SOL['WAT_core']), key=lambda e: e['rms_log'])
-        p_ref = refine(SOL['WAT_core'], (start_ref['k_wall'], start_ref['c0'], start_ref['k_cryst']))
-        save_params('sandyga2020', {'best': [wat, *p_best], 'wat_authors': [SOL['WAT_core'], *p_ref],
-                                    'kin': 'WAT [C], K_WALL [1/с], AGE_C0, K_CRYST [1/с]; AGE_RATE = 0'})
+        net_ref = start_ref['net']
+        p_ref = refine(SOL['WAT_core'], (start_ref['k_wall'], start_ref['c0'], start_ref['k_cryst']), net_ref)
+        save_params('sandyga2020', {'best': [wat, *p_best], 'net': net, 'wat_authors': [SOL['WAT_core'], *p_ref],
+                                    'net_authors': net_ref,
+                                    'kin': 'WAT [C], K_WALL [1/с], AGE_C0, K_CRYST [1/с]; AGE_RATE = 0; net - горло '
+                                           'сети пор (z = 6) или null - пучок'})
     else:
         params = load_params('sandyga2020')
-        wat, p_best = params['best'][0], tuple(params['best'][1:])
-        p_ref, table = tuple(params['wat_authors'][1:]), []
-    r_best, r_ref = run_many([kin_case(wat, p_best), kin_case(SOL['WAT_core'], p_ref)])
+        wat, p_best, net = params['best'][0], tuple(params['best'][1:]), params.get('net')
+        p_ref, net_ref, table = tuple(params['wat_authors'][1:]), params.get('net_authors'), []
+    r_best, r_ref = run_many([kin_case(wat, p_best, net), kin_case(SOL['WAT_core'], p_ref, net_ref)])
     out = {'legacy': dict(result=head[0], **metrics(head[0])), 'gel2': dict(result=head[1], **metrics(head[1])),
            'grid': table, 'noise_log': noise_log(), 'porosity_exp': CORE['porosity_after'] / CORE['porosity'],
-           'wat_authors': dict(wat=SOL['WAT_core'], k_wall=p_ref[0], c0=p_ref[1], k_cryst=p_ref[2], result=r_ref,
-                               **metrics(r_ref)),
-           'kinetics_best': dict(wat=wat, k_wall=p_best[0], c0=p_best[1], k_cryst=p_best[2], result=r_best,
+           'wat_authors': dict(wat=SOL['WAT_core'], k_wall=p_ref[0], c0=p_ref[1], k_cryst=p_ref[2], net=net_ref,
+                               result=r_ref, **metrics(r_ref)),
+           'kinetics_best': dict(wat=wat, k_wall=p_best[0], c0=p_best[1], k_cryst=p_best[2], net=net, result=r_best,
                                  **metrics(r_best))}
     out['best'] = {k: v for k, v in out['kinetics_best'].items() if k != 'result'}
     print(f'шумовой порог СКО lg {out["noise_log"]:.3f}; пористость после опыта {out["porosity_exp"]:.3f}', flush=True)
@@ -227,12 +240,16 @@ def run(mode: str = 'full') -> dict:
 
 
 def summary(out) -> list:
-    """Строки сводной таблицы: (вариант, СКО lg, наибольшее расхождение в 5 точках, раз, проводящая пористость)."""
-    rows = [('шумовой порог опыта', out['noise_log'], None, out['porosity_exp'])]
+    """Строки сводной таблицы: (вариант, СКО lg(grad/grad0), СКО k/k0, наибольшее расхождение в 5 точках, раз,
+    проводящая пористость)."""
+    pore = lambda e: 'пучок' if e.get('net') is None else f'сеть, горло {e["net"]:g}'
+    rows = [('шумовой порог опыта', out['noise_log'], None, None, out['porosity_exp'])]
     for name, e in (('прежняя модель', out['legacy']), ('гель, порог 2 %', out['gel2']),
-                    (f'стенки + гель-отложение, WAT {out["wat_authors"]["wat"]:g} °C (авторы)', out['wat_authors']),
-                    (f'стенки + гель-отложение, WAT {out["best"]["wat"]:g} °C (подбор)', out['best'])):
-        rows.append((name, e['rms_log'], e['max_factor'], e['m_conductive']))
+                    (f'стенки + гель-отложение, {pore(out["wat_authors"])}, WAT {out["wat_authors"]["wat"]:g} °C '
+                     f'(авторы)', out['wat_authors']),
+                    (f'стенки + гель-отложение, {pore(out["best"])}, WAT {out["best"]["wat"]:g} °C (подбор)',
+                     out['best'])):
+        rows.append((name, e['rms_log'], e.get('rms_k'), e['max_factor'], e['m_conductive']))
     return rows
 
 
