@@ -46,9 +46,24 @@ def tables(results: dict) -> dict:
         out['SR'] = _table(['Вариант', 'СКО k/k₀, опыт 1', 'СКО k/k₀, опыт 2', 'Подобрано по'],
                            [(n, _f(a), _f(b), c) for n, a, b, c in rows])
     if 'li2024' in results:
-        rows = li2024.summary(results['li2024'])
+        o = results['li2024']
+        rows = li2024.summary(o)
         out['LI'] = _table(['Вариант', '90 °C', '65 °C', '45 °C', '25 °C'],
                            [(n, *[_f(v) for v in vals]) for n, vals in rows])
+        calib = lambda rms: math.sqrt(sum(rms[t] ** 2 for t in ('90.0', '65.0', '45.0')) / 3.0)
+        out['LI_SOLID'] = _f(calib(o['forms']['solid']['rms']))
+        out['LI_FILM'] = _f(calib(o['forms']['film']['rms']))
+        out['LI_DH'] = f"{-o['forms'][o['best_form']]['kin']['ADS_DH'] / 1e3:.0f}"
+        if 'cold' in o:
+            c = o['cold']
+            r25 = c['rms']['25.0']
+            out['LI_HOLD_25'] = f'СКО ступени 25 °C {_f(r25)}'
+            k = c['kin']
+            out['LI_COLD_TEXT'] = (
+                f"семейство подобрано отдельно при удержании из подбора выше WAT: тиксотропное время геля "
+                f"{c['gel_time']:g} с, диаметр кристалла {k['D_CRYST'] * 1e6:.1f} мкм (на Berea - 15 мкм, у керна Li "
+                f"поры мельче), множитель броуновской диффузии {k['DIFF_MULT']:.2f}, константа кристаллизации в "
+                f"объеме {k['K_CRYST']:.1e} 1/с. СКО ступени {_f(r25)} при шумовом пороге {_f(o['noise']['25'])}.")
     if 'sandyga2020' in results:
         rows = sandyga2020.summary(results['sandyga2020'])
         out['SD'] = _table(['Вариант', 'СКО lg(∇p/∇p₀)', 'СКО k/k₀', 'наибольшее расхождение в 5 точках, раз',

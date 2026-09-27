@@ -161,7 +161,7 @@ def run(case: dict) -> dict:
                     step = solver.dt
                     try:
                         solver.upd_time_step(t + step)
-                    except ValueError:  # вырожденная матрица давления: где-то нулевая подвижность - закупорка
+                    except (ValueError, ZeroDivisionError):  # вырожденная матрица давления или нулевая k - закупорка
                         plugged = pv[-1]
                     t += step
                     t_hold += step
@@ -194,7 +194,7 @@ def run(case: dict) -> dict:
             step = solver.dt
             try:
                 solver.upd_time_step(t + step)
-            except ValueError:  # вырожденная матрица давления - керн закупорен
+            except (ValueError, ZeroDivisionError):  # вырожденная матрица давления или нулевая k - закупорка
                 plugged = pv[-1]
                 break
             t += step
