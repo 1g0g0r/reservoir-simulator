@@ -62,12 +62,51 @@ def tables(results: dict) -> dict:
         rows = he2020.summary(results['he2020'])
         out['HE'] = _table(['Зависимость k(m)', 'СКО lg(k/k₀)', 'СКО k/k₀', 'точек вне досягаемости'],
                            [(n, _f(e), _f(l), f'{m} из {tot}') for n, e, l, m, tot in rows])
+    out['SUMMARY'] = summary_table(results)
     if 'pore_models' in results:
         rows = pore_models.summary(results['pore_models'])
         out['PORE'] = _table(['Модель порового пространства', 'СКО k/k₀', 'СКО lg(k/k₀)', 'подобрано параметров',
                               'примечание'], [(n, _f(a), _f(b), c, d) for n, a, b, c, d in rows])
         out['EMA_LATTICE'] = _f(results['pore_models']['ema_vs_lattice'])
     return out
+
+
+def summary_table(results: dict) -> str:
+    """Сводка по всем опытам в одной шкале - СКО k/k0 (цель 0.05 или шумовой порог опыта, если он выше)."""
+    g = lambda d, n: d[n] if n in d else d[str(n)]
+    rows = []
+    if 'sutton_roberts' in results:
+        import sutton_roberts as sr
+        o = results['sutton_roberts']
+        for n in (1, 2):
+            own = g(o['lsq']['rate_entrainment'][f'own{n}']['rms'], n)
+            shared = g(o['visc']['rms'], n) if 'visc' in o else None
+            rows.append((f'Sutton & Roberts, опыт {n}', _f(g(o['noise'], n)), _f(sr.rms(g(o['legacy'], n), n)),
+                         _f(own), _f(shared), _f(g(o['others']['Wang & Civan (2005)'], n))))
+    if 'li2024' in results:
+        import li2024 as li
+        o = results['li2024']
+        best = o['forms'][o['best_form']]['rms']
+        legacy = li.stage_rms(o['legacy'])
+        for t in ('90.0', '65.0', '45.0'):
+            rows.append((f'Li et al., {float(t):.0f} °C', _f(o['noise'][str(int(float(t)))]), _f(legacy[float(t)]),
+                         _f(best[t] if t in best else best[float(t)]), '—', '—'))
+        if 'cold' in o:
+            c = o['cold']['rms']
+            rows.append(('Li et al., 25 °C', _f(o['noise']['25']), _f(legacy[25.0]),
+                         _f(c['25.0'] if '25.0' in c else c[25.0]), '—', '—'))
+    if 'sandyga2020' in results:
+        o = results['sandyga2020']
+        rows.append(('Sandyga et al., ∇p(T)', '—', _f(o['legacy'].get('rms_k')), _f(o['best'].get('rms_k')), '—', '—'))
+    if 'pore_models' in results:
+        o = {r['name']: r for r in results['pore_models']['rows']}
+        net = [r for name, r in o.items() if name.startswith('4. сеть') and 'подбор' in r['note']]
+        bundle = [r for name, r in o.items() if name.startswith('1.')]
+        power = [r for name, r in o.items() if name.startswith('6.')]
+        rows.append(('He et al., k(m)', '—', _f(bundle[0]['lin']) if bundle else '—', _f(net[0]['lin']) if net else '—',
+                     '—', _f(power[0]['lin']) if power else '—'))
+    return _table(['Опыт', 'шумовой порог', 'прежняя модель', 'лучшая модель (калибровка)',
+                   'общая кинетика, своя вязкость', 'другие авторы / замыкание'], rows)
 
 
 def main():

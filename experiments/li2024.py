@@ -37,6 +37,9 @@ from common import (load, core_constants, run_many, rms_k, noise_floor, mode_fro
 
 DATA = load('li2024')
 STAGES = [[90.0, 5.0], [65.0, 5.0], [45.0, 5.0], [25.0, 5.0]]
+# Выдержка без прокачки перед ступенью, [с]: керн и нефть охлаждали до температуры ступени, потом закачивали
+# (Li et al., разд. 2.2.3); длительность не приведена - час, за это время поровая нефть приходит к равновесию
+STAGE_HOLD = 3600.0
 R = 8.31446261815324
 RO_AD = 1200.0     # плотность удержанного материала асфальтены + смолы, [кг/м^3] (constants.ro_asph_dep)
 SIGMA_MAX = 0.02   # sigma_max в функции повреждения, доля m0 (масштаб; вместе с G_max подбирается их отношение)
@@ -48,7 +51,7 @@ def exp_dict() -> dict:
     return dict(length=c['length'], side=float(np.sqrt(np.pi / 4.0) * c['diameter']), porosity=c['porosity'],
                 k0=c['k0_darcy'], T=STAGES[0][0], P_out=101325.0, q=c['q'], pv_end=sum(p for _, p in STAGES),
                 stages=STAGES, w=o['wax'], MW=MW, M_o=M_o, Tm=Tm, dH=alpha, ro_o=o['density'], ro_p=ro_p,
-                mu=46.6e-3)
+                mu=46.6e-3, stage_hold=STAGE_HOLD)
 
 
 def constants(flags: dict) -> dict:
@@ -70,8 +73,8 @@ RETENTION = dict(SCN, adsorption='True')
 # поры мельче - 18.8 мД), множитель броуновской диффузии и константа кристаллизации в объеме; тиксотропное время
 # геля - сеткой (константа, копия пакета на значение; у парафинистых нефтей - от минут до часов, Dimitriou &
 # McKinley 2014). Удержание смол и асфальтенов - из подбора выше WAT.
-COLD_GEL_TIMES = (300.0, 3600.0)
-COLD_X0 = (-4.824, 0.0, -3.0)  # lg D_CRYST, lg DIFF_MULT, lg K_CRYST
+COLD_GEL_TIMES = (3600.0, 300.0)
+COLD_X0 = (-4.824, 0.0, -2.0)  # lg D_CRYST, lg DIFF_MULT, lg K_CRYST (старт - почти равновесная кристаллизация)
 COLD_LO, COLD_HI = (-6.0, -3.0, -5.0), (-4.3, 2.0, -1.0)
 COLD_STEP = (0.02, 0.05, 0.05)
 

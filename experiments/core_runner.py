@@ -149,6 +149,20 @@ def run(case: dict) -> dict:
             solver.boundary_conditions[Bound.Left.value, DataField.Temperature.value, 1] = t_stage
             if wax_kinetics:
                 _inflow_suspension(solver, t_stage)
+            # Выдержка без прокачки: керн и нефть охлаждали до температуры ступени до закачки (Li et al., 2024,
+            # разд. 2.2.3), и начальная проницаемость ступени измерена уже по охлажденной нефти. Без выдержки
+            # взвесь в поровой нефти выпадает после нормировки, и рост вязкости принимается за повреждение.
+            # Перепада нет - перенос и блокирование стоят, идут равновесие, гель и кристаллизация на стенках.
+            hold = exp.get('stage_hold', 0.0) if n_stage > 0 else 0.0
+            if hold > 0.0:
+                solver.boundary_conditions[Bound.Left.value, DataField.Pressure.value, 1] = p_out
+                t_hold = 0.0
+                while t_hold < hold:
+                    step = solver.dt
+                    solver.upd_time_step(t + step)
+                    t += step
+                    t_hold += step
+                impose_temperature()
             if gelation:
                 _gel_equilibrium(solver, exp['q'] / area, gel_mobility_min)
             dp0 = pressure_drop()  # проницаемость ступени нормируется на ее начало, как в опыте
