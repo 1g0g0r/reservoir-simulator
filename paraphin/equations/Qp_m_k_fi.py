@@ -2,7 +2,7 @@
 from numba import njit
 
 from paraphin import r1, r2, r3, r4, r5, r6, n_pass, dr_cv, w2_cv, plug_cv, w43_cv, n_pass_a, cbrt_r1
-from paraphin.constants import Nr, init_m, init_k, min_Wps_bound, ro_o, ro_asph_dep, resin_in_deposit
+from paraphin.constants import Nr, init_m, init_k, min_Wps_bound, ro_o, ro_asph_dep, resin_in_deposit, volume
 from paraphin.oil_composition import IA_F, I_R
 from paraphin.equations.Wp_balance import _RO_P_RO_O  # тот же множитель стока кристаллов, что в `wp_equation`
 
@@ -193,14 +193,19 @@ _RO_AD_O = ro_asph_dep / ro_o  # множитель стока осадка ас
 
 @njit(cache=True)
 def calc_qp_m_k_fi_2(i, j, S, Wps, Wc, m, k, fi, Ur, Ub, Ua, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma,
-                     new_qp1, new_qp2, new_qpa, new_fi, new_k, new_m, dt) -> None:
+                     new_qp1, new_qp2, new_qpa, new_fi, new_k, new_m, out_o, dt) -> None:
     """То же, что `calc_qp_m_k_fi`, плюс сужение капилляров флокулами асфальтенов.
 
     Скорость изменения радиуса - сумма вкладов кристаллов парафина и флокул:
         u(r) = lim_w*Ur(r) + lim_a*Ua*r^(1/3),   r >= r_pass_a,
     блокирование - только кристаллами (флокула мельче горла, см. `n_pass_a` в `paraphin/__init__.py`).
     Ограничители подводом свои у каждого вида частиц: за шаг осаждается не больше парафина, чем его
-    взвешено (m*S_o*w_ps), и не больше осадка асфальтены + смолы, чем есть флокул и смол.
+    взвешено, и не больше осадка асфальтены + смолы, чем есть флокул и смол. Запас - то, что останется в
+    ячейке после явного оттока: (m*S_o - dt*out_o/V)*w, out_o - отток нефти через грани и добывающую
+    скважину, [м^3/с]. У прежней функции запас m*S_o*w_ps: там сток берется из суммы растворенного и
+    взвешенного парафина, и растворенная часть перекрывает отток. У флокул и почти целиком выпавших тяжелых
+    групп растворенной части нет, и такой запас давал отрицательную долю, которую зажим в
+    `components_equation` превращал в прибавку массы.
 
     Убыль проводящих каналов от сужения (как и q_p1 в прежней функции - по фактическому изменению fi)
     делится между парафином и асфальтенами пропорционально их оценкам до прогонки:
@@ -217,7 +222,7 @@ def calc_qp_m_k_fi_2(i, j, S, Wps, Wc, m, k, fi, Ur, Ub, Ua, integr_r2_fi0, inte
     ua = Ua[i, j]
     if wax_on or ua < 0.0:
         to_m = init_m / integr_r2_fi0
-        mso_dt = m[i, j] * (1.0 - S[i, j]) / dt
+        mso_dt = max(m[i, j] * (1.0 - S[i, j]) / dt - out_o / volume, 0.0)
         int_r_ur_fi, r2fi, _ = _calculate_integrals(fi, Ur, i, j)
 
         lim_w, i_w = 0.0, 0.0

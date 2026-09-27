@@ -39,7 +39,7 @@ Chevalier et al., JNNFM 2013, 195:57 - «начальный градиент» �
 from numba import njit
 
 from paraphin import r1, w4_cv, eta
-from paraphin.constants import Nr, gel_phi, gel_tau_ref, gel_phi_ref, gel_n, gel_tau_mult
+from paraphin.constants import Nr, gel_phi, gel_tau_ref, gel_phi_ref, gel_n, gel_tau_mult, gel_deposit_weight
 
 _TAU_SCALE = gel_tau_mult * gel_tau_ref
 _INV_PHI_SPAN = 1.0 / (gel_phi_ref - gel_phi)
@@ -48,7 +48,9 @@ _HALF_INV_ETA = 0.5 / eta
 
 @njit(cache=True)
 def pore_solid_fraction(m, S, phi_susp, v_dep):
-    """Доля твердого парафина в поровом объеме нефти (1а): взвесь плюс осадок на стенках, [-]."""
+    """Доля твердого парафина в поровом объеме нефти (1а): взвесь плюс осадок на стенках, [-].
+    Осадок входит с весом `gel_deposit_weight` (1 - весь осадок - гель, 0 - гель только из взвеси)."""
+    v_dep = gel_deposit_weight * v_dep
     v_oil = m * (1.0 - S)
     v_sol = v_oil * phi_susp + v_dep
     return v_sol / (v_oil + v_dep) if v_oil + v_dep > 0.0 else 0.0

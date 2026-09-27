@@ -349,23 +349,29 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
                     bc_Wc, Wc, new_Wc, Ws, new_Ws, Hl, new_Hl, Dep, Fo, src_Qo, Ua, new_Ua, qpa, new_qpa, mu_p):
     """Решение уравнений по явной схеме в цикле по ячейкам.
 
-    Порядок повторяет порядок вычислений на шаге из постановки задачи: кольматация (fi -> m, k,
-    q_p1, q_p2), перетоки и дебиты, насыщенность, перенос парафина, температура. Перенос парафина
-    делит на (m*S_o) нового слоя, а температуре нужен w_p нового слоя для скрытой теплоты, поэтому
-    переставлять эти три вызова нельзя.
+    Порядок повторяет порядок вычислений на шаге из постановки задачи: перетоки (по текущему слою, от
+    кольматации не зависят), кольматация (fi -> m, k, q_p1, q_p2), дебиты, насыщенность, перенос парафина,
+    температура. Перенос парафина делит на (m*S_o) нового слоя, а температуре нужен w_p нового слоя для
+    скрытой теплоты, поэтому переставлять эти три вызова нельзя.
 
     Ячейки независимы - каждая пишет только в свои [i, j], поэтому внешний цикл идет в prange.
     Прогоночные буферы a_tdma, b_tdma нарезаются по i: один общий буфер на все ячейки давал бы гонку потоков.
     Так же нарезан буфер потоков граней `Fo`, а буфер групп парафина - это сама ячейка `new_Ws[i, j]`.
 
-    Детальный состав (флаг `wax_components`) заменяет `wp_equation` на `components_equation`, асфальтены
-    (`asphaltenes`) - `calc_qp_m_k_fi` на `calc_qp_m_k_fi_2` с сужением капилляров флокулами. Флаги - константы
-    модуля, выключенные ветки numba выбрасывает.
+    Детальный состав (флаг `wax_components`) заменяет `wp_equation` на `components_equation`, а
+    `calc_qp_m_k_fi` - на `calc_qp_m_k_fi_2`: ограничитель подводом учитывает отток нефти, а асфальтены
+    (`asphaltenes`) добавляют сужение капилляров флокулами. Флаги - константы модуля, выключенные ветки
+    numba выбрасывает.
     """
     dt_cells = dt_max
     for i in prange(Nx):
         for j in range(Ny):
             calc_Um_r2(i, j, p, grad_p, _Um_r2, mu_o)  # Средняя скорость в капилляре * r^2
+
+            # ---перетоки через грани---
+            # Читают только текущий слой и от кольматации не зависят; считаются до нее, потому что ограничителю
+            # осаждения в детальном составе нужен отток нефти из ячейки за шаг.
+            qo_out, t_out = flows_in_cells(i, j, boundary_conditions, bc_Wc, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wo, Wp, Wps, Hl, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, Fo[i])
 
             # ---решение задачи кольматации\суффозии---
             if _paraphin:
@@ -373,14 +379,17 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
                 # Броуновская диффузия частиц - в жидкой основе: вязкость без геля `mu_p` (без флага `gelation` это mu_o)
                 calc_velocities_h(i, j, S, T, _Um_r2, Wps, mu_p, h_sloy, Ur, new_h, new_Ur, new_Ub, dt)
                 # Обновление функции пор по размерам, скоростей потери порового объема, пористости, проницаемости
-                if asphaltenes:
-                    calc_velocity_asph(i, j, S, T, _Um_r2, Wc, mu_p, new_Ua)
-                    calc_qp_m_k_fi_2(i, j, S, Wps, Wc, m, k, fi, Ur, Ub, Ua, integr_r2_fi0, integr_r4_fi0, a_tdma[i], b_tdma[i], new_qp1, new_qp2, new_qpa, new_fi, new_k, new_m, dt)
+                if wax_components:
+                    if asphaltenes:
+                        calc_velocity_asph(i, j, S, T, _Um_r2, Wc, mu_p, new_Ua)
+                    # Взвесь и флокулы за шаг уходят и в осадок, и с оттоком нефти (грани и добывающая скважина):
+                    # без учета оттока ограничитель подводом пропускал отрицательные доли тяжелых групп и флокул.
+                    out_o = qo_out + max(-src_Qo[i, j], 0.0)
+                    calc_qp_m_k_fi_2(i, j, S, Wps, Wc, m, k, fi, Ur, Ub, Ua, integr_r2_fi0, integr_r4_fi0, a_tdma[i], b_tdma[i], new_qp1, new_qp2, new_qpa, new_fi, new_k, new_m, out_o, dt)
                 else:
                     calc_qp_m_k_fi(i, j, S, Wp, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, a_tdma[i], b_tdma[i], new_qp1, new_qp2, new_fi, new_k, new_m, dt)
 
-            # ---решение гидродинамики---
-            qo_out, t_out = flows_in_cells(i, j, boundary_conditions, bc_Wc, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wo, Wp, Wps, Hl, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, Fo[i])
+            # ---гидродинамика и перенос---
             # Скважины входят в уравнения наравне с перетоками через грани, поэтому делятся на те же поля нового слоя.
             cells_S_eq[i, j] += src_S[i, j]
             cells_Wp_eq[i, j] += src_Wp[i, j]

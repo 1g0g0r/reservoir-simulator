@@ -64,6 +64,13 @@ def _visualize_fields(data):
         input_data['Wps'] *= (S_max - input_data['Saturation'])
         del input_data['plots']
 
+    # Детальный состав нефти и гель (флаги `wax_components`, `gelation`): поля - картами, массы - графиками
+    for group in ('Composition', 'Gel'):
+        if group in input_data:
+            input_data.update(input_data.pop(group))
+    if 'Totals' in input_data:
+        input_data.setdefault('Other params', {}).update(input_data.pop('Totals'))
+
     # 'Saturation', 'Temperature', 'm mult', 'Wps', 'Wps dep','mu_o', 'mu_w', 'Wells', 'Other params'
     skip_fields = ['Pressure', 'Wps','Wo', 'Wp', 'Wps dep', 'Wps', 'qp', 'mu_o', 'mu_w',]
 

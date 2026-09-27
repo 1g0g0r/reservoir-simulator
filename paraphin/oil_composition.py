@@ -89,6 +89,50 @@ def lump_groups(n, M, w, bounds=scn_bounds, tm_shift=wax_Tm_shift):
     return np.array(w_k), np.array(M_k), np.array(Tm_k), np.array(L_k)
 
 
+def group_properties(slope=scn_slope, alpha_eff=wax_alpha_eff, tm_shift=wax_Tm_shift, bounds=scn_bounds,
+                     n_first=scn_first, n_last=scn_last, total=WAX_TOTAL, dv_frac=wax_dv_frac):
+    """Свойства групп при заданных параметрах характеризации - для калибровки и рисунков (`docs/calibrate.py`).
+
+    Returns
+    -------
+    dict: w, M [г/моль], Tm [K], dH [Дж/моль], dv [м^3/моль], L [Дж/кг]
+    """
+    n, M, w = scn_distribution(slope, n_first, n_last, total)
+    wk, Mk, tmk, lk = lump_groups(n, M, w, bounds, tm_shift)
+    return {'w': wk, 'M': Mk, 'Tm': tmk, 'dH': np.full(wk.size, alpha_eff), 'dv': dv_frac * Mk * 1e-3 / ro_wax_liq,
+            'L': lk}
+
+
+def sle_split_np(w, M, tm, dh, dv, t_c, dp=0.0, n_g=0.0, m_o=M_o):
+    """Растворенные доли групп - numpy-эталон njit-ядра `equations/Thermo_wax.sle_split` с параметрами
+    аргументами (тот же жадный набор насыщенных групп). dp = P - P_ref, [Па]; n_g - газ, [моль/г]."""
+    t = t_c + 273.15
+    x = np.minimum(1.0, np.exp(-dh / R * (1.0 / t - 1.0 / tm) - dv * dp / (R * t)))
+    a = (1.0 - w.sum()) / m_o + n_g + (w / M).sum()
+    b = 1.0
+    sat = np.zeros(w.size, bool)
+    while True:
+        cand = (~sat) & (w > 0.0) & (x < 1.0)
+        if not cand.any():
+            break
+        thr = np.where(cand, np.where(x > 0.0, w / (M * np.maximum(x, 1e-300)), np.inf), -np.inf)
+        k = int(thr.argmax())
+        if thr[k] * b <= a:
+            break
+        sat[k] = True
+        a -= w[k] / M[k]
+        b -= x[k]
+    return np.where(sat, x * (a / b) * M, w)
+
+
+def wat_np(w, M, tm, dh, dv, dp=0.0, n_g=0.0, m_o=M_o):
+    """Температура начала кристаллизации в замкнутой форме, [C] (эталон `Thermo_wax.wat_cell`)."""
+    n_l = (1.0 - w.sum()) / m_o + n_g + (w / M).sum()
+    ok = w > 0.0
+    t_k = (dh[ok] + dv[ok] * dp) / R / (dh[ok] / (R * tm[ok]) - np.log(w[ok] / M[ok] / n_l))
+    return float(t_k.max()) - 273.15
+
+
 if wax_characterization == 'single':
     WAX_W0 = np.array([WAX_TOTAL], data_type)
     WAX_M = np.array([MW], data_type)

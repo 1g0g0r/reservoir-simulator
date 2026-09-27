@@ -172,6 +172,13 @@ class SolutionStore:
         meta['n_times'] = n_times
         meta['time'] = [round(float(t), 6) for t in time]
 
+        # Детальный состав нефти и гель (флаги `wax_components`, `gelation`): поля - картами, массы - рядами
+        for group in ('Composition', 'Gel'):
+            if group in raw:
+                raw.update(raw.pop(group))
+        if 'Totals' in raw:
+            raw.setdefault('Other params', {}).update(raw.pop('Totals'))
+
         if 'Pressure' in raw:
             raw['Pressure'] = np.asarray(raw['Pressure']) / bar_to_pa
         if 'plots' in raw and 'Wps' in raw and 'Saturation' in raw:
