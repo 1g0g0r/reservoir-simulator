@@ -30,7 +30,7 @@ class Solver:
         self._wells_buffer = []  # Буфер скважин до обработки
         self._wells_names = []   # Имена скважин по порядку add_well, для логирования и сохранения полей
         self.wells = []          # Скважины после обработки preprocess_wells (data -> WellStruct)
-        self.boundary_conditions = np.zeros(dtype=data_type, shape=(4, 3, 2))  # Граница -> Поле -> Тип, Значение
+        self.boundary_conditions = np.zeros(dtype=data_type, shape=(4, 4, 2))  # Граница -> Поле (DataField) -> Тип, Значение
         # Свойства флюидов
         self.mu_o = np.full((Nx, Ny), calc_mu_o(init_T, init_Wps), data_type)  # Вязкость нефти, [Па*с]
         self.mu_w = np.full((Nx, Ny), calc_mu_w(init_T), data_type)  # Вязкость воды, [Па*с]

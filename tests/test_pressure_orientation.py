@@ -43,7 +43,7 @@ def _solve_pressure():
     calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells, diag, ex, ey, rhs,
                   np.zeros((N, Nx + 1), data_type), np.full(N, init_p, data_type),
                   vec(), vec(), vec(), vec(),
-                  np.zeros((4, 3, 2), data_type), 0, p)
+                  np.zeros((4, 4, 2), data_type), 0, p)
 
     return p, diag, ex, ey, rhs
 

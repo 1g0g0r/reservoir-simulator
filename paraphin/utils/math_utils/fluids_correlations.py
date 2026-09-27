@@ -2,13 +2,20 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import data_type, R, phi_max, E_activation, mu_o_ref, T_mu_ref
+from paraphin.constants import data_type, R, phi_max, E_activation, mu_o_ref, T_mu_ref, ro_o, ro_p
 
 # Показатель в формуле Кригера-Догерти. Константа уровня модуля: numba вшивает ее литералом,
 # а не считает произведение на каждой ячейке каждый шаг.
 _KD_EXPONENT = -2.5 * phi_max
 _E_OVER_R = E_activation / R
 _INV_T_REF = 1.0 / (T_mu_ref + 273.15)
+
+
+@njit(cache=True)
+def crystal_volume_fraction(w_ps: data_type) -> data_type:
+    """Объемная доля кристаллов в нефтяной фазе по их массовой доле, формула (20) статьи."""
+    v_p = w_ps / ro_p
+    return v_p / (v_p + (1.0 - w_ps) / ro_o)
 
 
 @njit(cache=True)
@@ -29,12 +36,11 @@ def calc_mu_o(t: data_type, w_ps: data_type) -> data_type:
 
     где phi - объемная доля кристаллов. Без этого множителя кристаллизация влияла бы только на
     проницаемость через кольматацию, хотя экспериментально рост вязкости - основной эффект.
-    При содержании парафина 5% масс. множитель не превышает 1.13: суспензия разбавленная.
 
-    w_ps - массовая доля взвешенного парафина в нефтяной фазе. Точный пересчет в объемную долю
-    твердой фазы дал бы phi = ro_o*w_ps/ro_p, но при ro_p ~= ro_o разница пренебрежимо мала (то
-    же приближение, что и для объемной концентрации R в однофазной формуле суффозии, см.
-    `equations/Velocity_h.py`), поэтому w_ps подставляется в phi напрямую.
+    w_ps - массовая доля взвешенного парафина в нефтяной фазе; в объемную долю кристаллов она
+    переводится по плотностям, как в (20) статьи: phi = (w_ps/ro_p) / (w_ps/ro_p + (1 - w_ps)/ro_o).
+    Прежняя подстановка phi = w_ps верна лишь при ro_p = ro_o; на керне Sutton & Roberts
+    (ro_o = 716, ro_p = 978 кг/м^3) она завышала долю кристаллов в 1.4 раза.
     """
     mu_liquid = mu_o_ref * np.exp(_E_OVER_R * (1.0 / (t + 273.15) - _INV_T_REF))
 
@@ -42,7 +48,7 @@ def calc_mu_o(t: data_type, w_ps: data_type) -> data_type:
         return mu_liquid
 
     # Кригер-Догерти расходится при phi -> phi_max, поэтому долю подпираем снизу предела
-    phi = min(w_ps, 0.99 * phi_max)
+    phi = min(crystal_volume_fraction(w_ps), 0.99 * phi_max)
 
     return mu_liquid * (1.0 - phi / phi_max) ** _KD_EXPONENT
 

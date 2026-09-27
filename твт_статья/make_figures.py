@@ -115,6 +115,7 @@ def main() -> None:
                       f'({100.0 * abs(total - main_sum) / abs(total):.1f}% суммарного изменения)']
 
     lines += text_numbers(cases)
+    lines += core_flood_numbers()
 
     (Path(__file__).parent / 'metrics.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     print('Числа записаны в твт_статья/metrics.md')
@@ -184,7 +185,8 @@ def text_numbers(cases: dict) -> list:
     kolm = [kolm_min(idx) for idx in (idx1, idx2, idx3)]
     t3_range1 = (float(d1['Temperature'][idx3].min()), float(d1['Temperature'][idx3].max()))
     wps_max = float(d1['Wps'].max())
-    phi = min(wps_max, 0.99 * PHI_MAX)
+    from paraphin.utils.math_utils.fluids_correlations import crystal_volume_fraction
+    phi = min(crystal_volume_fraction(wps_max), 0.99 * PHI_MAX)
     kd_mult = (1.0 - phi / PHI_MAX) ** (-2.5 * PHI_MAX)
 
     # Доля площади элемента, охлажденной ниже порога кристаллизации T* - охват зоны, где вообще
@@ -243,8 +245,13 @@ def text_numbers(cases: dict) -> list:
         # Площадь с T<T* и максимум wps на СВОЕМ (не выровненном по варианту 1) конце расчета:
         # вариант без теплообмена работает дольше и остывает сильнее к своему собственному t3.
         cold_area2_t3 = float((d2['Temperature'][idx3_2] < t_onset).mean()) * 100.0
+        # Кольматация без теплообмена: парафин выпадает впереди фронта вытеснения, в подвижной нефти
+        kmin2_t3 = float(d2['k'][idx3_2].min())
+        kolm_area2_t3 = float((d2['k'][idx3_2] < 0.99).mean()) * 100.0
+        kolm_area2_t2 = float((d2['k'][idx2_2] < 0.99).mean()) * 100.0
+        wps_mean2 = [float(d2['Wps'][p].mean()) for p in (idx1_2, idx2_2, idx3_2)]
         wps_max2 = float(d2['Wps'].max())
-        phi2 = min(wps_max2, 0.99 * PHI_MAX)
+        phi2 = min(crystal_volume_fraction(wps_max2), 0.99 * PHI_MAX)
         kd_mult2 = (1.0 - phi2 / PHI_MAX) ** (-2.5 * PHI_MAX)
 
         dT_mean, dT_max, dS_max = [], [], []
@@ -264,6 +271,9 @@ def text_numbers(cases: dict) -> list:
             + '; '.join(f't{n+1} dT_mean={a:.1f} dT_max={b:.1f} dS_max={c:.3f}'
                          for n, (a, b, c) in enumerate(zip(dT_mean, dT_max, dS_max))),
             f'- площадь с T<T* на своем t3 (вариант 2): {cold_area2_t3:.1f}%',
+            f'- кольматация (вариант 2): минимум k/k0 на своем t3 {kmin2_t3:.3f}; площадь k/k0<0.99 на t2 '
+            f'{kolm_area2_t2:.1f}%, на t3 {kolm_area2_t3:.1f}%; средняя wps на t1/t2/t3 '
+            + '/'.join(f'{v:.4f}' for v in wps_mean2),
             f'- максимум wps по всему расчету (вариант 2): {wps_max2:.4f}, '
             f'множитель Кригера-Догерти при этом {kd_mult2:.3f}',
         ]
@@ -813,6 +823,104 @@ def figure_comparison(cases: dict, name: str = 'fig2') -> None:
     plt.close(fig)
 
 
+def _load_core_flood():
+    """Результат `core_flood.py`: калибровка по опыту 1, прогноз опыта 2. None, если расчета еще нет."""
+    import json
+    import core_flood
+
+    if not core_flood.RESULT.is_file():
+        return None
+    return json.loads(core_flood.RESULT.read_text(encoding='utf-8'))
+
+
+def figure_core_flood(name: str = 'fig9') -> None:
+    """Рис. 9: k/k₀ от прокачанных поровых объемов в опытах Sutton & Roberts и по моделям.
+
+    Точки - опыт, сплошная линия - настоящая модель (опыт 1 - калибровка d_p и L_k, опыт 2 - прогноз
+    с теми же значениями), штриховая - модель Ring et al. [10], пунктир - Wang & Civan [9]. У обеих
+    чужих моделей параметры подобраны отдельно под каждый опыт.
+    """
+    from core_flood import EXPERIMENTS
+
+    result = _load_core_flood()
+    if result is None:
+        return
+
+    fig, ax = plt.subplots(figsize=(7.0, 4.4))
+    for number, marker, fill in ((1, 'o', 'k'), (2, 's', 'white')):
+        exp, model = EXPERIMENTS[number], result['best'][str(number)]
+        pv, k = np.array(exp['exp']).T
+        ax.plot(pv, k, marker, color='k', markersize=6, markerfacecolor=fill, markeredgewidth=1.2,
+                linestyle='none', zorder=3)
+        # После закупорки счет прекращен, а в данных стоит точка (PV_END, 0): рисуем до закупорки и ставим ×
+        pv_m, k_m = (model['pv'][:-1], model['k'][:-1]) if model['plugged'] else (model['pv'], model['k'])
+        ax.plot(pv_m, k_m, '-', color='k', linewidth=LINE_WIDTH)
+        if model['plugged']:
+            ax.plot(pv_m[-1], k_m[-1], 'x', color='k', markersize=9, markeredgewidth=1.8)
+        model = {'pv': pv_m, 'k': k_m}
+        ax.plot(*np.array(exp['ring']).T, '--', color='k', linewidth=1.3)
+        ax.plot(*np.array(exp['wang_civan']).T, ':', color='k', linewidth=1.6)
+        ax.annotate(str(number), (model['pv'][-1], model['k'][-1]), xytext=(4, 0), textcoords='offset points',
+                    fontsize=10, va='center')
+
+    handles = [plt.Line2D([], [], marker='o', color='k', linestyle='none', label='опыт 1'),
+               plt.Line2D([], [], marker='s', color='k', markerfacecolor='white', linestyle='none', label='опыт 2'),
+               plt.Line2D([], [], color='k', linewidth=LINE_WIDTH, label='расчет'),
+               plt.Line2D([], [], color='k', linewidth=1.3, linestyle='--', label='[10]'),
+               plt.Line2D([], [], color='k', linewidth=1.6, linestyle=':', label='[9]')]
+    ax.legend(handles=handles, fontsize=9, loc='upper right', framealpha=1.0)
+    ax.set_xlabel('V/V$_п$', fontsize=10)
+    ax.set_ylabel('k/k$_0$', fontsize=10)
+    ax.set_xlim(0.0, 5.4)
+    ax.set_ylim(0.0, 1.02)
+    ax.grid(True, color='0.88', linewidth=0.5)
+    _save(fig, name)
+    plt.close(fig)
+
+
+def core_flood_numbers() -> list:
+    """Числа раздела о сопоставлении с экспериментом: растворимость (Li) и керн (Sutton & Roberts)."""
+    from core_flood import EXPERIMENTS, LI_W, LI_PRECIPITATION, cloud_point, w_saturated
+    from paraphin.constants import Tm, alpha, MW, M_o
+
+    lines = ['', '## Сопоставление с экспериментом', '',
+             f'Растворимость: эффективные Tm = {Tm:.1f}°C, alpha = {alpha / 1e3:.1f} кДж/моль '
+             f'(MW = {MW:.0f}, M_o = {M_o:.0f}); точка помутнения нефти Li ({100 * LI_W:.2f}%) по модели '
+             f'{cloud_point(LI_W, MW, M_o, Tm, alpha):.1f}°C, по ДСК 45.65°C', '',
+             '| T, °C | выпало по [Li], % | по модели, % |', '|---|---|---|']
+    for t, measured in LI_PRECIPITATION:
+        model = 100.0 * (LI_W - float(w_saturated(LI_W, t, MW, M_o, Tm, alpha)))
+        lines.append(f'| {t:g} | {measured:.1f} | {model:.1f} |')
+
+    lines.append('')
+    for number, exp in EXPERIMENTS.items():
+        cp = cloud_point(exp['w'], exp['MW'], exp['M_o'], exp['Tm'], exp['dH'])
+        lines.append(f'- опыт {number} Sutton & Roberts: точка помутнения модели {cp:.1f}°C, измеренная {exp["cloud"]}°C')
+
+    result = _load_core_flood()
+    if result is None:
+        return lines + ['- расчета керна нет: python твт_статья/core_flood.py']
+
+    best1 = result['best']['1']
+    lines.append(f'- калибровка по опыту 1: d_p = {best1["d_p"] * 1e6:.1f} мкм, L_k = {best1["lk"] * 1e6:.0f} мкм, '
+                 f'eta керна = {best1["eta"]:.2f}, сетка {best1["ny"]} ячеек, шаг до {best1["dt"]} с')
+    for number, exp in EXPERIMENTS.items():
+        model = result['best'][str(number)]
+        others = result['others_rms'][str(number)]
+        at = ', '.join(f'{x} PV: опыт {np.interp(x, *np.array(exp["exp"]).T):.2f}, '
+                       f'расчет {np.interp(x, model["pv"], model["k"]):.2f}' for x in (0.25, 1.0, 2.0, 3.0, 5.0))
+        lines.append(f'- опыт {number} ({"калибровка" if number == 1 else "прогноз"}): СКО модели {model["rms"]:.3f}, '
+                     f'Ring {others["ring"]:.3f}, Wang & Civan {others["wang_civan"]:.3f}; закупорка '
+                     f'{model["plugged"]}; {at}')
+        lines.append(f'  профиль в конце: k/k0 у входа {model["k_profile"][0]:.3f}, на выходе {model["k_profile"][-1]:.3f}; '
+                     f'm/m0 у входа {model["m_profile"][0]:.3f}, на выходе {model["m_profile"][-1]:.3f}')
+
+    grid = sorted(result['calibration'], key=lambda r: r['rms'])[:5]
+    lines.append('- пять лучших точек калибровки (d_p мкм, L_k мкм, СКО): '
+                 + '; '.join(f'{r["d_p"] * 1e6:.1f}, {r["lk"] * 1e6:.0f}, {r["rms"]:.3f}' for r in grid))
+    return lines
+
+
 def create_article_figures() -> dict:
     """Построение всех рисунков статьи и сбор чисел для текста и таблиц."""
     cases, missing, overlay = {}, [], {}
@@ -848,6 +956,7 @@ def create_article_figures() -> dict:
                             'S': [data['Saturation'][i].copy() for i in picks]}
         del data
 
+    figure_core_flood()
     if missing:
         print('Нет файлов расчета:', ', '.join(missing))
     if cases:

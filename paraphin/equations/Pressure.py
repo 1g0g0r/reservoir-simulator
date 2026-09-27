@@ -105,9 +105,11 @@ def _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
                     S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
                     lam_gh = mobility_o(k[i, j], S_ij, mu_o[i, j]) + mobility_w(k[i, j], S_ij, mu_w[i, j])
                     val = mid(lam_ij, lam_gh) * areaij / hij
-                    acc += boundary_conditions[bound, 0, 1] * val
-                    if boundary_conditions[bound, 0, 0] == 1:  # Дирихле
+                    if boundary_conditions[bound, 0, 0] == 1:  # Дирихле: поток val*(P_гр - P_ячейки)
+                        acc += boundary_conditions[bound, 0, 1] * val
                         dg += val
+                    else:  # Нейман: фиктивная ячейка P + g*h (`apply_bc`), поток g*h*val от P не зависит
+                        acc += boundary_conditions[bound, 0, 1] * hij * val
 
             # Правая грань последнего столбца и верхняя грань последней строки связей не дают
             if i == Nx - 1:

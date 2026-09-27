@@ -1,10 +1,11 @@
 """Дозапись полей данных очередного временного слоя в общий файл расчета."""
 from pickle import dump, HIGHEST_PROTOCOL
 
-from paraphin.constants import layers_file, init_k, init_m
+from paraphin.constants import layers_file, init_k, init_m, Nx, Ny
 
 # Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и `graphs._plot_fi`.
-FI_PROBE = (3, 3)
+# Прижата к сетке: на одномерном керне (Nx = 1) точки (3, 3) нет.
+FI_PROBE = (min(3, Nx - 1), min(3, Ny - 1))
 
 
 def save_fields(solver, t: float) -> None:

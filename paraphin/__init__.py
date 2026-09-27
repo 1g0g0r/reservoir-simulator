@@ -11,7 +11,7 @@ from numba.core.errors import NumbaWarning
 # конкретно это сообщение: остальные предупреждения numba остаются видимыми.
 warnings.filterwarnings('ignore', message='.*Cannot cache compiled function', category=NumbaWarning)
 
-from paraphin.constants import data_type, Nx, Ny, Nr, D, gamma, r_m, sigma_r
+from paraphin.constants import data_type, Nx, Ny, Nr, D, gamma, Lk, r_m, sigma_r, r_max, init_k, init_m
 
 
 def _drop_stale_numba_cache() -> None:
@@ -43,8 +43,8 @@ N = Nx * Ny  # размер матрицы давления
 
 # Сетка радиусов равномерная. Сгущение у r_pass и r_max проверено и точности не дает: ошибка
 # сидит там, где масса r^2*fi и r^4*fi (15-30 мкм), и сгущение к краям только отбирает оттуда узлы.
-# Помогает лишь рост Nr. Схема при этом шага не предполагает - см. `dr_cv`.
-r_max = 40e-6
+# Помогает лишь рост Nr. Схема при этом шага не предполагает - см. `dr_cv`. `r_max` - в constants.py:
+# для керна с мелкими порами (Li et al., 2024) сетка масштабируется вместе с r_m.
 r = np.linspace(0.0, r_max, Nr)
 dr_cv = np.empty(Nr, data_type)  # ширина контрольного объема узла: знаменатель в `_update_fi`
 dr_cv[1:-1] = (r[2:] - r[:-2]) * 0.5
@@ -59,6 +59,12 @@ fi_0 = np.zeros(Nr, data_type)
 fi_0[1:] = np.exp(-0.5 * (np.log(r[1:] / r_m) / sigma_r) ** 2) / (np.sqrt(2 * np.pi) * sigma_r * r[1:])
 fi_0 /= (fi_0 * dr_cv).sum()
 
+# Коэффициент извилистости: при нем пучок капилляров с fi_0 имеет ровно проницаемость пласта,
+# k_0 = m_0*<r^4>/(8*eta^2*<r^2>), а средняя скорость в капилляре um = |grad p|*r^2/(8*eta*mu) (`calc_Um_r2`)
+# согласована с дарсиевской. При eta = 1 и r_m = 12 мкм пучок давал k в ~70 раз больше k_0 = 200 мД,
+# и во столько же была завышена um, а с ней скорости блокирования и сужения.
+eta = float(np.sqrt(init_m * (r ** 4 * fi_0 * dr_cv).sum() / (8.0 * init_k * (r ** 2 * fi_0 * dr_cv).sum())))
+
 # массивы радиусов пор в необходимых степенях
 r1 = r
 r2 = r * r
@@ -72,6 +78,18 @@ cbrt_r1 = np.cbrt(r1)
 # стенке и сужает его (Ur < 0). Сужение схема учитывает переносом fi по оси радиусов.
 r_pass = D * 0.5 / gamma
 n_pass = int(np.searchsorted(r1, r_pass, side='left'))  # первый узел с r >= r_pass
+
+# Узловые веса объема каналов: при кусочно-линейной fi интеграл r^2*fi (пористость, `_calculate_integrals`)
+# равен sum(w2_cv*fi) точно, w2_cv[ij] - интеграл r^2 по «шапочке» узла ij. В тех же единицах `calc_qp_m_k_fi`
+# считает, какой объем каналов за шаг ушел из fi в блокированные.
+_a, _b = r[:-1], r[1:]
+w2_cv = np.zeros(Nr, data_type)
+w2_cv[1:] += ((_b ** 4 - _a ** 4) / 4 - _a * (_b ** 3 - _a ** 3) / 3) / (_b - _a)  # восходящая половина
+w2_cv[:-1] += (_b * (_b ** 3 - _a ** 3) / 3 - (_b ** 4 - _a ** 4) / 4) / (_b - _a)  # нисходящая половина
+# Пробка: канал затыкает один кристалл размера D, его объем pi*D^3/6 против объема канала pi*r^2*Lk, то есть в
+# единицах r^2 - D^3/(6*Lk) на канал (для D = 15 мкм, Lk = 0.3 мм и r = 10 мкм это 2% канала). Больше объема
+# самого канала пробка не бывает. Число каналов у узла - fi*dr_cv, отсюда вес D^3/(6*Lk)*dr_cv.
+plug_cv = np.minimum(D ** 3 / (6.0 * Lk) * dr_cv, w2_cv)
 
 
 if __name__ == '__main__':

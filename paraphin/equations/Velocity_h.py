@@ -4,14 +4,15 @@ from numba import njit
 
 from paraphin import r1, r4, cbrt_r1, n_pass
 from paraphin.constants import (data_type, Nr, D, g, betta, Lk, Cf, S_max, Delta, ro_p,
-                                min_Wps_bound, suffusion, k_B)
+                                min_Wps_bound, suffusion, k_B, diff_mult)
 
 
 b_D_3 = 6.0 * betta / D / D / D
 cf_D2 = Cf * D * D * g / 18.0
 # Броуновская диффузия частицы по Стоксу-Эйнштейну: D_p = k_B*T/(3*pi*mu*d). От ячейки зависят только T и
 # mu_o, остальное - в множителе. В формулу сужения диффузия входит как 2*D_p^2/Lk (см. `calc_velocities_h`).
-diff_coef = k_B / (3.0 * np.pi * D)
+# `diff_mult` - множитель калибровки (по умолчанию 1).
+diff_coef = diff_mult * k_B / (3.0 * np.pi * D)
 So_max = 1.0 - S_max
 
 

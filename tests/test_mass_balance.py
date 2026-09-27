@@ -13,7 +13,7 @@ from paraphin.solver import Solver
 T_TEST = 100.0 * day_to_sec
 
 # Температура закачки берется не из constants.py, а заведомо ниже точки помутнения (при штатных
-# init_Wp = 0.20, MW = 410, M_o = 250 она равна ~41 C по (7.1)-(7.2)). Иначе парафин не выпадает,
+# init_Wp = 0.25 и эффективных Tm, alpha она равна ~39 C по (6.1)-(6.2)). Иначе парафин не выпадает,
 # блок кольматации не вызывается вовсе, и проверки порового баланса и гонок в prange становятся
 # пустыми: проверять было бы нечего.
 T_INJECTION = 5.0
@@ -73,9 +73,10 @@ def test_mass_balance():
 def test_pore_volume_balance():
     """(q_p1 + q_p2)*dt = m - m^new: скорости потери порового объема нормированы на убыль пористости.
 
-    Тождество связывает пористость по просветности с обеими скоростями: осаждение изымает чистый
-    парафин, блокирование - смесь состава фазы, а вместе они дают ровно то, что теряет поровое
-    пространство. На него опираются и уравнение насыщенности, и уравнение баланса парафина.
+    Тождество связывает пористость с обеими скоростями: осадок на стенках и пробки в горлах
+    блокированных каналов - кристаллы, вместе они дают ровно то, что теряет поровое пространство
+    (объем блокированного канала остается тупиковой пористостью). На него опираются и уравнение
+    насыщенности, и уравнение баланса парафина.
     """
     solver, _, worst_m = _run()
     assert solver.Wps.max() > 0.0, 'парафин не выпал: проверка порового баланса ничего не проверяет'
@@ -88,9 +89,10 @@ def test_paraffin_mass_balance():
     """Глобальный баланс массы парафина: начальная масса = в фазе + осело + добыто.
 
     Осевший парафин складывается из стоков `wp_equation` теми же множителями, что стоят в ней:
-    осаждение q_p1 изымает чистый парафин (ro_p), блокирование q_p2 - смесь состава фазы
-    (ro_o*w). Добытый - через дебит нефтяной фазы добывающей скважины и долю парафина в ее ячейке
-    на начало шага, как в `_wells_loop`. Закачивается только вода, приток парафина извне нулевой.
+    осадок q_p1 и пробки q_p2 - чистый парафин (ro_p). Нефть блокированных каналов остается в
+    пористости и считается в `in_place`. Добытый - через дебит нефтяной фазы добывающей скважины и
+    долю парафина в ее ячейке на начало шага, как в `_wells_loop`. Закачивается только вода, приток
+    парафина извне нулевой.
 
     Схема консервативна, единственный неконсервативный элемент - зажим доли в нуле в `wp_equation`:
     он срабатывает, когда сток за шаг превышает запас, и создает массу. Именно его ловит проверка,
@@ -112,7 +114,7 @@ def test_paraffin_mass_balance():
         solver.upd_time_step(t)
 
         # После обмена слоев qp1, qp2 - те, что дали убыль пористости на этом шаге
-        deposited += ((ro_p * solver.qp1 + ro_o * w_sum * solver.qp2) * volume).sum() * step_dt
+        deposited += (ro_p * (solver.qp1 + solver.qp2) * volume).sum() * step_dt
         produced += -producer.q[0] * ro_o * w_sum[i_p, j_p] * step_dt
 
     assert deposited > 0.0, 'парафин не осел: баланс ничего не проверяет'
@@ -211,6 +213,64 @@ def test_no_race_in_parallel_loop():
                                         f'максимум |разности| {np.abs(fa - fb).max():.3e}')
 
 
+def test_neumann_pressure_bc():
+    """Приток через границу с ненулевым Нейманом по давлению уходит в добывающую скважину без невязки.
+
+    Фиктивная ячейка за границей - P + g*h/2 (`apply_bc`), поток g*A*lam от давления не зависит. Матрица
+    давления обязана заложить тот же поток: раньше она брала g*val без множителя h/2, то есть приток в
+    ~1/h раз больше того, что видят перетоки, и отбор скважины расходился с притоком через границу.
+    """
+    from paraphin.constants import hx, h
+    from paraphin.utils import Bound, DataField, TypeBC
+
+    grad = 1e5  # [Па/м], давление за левой границей выше - нефть и вода втекают
+    solver = Solver()
+    solver.add_well(name='Producer', i=Nx - 1, j=Ny - 1, p=Po, rw=rw, mult=0.25, is_injector=False)
+    solver.add_bc(field=DataField.Pressure, bound=Bound.Left, type_bc=TypeBC.Neumann, value=grad)
+    solver.initialize()
+    solver.upd_time_step(0.0)
+
+    inflow = grad * hx * h * float((solver.lam_o[:, 0] + solver.lam_w[:, 0]).sum())
+    outflow = -solver.wells[0].q[2]
+    assert abs(outflow - inflow) / inflow < 1e-6, f'отбор {outflow:.4e} не равен притоку через границу {inflow:.4e}'
+
+
+def test_paraffin_inflow_bc():
+    """ГУ Дирихле `DataField.Paraffin` задает состав втекающей нефти, а не берет его из самой ячейки.
+
+    Без него керн, через который прокачивают нефть, получал бы на входе ту долю парафина, что осталась в
+    первой ячейке после осаждения, то есть подвод взвеси иссякал бы сам собой.
+    """
+    from paraphin.constants import init_p, init_S, init_k, init_m, init_T, c_o, c_w, c_p, data_type
+    from paraphin.equations import flows_in_cells
+    from paraphin.utils import Bound, DataField, calc_mu_o, calc_mu_w, calc_mobility
+
+    def field(value):
+        return np.full((Nx, Ny), value, data_type)
+
+    w_cell, w_bc = 0.3, 0.1
+    p, S, T, k, m = field(init_p), field(init_S), field(init_T), field(init_k), field(init_m)
+    Wo, Wp, Wps = field(1.0 - w_cell), field(w_cell), field(0.0)
+    mu_o, mu_w = field(calc_mu_o(init_T, 0.0)), field(calc_mu_w(init_T))
+    lam_o, lam_w, lam_h = field(0.0), field(0.0), field(0.0)
+    calc_mobility(k, S, m, Wo, Wp, Wps, mu_o, mu_w, lam_o, lam_w, lam_h)
+
+    def inflow(w_boundary=None):
+        """Приток парафина в угловую ячейку через левую границу с повышенным давлением."""
+        bc = np.zeros((4, 4, 2), data_type)
+        bc[Bound.Left.value, DataField.Pressure.value] = (1, init_p + bar_to_pa)
+        if w_boundary is not None:
+            bc[Bound.Left.value, DataField.Paraffin.value] = (1, w_boundary)
+        cells_wp = field(0.0)
+        flows_in_cells(0, 0, bc, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wo, Wp, Wps,
+                       field(c_o), field(c_w), field(c_p), field(0.0), cells_wp, field(0.0), field(0.0))
+        return cells_wp[0, 0]
+
+    assert inflow() > 0.0, 'через левую границу с повышенным давлением нефть обязана втекать'
+    assert np.isclose(inflow(w_bc), inflow() * w_bc / w_cell, rtol=1e-12), \
+        'доля парафина во втекающей нефти взята не из ГУ'
+
+
 if __name__ == '__main__':
     test_mass_balance()
     test_pore_volume_balance()
@@ -218,4 +278,6 @@ if __name__ == '__main__':
     test_rate_control()
     test_rate_control_producer()
     test_no_race_in_parallel_loop()
+    test_paraffin_inflow_bc()
+    test_neumann_pressure_bc()
     print('OK')

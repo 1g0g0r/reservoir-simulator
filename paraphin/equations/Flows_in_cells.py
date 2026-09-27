@@ -5,6 +5,7 @@ from paraphin.constants import Nx, Ny, ro_w
 from paraphin.utils import (mid, lam_heat, up_fraction, apply_bc, get_bound,
                             mobility_o, mobility_w, DI, DJ, HIJ, AREA)
 from .Temperature import c_oil, h_oil
+from .Wp_balance import _wp_saturated
 
 
 @njit(cache=True)
@@ -21,7 +22,8 @@ def flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam
     температура, суммарная доля парафина и объемная энтальпия нефти берутся вверх по потоку:
     гармоническое среднее для них не годится - если в соседней (промытой водой) ячейке доля равна
     нулю, оно обнуляет поток. За границей области все свойства берутся из самой ячейки, по
-    граничному условию меняется только само поле.
+    граничному условию меняется только само поле; состав втекающей нефти задается отдельным ГУ
+    Дирихле `DataField.Paraffin` (без него - как в ячейке).
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
@@ -69,7 +71,16 @@ def flows_in_cells(i, j, boundary_conditions, p, S, T, k, mu_o, mu_w, lam_o, lam
             T_ij = apply_bc(boundary_conditions, bound, 2, T, i, j, hij)
             lo_n = mobility_o(k[i, j], S_ij, mu_o[i, j])
             lw_n = mobility_w(k[i, j], S_ij, mu_w[i, j])
-            Wo_n, Wp_n, Wsum_n = Wo_c, Wp_c, Wsum_c
+            # Состав втекающей нефти: по ГУ Дирихле (прокачка нефти через керн), иначе - как в самой ячейке.
+            # Делится на растворенный и взвешенный по температуре фиктивной ячейки. Присваивания - поштучно,
+            # не кортежем: кортеж в ветке внутри parfor ломает вывод типов индексов (см. выше).
+            Wo_n = Wo_c
+            Wp_n = Wp_c
+            Wsum_n = Wsum_c
+            if boundary_conditions[bound, 3, 0] == 1:
+                Wsum_n = boundary_conditions[bound, 3, 1]
+                Wp_n = _wp_saturated(Wsum_n, T_ij)
+                Wo_n = 1.0 - Wsum_n
             C_o_n, C_p_n = C_o_c, C_p_c
             # У фиктивной ячейки своя насыщенность и температура из ГУ, готового значения нет
             lam_heat_n = lam_heat(S_ij, m_c, Wo_c, Wsum_c)

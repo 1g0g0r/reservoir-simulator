@@ -11,9 +11,9 @@
 """
 import numpy as np
 
-from paraphin import r1, fi_0, n_pass, dr_cv
-from paraphin.constants import Nr
-from paraphin.equations.Qp_m_k_fi import _update_fi
+from paraphin import r1, fi_0, n_pass, dr_cv, w2_cv, plug_cv
+from paraphin.constants import Nr, init_m, init_k
+from paraphin.equations.Qp_m_k_fi import _update_fi, _calculate_integrals, calc_qp_m_k_fi
 
 dt = 86400.0 / 20
 
@@ -48,7 +48,38 @@ def test_fi_positive_under_strong_blocking():
     assert new_fi[0, 0, :n_pass].max() < 1.3 * fi_0.max() / (1.0 + 1e3)
 
 
+def test_blocking_keeps_pore_volume():
+    """Блокирование без сужения: k падает, а пористость - только на пробки, объем канала остается тупиковым.
+
+    Убыль пористости обязана совпасть с объемом пробок (один кристалл на канал, `plug_cv`) по
+    фактически выбывшим из fi каналам - и быть много меньше объема самих каналов (`w2_cv`).
+    Попутно: веса w2_cv дают тот же интеграл r^2*fi, что `_calculate_integrals`.
+    """
+    fi, new_fi, Ur, Ub, a, b = _fields(u0=0.0, b0=1e3 / dt)
+    zero = np.zeros_like(Ur)
+    _, i2, i4 = _calculate_integrals(fi, zero, 0, 0)
+    assert abs(i2 - (w2_cv * fi_0).sum()) < 1e-12 * i2
+
+    def cell(value):
+        return np.full((1, 1), value)
+
+    new_qp1, new_qp2, new_k, new_m = cell(0.0), cell(0.0), cell(0.0), cell(0.0)
+    calc_qp_m_k_fi(0, 0, cell(0.0), cell(0.05), cell(0.1), cell(init_m), cell(init_k), fi, Ur, Ub, i2, i4,
+                   a, b, new_qp1, new_qp2, new_fi, new_k, new_m, dt)
+
+    gone = fi_0 - new_fi[0, 0]  # выбывшие из проводящих каналы
+    blocked = init_m * (w2_cv * gone).sum() / i2
+    plugs = init_m * (plug_cv * gone).sum() / i2
+    loss = init_m - new_m[0, 0]
+    assert new_k[0, 0] < 0.9 * init_k, 'блокирование не снизило проницаемость'
+    assert new_qp1[0, 0] == 0.0, 'без сужения осадка на стенках нет'
+    assert abs(loss - plugs) < 1e-12 * loss, 'пористость убыла не на объем пробок'
+    assert abs(loss - new_qp2[0, 0] * dt) < 1e-12 * loss
+    assert loss < 0.1 * blocked, f'пробки {loss:.3e} не малы по сравнению с каналами {blocked:.3e}'
+
+
 if __name__ == '__main__':
     test_fi_conserved_across_r_pass()
     test_fi_positive_under_strong_blocking()
+    test_blocking_keeps_pore_volume()
     print('OK')

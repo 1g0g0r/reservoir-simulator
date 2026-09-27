@@ -22,6 +22,7 @@ class DataField(Enum):
     Pressure    = 0
     Saturation  = 1
     Temperature = 2
+    Paraffin    = 3  # Суммарная доля парафина во втекающей нефти; учитывается только Дирихле, см. `flows_in_cells`
 
 
 def add_bc(boundary_conditions, boundary: int, field: int, type_bc: int, value: float):
