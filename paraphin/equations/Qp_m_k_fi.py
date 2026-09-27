@@ -1,8 +1,9 @@
 """Решение уравнения концентрации взвешенных частиц парафина по явной схеме."""
 from numba import njit
 
-from paraphin import r1, r2, r3, r4, r5, r6, n_pass, dr_cv, w2_cv, plug_cv
-from paraphin.constants import Nr, init_m, init_k, min_Wps_bound
+from paraphin import r1, r2, r3, r4, r5, r6, n_pass, dr_cv, w2_cv, plug_cv, w43_cv, n_pass_a, cbrt_r1
+from paraphin.constants import Nr, init_m, init_k, min_Wps_bound, ro_o, ro_asph_dep, resin_in_deposit
+from paraphin.oil_composition import IA_F, I_R
 from paraphin.equations.Wp_balance import _RO_P_RO_O  # тот же множитель стока кристаллов, что в `wp_equation`
 
 
@@ -181,3 +182,129 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt, limiter=1
     new_fi[i, j, Nr - 1] = b_tdma[Nr - 1]
     for ij in range(Nr - 2, -1, -1):  # обратный ход
         new_fi[i, j, ij] = new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij]
+
+
+# ------------------------------------------------------------------------------------------------------
+# Совместное осаждение парафина и асфальтенов (флаг `asphaltenes`). Прежние функции выше не трогаются:
+# с выключенным флагом `_equations_loop` вызывает их, и расчет побитово совпадает с прежним.
+# ------------------------------------------------------------------------------------------------------
+_RO_AD_O = ro_asph_dep / ro_o  # множитель стока осадка асфальтены + смолы в балансах, поделенных на ro_o
+
+
+@njit(cache=True)
+def calc_qp_m_k_fi_2(i, j, S, Wps, Wc, m, k, fi, Ur, Ub, Ua, integr_r2_fi0, integr_r4_fi0, a_tdma, b_tdma,
+                     new_qp1, new_qp2, new_qpa, new_fi, new_k, new_m, dt) -> None:
+    """То же, что `calc_qp_m_k_fi`, плюс сужение капилляров флокулами асфальтенов.
+
+    Скорость изменения радиуса - сумма вкладов кристаллов парафина и флокул:
+        u(r) = lim_w*Ur(r) + lim_a*Ua*r^(1/3),   r >= r_pass_a,
+    блокирование - только кристаллами (флокула мельче горла, см. `n_pass_a` в `paraphin/__init__.py`).
+    Ограничители подводом свои у каждого вида частиц: за шаг осаждается не больше парафина, чем его
+    взвешено (m*S_o*w_ps), и не больше осадка асфальтены + смолы, чем есть флокул и смол.
+
+    Убыль проводящих каналов от сужения (как и q_p1 в прежней функции - по фактическому изменению fi)
+    делится между парафином и асфальтенами пропорционально их оценкам до прогонки:
+        q_p1 + q_pa = q_сужение,   q_pa/q_сужение = I_a/(I_w + I_a),
+        I_w = -2*m0*lim_w*int r*Ur*fi dr/int r^2*fi0,   I_a = -2*m0*lim_a*Ua*int r^(4/3)*fi dr/int r^2*fi0.
+    Тождество пористости сохраняется точным: (q_p1 + q_p2 + q_pa)*dt = m - m^new. Осадок асфальтенов
+    содержит долю смол `resin_in_deposit`, плотность осадка `ro_asph_dep` (Wang & Civan, 2005: общий
+    поровый объем делят парафин и асфальтены).
+
+    Если парафин ниже порога кольматации, его скорости Ur, Ub в этой ячейке не обновлялись и могут быть
+    устаревшими - они берутся с lim_w = 0.
+    """
+    wax_on = Wps[i, j] > min_Wps_bound
+    ua = Ua[i, j]
+    if wax_on or ua < 0.0:
+        to_m = init_m / integr_r2_fi0
+        mso_dt = m[i, j] * (1.0 - S[i, j]) / dt
+        int_r_ur_fi, r2fi, _ = _calculate_integrals(fi, Ur, i, j)
+
+        lim_w, i_w = 0.0, 0.0
+        if wax_on:
+            i_w = max(-2.0 * to_m * int_r_ur_fi, 0.0)
+            qp2 = to_m * _blocking(Ub, fi, i, j, plug_cv)
+            sink = _RO_P_RO_O * (i_w + qp2)
+            avail = mso_dt * Wps[i, j]
+            lim_w = avail / sink if sink > avail else 1.0
+
+        lim_a, i_a = 0.0, 0.0
+        if ua < 0.0:
+            s43 = 0.0
+            for ij in range(n_pass_a, Nr):
+                s43 += w43_cv[ij] * fi[i, j, ij]
+            i_a = -2.0 * to_m * ua * s43
+            sink_a = _RO_AD_O * i_a
+            # Запас на осадок: флокулы дают (1 - f_r) его массы, смолы - f_r
+            avail_a = mso_dt * min(Wc[i, j, IA_F] / (1.0 - resin_in_deposit),
+                                   Wc[i, j, I_R] / resin_in_deposit if resin_in_deposit > 0.0 else 1e300)
+            lim_a = avail_a / sink_a if sink_a > avail_a else 1.0
+
+        _update_fi_2(new_fi, fi, Ur, Ub, ua, i, j, a_tdma, b_tdma, dt, lim_w, lim_a)
+        _, r2fi_new, r4fi_new = _calculate_integrals(new_fi, Ur, i, j)
+
+        blocked = dt * lim_w * to_m * _blocking(Ub, new_fi, i, j, w2_cv)
+        qp2 = lim_w * to_m * _blocking(Ub, new_fi, i, j, plug_cv)
+        q_narrow = max((to_m * (r2fi - r2fi_new) - blocked) / dt, 0.0)
+        i_wa = lim_w * i_w + lim_a * i_a
+        qpa = q_narrow * (lim_a * i_a / i_wa) if i_wa > 0.0 else 0.0
+        qp1 = q_narrow - qpa
+
+        if qp1 + qp2 + qpa > 0.0:
+            new_m[i, j] = m[i, j] - (qp1 + qp2 + qpa) * dt
+            new_k[i, j] = init_k * r4fi_new / integr_r4_fi0
+            scale = (m[i, j] - new_m[i, j]) / ((qp1 + qp2 + qpa) * dt)
+            qp1 *= scale
+            qp2 *= scale
+            qpa *= scale
+        else:
+            qp1, qp2, qpa = 0.0, 0.0, 0.0
+            new_m[i, j] = m[i, j]
+            new_k[i, j] = k[i, j]
+
+        new_qp1[i, j] = qp1
+        new_qp2[i, j] = qp2
+        new_qpa[i, j] = qpa
+    else:
+        new_qp1[i, j] = 0.0
+        new_qp2[i, j] = 0.0
+        new_qpa[i, j] = 0.0
+        new_m[i, j] = m[i, j]
+        new_k[i, j] = k[i, j]
+
+
+@njit(cache=True)
+def _update_fi_2(new_fi, fi, Ur, Ub, ua, i: int, j: int, a_tdma, b_tdma, dt, lim_w, lim_a):
+    """Прогонка по радиусам, как `_update_fi`, но со скоростью сужения парафин + асфальтены:
+    u_ij = lim_w*Ur_ij + lim_a*ua*r_ij^(1/3) (r_ij >= r_pass_a), b_ij = lim_w*Ub_ij.
+    При ua = 0 совпадает с `_update_fi(limiter=lim_w)` до округления."""
+    u0 = _u_total(Ur, ua, i, j, 0, lim_w, lim_a)
+    u1 = _u_total(Ur, ua, i, j, 1, lim_w, lim_a)
+    d = 1.0 / dt + abs(u0) / dr_cv[0] + lim_w * Ub[i, j, 0]
+    e = min(u1, 0.0) / dr_cv[0]
+    a_tdma[0] = -e / d
+    b_tdma[0] = fi[i, j, 0] / dt / d
+
+    u_prev, u_cur = u0, u1
+    for ij in range(1, Nr):
+        u_next = _u_total(Ur, ua, i, j, ij + 1, lim_w, lim_a) if ij + 1 < Nr else 0.0
+        c = -max(u_prev, 0.0) / dr_cv[ij]
+        d = 1.0 / dt + abs(u_cur) / dr_cv[ij] + lim_w * Ub[i, j, ij]
+        e = min(u_next, 0.0) / dr_cv[ij] if ij + 1 < Nr else 0.0
+        denominator = c * a_tdma[ij - 1] + d
+        a_tdma[ij] = -e / denominator
+        b_tdma[ij] = (fi[i, j, ij] / dt - c * b_tdma[ij - 1]) / denominator
+        u_prev, u_cur = u_cur, u_next
+
+    new_fi[i, j, Nr - 1] = b_tdma[Nr - 1]
+    for ij in range(Nr - 2, -1, -1):
+        new_fi[i, j, ij] = new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij]
+
+
+@njit(cache=True)
+def _u_total(Ur, ua, i, j, ij, lim_w, lim_a):
+    """Суммарная скорость изменения радиуса узла ij: кристаллы парафина плюс флокулы асфальтенов."""
+    u = lim_w * Ur[i, j, ij]
+    if ij >= n_pass_a:
+        u += lim_a * ua * cbrt_r1[ij]
+    return u

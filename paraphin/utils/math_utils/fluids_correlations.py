@@ -2,7 +2,8 @@
 import numpy as np
 from numba import njit
 
-from paraphin.constants import data_type, R, phi_max, E_activation, mu_o_ref, T_mu_ref, ro_o, ro_p
+from paraphin.constants import (data_type, R, phi_max, E_activation, mu_o_ref, T_mu_ref, ro_o, ro_p,
+                                wax_viscosity, visc_D, pressure_viscosity, alpha_p_visc, P_ref_wax)
 
 # Показатель в формуле Кригера-Догерти. Константа уровня модуля: numba вшивает ее литералом,
 # а не считает произведение на каждой ячейке каждый шаг.
@@ -47,10 +48,29 @@ def calc_mu_o(t: data_type, w_ps: data_type) -> data_type:
     if w_ps <= 0.0:
         return mu_liquid
 
+    if wax_viscosity == 1:
+        # Pedersen & Ronningsen (Energy Fuels 2000, 14:43): ньютоновская часть mu_L*exp(D*phi). Их же слагаемые
+        # ~phi^4/gamma описывают структуру геля и при пластовых скоростях сдвига (~1 1/с) расходятся - эту роль
+        # здесь играет предел текучести (`equations/Gel.py`), D подобран вместе с ним (constants.py).
+        return mu_liquid * np.exp(visc_D * crystal_volume_fraction(w_ps))
+
     # Кригер-Догерти расходится при phi -> phi_max, поэтому долю подпираем снизу предела
     phi = min(crystal_volume_fraction(w_ps), 0.99 * phi_max)
 
     return mu_liquid * (1.0 - phi / phi_max) ** _KD_EXPONENT
+
+
+@njit(cache=True)
+def calc_mu_p(t: data_type, w_ps: data_type, p: data_type) -> data_type:
+    """Вязкость нефтяной фазы без геля (пластическая вязкость бингамовской нефти), [Па*с].
+
+    `calc_mu_o` и, при флаге `pressure_viscosity`, рост с давлением по Барусу (Barus, Am. J. Sci. 1893):
+    mu *= exp(alpha_p*(P - P_ref)). Гель входит отдельно - множителем подвижности (`equations/Gel.py`).
+    """
+    mu = calc_mu_o(t, w_ps)
+    if pressure_viscosity:
+        mu *= np.exp(alpha_p_visc * (p - P_ref_wax))
+    return mu
 
 
 @njit(cache=True)

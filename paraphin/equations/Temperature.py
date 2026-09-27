@@ -3,7 +3,7 @@ import numpy as np
 from numba import njit
 
 from paraphin.constants import (volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, init_m, K_ff,
-                                c_ff, heat_losses, latent_heat)
+                                c_ff, heat_losses, latent_heat, wax_components)
 
 # Свойства окружающих пород. Константы уровня модуля: numba вшивает их в машинный код литералами,
 # а не считает корень и деление на каждой ячейке каждый шаг.
@@ -13,7 +13,7 @@ LATENT = latent_heat * ro_o       # скрытая теплота на един�
 
 
 @njit(cache=True)
-def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_Wp, new_Wps,
+def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_Wp, new_Wps, Hl, new_Hl,
                          cells_T_eq, t, E_ff, new_T, new_m, new_S, dt) -> None:
     """Вычисление температуры по явной схеме, в консервативной форме относительно psi*T.
 
@@ -29,6 +29,9 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, ne
     Потери через кровлю и подошву - расширение сверх модели, включает флаг `heat_losses`:
     0 - нет перетока; 1 - схема Ловерье; 2 - метод Винсома-Вестервельда.
 
+    При детальном составе (флаг `wax_components`) у каждой группы парафина своя удельная теплота плавления
+    L_k (Won, 1986), и вместо w_p стоит носитель `Hl` = sum_k (L_k/latent_heat)*w_p,k (`Thermo_wax.sle_split`).
+
     Возвращает `psi` текущего слоя: то же значение нужно ограничению Куранта по температуре в `_equations_loop`.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
@@ -39,8 +42,12 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, ne
     derivative_add = T[i, j] * volume * (psi_next - psi) / dt
 
     # Скрытая теплота: уменьшение количества растворенного парафина ее выделяет
-    latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * Wp[i, j]
-                       - new_m[i, j] * (1.0 - new_S[i, j]) * new_Wp[i, j]) * volume / dt
+    if wax_components:
+        latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * Hl[i, j]
+                           - new_m[i, j] * (1.0 - new_S[i, j]) * new_Hl[i, j]) * volume / dt
+    else:
+        latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * Wp[i, j]
+                           - new_m[i, j] * (1.0 - new_S[i, j]) * new_Wp[i, j]) * volume / dt
 
     if heat_losses == 0:
         T_losses = 0.0
@@ -55,7 +62,7 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, ne
 
 
 @njit(cache=True)
-def temperature_source(well, T, C_o, C_w, C_p, Wo, Wp, Wps) -> float:
+def temperature_source(well, T, C_o, C_w, C_p, Wo, Wp, Wps, Hl) -> float:
     """Приток энергии со скважиной, [Вт].
 
     У нагнетательной берется температура закачиваемой воды, у добывающей - температура ячейки.
@@ -67,8 +74,13 @@ def temperature_source(well, T, C_o, C_w, C_p, Wo, Wp, Wps) -> float:
     i, j = well.i, well.j
     Twell = well.T if well.is_injector == 1 else T[i, j]
 
+    if wax_components:
+        hl = Hl[i, j]
+    else:
+        hl = Wp[i, j]
+
     return (ro_w * C_w[i, j] * well.q[1] * Twell
-            + h_oil(c_oil(Wo[i, j], Wp[i, j] + Wps[i, j], C_o[i, j], C_p[i, j]), T[i, j], Wp[i, j]) * well.q[0])
+            + h_oil(c_oil(Wo[i, j], Wp[i, j] + Wps[i, j], C_o[i, j], C_p[i, j]), T[i, j], hl) * well.q[0])
 
 
 @njit(cache=True)

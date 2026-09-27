@@ -71,10 +71,14 @@ numpy-массивами позиционно (jitclass не потянет ве
 последней температура (ей нужен w_p нового слоя для скрытой теплоты кристаллизации).
 """
 from .Average_velocity import calc_Um_r2
+from .Asphaltene import calc_velocity_asph
+from .Components import components_equation
 from .Flows_in_cells import flows_in_cells
+from .Gel import yield_stress, gel_phi_eq, pore_solid_fraction
 from .Pressure import calc_pressure
-from .Qp_m_k_fi import calc_qp_m_k_fi
+from .Qp_m_k_fi import calc_qp_m_k_fi, calc_qp_m_k_fi_2
 from .Saturation import saturation_equation
 from .Temperature import temperature_equation, temperature_source
+from .Thermo_wax import calc_wat_field, sle_split
 from .Velocity_h import calc_velocities_h
 from .Wp_balance import wp_equation

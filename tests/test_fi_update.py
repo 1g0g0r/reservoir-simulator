@@ -83,3 +83,20 @@ if __name__ == '__main__':
     test_fi_positive_under_strong_blocking()
     test_blocking_keeps_pore_volume()
     print('OK')
+
+
+def test_update_fi_2_matches_legacy_without_asphaltenes():
+    """Прогонка с асфальтенами при ua = 0 совпадает с прежней `_update_fi` до округления, а одно сужение
+    флокулами (без парафина) сохраняет число капилляров sum(fi*dr_cv) - они только сползают к малым r."""
+    from paraphin.equations.Qp_m_k_fi import _update_fi_2
+
+    fi, new_fi, Ur, Ub, a, b = _fields(-1e-9, 1e-3)
+    _update_fi(new_fi, fi, Ur, Ub, 0, 0, a, b, dt, 0.7)
+    legacy = new_fi[0, 0].copy()
+    _update_fi_2(new_fi, fi, Ur, Ub, 0.0, 0, 0, a, b, dt, 0.7, 1.0)
+    assert np.allclose(new_fi[0, 0], legacy, rtol=1e-13, atol=0.0)
+
+    fi, new_fi, Ur, Ub, a, b = _fields(0.0, 0.0)
+    _update_fi_2(new_fi, fi, Ur, Ub, -1e-6, 0, 0, a, b, dt, 0.0, 1.0)
+    assert np.isclose((new_fi[0, 0] * dr_cv).sum(), (fi[0, 0] * dr_cv).sum(), rtol=1e-12)
+    assert np.all(new_fi[0, 0] >= 0.0)

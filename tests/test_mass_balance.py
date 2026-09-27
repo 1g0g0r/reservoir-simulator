@@ -243,6 +243,7 @@ def test_paraffin_inflow_bc():
     """
     from paraphin.constants import init_p, init_S, init_k, init_m, init_T, c_o, c_w, c_p, data_type
     from paraphin.equations import flows_in_cells
+    from paraphin.oil_composition import NC
     from paraphin.utils import Bound, DataField, calc_mu_o, calc_mu_w, calc_mobility
 
     def field(value):
@@ -262,8 +263,10 @@ def test_paraffin_inflow_bc():
         if w_boundary is not None:
             bc[Bound.Left.value, DataField.Paraffin.value] = (1, w_boundary)
         cells_wp = field(0.0)
-        flows_in_cells(0, 0, bc, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wo, Wp, Wps,
-                       field(c_o), field(c_w), field(c_p), field(0.0), cells_wp, field(0.0), field(0.0))
+        # bc_Wc и Fo_row нужны только детальному составу (`wax_components`); носитель скрытой теплоты - сам Wp
+        flows_in_cells(0, 0, bc, np.zeros((4, NC), data_type), p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m,
+                       Wo, Wp, Wps, Wp, field(c_o), field(c_w), field(c_p), field(0.0), cells_wp, field(0.0),
+                       field(0.0), np.zeros(4, data_type))
         return cells_wp[0, 0]
 
     assert inflow() > 0.0, 'через левую границу с повышенным давлением нефть обязана втекать'

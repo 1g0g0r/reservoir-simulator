@@ -11,7 +11,8 @@ from numba.core.errors import NumbaWarning
 # конкретно это сообщение: остальные предупреждения numba остаются видимыми.
 warnings.filterwarnings('ignore', message='.*Cannot cache compiled function', category=NumbaWarning)
 
-from paraphin.constants import data_type, Nx, Ny, Nr, D, gamma, Lk, r_m, sigma_r, r_max, init_k, init_m
+from paraphin.constants import (data_type, Nx, Ny, Nr, D, gamma, Lk, r_m, sigma_r, r_max, init_k, init_m,
+                                D_asph, asphaltenes)
 
 
 def _drop_stale_numba_cache() -> None:
@@ -90,6 +91,24 @@ w2_cv[:-1] += (_b * (_b ** 3 - _a ** 3) / 3 - (_b ** 4 - _a ** 4) / 4) / (_b - _
 # единицах r^2 - D^3/(6*Lk) на канал (для D = 15 мкм, Lk = 0.3 мм и r = 10 мкм это 2% канала). Больше объема
 # самого канала пробка не бывает. Число каналов у узла - fi*dr_cv, отсюда вес D^3/(6*Lk)*dr_cv.
 plug_cv = np.minimum(D ** 3 / (6.0 * Lk) * dr_cv, w2_cv)
+
+# Те же точные веса «шапочек» для r^4 (проводимость пучка: множитель подвижности геля `equations/Gel.py`) и для
+# r^(4/3) (оценка потери пор при сужении флокулами асфальтенов, u_a ~ r^(1/3), `calc_qp_m_k_fi_2`).
+w4_cv = np.zeros(Nr, data_type)
+w4_cv[1:] += ((_b ** 6 - _a ** 6) / 6 - _a * (_b ** 5 - _a ** 5) / 5) / (_b - _a)
+w4_cv[:-1] += (_b * (_b ** 5 - _a ** 5) / 5 - (_b ** 6 - _a ** 6) / 6) / (_b - _a)
+w43_cv = np.zeros(Nr, data_type)
+w43_cv[1:] += (0.3 * (_b ** (10 / 3) - _a ** (10 / 3)) - 3 / 7 * _a * (_b ** (7 / 3) - _a ** (7 / 3))) / (_b - _a)
+w43_cv[:-1] += (3 / 7 * _b * (_b ** (7 / 3) - _a ** (7 / 3)) - 0.3 * (_b ** (10 / 3) - _a ** (10 / 3))) / (_b - _a)
+
+# Флокула асфальтенов проходит горло шире r_pass_a и оседает на стенках (сужение), уже - затыкала бы горло.
+# При D_asph = 1 мкм r_pass_a = 1.25 мкм меньше первого ненулевого узла сетки радиусов: блокирования
+# флокулами на этой сетке нет, работает только сужение (см. `calc_qp_m_k_fi_2`).
+r_pass_a = D_asph * 0.5 / gamma
+n_pass_a = int(np.searchsorted(r1, r_pass_a, side='left'))
+if asphaltenes and n_pass_a > 1:
+    warnings.warn(f'Флокулы асфальтенов D_asph = {D_asph} м закупоривали бы капилляры r < {r_pass_a:.2e} м '
+                  f'({n_pass_a} узлов сетки радиусов), но блокирование флокулами не моделируется - только сужение')
 
 
 if __name__ == '__main__':
