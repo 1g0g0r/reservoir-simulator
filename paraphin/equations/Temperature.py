@@ -3,13 +3,13 @@ import numpy as np
 from numba import njit
 
 from paraphin.constants import (volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, init_m, K_ff,
-                                c_ff, heat_losses, latent_heat, wax_components)
+                                c_ff, heat_losses, latent_heat, latent_heat_mult, wax_components)
 
 # Свойства окружающих пород. Константы уровня модуля: numba вшивает их в машинный код литералами,
 # а не считает корень и деление на каждой ячейке каждый шаг.
 alpha_ff = K_ff / (c_ff * ro_ff)  # температуропроводность, [м^2/с]
 M_ff = c_ff * ro_ff               # объемная теплоемкость, [Дж/(м^3*C)]
-LATENT = latent_heat * ro_o       # скрытая теплота на единицу массовой доли w_p, [Дж/м^3]
+LATENT = latent_heat * latent_heat_mult * ro_o  # скрытая теплота на единицу массовой доли w_p, [Дж/м^3]
 
 
 @njit(cache=True)

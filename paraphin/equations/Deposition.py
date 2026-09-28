@@ -46,12 +46,12 @@ from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, DIF
                                       PERM_N, PERM_BETA, PERM_SMAX, PERM_GAMMA, PERM_ALPHA, LTNE_DG, LTNE_DM, NET_Z,
                                       NET_GAMMA, KX_WEQ,
                                       KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR, KX_VGEL, KX_TS,
-                                      KX_GMAX)
+                                      KX_GMAX, KX_SIG0)
 from paraphin.oil_composition import N_W, IA_D, IA_F, I_R, IN_F
 from paraphin.utils import crystal_volume_fraction
 from .Thermo_wax import sle_split
 from .Kinetics_math import (brownian_diffusivity, shear_diffusivity, stokes_velocity, leveque_velocity, floc_size,
-                            wall_fraction, langmuir_constant, langmuir_eq, langmuir_film_step, perm_kozeny_carman,
+                            wall_fraction, langmuir_constant, langmuir_ldf_step, langmuir_film_step, perm_kozeny_carman,
                             perm_power, perm_damage, perm_surface, ema_conductance)
 
 _SO_MAX = 1.0 - S_max
@@ -363,7 +363,9 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
         # Удержание в горлах: малый объем - большая потеря проводимости (обзор 4.1, структурный эффект), функция
         # повреждения Civan (2015) по объему удержанного, sigma = (G_a + G_r)/ro_ad
         sigma_v = (kx[i, j, KX_GA] + kx[i, j, KX_GR]) / ro_asph_dep + (q_ada + q_adr) * dt
-        new_k[i, j] *= perm_damage(sigma_v / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA])
+        # повреждение - от начального удержания (`ads_init_equilibrium`; у чистого керна sigma_0 = 0, D = 1)
+        d_0 = perm_damage(kx[i, j, KX_SIG0] / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA])
+        new_k[i, j] *= perm_damage(sigma_v / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA]) / d_0
     # Остаточная проницаемость: функция повреждения при sigma >= sigma_max и сеть ниже порога протекания дают
     # ноль, а нулевая подвижность делает матрицу давления вырожденной
     new_k[i, j] = max(new_k[i, j], _K_FLOOR * init_k)
@@ -484,13 +486,15 @@ def _adsorption(i, j, T_K, Wc, kx, kin, mso, mso_dt, dt, new_kx):
 @njit(cache=True)
 def _langmuir_step(c, g_now, g_max, k_l, frac, film, mso_dt, dt):
     """Объем слоя, адсорбируемого за единицу времени, [1/с]: шаг к изотерме Ленгмюра, не больше растворенного.
-    frac - доля пути к равновесию за шаг (кинетика твердой фазы) или A*dt (пленочная)."""
+    frac - доля пути к равновесию за шаг (кинетика твердой фазы) или A*dt (пленочная). Кинетика твердой фазы -
+    неявная по концентрации в нефти ячейки (`langmuir_ldf_step`): остаточной нефти в заводненной зоне мало, и
+    явный шаг колебался между полной выборкой растворенного и десорбцией."""
     if film:
         dg = langmuir_film_step(g_now, g_max, k_l, c, frac) - g_now
+        if dg > 0.0:
+            dg = min(dg, mso_dt * dt * c * ro_o)
     else:
-        dg = (langmuir_eq(g_max, k_l, c) - g_now) * frac  # [кг/м^3 породы]
-    if dg > 0.0:
-        dg = min(dg, mso_dt * dt * c * ro_o)
+        dg = langmuir_ldf_step(g_now, g_max, k_l, c, mso_dt * dt * ro_o, frac) - g_now  # [кг/м^3 породы]
     return dg / ro_asph_dep / dt
 
 

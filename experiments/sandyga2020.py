@@ -47,7 +47,9 @@ WATS = (33.8, 34.3, 34.8)  # WAT пористой среды, C: по автор
 PORE_VARIANTS = (None, 0.3, 0.4)
 FIT_STEP = np.array([0.05, 0.05, 0.05])  # шаги производных по lg k_wall, lg C0, lg k_cryst
 FIT_LO, FIT_HI = [-6.0, -2.0, -5.0], [0.0, 0.0, 0.0]
-POINTS = (35.0, 34.0, 33.5, 33.0, 32.8)  # температуры критерия «в пределах 1.25 раза»
+POINTS = (35.0, 34.0, 33.5, 33.0, 32.8)
+# Скорости охлаждения керна, C/ч, для прогноза: в опыте 1 C/ч, кинетика кристаллизации дает зависимость от скорости
+COOLING_RATES = (0.25, 0.5, 2.0, 4.0)  # температуры критерия «в пределах 1.25 раза»
 T_ERR, G_ERR = 0.1, 0.3                 # точность оцифровки: C и МПа/м
 
 
@@ -155,12 +157,17 @@ def kin(k_wall, c0, k_cr, net=None):
     return out
 
 
-def kin_case(wat, p, net=None):
-    """Прогон с кристаллизацией на стенках и гель-отложением (net - горло сети пор или None - пучок)."""
+def kin_case(wat, p, net=None, rate=None):
+    """Прогон с кристаллизацией на стенках и гель-отложением (net - горло сети пор или None - пучок); rate -
+    скорость охлаждения, C/ч, если не как в опыте (прогноз)."""
     exp, extra = exp_case(wat)
+    if rate is not None:
+        exp['pv_end'] *= exp['cooling'] / (rate / 3600.0)  # тот же интервал температур
+        exp['cooling'] = rate / 3600.0
     base = dict(core_constants(exp, dt=2.0), **extra)
     flags = dict(KINETICS, pore_network='True') if net is not None else KINETICS
-    name = f'exp_sd_{"net" if net is not None else "kin"}_{wat:g}'
+    # копия - на набор констант, а Time_end зависит от скорости
+    name = f'exp_sd_{"net" if net is not None else "kin"}_{wat:g}' + ('' if rate is None else f'_r{rate:g}')
     return (name, dict(base, **flags), {'exp': exp, 'mode': 'ramp', 'kin': kin(*p, net)})
 
 
@@ -219,7 +226,8 @@ def run(mode: str = 'full') -> dict:
         params = load_params('sandyga2020')
         wat, p_best, net = params['best'][0], tuple(params['best'][1:]), params.get('net')
         p_ref, net_ref, table = tuple(params['wat_authors'][1:]), params.get('net_authors'), []
-    r_best, r_ref = run_many([kin_case(wat, p_best, net), kin_case(SOL['WAT_core'], p_ref, net_ref)])
+    r_best, r_ref, *r_rates = run_many([kin_case(wat, p_best, net), kin_case(SOL['WAT_core'], p_ref, net_ref)]
+                                       + [kin_case(wat, p_best, net, rate) for rate in COOLING_RATES])
     out = {'legacy': dict(result=head[0], **metrics(head[0])), 'gel2': dict(result=head[1], **metrics(head[1])),
            'grid': table, 'noise_log': noise_log(), 'porosity_exp': CORE['porosity_after'] / CORE['porosity'],
            'wat_authors': dict(wat=SOL['WAT_core'], k_wall=p_ref[0], c0=p_ref[1], k_cryst=p_ref[2], net=net_ref,
@@ -227,6 +235,7 @@ def run(mode: str = 'full') -> dict:
            'kinetics_best': dict(wat=wat, k_wall=p_best[0], c0=p_best[1], k_cryst=p_best[2], net=net, result=r_best,
                                  **metrics(r_best))}
     out['best'] = {k: v for k, v in out['kinetics_best'].items() if k != 'result'}
+    out['cooling'] = cooling_rates(dict(zip(COOLING_RATES, r_rates)), r_best, p_best[2])
     print(f'шумовой порог СКО lg {out["noise_log"]:.3f}; пористость после опыта {out["porosity_exp"]:.3f}', flush=True)
     for name, e in (('прежняя', out['legacy']), ('гель 2 %', out['gel2']),
                     (f'кинетика, WAT {SOL["WAT_core"]} C', out['wat_authors']),
@@ -236,6 +245,29 @@ def run(mode: str = 'full') -> dict:
               f'полная {e["m_total"]:.2f}', flush=True)
     save_results('sandyga2020', out)
     plot(out)
+    return out
+
+
+def cooling_rates(runs: dict, r_best, k_cr: float) -> dict:
+    """Прогноз: рост градиента при разных скоростях охлаждения (параметры подбора при 1 C/ч).
+
+    Показатели: температура, при которой градиент вырос в 2 и в 10 раз, и рост к концу охлаждения (32.8 C).
+    Чем быстрее охлаждение, тем дальше пересыщение отстает от равновесия (k_cryst конечна) и тем ниже температура
+    заметного роста; число Дамкелера Da = k_cryst*dT_W/v_cool - отношение времени охлаждения на интервале
+    выпадения к времени кристаллизации."""
+    rate_exp = CORE['cooling_C_per_s'] * 3600.0
+    runs = {**runs, rate_exp: r_best}
+    out = {}
+    for rate in sorted(runs):
+        t, g = curve(runs[rate])
+        order = np.argsort(-t)  # по убыванию температуры - по времени
+
+        def at_ratio(x):
+            above = np.nonzero(g[order] >= x)[0]
+            return float(t[order][above[0]]) if above.size else None
+        out[f'{rate:g}'] = dict(rate=rate, t2=at_ratio(2.0), t10=at_ratio(10.0), final=float(g[order][-1]),
+                                damkohler=float(k_cr / (rate / 3600.0)),  # на 1 C интервала выпадения
+                                curve=[t.tolist(), g.tolist()])
     return out
 
 

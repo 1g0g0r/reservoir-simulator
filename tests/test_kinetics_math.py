@@ -175,6 +175,34 @@ def test_langmuir_film_step():
     assert min(steps) > 0.9 * steps[0]
 
 
+def test_langmuir_ldf_step():
+    """Кинетика твердой фазы, неявная по концентрации: при малой доле пути f - явная запись, при f = 1 -
+    равновесие закрытой ячейки (масса сохраняется, G = G_eq(c_new)), c_new не отрицательна и не колеблется."""
+    from paraphin.equations.Kinetics_math import langmuir_ldf_step
+    g_max, k_l = 4.8, 4.5e4
+    for c, a, g in ((0.009, 160.0, 3.2), (0.009, 5.0, 3.2), (0.0, 5.0, 4.0), (0.02, 1e-3, 0.5)):
+        # малый шаг: f*dG_eq/dc/a << 1 (у c = 0 изотерма крутая, dG_eq/dc = G_max*K)
+        f = 1e-4 * a / (g_max * k_l)
+        explicit = f * (langmuir_eq(g_max, k_l, c) - g)
+        assert np.isclose(langmuir_ldf_step(g, g_max, k_l, c, a, f) - g, explicit, rtol=1e-3)
+        g_new = langmuir_ldf_step(g, g_max, k_l, c, a, 1.0)
+        c_new = c - (g_new - g) / a
+        assert c_new >= 0.0
+        assert np.isclose(g_new, langmuir_eq(g_max, k_l, c_new), rtol=1e-9)
+    # Закрытая ячейка с малым запасом нефти: монотонный подход к равновесию без колебаний
+    g, c, a = 3.2, 0.009, 5.0
+    total = g + a * c
+    steps = []
+    for _ in range(50):
+        g_new = langmuir_ldf_step(g, g_max, k_l, c, a, 0.9)
+        c -= (g_new - g) / a
+        steps.append(g_new - g)
+        g = g_new
+        assert c >= 0.0 and np.isclose(g + a * c, total, rtol=1e-12)
+    assert all(s >= -1e-15 for s in steps)
+    assert langmuir_ldf_step(g, g_max, k_l, c, 0.0, 0.5) == g  # нет нефти - нет обмена
+
+
 def test_ema_network():
     """Эффективная среда Киркпатрика: одинаковые горла - та же проводимость; доля p открытых одинаковых горл -
     g*(p - 2/z)/(1 - 2/z) и ноль ниже порога протекания 2/z; при z -> inf - среднее арифметическое (пучок)."""

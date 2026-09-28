@@ -10,7 +10,7 @@ import numpy as np
 from numba import njit, prange
 from tqdm import tqdm
 
-from paraphin import N, r1, r3, r4, r5, r6, fi_0
+from paraphin import N, r1, r3, r4, r5, r6, fi_0, surf_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs_path, init_T, init_k, init_S, init_m,
                         init_p, init_qp, init_h_sloy, init_Wp, init_Wps, bar_to_pa, dt, day_to_sec,
                         max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, geological_reserves,
@@ -18,15 +18,18 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs
                         min_Wps_bound, wax_components, asphaltenes, gelation, pressure_viscosity,
                         gel_time, gel_mobility_min, alpha_p_visc, P_ref_wax, sara_asphaltenes, case_name,
                         ro_asph_dep, ro_p, ro_asph, deposition_kinetics, deposition_model, wax_kinetics,
-                        asph_aggregation, wettability, thermal_nonequilibrium)
+                        asph_aggregation, wettability, thermal_nonequilibrium, adsorption,
+                        ads_init_equilibrium, R)
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, temperature_source,
                         temperature_equation, wp_equation, calc_velocities_h, flows_in_cells,
                         calc_Um_r2, components_equation, calc_qp_m_k_fi_2, calc_velocity_asph,
                         yield_stress, gel_phi_eq, pore_solid_fraction, calc_wat_field, sle_split)
 from .equations.Asphaltene import asph_soluble
 from .equations.Deposition import calc_deposition, calc_filtration, NROWS
-from .kinetics_params import (default_kin, NKX, KX_WEQ, KX_TS, KX_GA, KX_GMAX, AGG_D0, OW_S_MIN, OW_S_MAX, OW_N_O,
-                              OW_N_W)
+from .kinetics_params import (default_kin, NKX, KX_WEQ, KX_TS, KX_GA, KX_GR, KX_GMAX, KX_SIG0, AGG_D0, OW_S_MIN,
+                              OW_S_MAX, OW_N_O, OW_N_W, ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RESIN,
+                              PERM_BETA, PERM_SMAX)
+from .equations.Kinetics_math import langmuir_constant
 from .equations.Thermal_ltne import temperature_equation_ltne
 from .oil_composition import N_W, NC, IA_D, IA_F, I_R, IS0, IN_F, WAX_W0, F_SAT_REST, initial_components
 from .utils import (calc_mu_o, calc_mu_p, calc_mu_w, crystal_volume_fraction, preprocess_wells, convert_pkl_files,
@@ -197,6 +200,8 @@ class Solver:
                              '(аргумент p в add_well): иначе уровень давления ничем не закреплен и матрица вырождена')
 
         self.integr_r2_fi0, self.integr_r4_fi0 = _calc_integrals()
+        if adsorption and ads_init_equilibrium:
+            self._init_retention()
         # Состав втекающей нефти по ГУ Дирихле для парафина: если не задан явно (`add_inflow_composition`),
         # группы - в начальной пропорции с заданной суммой, асфальтены и смолы - как в пласте
         for bound in range(4):
@@ -212,6 +217,31 @@ class Solver:
         self._wells_names = [item['name'] for item in self._wells_buffer]
         self.wells = preprocess_wells(self._wells_buffer)
         self.max_dfw = _calc_max_dfw(init_T, self.wells)
+
+
+    def _init_retention(self) -> None:
+        """Начальное удержание смол и асфальтенов в равновесии с пластовой нефтью при init_T (`ads_init_equilibrium`).
+
+        Порода и нефть в пласте в контакте геологическое время, поэтому init_m и init_k относятся к породе уже с
+        удержанным слоем: пористость не уменьшается, а повреждение проницаемости считается от начального объема
+        sigma_0 (`KX_SIG0`). Нужен параметр кинетики `solver.kin`, поэтому вызывается из `initialize`, а не из
+        конструктора. Тождество пористости тогда - от начального удержания: m0 - m = ... + (G - G_0)/ro_ad."""
+        kin = self.kin
+        k_l = langmuir_constant(kin[ADS_K], kin[ADS_DH], init_T + 273.15, kin[ADS_T_REF] + 273.15, R)
+        g_max = kin[ADS_GMAX] * surf_0
+        for idx, comp, mult in ((KX_GA, IA_D, 1.0), (KX_GR, I_R, kin[ADS_RESIN])):
+            c = self.Wc[..., comp]
+            self.kx[..., idx] = g_max * mult * k_l * c / (1.0 + k_l * c)  # изотерма Ленгмюра (`langmuir_eq`)
+        self.kx[..., KX_GMAX] = g_max
+        self.kx[..., KX_SIG0] = (self.kx[..., KX_GA] + self.kx[..., KX_GR]) / ro_asph_dep
+        self.new_kx[:] = self.kx
+        rel = float(kin[PERM_BETA] * self.kx[..., KX_SIG0].max() / (kin[PERM_SMAX] * init_m))
+        if rel >= 1.0:  # D(sigma_0) = 0: от полностью поврежденного начального состояния повреждение не отсчитать
+            raise ValueError(f'Равновесное удержание при {init_T:g} C исчерпывает функцию повреждения '
+                             f'(beta*sigma_0/(sigma_max*m0) = {rel:.2f} >= 1): параметры удержания не согласованы '
+                             f'с пластовой температурой')
+        print(f'Начальное удержание в равновесии при {init_T:g} C: асфальтены {self.kx[0, 0, KX_GA]:.3g}, смолы '
+              f'{self.kx[0, 0, KX_GR]:.3g} кг/м^3 породы, {self.kx[0, 0, KX_SIG0] / init_m:.2e} порового объема')
 
 
     def add_bc(self, field: DataField, bound: Bound, type_bc: TypeBC, value: float) -> None:

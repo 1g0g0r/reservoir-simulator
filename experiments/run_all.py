@@ -73,6 +73,12 @@ def tables(results: dict) -> dict:
                             'проводящая пористость, доли m₀'],
                            [(n, _f(a), _f(k), _f(b, 1), _f(c, 2)) for n, a, k, b, c in rows])
         best = results['sandyga2020']['best']
+        if 'cooling' in results['sandyga2020']:
+            rates = sorted(results['sandyga2020']['cooling'].values(), key=lambda e: e['rate'])
+            out['SD_RATES'] = _table(['Скорость охлаждения, °C/ч', 'Da на 1 °C', 'рост в 2 раза, °C', 'рост в 10 раз, °C',
+                                      'рост к 32.8 °C, раз'],
+                                     [(f"{e['rate']:g}", _f(e['damkohler'], 2), _f(e['t2'], 2), _f(e['t10'], 2),
+                                       f"{e['final']:.0f}") for e in rates])
         out['SD_PORES'] = _table(['Диаметр пор, мкм'] + [str(d) for d in sandyga2020.DATA['pores']['d_um']],
                                  [['томография'] + [_f(v, 2) for v in best['pore_loss_exp']],
                                   ['модель'] + [_f(v, 2) for v in best['pore_loss']]])

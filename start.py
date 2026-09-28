@@ -3,9 +3,14 @@ from paraphin.constants import Pw, Po, rw, Twater, Ny, Nx, S_max, day_to_sec
 from paraphin.solver import Solver, Bound, TypeBC, DataField
 
 
-def solve():
-    """Запуск расчета."""
+def solve(kin: dict = None):
+    """Запуск расчета. kin - параметры кинетики осаждения по именам (`paraphin/kinetics_params.py`), например
+    подобранные по керновым опытам (`experiments/params.json`); без него - значения из constants.py."""
     solver = Solver()
+    if kin:
+        from paraphin.kinetics_params import kin_index
+        for name, value in kin.items():
+            solver.kin[kin_index(name)] = value
 
     # Добавление скважин
     solver.add_well(name='Injector', i=0,    j=0,    p=Pw, rw=rw, mult=0.25, is_injector=True, T=Twater)

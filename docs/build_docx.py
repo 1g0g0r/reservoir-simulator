@@ -12,6 +12,8 @@
     `experiments/results/tables.json` (пишет `experiments/run_all.py`);
   - `experiments/состав/валидация_АСПО.md` - первое сравнение детального состава; таблицы из
     `validation_tables.json` рядом (пишет `experiments/состав/validate.py`).
+  - `твт_статья_АСПО/article.md` - статья для ТВТ; числа и таблицы - из `твт_статья_АСПО/results/numbers.json`
+    (пишет `твт_статья_АСПО/make_article.py`).
 
 Стили (Times New Roman 12, выравнивание, поля) - те же, что у статьи: reference.docx собирается функциями
 `твт_статья/make_docx.py`. pandoc берется из пакета `pypandoc_binary` (requirements.txt), если его нет в PATH.
@@ -53,6 +55,9 @@ DOCS = {
     'валидация_АСПО': (ROOT / 'experiments' / 'состав' / 'валидация_АСПО.md',
                        _tables(ROOT / 'experiments' / 'состав' / 'validation_tables.json',
                                'python experiments/состав/validate.py')),
+    'статья_АСПО': (ROOT / 'твт_статья_АСПО' / 'article.md',
+                    _tables(ROOT / 'твт_статья_АСПО' / 'results' / 'numbers.json',
+                            'python твт_статья_АСПО/make_article.py')),
 }
 
 sys.path.insert(0, str(ROOT / 'твт_статья'))
