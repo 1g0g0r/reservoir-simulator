@@ -67,6 +67,8 @@ def _sci(x, digits=1):
         return str(x)
     e = int(math.floor(math.log10(abs(x))))
     mant = x / 10 ** e
+    if abs(round(mant, digits)) >= 10.0:  # 9.6 при нуле знаков - это 1·10^(e+1), а не 10·10^e
+        mant, e = mant / 10.0, e + 1
     sup = str(e).translate(str.maketrans('-0123456789', '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'))
     return f'{mant:.{digits}f}·10{sup}'
 
@@ -158,6 +160,19 @@ def fig_li(li, num):
     num['LI_HOLD'] = f"{m.STAGE_HOLD / 3600:.0f}"
     cum = li['cumulative']
     num['LI_CUM25'] = _f(cum['25.0'])
+    # Сеть пор и горл с кинетикой, подобранной для пучка, и с кристаллами другого диаметра (`li2024.NET_D_CRYST`)
+    net = li.get('network', [])
+    if net:
+        rms = lambda e, t: e['rms'].get(f'{t}.0', e['rms'].get(t))
+        fit = next(e for e in net if e['fitted'])
+        num['LI_NET_FIT45'] = _f(rms(fit, '45'))
+        sweep = [e for e in net if not e['fitted']]
+        ok = [e for e in sweep if rms(e, '45') is not None and rms(e, '45') <= 0.05]
+        span = lambda vals, fmt: fmt.format(min(vals)) + '–' + fmt.format(max(vals))
+        num['LI_NET_D'] = span([e['d_cryst'] * 1e6 for e in ok], '{:g}')
+        num['LI_NET45'] = span([rms(e, '45') for e in ok], '{:.3f}')
+        num['LI_NET_DALL'] = span([e['d_cryst'] * 1e6 for e in sweep], '{:g}')
+        num['LI_NET25'] = span([rms(e, '25') for e in sweep if rms(e, '25') is not None], '{:.2f}')
 
 
 def fig_sandyga(sd, num):
@@ -265,77 +280,165 @@ def table_experiments(num):
 
 # --- Поле --------------------------------------------------------------------------------------------------
 
-def fig_field_maps(th, num):
-    """Карты базового варианта: четверть элемента у нагнетательной скважины - вся остывшая и поврежденная зона."""
+# Серая шкала без черного края: на темной заливке остаются читаемыми изолинии и их подписи
+GREYS = matplotlib.colors.ListedColormap(plt.cm.Greys_r(np.linspace(0.3, 1.0, 256)))
+MAP_LABELS = {'T': 'T, °C', 'S': 'S', 'k': 'k/k₀'}
+
+
+def _map(ax, z, vmin, vmax, fmt, zoom=1.0):
+    """Карта поля: заливка в сером (темнее - меньше), изолинии с подписями; возвращает заливку для цветовой шкалы.
+    Треугольник - нагнетательная скважина, круг - добывающая."""
+    from matplotlib.ticker import MaxNLocator
     from paraphin.constants import X_max, Y_max
+    z = np.array(z).T
+    ny, nx = z.shape
+    # значения в центрах ячеек, продленные на границы, чтобы заливка доходила до краев
+    x = np.concatenate(([0.0], (np.arange(nx) + 0.5) * X_max / nx, [X_max]))
+    y = np.concatenate(([0.0], (np.arange(ny) + 0.5) * Y_max / ny, [Y_max]))
+    z = np.pad(z, 1, mode='edge')
+    fill = ax.contourf(x, y, np.clip(z, vmin, vmax), levels=np.linspace(vmin, vmax, 41), cmap=GREYS)
+    levels = [c for c in MaxNLocator(6).tick_values(vmin, vmax) if vmin < c < vmax and z.min() < c < z.max()]
+    if levels:
+        cs = ax.contour(x, y, z, levels=levels, colors='k', linewidths=0.7)
+        ax.clabel(cs, fmt=fmt, fontsize=7)
+    ax.plot([0], [0], '^', color='k', ms=7, clip_on=False)
+    ax.plot([X_max], [Y_max], 'o', color='k', ms=6, clip_on=False)
+    ax.set_xlim(0, zoom * X_max)
+    ax.set_ylim(0, zoom * Y_max)
+    ax.set_aspect('equal')
+    return fill
+
+
+def _bar(fig, fill, ax, key):
+    """Цветовая шкала карты с подписью величины."""
+    bar = fig.colorbar(fill, ax=ax, shrink=0.85, pad=0.03, ticks=matplotlib.ticker.MaxNLocator(5))
+    bar.set_label(MAP_LABELS[key], fontsize=8)
+    bar.ax.tick_params(labelsize=7)
+
+
+def _range(th, key, maps):
+    """Пределы шкалы: температура - от закачки до пластовой, насыщенность и k/k0 - по всем картам."""
+    if key == 'T':
+        return 20.0, th['init_T']
+    vals = np.concatenate([np.ravel(m) for m in maps])
+    return float(vals.min()), float(max(vals.max(), vals.min() + 1e-3))
+
+
+def _zoom(th, maps):
+    """Доля стороны элемента, в которую с запасом укладываются остывшая и поврежденная зоны на конец расчета,
+    с шагом 0.25: зона у нагнетательной скважины крупнее и видна целиком."""
+    t, k = np.array(maps['T'][-1]), np.array(maps['k'][-1])
+    hit = np.nonzero((t < th['init_T'] - 1.0) | (k < 0.98))
+    extent = (max(hit[0].max(), hit[1].max()) + 1) / t.shape[0] if hit[0].size else 0.25
+    return min(1.0, 0.25 * math.ceil(1.15 * extent / 0.25))
+
+
+def fig_field_maps(th, num):
+    """Журнальный рисунок: температура и проницаемость базового варианта на конец расчета, с цветовыми шкалами."""
     maps = th['maps']
-    zoom = 0.5  # доля стороны элемента
-    fig, axes = plt.subplots(1, 2, figsize=(6.7, 3.1))
-    for ax, key, levels, letter, fmt in (
-            (axes[0], 'T', np.arange(25, 70, 5), 'а', '%.0f'),
-            (axes[1], 'k', (0.1, 0.2, 0.3, 0.5, 0.7, 0.9), 'б', '%.1f')):
-        z = np.array(maps[key]).T
-        ny, nx = z.shape
-        # значения в центрах ячеек, продленные на границы, чтобы заливка доходила до краев
-        x = np.concatenate(([0.0], (np.arange(nx) + 0.5) * X_max / nx, [X_max]))
-        y = np.concatenate(([0.0], (np.arange(ny) + 0.5) * Y_max / ny, [Y_max]))
-        z = np.pad(z, 1, mode='edge')
-        fill = np.concatenate(([z.min() - 1e-9], levels, [z.max() + 1e-9]))
-        ax.contourf(x, y, z, levels=fill, cmap='Greys_r', alpha=0.5)
-        cs = ax.contour(x, y, z, levels=levels, colors='k', linewidths=0.8)
-        ax.clabel(cs, fmt=fmt, fontsize=7.5)
-        ax.plot([0], [0], 'v', color='k', ms=8, clip_on=False)
-        ax.set_xlim(0, zoom * X_max)
-        ax.set_ylim(0, zoom * Y_max)
-        ax.set_aspect('equal')
+    zoom = _zoom(th, maps)
+    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.9))
+    for ax, key, fmt, letter in ((axes[0], 'T', '%.0f', 'а'), (axes[1], 'k', '%.2f', 'б')):
+        fill = _map(ax, maps[key][-1], *_range(th, key, [maps[key][-1]]), fmt, zoom)
+        _bar(fig, fill, ax, key)
         ax.set_xlabel('x, м')
-        ax.text(0.95, 0.95, f'({letter})', transform=ax.transAxes, va='top', ha='right', **PANEL)
+        _panel(ax, letter)
     axes[0].set_ylabel('y, м')
     fig.tight_layout()
     _save(fig, 'aspo_f5')
+    num['F_MAP_SIDE'] = f'{zoom * 200:.0f}'
 
 
-FIELD_CURVES = (('t70', '1'), ('t40', '2'), ('base', '3'), ('t5', '4'))
+def fig_field_evolution(th, num):
+    """Полная версия: температура, водонасыщенность и k/k0 базового варианта в три момента по всему элементу;
+    шкала одна на строку, чтобы моменты сравнивались по одной заливке."""
+    maps = th['maps']
+    fig, axes = plt.subplots(3, 3, figsize=(6.7, 6.6), sharex=True, sharey=True)
+    for row, (key, fmt) in enumerate((('T', '%.0f'), ('S', '%.2f'), ('k', '%.2f'))):
+        lo, hi = _range(th, key, maps[key])
+        for col, z in enumerate(maps[key]):
+            fill = _map(axes[row, col], z, lo, hi, fmt)
+            _panel(axes[row, col], 'абвгдежзи'[3 * row + col])
+            if row == 0:
+                axes[row, col].set_title(f"t = {maps['years'][col]:g} г.", fontsize=9)
+        _bar(fig, fill, list(axes[row]), key)
+    for ax in axes[-1]:
+        ax.set_xlabel('x, м')
+    for ax in axes[:, 0]:
+        ax.set_ylabel('y, м')
+    _save(fig, 'aspo_f8')
+    num['F_MAP_YEARS'] = ', '.join(f'{y:g}' for y in maps['years'])
 
 
-def fig_field_time(th, num):
+# Журнальный рисунок - ключевые факторы, полная версия - температура закачки
+FIELD_CURVES = (('tiso', '1'), ('base', '2'), ('hl0', '3'), ('nowax', '4'), ('ret', '5'))
+TEMP_CURVES = (('tiso', '1'), ('t40', '2'), ('base', '3'), ('t5', '4'))
+
+
+def _time_curves(th, curves, name):
+    """Приемистость нагнетательной скважины (а) и КИН (б) во времени; маркеры - для различения кривых в сером."""
     v = th['variants']
-    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.7))
-    for (name, label), style, marker in zip(FIELD_CURVES, STYLES, MARKERS):
-        if name not in v:
+    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.8))
+    for (key, label), style, marker in zip(curves, STYLES, MARKERS):
+        if key not in v:
             continue
-        s = v[name]['series']
+        s = v[key]['series']
         t = np.array(s['years'])
-        axes[0].plot(t, np.array(s['q_inj']) * 4.0, ls=style, color='k', lw=1.3, label=label)
-        axes[1].plot(t, np.array(s['rf']), ls=style, color='k', lw=1.3, label=label)
+        every = max(1, len(t) // 7)
+        for ax, y in ((axes[0], np.array(s['q_inj']) * 4.0), (axes[1], np.array(s['rf']))):
+            ax.plot(t, y, ls=style, color='k', lw=1.2, marker=marker, ms=3.5, mfc='white', markevery=every,
+                    label=label)
     axes[0].set_ylabel('Q, м³/сут')
     axes[1].set_ylabel('КИН')
     for ax, letter in zip(axes, 'аб'):
         ax.set_xlabel('t, годы')
+        ax.set_ylim(bottom=0)
         _panel(ax, letter)
-    axes[0].set_ylim(bottom=0)
-    axes[0].legend(loc='center right', fontsize=8, handlelength=2.6)
+    axes[1].legend(loc='lower right', fontsize=8, handlelength=3.2)
     fig.tight_layout()
-    _save(fig, 'aspo_f6')
+    _save(fig, name)
+
+
+def fig_field_time(th, num):
+    _time_curves(th, FIELD_CURVES, 'aspo_f6')
+    _time_curves(th, TEMP_CURVES, 'aspo_f7')
+
+
+def _opt(x, fmt, scale=1.0):
+    return '—' if x is None else fmt.format(scale * x)
+
+
+FIELD_ORDER = ('base', 'tiso', 't40', 't5', 'hl0', 'hl1', 'nowax', 'hl0_nowax', 'nogel', 'ret',
+               'nolatent', 'equil', 'nopress', 'ltne')
+
+
+def factorial(v, f) -> dict:
+    """Полный факторный план теплообмен x парафин (табл. 3 прежней статьи): эффект одного фактора при двух уровнях
+    другого и взаимодействие. f(имя варианта) - показатель."""
+    hl_wax, hl_nowax = f('base') - f('hl0'), f('nowax') - f('hl0_nowax')
+    return {'hl_wax': hl_wax, 'hl_nowax': hl_nowax, 'wax_hl': f('base') - f('nowax'),
+            'wax_nohl': f('hl0') - f('hl0_nowax'), 'inter': hl_wax - hl_nowax}
 
 
 def field_numbers(th, num):
-    from paraphin.constants import (init_T, h, K_f, K_w, K_o, c_w, ro_w, c_o, ro_o, c_f, ro_f, init_m, init_S,
-                                    latent_heat, P_ref_wax)
+    from paraphin.constants import (h, K_f, K_w, K_o, c_w, ro_w, c_o, ro_o, c_f, ro_f, init_m, init_S, latent_heat,
+                                    P_ref_wax)
     import paraphin.oil_composition as oc
+    t0 = th['init_T']
     v = th['variants']
     base = v['base']
     rows = []
-    order = ('base', 't70', 't40', 't5', 'hl0', 'hl1', 'nolatent', 'equil', 'nopress', 'ltne', 'noret')
-    for name in order:
+    for name in FIELD_ORDER:
         if name not in v:
             continue
         e = v[name]
         d_rf = '—' if name == 'base' else _delta(e['rf'] - base['rf'])
         rows.append((e['label'], f"{e['rf']:.3f}", d_rf, f"{e['injected'] / 1e3:.1f}", _nz(e['skin_inj'], 1),
-                     f"{e['wax_dep_t']:.0f}", _nz(e['retained_t'], 1).replace('-', '−'), f"{e['T_mean']:.1f}"))
+                     f"{e['wax_dep_t']:.0f}", f"{100 * e['below_wat_area']:.0f}", f"{100 * e['gel_area']:.0f}",
+                     f"{e['T_mean']:.1f}"))
     num['T2'] = _table(['Вариант', 'КИН', 'ΔКИН', 'Закачано, тыс. м³', 'Скин-фактор нагнетательной скважины',
-                        'Парафин в осадке, т', 'Прирост удержания, т', 'Средняя температура, °C'], rows)
+                        'Парафин в осадке, т', 'Ниже WAT, % площади', 'Гель, % площади',
+                        'Средняя температура, °C'], rows)
     for name, e in v.items():
         tag = name.upper()
         num[f'F_{tag}_RF'] = f"{e['rf']:.3f}"
@@ -344,6 +447,7 @@ def field_numbers(th, num):
         num[f'F_{tag}_INJ'] = f"{e['injected'] / 1e3:.1f}"
         num[f'F_{tag}_SKIN'] = f"{e['skin_inj']:.1f}"
         num[f'F_{tag}_KINJ'] = f"{e['k_inj']:.3f}"
+        num[f'F_{tag}_KMIN'] = f"{e['k_min']:.2f}"
         num[f'F_{tag}_WAX'] = f"{e['wax_dep_t']:.0f}"
         num[f'F_{tag}_RET'] = f"{e['retained_t']:.1f}"
         num[f'F_{tag}_TMEAN'] = f"{e['T_mean']:.1f}"
@@ -360,27 +464,53 @@ def field_numbers(th, num):
         num[f'F_{tag}_KPROD'] = f"{e['k_prod']:.2f}"
         num[f'F_{tag}_ASPHPROD'] = f"{100 * e['asph_dep_prod']:.0f}"
         num[f'F_{tag}_ASPH'] = f"{e['asph_dep_t']:.0f}"
-    if 't70' in v:
-        num['F_INJ_LOSS'] = f"{100 * (1 - base['injected'] / v['t70']['injected']):.0f}"
-    num['F_FRONT_W'] = f"{base['front_water_1y']:.0f}"
-    if 'noret' in v and 't70' in v:
-        num['F_COOL_LOSS'] = f"{v['t70']['rf'] - base['rf']:.3f}"
-        num['F_COOL_LOSS_NORET'] = f"{v['t70']['rf'] - v['noret']['rf']:.3f}"
-        num['F_RET_SHARE'] = f"{100 * (v['noret']['rf'] - base['rf']) / (v['t70']['rf'] - base['rf']):.0f}"
-        num['F_NORET_WAXRATIO'] = f"{v['noret']['wax_dep_t'] / base['wax_dep_t']:.1f}"
+        num[f'F_{tag}_QDROP'] = _opt(e['years_q_drop'], '{:.0f}', 365.0)
+        num[f'F_{tag}_PB'] = _opt(e['years_below_pb'], '{:.1f}')
+        num[f'F_{tag}_WAT0'] = f"{e['wat0'][1]:.1f}"
+    rf = lambda n: v[n]['rf']
+    inj = lambda n: v[n]['injected'] / 1e3
+    num['F_T0'] = f'{t0:g}'
+    if 'tiso' in v:
+        num['F_INJ_LOSS'] = f"{100 * (1 - base['injected'] / v['tiso']['injected']):.0f}"
+        num['F_COOL_LOSS'] = f"{rf('tiso') - rf('base'):.3f}"
+    if 'nowax' in v:
+        num['F_WAX_EFF'] = f"{rf('nowax') - rf('base'):.3f}"
+        num['F_WAX_EFF_PCT'] = f"{100 * (rf('nowax') - rf('base')) / rf('nowax'):.1f}"
+        num['F_WAX_INJ_PCT'] = f"{100 * (1 - base['injected'] / v['nowax']['injected']):.0f}"
+        if 'tiso' in v:
+            num['F_WAX_SHARE'] = f"{100 * (rf('nowax') - rf('base')) / (rf('tiso') - rf('base')):.0f}"
+        if 'nogel' in v:  # доля геля в эффекте парафина
+            num['F_GEL_SHARE'] = f"{100 * (rf('nogel') - rf('base')) / (rf('nowax') - rf('base')):.0f}"
+    if all(n in v for n in ('base', 'hl0', 'nowax', 'hl0_nowax')):
+        rows3 = []
+        for label, f, fmt in (('КИН', rf, '{:+.3f}'), ('Закачано, тыс. м³', inj, '{:+.1f}')):
+            fx = factorial(v, f)
+            rows3.append([label] + [fmt.format(fx[k]).replace('-', '−')
+                                    for k in ('hl_wax', 'hl_nowax', 'wax_hl', 'wax_nohl', 'inter')])
+        num['T3'] = _table(['Показатель', 'Эффект теплообмена при наличии парафина', 'Эффект теплообмена без парафина',
+                            'Эффект парафина при учете теплообмена', 'Эффект парафина без учета теплообмена',
+                            'Взаимодействие'], rows3)
+        fx = factorial(v, rf)
+        for key, value in fx.items():
+            num[f'F_FX_{key.upper()}'] = f'{abs(value):.3f}'
+        num['F_FX_INTER_SIGNED'] = f"{fx['inter']:+.3f}".replace('-', '−')
+        num['F_FX_INTER_PCT'] = f"{100 * fx['inter'] / fx['hl_wax']:.0f}" if fx['hl_wax'] else '—'
     if 'hl0' in v:
-        num['F_HL0_WAXRATIO'] = f"{v['hl0']['wax_dep_t'] / base['wax_dep_t']:.1f}"
+        num['F_HL0_WAXRATIO'] = f"{v['hl0']['wax_dep_t'] / max(base['wax_dep_t'], 1e-9):.1f}"
     if 'hl1' in v:
-        num['F_HL1_WAXPCT'] = f"{100 * (v['hl1']['wax_dep_t'] / base['wax_dep_t'] - 1):.0f}"
+        num['F_HL1_WAXPCT'] = f"{100 * (v['hl1']['wax_dep_t'] / max(base['wax_dep_t'], 1e-9) - 1):.0f}"
+        if 'hl0' in v and rf('base') != rf('hl0'):
+            num['F_HL1_SHARE'] = f"{100 * (rf('hl1') - rf('hl0')) / (rf('base') - rf('hl0')):.0f}"
     # Варианты, совпавшие с базовым: наибольшее относительное расхождение показателей
-    for name in ('ltne', 'equil'):
+    for name in ('ltne', 'equil', 'nolatent'):
         if name in v:
             rel = max(abs(v[name][key] - base[key]) / max(abs(base[key]), 1e-30)
                       for key in ('rf', 'T_mean', 'wax_dep_t', 'injected', 'k_inj'))
             num[f'F_{name.upper()}_REL'] = _sci(rel, 0) if rel > 0 else '0'
     num['F_WAT0'] = f"{base['wat0'][0]:.1f}–{base['wat0'][1]:.1f}"
-    num['F_PB_YEARS'] = f"{base['years_below_pb']:.1f}"
-    num['F_QDROP_DAYS'] = f"{365.0 * base['years_q_drop']:.0f}"
+    num['F_PB_YEARS'] = _opt(base['years_below_pb'], '{:.1f}')
+    num['F_QDROP_DAYS'] = _opt(base['years_q_drop'], '{:.0f}', 365.0)
+    num['F_FRONT_W'] = f"{base['front_water_1y']:.0f}"
     num['F_FRONT_T'] = f"{base['front_cold_1y']:.0f}"
     num['F_FRONT_RATIO'] = f"{base['front_cold_1y'] / max(base['front_water_1y'], 1e-9):.2f}"
     num['F_WIDTH'] = f"{base['front_width_1y']:.0f}"
@@ -399,9 +529,10 @@ def field_numbers(th, num):
     num['F_VT_RATIO'] = f'{init_m * ro_w * c_w / rc_eff:.2f}'
     t_inj = 20.0
     w0 = oc.WAX_W0.sum()
-    live = w0 - oc.sle_split_np(oc.WAX_W0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV, t_inj,
-                                dp=12e6 - P_ref_wax, n_g=oc.gas_moles(12e6)).sum()
-    ste = rc_eff * (init_T - t_inj) / (init_m * (1 - init_S) * ro_o * live * latent_heat)
+    solid = lambda t: w0 - oc.sle_split_np(oc.WAX_W0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV, t,
+                                           dp=12e6 - P_ref_wax, n_g=oc.gas_moles(12e6)).sum()
+    live = solid(t_inj) - solid(t0)  # выпадает при охлаждении живой нефти от пластовой до температуры закачки
+    ste = rc_eff * (t0 - t_inj) / (init_m * (1 - init_S) * ro_o * live * latent_heat)
     num['F_STE'] = f'{ste:.0f}'
     num['F_WPREC'] = f'{100 * live:.1f}'
     num['F_WAX0'] = f'{100 * w0:.1f}'
@@ -412,10 +543,10 @@ def field_numbers(th, num):
     kin = th['kin']
     t_ref = kin.get('ADS_T_REF', 70.0) + 273.15
     k_l = lambda t: kin['ADS_K'] * math.exp(-kin['ADS_DH'] / R * (1.0 / (t + 273.15) - 1.0 / t_ref))
-    num['F_KRATIO'] = _sci(k_l(t_inj) / k_l(init_T), 0)
+    num['F_KRATIO'] = _sci(k_l(t_inj) / k_l(t0), 0)
     wc = initial_components()
     g_max = kin['ADS_GMAX'] * surf_0
-    kl0 = k_l(init_T)
+    kl0 = k_l(t0)
     g0 = sum(g_max * mult * kl0 * c / (1.0 + kl0 * c) for c, mult in ((wc[IA_D], 1.0), (wc[I_R], kin.get('ADS_RESIN', 0.5))))
     rel0 = kin['PERM_BETA'] * g0 / ro_asph_dep / (kin['PERM_SMAX'] * init_m)
     num['F_SIG0'] = f'{rel0:.2f}'
@@ -435,6 +566,10 @@ def field_numbers(th, num):
     da = th['kin']['K_CRYST'] * t_pass
     num['F_DA'] = _sci(da, 0)
     num['F_TPASS'] = f'{t_pass / 86400:.0f}'
+    # Доля пересыщения, кристаллизующаяся на стенках, k_w/(k_w + k_cr) по (13): в поле k_w - значение пакета
+    from paraphin.constants import k_wall
+    k_w = th['kin'].get('K_WALL', k_wall)
+    num['F_WALL_SHARE'] = f"{100 * k_w / (k_w + th['kin']['K_CRYST']):.0f}"
 
 
 def main():
@@ -451,6 +586,7 @@ def main():
         th = json.loads(th_path.read_text(encoding='utf-8'))
         if 'maps' in th:
             fig_field_maps(th, num)
+            fig_field_evolution(th, num)
         fig_field_time(th, num)
         field_numbers(th, num)
     else:

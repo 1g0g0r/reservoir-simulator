@@ -83,6 +83,16 @@ def cold_kin(x, kin_ret):
     return dict(kin_ret, D_CRYST=float(10 ** x[0]), DIFF_MULT=float(10 ** x[1]), K_CRYST=float(10 ** x[2]))
 
 
+# Сеть пор и горл (`pore_network`) с той же кинетикой: переносится ли подбор для пучка. Сначала подобранный диаметр
+# кристалла, затем мельче и крупнее - при каком закупорка на 45 и 25 C пропадает (прогноз, не подбор)
+NET_D_CRYST = (None, 2e-6, 4e-6, 7e-6, 10e-6)  # [м]; None - подобранный для пучка
+
+
+def net_job(gel_time, x, kin_ret):
+    name, consts, case = cold_job(gel_time, x, kin_ret)
+    return name + '_net', dict(consts, pore_network='True'), case
+
+
 def cold_job(gel_time, x, kin_ret):
     flags = dict(RETENTION, wax_kinetics='True', gel_time=repr(gel_time))
     return (f'exp_li_cold_{gel_time:g}', constants(flags),
@@ -311,6 +321,13 @@ def run(mode: str = 'full') -> dict:
     r_cold = run_many([cold_job(best_cold['gel_time'], best_cold['x'], kin_ret)])[0]
     out['cold'] = dict(gel_time=best_cold['gel_time'], x=best_cold['x'], kin=cold_kin(best_cold['x'], {}),
                        rms=stage_rms(r_cold), result=r_cold, table=table)
+    net_xs = [list(best_cold['x']) if d is None else [math.log10(d)] + list(best_cold['x'][1:]) for d in NET_D_CRYST]
+    res_net = run_many([net_job(best_cold['gel_time'], x, kin_ret) for x in net_xs])
+    out['network'] = [dict(d_cryst=10 ** x[0], fitted=d is None, rms=stage_rms(r), plugged=r['plugged'])
+                      for d, x, r in zip(NET_D_CRYST, net_xs, res_net)]
+    for e in out['network']:
+        print(f"сеть пор и горл, d = {e['d_cryst'] * 1e6:.1f} мкм:", {t: round(v, 3) for t, v in e['rms'].items()},
+              'закупорка', e['plugged'], flush=True)
     for name, key in (('прежняя', 'legacy'), ('4 группы + гель', 'scn')):
         print(name, {t: round(v, 3) for t, v in stage_rms(out[key]).items()}, flush=True)
     print(f'ниже WAT: гель {best_cold["gel_time"]:g} с, {out["cold"]["kin"]}:',
@@ -340,6 +357,9 @@ def summary(out) -> list:
         c = out['cold']
         rows.append((f'+ кинетика кристаллизации, гель {c["gel_time"]:g} с (подбор 25 °C)',
                      [get(c['rms'], t) for t in temps]))
+    for e in out.get('network', []):
+        rows.append((f'  сеть пор и горл, d = {e["d_cryst"] * 1e6:.1f} мкм{" (подбор для пучка)" if e["fitted"] else ""}',
+                     [get(e['rms'], t) for t in temps]))
     return rows
 
 

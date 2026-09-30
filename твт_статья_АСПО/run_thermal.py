@@ -1,18 +1,22 @@
 """Влияние термических процессов на поле: элемент заводнения с кинетикой осаждения, подобранной по кернам.
 
     python твт_статья_АСПО/run_thermal.py              # все варианты, по два параллельно
-    python твт_статья_АСПО/run_thermal.py base t70     # выборочно
+    python твт_статья_АСПО/run_thermal.py base tiso    # выборочно
     python твт_статья_АСПО/run_thermal.py --metrics    # только показатели по готовым расчетам
 
-Постановка - как `demo_composition.py` (пятиточечный элемент 200 x 200 x 10 м, сетка 50 x 50, 5 лет, пласт 70 C,
-забойные 17 и 7 МПа, нефть Жетыбая с детальным составом). К полной модели добавлены механизмы, подтвержденные
-опытами (`experiments/`): удержание смол и асфальтенов (параметры - подбор по керну Li et al. 2024 выше WAT) и
-кинетика кристаллизации (подбор по ступени 25 C того же керна). Начальное удержание - в равновесии с нефтью
-при пластовой температуре (`ads_init_equilibrium`): k0 пласта измерена уже с ним.
+Постановка - как `demo_composition.py` (пятиточечный элемент 200 x 200 x 10 м, сетка 50 x 50, 5 лет, забойные 17 и
+7 МПа, нефть Жетыбая с детальным составом), но пласт холоднее: T0 = 55 C, ближе к WAT живой нефти (39-40 C). При
+70 C остывала лишь зона у скважины, и парафин на показатели почти не влиял. К полной модели добавлена кинетика
+кристаллизации (подбор по ступени 25 C керна Li et al. 2024). Удержание смол и асфальтенов (подбор по тому же
+керну выше WAT) - отдельный фактор, вариант `ret`: в базовом варианте его нет, иначе за 18 сут оно давало
+нагнетательной скважине скин 45, закачка падала в шесть раз, и различия термических вариантов пропадали.
+Поровое пространство - пучок капилляров: сеть пор и горл с той же кинетикой закупоривает керн Li при 25 C, чего в
+опыте нет (разбор - в статье).
 
-Варианты меняют по одному фактору относительно базового (VARIANTS). Каждый считается в своей копии пакета
-(`tests/_patched_copy.py`), полные результаты - в `outputs/data/thermal_<вариант>_*`, показатели для статьи -
-в `твт_статья_АСПО/results/thermal.json`.
+Варианты меняют по одному фактору относительно базового (VARIANTS); `nowax` и `hl0_nowax` вместе с `base` и `hl0`
+дают полный факторный план теплообмен x парафин прежней статьи (`твт_статья/`). Каждый вариант считается в своей
+копии пакета (`tests/_patched_copy.py`), полные результаты - в `outputs/data/thermal_<вариант>__*`, показатели для
+статьи - в `твт_статья_АСПО/results/thermal.json`.
 """
 import json
 import os
@@ -34,38 +38,48 @@ from tests._patched_copy import make_copy  # noqa: E402
 DATA = ROOT / 'outputs' / 'data'
 RESULTS = HERE / 'results'
 YEARS = 5.0
+T0 = 55.0      # начальная температура пласта, [C]; в корневом constants.py - 70, поэтому в показателях берется отсюда
+T_INJ = 20.0   # температура закачки базового варианта, [C]
+MAP_YEARS = (1.0, 3.0, 5.0)  # моменты карт базового варианта
 COMMON = {'Nx, Ny': '50, 50', 'Time_end': f'day_to_sec * 365 * {YEARS}', 'Pw': '170 * bar_to_pa',
-          'Po': '70 * bar_to_pa',
+          'Po': '70 * bar_to_pa', 'init_T': repr(T0), 'Twater': repr(T_INJ),
           # полная модель детального состава (`demo_composition.FULL`)
           'wax_components': 'True', 'wax_pressure': 'True', 'asphaltenes': 'True', 'gelation': 'True',
           'wax_viscosity': '1', 'pressure_viscosity': 'True',
-          # механизмы, подтвержденные опытами
-          'adsorption': 'True', 'ads_init_equilibrium': 'True', 'wax_kinetics': 'True'}
+          # кинетика кристаллизации, подтвержденная опытами
+          'wax_kinetics': 'True'}
+NO_WAX = '1e-4'  # «без парафина»: нулевая доля выключила бы весь блок осаждения (`solver._paraphin`)
 VARIANTS = {
     'base': {},                                     # закачка 20 C, Винсом-Вестервельд, скрытая теплота, кинетика
-    't70': {'Twater': '70.0'},                      # изотермическая закачка: без термических процессов
-    't40': {'Twater': '40.0'},
+    'tiso': {'Twater': repr(T0)},                   # изотермическая закачка: без термических процессов
+    't40': {'Twater': '40.0'},                      # чуть выше WAT живой нефти: охлаждение без парафина
     't5': {'Twater': '5.0'},
     'hl0': {'heat_losses': '0'},                    # без теплообмена с кровлей и подошвой
     'hl1': {'heat_losses': '1'},                    # схема Ловерье
+    'nowax': {'init_Wp': NO_WAX},                   # нефть без парафина: эффект парафина
+    'hl0_nowax': {'heat_losses': '0', 'init_Wp': NO_WAX},  # четвертый угол факторного плана
+    'nogel': {'gelation': 'False'},                 # без предела текучести геля
+    'ret': {'adsorption': 'True', 'ads_init_equilibrium': 'True'},  # удержание смол и асфальтенов
     'nolatent': {'latent_heat_mult': '0.0'},        # без скрытой теплоты кристаллизации
     'equil': {'wax_kinetics': 'False'},             # равновесная кристаллизация
     'nopress': {'wax_pressure': 'False'},           # равновесие без давления и газа: WAT и растворимость асфальтенов
     'ltne': {'thermal_nonequilibrium': 'True'},     # отдельная температура породы
-    'noret': {'adsorption': 'False', 'ads_init_equilibrium': 'False'},  # без удержания смол и асфальтенов
 }
 LABELS = {
     'base': 'базовый: 20°C, Винсом—Вестервельд',
-    't70': 'изотермическая закачка 70°C',
+    'tiso': f'изотермическая закачка {T0:g}°C',
     't40': 'закачка 40°C',
     't5': 'закачка 5°C',
     'hl0': 'без теплообмена с кровлей и подошвой',
     'hl1': 'теплообмен по Ловерье',
+    'nowax': 'нефть без парафина',
+    'hl0_nowax': 'без парафина и без теплообмена',
+    'nogel': 'без геля',
+    'ret': 'с удержанием смол и асфальтенов',
     'nolatent': 'без скрытой теплоты',
     'equil': 'равновесная кристаллизация',
     'nopress': 'равновесие без давления и растворенного газа',
     'ltne': 'тепловое неравновесие (LTNE)',
-    'noret': 'без удержания смол и асфальтенов',
 }
 
 RUNNER = '''import json, sys
@@ -95,13 +109,14 @@ def run(name: str, threads: int) -> None:
                        check=True, stdout=f, stderr=subprocess.STDOUT)
     DATA.mkdir(parents=True, exist_ok=True)
     for src in (root / 'outputs' / 'data').glob('Wp=*'):
-        dst = DATA / src.name.replace(src.name.split('_')[0], f'thermal_{name}', 1)
+        # двойное подчеркивание отделяет имя варианта: иначе шаблон hl0 захватывал бы и hl0_nowax
+        dst = DATA / src.name.replace(src.name.split('_')[0], f'thermal_{name}_', 1)
         shutil.copy2(src, dst)
     print(f'--- {name}: готово', flush=True)
 
 
 def load(name: str):
-    paths = sorted(DATA.glob(f'thermal_{name}_*processed_data.pkl'))
+    paths = sorted(DATA.glob(f'thermal_{name}__*processed_data.pkl'))
     if not paths:
         return None
     with open(paths[0], 'rb') as f:
@@ -111,14 +126,14 @@ def load(name: str):
 def _fronts(d, idx, t_inj):
     """Фронты по диагонали нагнетательная - добывающая, [м]: вытеснения (насыщенность выросла на 0.05 от
     начальной), охлаждения (остыло на половину перепада) и ширина теплового фронта (остыло на 10-90 % перепада)."""
-    from paraphin.constants import X_max, init_T, init_S
+    from paraphin.constants import X_max, init_S
     s = np.diagonal(d['Saturation'][idx])
     t = np.diagonal(d['Temperature'][idx])
     step = X_max * np.sqrt(2.0) / len(s)
     wet = np.nonzero(s > init_S + 0.05)[0]
-    if init_T == t_inj:
+    if T0 == t_inj:
         return (step * (wet[-1] + 1) if wet.size else 0.0), 0.0, 0.0
-    theta = (init_T - t) / (init_T - t_inj)  # доля перепада
+    theta = (T0 - t) / (T0 - t_inj)  # доля перепада
     cold = np.nonzero(theta > 0.5)[0]
     width = step * int(((theta > 0.1) & (theta < 0.9)).sum())
     return (step * (wet[-1] + 1) if wet.size else 0.0), (step * (cold[-1] + 1) if cold.size else 0.0), width
@@ -137,9 +152,9 @@ def _drop(q):
 
 def metrics(name: str, d) -> dict:
     """Показатели варианта: КИН, обводненность, скин, приемистость, отложения, гель, фронты, во времени и на конец."""
-    from paraphin.constants import geological_reserves, init_T, P_bubble
+    from paraphin.constants import geological_reserves, P_bubble
     from paraphin.oil_composition import N_W
-    t_inj = float(VARIANTS[name].get('Twater', 20.0))
+    t_inj = float(VARIANTS.get(name, {}).get('Twater', T_INJ))
     time = d['Time'] / 86400.0 / 365.0
     tot = d['Totals']
     wells, acc = d['Wells'], d['Wells_accumulated']
@@ -163,7 +178,7 @@ def metrics(name: str, d) -> dict:
         'wax_dep': wax_dep[pick] / 1e3,
         'asph_dep': (asph_dep + ads)[pick] / 1e3,
     }
-    phi = d['Gel']['Phi'][last]
+    phi = d['Gel']['Phi'][last] if 'Gel' in d else np.ones(1)  # без геля (`nogel`) поле не сохраняется
     temp = d['Temperature'][last]
     return {
         'label': LABELS[name],
@@ -175,6 +190,7 @@ def metrics(name: str, d) -> dict:
         'skin_prod': float(series['skin_prod'][-1]),
         'k_inj': float(d['k'][last][0, 0]),
         'k_prod': float(d['k'][last][-1, -1]),
+        'k_min': float(d['k'][last].min()),
         'wax_dep_t': float(wax_dep[-1] / 1e3),
         'wax_dep_groups': [float(np.asarray(tot[f'wax {k + 1} deposited'])[-1] / max(wax_dep[-1], 1e-30))
                            for k in range(N_W)],
@@ -182,7 +198,7 @@ def metrics(name: str, d) -> dict:
         'retained_t': float(ads[-1] / 1e3),
         'wax_dep_max': float(d['Wps dep'][last].max()),
         'gel_area': float((phi < 0.5).mean()),
-        'cold_area': float((temp < init_T - 0.5 * (init_T - t_inj)).mean()) if t_inj != init_T else 0.0,
+        'cold_area': float((temp < T0 - 0.5 * (T0 - t_inj)).mean()) if t_inj != T0 else 0.0,
         'below_wat_area': float((temp < comp['WAT'][last] + 0.01).mean()),
         'front_water_1y': front_w,
         'front_cold_1y': front_t,
@@ -200,20 +216,18 @@ def metrics(name: str, d) -> dict:
 
 
 def base_maps(d) -> dict:
-    """Карты базового варианта на конец расчета для рисунка статьи (сетка 50 x 50 - компактно)."""
-    last = len(d['Time']) - 1
-    comp = d['Composition']
-    ret = (np.asarray(comp.get('Adsorbed asph', 0.0)) + np.asarray(comp.get('Adsorbed resins', 0.0)))
-    maps = {'T': d['Temperature'][last], 'wax_dep': d['Wps dep'][last], 'k': d['k'][last],
-            'T_minus_WAT': d['Temperature'][last] - comp['WAT'][last]}
-    if np.ndim(ret) == 3:
-        maps['retained'] = ret[last] - ret[0]
-    return {k: np.round(np.asarray(v, float), 5).tolist() for k, v in maps.items()}
+    """Карты базового варианта в моменты MAP_YEARS для рисунков статьи (сетка 50 x 50 - компактно)."""
+    time = d['Time'] / 86400.0 / 365.0
+    idx = [min(int(np.searchsorted(time, y - 1e-6)), len(time) - 1) for y in MAP_YEARS]
+    maps = {'years': [round(float(time[n]), 2) for n in idx]}
+    for key, field in (('T', 'Temperature'), ('S', 'Saturation'), ('k', 'k'), ('wax_dep', 'Wps dep')):
+        maps[key] = [np.round(np.asarray(d[field][n], float), 5).tolist() for n in idx]
+    return maps
 
 
 def collect() -> dict:
-    out = {'kin': field_kin(), 'variants': {}}
-    for name in VARIANTS:
+    out = {'kin': field_kin(), 'init_T': T0, 'variants': {}}
+    for name in LABELS:
         d = load(name)
         if d is None:
             print(f'нет расчета {name}')
@@ -224,10 +238,9 @@ def collect() -> dict:
     RESULTS.mkdir(exist_ok=True)
     (RESULTS / 'thermal.json').write_text(json.dumps(out, ensure_ascii=False), encoding='utf-8')
     for name, m in out['variants'].items():
-        print(f"{name:9s} КИН {100 * m['rf']:5.2f} %  обв {m['water_cut']:.3f}  скин наг {m['skin_inj']:8.2f} "
-              f"доб {m['skin_prod']:8.2f}  парафин {m['wax_dep_t']:7.1f} т  асф+смолы {m['asph_dep_t']:6.1f} т  "
-              f"удерж {m['retained_t']:6.1f} т  гель {100 * m['gel_area']:4.1f} %  фронты {m['front_water_1y']:.0f}/"
-              f"{m['front_cold_1y']:.0f} м")
+        print(f"{name:9s} КИН {100 * m['rf']:5.2f} %  закачка {m['injected'] / 1e3:6.1f}  скин наг {m['skin_inj']:8.2f} "
+              f"k наг {m['k_inj']:.3f}  парафин {m['wax_dep_t']:7.1f} т  асф+смолы {m['asph_dep_t']:6.1f} т  "
+              f"удерж {m['retained_t']:6.1f} т  гель {100 * m['gel_area']:4.1f} %  ниже WAT {100 * m['below_wat_area']:4.1f} %")
     return out
 
 

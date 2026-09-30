@@ -13,7 +13,9 @@
   - `experiments/состав/валидация_АСПО.md` - первое сравнение детального состава; таблицы из
     `validation_tables.json` рядом (пишет `experiments/состав/validate.py`).
   - `твт_статья_АСПО/article.md` - статья для ТВТ; числа и таблицы - из `твт_статья_АСПО/results/numbers.json`
-    (пишет `твт_статья_АСПО/make_article.py`).
+    (пишет `твт_статья_АСПО/make_article.py`). Две версии из одного текста: `статья_АСПО` - журнальная
+    (`article.docx`, без фрагментов между `<!-- полная -->` и `<!-- /полная -->`), `статья_АСПО_полная` -
+    без сокращенных формулировок между `<!-- журнальная -->` и `<!-- /журнальная -->` (`article_full.docx`).
 
 Стили (Times New Roman 12, выравнивание, поля) - те же, что у статьи: reference.docx собирается функциями
 `твт_статья/make_docx.py`. pandoc берется из пакета `pypandoc_binary` (requirements.txt), если его нет в PATH.
@@ -55,10 +57,14 @@ DOCS = {
     'валидация_АСПО': (ROOT / 'experiments' / 'состав' / 'валидация_АСПО.md',
                        _tables(ROOT / 'experiments' / 'состав' / 'validation_tables.json',
                                'python experiments/состав/validate.py')),
-    'статья_АСПО': (ROOT / 'твт_статья_АСПО' / 'article.md',
-                    _tables(ROOT / 'твт_статья_АСПО' / 'results' / 'numbers.json',
-                            'python твт_статья_АСПО/make_article.py')),
 }
+_ARTICLE = (ROOT / 'твт_статья_АСПО' / 'article.md',
+            _tables(ROOT / 'твт_статья_АСПО' / 'results' / 'numbers.json', 'python твт_статья_АСПО/make_article.py'))
+DOCS['статья_АСПО'] = _ARTICLE + ('journal',)
+DOCS['статья_АСПО_полная'] = _ARTICLE + ('full',)
+# фрагменты только полной версии журнальная выбрасывает, а сокращенные формулировки только журнальной - полная
+FULL_ONLY = re.compile(r'<!-- полная -->.*?<!-- /полная -->\n?', re.S)
+JOURNAL_ONLY = re.compile(r'<!-- журнальная -->.*?<!-- /журнальная -->\n?', re.S)
 
 sys.path.insert(0, str(ROOT / 'твт_статья'))
 from make_docx import build_reference, build_docx  # noqa: E402
@@ -71,10 +77,12 @@ def _pandoc_on_path() -> None:
     os.environ['PATH'] = str(Path(pypandoc.get_pandoc_path()).parent) + os.pathsep + os.environ.get('PATH', '')
 
 
-def build(source: Path, substitutions=dict) -> None:
+def build(source: Path, substitutions=dict, version: str = None) -> None:
     folder = source.parent
-    target = source.with_suffix('.docx')
+    target = source.with_name(source.stem + '_full.docx') if version == 'full' else source.with_suffix('.docx')
     text = source.read_text(encoding='utf-8')
+    if version:
+        text = (FULL_ONLY if version == 'journal' else JOURNAL_ONLY).sub('', text)
     for key, value in substitutions().items():
         text = text.replace('{{' + key + '}}', value)
     missing = re.findall(r'\{\{[^}]+\}\}', text)

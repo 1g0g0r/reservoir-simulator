@@ -22,10 +22,11 @@ python demo_composition.py [варианты]  # демо: механизмы п
 python docs/make_model_figures.py      # рисунки описания модели и текст демо -> docs/figures, docs/demo_results.md
 python docs/make_kinetics_figures.py   # аналитические проверки кинетики -> docs/figures/kin*.png
 python docs/build_docx.py [имя]        # md -> docx (pandoc из pypandoc_binary): модель_АСПО, кинетика_осаждения,
-                                       # сравнение_с_опытами, валидация_АСПО, статья_АСПО; без аргументов - все
+                                       # сравнение_с_опытами, валидация_АСПО, статья_АСПО (журнальная),
+                                       # статья_АСПО_полная; без аргументов - все
 
-python твт_статья_АСПО/run_thermal.py [вариант ...|--metrics]  # полевые варианты термических процессов (~40 мин на
-                                       # вариант, по два параллельно) -> твт_статья_АСПО/results/thermal.json
+python твт_статья_АСПО/run_thermal.py [вариант ...|--metrics]  # полевые варианты термических процессов и парафина
+                                       # (~20 мин на вариант, THERMAL_WORKERS параллельно) -> твт_статья_АСПО/results/thermal.json
 python твт_статья_АСПО/make_article.py # рисунки (TIF 600 dpi, серые) и числа статьи -> results/numbers.json, metrics.md
 
 python experiments/run_all.py [--quick|--plot] [опыт ...]  # сравнение с опытами (керны в копиях пакета, кэш)
