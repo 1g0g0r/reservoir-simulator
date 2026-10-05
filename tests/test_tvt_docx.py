@@ -4,7 +4,7 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'твт_статья_АСПО'))
-from make_docx import _fix_docx, renumber, tvt_captions, tvt_text_math  # noqa: E402
+from make_docx import _fix_docx, _patch_paragraphs, renumber, tvt_captions, tvt_text_math  # noqa: E402
 
 
 def test_simple_math_becomes_text():
@@ -39,10 +39,12 @@ def test_full_version_captions_inline():
     assert 'w:type="page"' in journal and journal.count('![](f1.png)') == 2
 
 
-def test_fix_docx_drops_empty_separator(tmp_path):
-    """Пустой sepChr у скобок \\left(...\\right) телефоны показывают пустыми скобками - его не должно остаться."""
+def test_fix_docx(tmp_path):
+    """Пустой sepChr у скобок \\left(...\\right) телефоны показывают пустыми скобками - его не должно остаться;
+    таблицы - с автоподбором ширины столбцов вместо фиксированной раскладки pandoc."""
     doc = ('<m:oMath><m:d><m:dPr><m:begChr m:val="(" /><m:endChr m:val=")" /><m:sepChr m:val="" /><m:grow />'
-           '</m:dPr><m:e><m:r><m:t>m</m:t></m:r></m:e></m:d></m:oMath>')
+           '</m:dPr><m:e><m:r><m:t>m</m:t></m:r></m:e></m:d></m:oMath>'
+           '<w:tbl><w:tblPr><w:tblW w:type="pct" w:w="5000" /><w:tblLayout w:type="fixed" /></w:tblPr></w:tbl>')
     path = tmp_path / 'a.docx'
     with zipfile.ZipFile(path, 'w') as z:
         z.writestr('word/document.xml', doc)
@@ -50,3 +52,16 @@ def test_fix_docx_drops_empty_separator(tmp_path):
     out = zipfile.ZipFile(path).read('word/document.xml').decode('utf-8')
     assert 'sepChr' not in out
     assert '<m:dPr><m:begChr m:val="(" /><m:endChr m:val=")" /><m:grow /></m:dPr><m:e><m:r><m:t>m</m:t>' in out
+    assert '<w:tblLayout w:type="autofit"/>' in out and 'fixed' not in out
+
+
+def test_table_cells_without_first_line_indent():
+    """Ячейки таблиц (стиль Compact, основан на BodyText) - без красной строки, обычный текст - с ней."""
+    styles = ('<w:style w:type="paragraph" w:styleId="BodyText"><w:basedOn w:val="Normal" /><w:pPr>'
+              '<w:spacing w:before="180" w:after="180" /></w:pPr></w:style>'
+              '<w:style w:type="paragraph" w:customStyle="1" w:styleId="Compact"><w:basedOn w:val="BodyText" />'
+              '<w:pPr><w:spacing w:before="36" w:after="36" /></w:pPr></w:style>')
+    out = _patch_paragraphs(styles)
+    body, compact = out.split('<w:style w:type="paragraph" w:customStyle="1" w:styleId="Compact">')
+    assert 'w:firstLine="709"' in body
+    assert compact.endswith('<w:spacing w:before="36" w:after="36" /><w:ind w:firstLine="0"/></w:pPr></w:style>')

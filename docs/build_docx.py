@@ -21,13 +21,12 @@
     (правила, разд. II.1-3). Полная в журнал не идет: подписи - под рисунками в тексте, раздела в конце нет.
 
 Стили (Times New Roman 12, выравнивание, поля) - те же, что у статьи: reference.docx собирается функциями
-`твт_статья_АСПО/make_docx.py`. pandoc берется из пакета `pypandoc_binary` (requirements.txt), если его нет в PATH.
+`твт_статья_АСПО/make_docx.py`. pandoc берется из пакета `pypandoc_binary` (requirements.txt), даже если в PATH есть другой; без пакета - из PATH.
 Пути рисунков в тексте - относительно папки документа.
 """
 import json
 import os
 import re
-import shutil
 import sys
 import zipfile
 from pathlib import Path
@@ -74,9 +73,12 @@ from make_docx import build_reference, build_docx, tvt_captions, tvt_text_math  
 
 
 def _pandoc_on_path() -> None:
-    if shutil.which('pandoc'):
-        return
-    import pypandoc
+    """pandoc из pypandoc_binary - впереди системного: версии по-разному размечают формулы (pandoc 3.1 пишет
+    номер (1) скобкой-объектом и нарушает порядок элементов m:dPr), а сборка должна быть одинаковой везде."""
+    try:
+        import pypandoc
+    except ImportError:
+        return  # пакета нет - остается pandoc из PATH
     os.environ['PATH'] = str(Path(pypandoc.get_pandoc_path()).parent) + os.pathsep + os.environ.get('PATH', '')
 
 

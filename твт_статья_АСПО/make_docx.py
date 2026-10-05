@@ -145,6 +145,16 @@ def _patch_paragraphs(xml: str) -> str:
         flags=re.DOTALL,
     )
 
+    # Ячейки таблиц pandoc оформляет стилем Compact, а он основан на BodyText и унаследовал бы красную строку.
+    # В pPr у Compact только <w:spacing/>, а ind по схеме идет после него - дописываем в конец.
+    xml = re.sub(
+        r'(<w:style\b[^>]*w:styleId="Compact"[^>]*>(?:(?!</w:style>).)*?)(</w:pPr>)',
+        r'\1<w:ind w:firstLine="0"/>\2',
+        xml,
+        count=1,
+        flags=re.DOTALL,
+    )
+
     return xml
 
 
@@ -453,6 +463,9 @@ def _fix_docx(path: Path) -> None:
     - Пустой разделитель <m:sepChr m:val=""/>, который pandoc пишет в каждую скобку \\left(...\\right), удаляется:
       просмотрщики на телефонах показывают с ним пустые скобки (Word его понимает). У скобок pandoc один аргумент,
       так что разделитель не нужен; заодно уходит нарушение порядка элементов m:dPr у pandoc 3.1 (sepChr после endChr).
+    - Таблицы - с автоподбором ширины столбцов по содержимому: pandoc ставит фиксированную раскладку с равными
+      столбцами. Ширина таблицы остается во всю строку (tblW 100%). Автоподбор выполняет Word при открытии;
+      программы, которые его не умеют, покажут прежние равные столбцы.
     """
     tmp = path.with_name(path.stem + '_fix.docx')
     with zipfile.ZipFile(path) as src, zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as dst:
@@ -474,6 +487,7 @@ def _fix_docx(path: Path) -> None:
                              lambda m: m.group(1) + m.group(2).replace('⋅', '·').replace('∼', '~')
                              + m.group(3), xml)
                 xml = re.sub(r'<m:sepChr m:val=""\s*/>', '', xml)
+                xml = re.sub(r'<w:tblLayout w:type="fixed"\s*/>', '<w:tblLayout w:type="autofit"/>', xml)
                 data = xml.encode('utf-8')
             dst.writestr(item, data)
     tmp.replace(path)
