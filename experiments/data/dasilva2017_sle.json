@@ -1,0 +1,301 @@
+{
+  "source": "da Silva V.M., do Carmo R.P., Fleming F.P., Daridon J.-L., Pauly J., Tavares F.W. Paraffin solubility and calorimetric data calculation using Peng-Robinson EoS and modified UNIQUAC models // J. Pet. Sci. Eng. 2017. V. 156. P. 945-957. doi:10.1016/j.petrol.2017.06.064",
+  "pdf": "books: neft/Парафинистые нефти/Термодинамика и фазовое равновесие/Dasilva 2017 - Paraffin solubility and calorimetric data calculation using Peng-Robinson EoS and modified UNIQUAC models.pdf",
+  "origin": "Синтетические смеси н-алканов C18-C36 в н-декане (Dauphin et al., 1999; Fleming et al., 2017), 1 атм. Составы - Table 1 (% масс.), WDT опыта и моделей - Table 3, растворимость (доля твердого, % масс.) - оцифровка рис. 4b-8b по изображению, точность около 0.7 % масс. и 0.7 C; средние абсолютные отклонения доли твердого моделей авторов (% масс.) - Table 5",
+  "solvent": 10,
+  "models_note": "PR+Multisolid и PR+IdealSolidSolution у авторов - жидкость по PR (kij по Pan et al., 1997), критические свойства по Marano & Holder (1997), плавление и твердо-твердые переходы по Coutinho et al. (2006)",
+  "mixtures": {
+    "Bim 0": {
+      "wt": {
+        "10": 63.9,
+        "18": 4.285,
+        "19": 3.844,
+        "20": 3.473,
+        "21": 3.116,
+        "22": 2.789,
+        "23": 2.507,
+        "24": 2.254,
+        "25": 2.001,
+        "26": 2.006,
+        "27": 1.595,
+        "28": 1.442,
+        "29": 1.263,
+        "30": 1.12,
+        "31": 0.991,
+        "32": 0.877,
+        "33": 0.802,
+        "34": 0.694,
+        "35": 0.515,
+        "36": 0.53
+      },
+      "wdt_exp": 35.6,
+      "wdt_models": {
+        "PR+UNIQUAC": 36.65,
+        "PR+IdealSolidSolution": 42.44,
+        "PR+Multisolid": 31.94,
+        "Flory-UNIFAC+UNIQUAC": 34.08
+      },
+      "solid_wt": [
+        [
+          -10,
+          29.5
+        ],
+        [
+          0,
+          22.7
+        ],
+        [
+          10,
+          15.3
+        ],
+        [
+          15,
+          11.9
+        ],
+        [
+          20,
+          7.1
+        ],
+        [
+          25,
+          5.1
+        ],
+        [
+          30,
+          2.4
+        ]
+      ],
+      "aad_models": {
+        "PR+UNIQUAC": 0.8445,
+        "PR+UNIQUAC (подбор)": 0.8573,
+        "Flory-UNIFAC+UNIQUAC": 0.4957
+      }
+    },
+    "Bim 3": {
+      "wt": {
+        "10": 64.25,
+        "18": 4.922,
+        "19": 4.419,
+        "20": 3.944,
+        "21": 3.55,
+        "22": 3.213,
+        "23": 2.883,
+        "24": 2.656,
+        "25": 2.337,
+        "29": 1.436,
+        "30": 1.277,
+        "31": 1.145,
+        "32": 1.0,
+        "33": 0.887,
+        "34": 0.787,
+        "35": 0.681,
+        "36": 0.617
+      },
+      "wdt_exp": 36.5,
+      "wdt_models": {
+        "PR+UNIQUAC": 37.77,
+        "PR+IdealSolidSolution": 42.83,
+        "PR+Multisolid": 32.9,
+        "Flory-UNIFAC+UNIQUAC": 35.08
+      },
+      "solid_wt": [
+        [
+          -10,
+          28.3
+        ],
+        [
+          0,
+          22.4
+        ],
+        [
+          5,
+          16.7
+        ],
+        [
+          22.5,
+          5.6
+        ],
+        [
+          27.5,
+          4.1
+        ],
+        [
+          32,
+          2.5
+        ]
+      ],
+      "aad_models": {
+        "PR+UNIQUAC": 0.9772,
+        "PR+UNIQUAC (подбор)": 0.8475,
+        "Flory-UNIFAC+UNIQUAC": 0.7767
+      }
+    },
+    "Bim 5": {
+      "wt": {
+        "10": 64.65,
+        "18": 5.362,
+        "19": 4.874,
+        "20": 4.388,
+        "21": 4.072,
+        "22": 3.541,
+        "23": 3.172,
+        "24": 2.824,
+        "30": 1.442,
+        "31": 1.248,
+        "32": 1.115,
+        "33": 1.002,
+        "34": 0.865,
+        "35": 0.76,
+        "36": 0.682
+      },
+      "wdt_exp": 37.22,
+      "wdt_models": {
+        "PR+UNIQUAC": 38.42,
+        "PR+IdealSolidSolution": 43.02,
+        "PR+Multisolid": 33.53,
+        "Flory-UNIFAC+UNIQUAC": 35.65
+      },
+      "solid_wt": [
+        [
+          -10,
+          27.4
+        ],
+        [
+          0,
+          20.5
+        ],
+        [
+          10,
+          10.0
+        ],
+        [
+          12.5,
+          6.6
+        ],
+        [
+          21,
+          5.4
+        ],
+        [
+          25,
+          4.6
+        ],
+        [
+          33,
+          2.3
+        ]
+      ],
+      "aad_models": {
+        "PR+UNIQUAC": 1.2716,
+        "PR+UNIQUAC (подбор)": 1.0586,
+        "Flory-UNIFAC+UNIQUAC": 0.7093
+      }
+    },
+    "Bim 9": {
+      "wt": {
+        "10": 65.63,
+        "18": 6.967,
+        "19": 6.289,
+        "20": 5.684,
+        "21": 5.103,
+        "22": 4.601,
+        "32": 1.444,
+        "33": 1.279,
+        "34": 1.128,
+        "35": 0.997,
+        "36": 0.88
+      },
+      "wdt_exp": 38.18,
+      "wdt_models": {
+        "PR+UNIQUAC": 39.9,
+        "PR+IdealSolidSolution": 43.43,
+        "PR+Multisolid": 35.14,
+        "Flory-UNIFAC+UNIQUAC": 36.91
+      },
+      "solid_wt": [
+        [
+          -10,
+          25.7
+        ],
+        [
+          0,
+          18.5
+        ],
+        [
+          5.5,
+          12.6
+        ],
+        [
+          10,
+          5.2
+        ],
+        [
+          25,
+          4.6
+        ],
+        [
+          30,
+          3.3
+        ],
+        [
+          33.5,
+          2.3
+        ]
+      ],
+      "aad_models": {
+        "PR+UNIQUAC": 1.2464,
+        "PR+UNIQUAC (подбор)": 0.7575,
+        "Flory-UNIFAC+UNIQUAC": 0.7173
+      }
+    },
+    "Bim 13": {
+      "wt": {
+        "10": 66.4,
+        "18": 10.6,
+        "19": 9.65,
+        "20": 8.71,
+        "34": 1.723,
+        "35": 1.521,
+        "36": 1.377
+      },
+      "wdt_exp": 39.66,
+      "wdt_models": {
+        "PR+UNIQUAC": 41.87,
+        "PR+IdealSolidSolution": 44.05,
+        "PR+Multisolid": 38.0,
+        "Flory-UNIFAC+UNIQUAC": 38.51
+      },
+      "solid_wt": [
+        [
+          -10,
+          26.6
+        ],
+        [
+          0,
+          15.8
+        ],
+        [
+          5,
+          4.5
+        ],
+        [
+          26,
+          4.1
+        ],
+        [
+          30,
+          2.8
+        ],
+        [
+          34.5,
+          1.9
+        ]
+      ],
+      "aad_models": {
+        "PR+UNIQUAC": 1.4467,
+        "PR+UNIQUAC (подбор)": 0.8495,
+        "Flory-UNIFAC+UNIQUAC": 0.3425
+      }
+    }
+  }
+}

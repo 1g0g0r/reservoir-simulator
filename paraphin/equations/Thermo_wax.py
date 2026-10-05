@@ -24,19 +24,27 @@ t_k = w_k/(M_k*x_k^sat): не более N_w шагов, без итераций
 
 Растворенный газ добавляет моли в раствор и тем понижает WAT (эффект состава у Pan et al., 1997);
 газосодержание линейно по давлению до давления насыщения P_b. Свободный газ в течении не отслеживается.
+
+С флагом `wax_eos` x_k^sat и газосодержание берутся из таблиц уравнения состояния (`thermo/tables.py`): та же
+форма раствора, но неидеальность - из фугитивностей Пенга-Робинсона (multi-solid Lira-Galeana), а газ - из flash.
+Замкнутой формулы WAT тогда нет, и `wat_cell` ищет ее бисекцией.
 """
 import math
 
 from numba import njit, prange
 
-from paraphin.constants import M_o, Nx, Ny, P_ref_wax, P_bubble, wax_pressure, wax_pore_shift
+from paraphin.constants import M_o, Nx, Ny, P_ref_wax, P_bubble, wax_pressure, wax_pore_shift, wax_eos
 from paraphin.oil_composition import N_W, WAX_M, WAX_TM_K, WAX_DH_R, WAX_DV_R, WAX_L_REL, N_GAS_B
+from paraphin.thermo.tables import LNXSAT, NG, T_LO, T_HI, eos_interp
 
 
 @njit(cache=True)
-def n_gas(p):
-    """Растворенный газ на грамм дегазированной нефти, [моль/г]: линейно по давлению до P_b."""
+def n_gas(T, p):
+    """Растворенный газ на грамм дегазированной нефти, [моль/г]: линейно по давлению до P_b или, с `wax_eos`,
+    из flash уравнения состояния. T в C, p в Па."""
     if wax_pressure:
+        if wax_eos:
+            return eos_interp(NG, T, p)
         return N_GAS_B * min(max(p, 0.0) / P_bubble, 1.0)
     return 0.0
 
@@ -44,6 +52,8 @@ def n_gas(p):
 @njit(cache=True)
 def x_saturation(k, T, p):
     """Мольная доля насыщения группы k по (1), [-]. T в C, p в Па. Выше температуры плавления - 1."""
+    if wax_eos:
+        return min(1.0, math.exp(eos_interp(LNXSAT[k], T - wax_pore_shift, p)))
     t_abs = T + 273.15 - wax_pore_shift
     arg = -WAX_DH_R[k] * (1.0 / t_abs - 1.0 / WAX_TM_K[k])
     if wax_pressure:
@@ -74,7 +84,7 @@ def sle_split(wax, T, p, sus):
         sum_k (L_k/latent_heat)*w_k^dis - растворенный парафин в единицах прежней удельной теплоты
     """
     w_sum = 0.0
-    a = n_gas(p)
+    a = n_gas(T, p)
     for k in range(N_W):
         w_sum += wax[k]
         a += wax[k] / WAX_M[k]
@@ -131,8 +141,11 @@ def wat_cell(wax, p):
 
     Пока все растворено, x_k = (w_k/M_k)/n_L. Первой насыщается группа с наибольшей температурой из (1):
         T_k = (dH_k/R + dv_k/R*(P - P_ref)) / (dH_k/(R*Tm_k) - ln x_k).
+    С `wax_eos` - бисекция по T в пределах сетки таблиц.
     """
-    n_l = n_gas(p)
+    if wax_eos:
+        return _wat_eos(wax, p)
+    n_l = n_gas(0.0, p)
     w_sum = 0.0
     for k in range(N_W):
         n_l += wax[k] / WAX_M[k]
@@ -150,6 +163,34 @@ def wat_cell(wax, p):
         t_max = max(t_max, t_k)
 
     return t_max - 273.15 + wax_pore_shift
+
+
+@njit(cache=True)
+def _saturated(wax, T, p):
+    """Насыщена ли хоть одна группа при температуре T [C]: w_k/M_k > x_k^sat*n_L при всем растворенном."""
+    n_l = n_gas(T, p)
+    w_sum = 0.0
+    for k in range(N_W):
+        n_l += wax[k] / WAX_M[k]
+        w_sum += wax[k]
+    n_l += (1.0 - w_sum) / M_o
+    for k in range(N_W):
+        if wax[k] > WAX_M[k] * x_saturation(k, T, p) * n_l:
+            return True
+    return False
+
+
+@njit(cache=True)
+def _wat_eos(wax, p):
+    """WAT по таблицам уравнения состояния - бисекцией на [T_LO, T_HI], за сеткой - ее край, [C]."""
+    lo, hi = T_LO, T_HI
+    for _ in range(40):
+        mid = 0.5 * (lo + hi)
+        if _saturated(wax, mid, p):
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
 
 
 @njit(parallel=True, cache=True)

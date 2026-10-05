@@ -18,6 +18,10 @@ python -m pytest tests -q --ignore=tests/test_calculation.py   # test_calculatio
 python bench.py [шагов] [прогрев_сут]  # замер стадий шага, см. PERFORMANCE_FINDINGS.md
 
 python -m paraphin.oil_composition     # таблица групп парафина детального состава
+python -m paraphin.thermo.tables       # уравнение состояния: псевдокомпоненты, kij газ-нефть, время сборки таблиц
+python -m paraphin.thermo.pvt          # PVT нефти модели по PR: R_s, B_o, B_g, плотность и вязкость газа, V_g/V_L
+python experiments/уравнение_состояния/compare.py [--plot]  # термодинамика против опытов (~10 мин) -> сравнение_EOS.md
+python experiments/уравнение_состояния/compare.py [--plot]  # EOS-модели против опытов -> сравнение_EOS.md
 python demo_composition.py [варианты]  # демо: механизмы по одному (legacy, wax, asph, nogel, full) -> outputs/data/demo_*
 python docs/make_model_figures.py      # рисунки описания модели и текст демо -> docs/figures, docs/demo_results.md
 python docs/make_kinetics_figures.py   # аналитические проверки кинетики -> docs/figures/kin*.png
@@ -36,7 +40,10 @@ python experiments/состав/validate.py [--plot]  # первое сравн�
 
 Папки: `docs/` - описания моделей и физики (индекс `docs/README.md`), `experiments/` - все сравнения с опытами,
 данные, подбор параметров и отчеты (`experiments/README.md`), `твт_статья/` - текст и рисунки статьи о теплопотерях,
-`твт_статья_АСПО/` - статья о термических процессах при осаждении АСПО (сравнение с опытами и полевые варианты).
+`твт_статья_АСПО/` - статья о термических процессах при осаждении АСПО (сравнение с опытами и полевые варианты); ее полная
+версия `article_full.docx` - объединенная статья (обе работы, все сравнения с опытами, подбор параметров, причины
+расхождений), журнальная `article.docx` - 17 страниц по правилам ТВТ. Блоки `<!-- полная -->` нумерованных формул не
+содержат; рисунки, таблицы и источники полной версии сборка перенумеровывает сама (`твт_статья/make_docx.py`).
 
 Окружение: numpy/numba в системе не стоят - `uv pip install --system -r requirements.txt pytest`.
 
@@ -309,13 +316,17 @@ CSC, `sort_mask` и `data[sort_mask]` убраны вместе с прежни�
 
 Постановка с формулами и рисунками - `docs/модель_АСПО.docx` (исходник `docs/модель_АСПО.md`), сравнение с
 опытами - `experiments/состав/валидация_АСПО.docx` (`python experiments/состав/validate.py`, затем `python docs/build_docx.py`), литература -
-`resources/литература/{состав_нефти, давление_WAT, асфальтены, реология_гель}/README.md` (PDF кладет
-`resources/литература/fetch_open_access.py`: при сборке внешняя сеть была закрыта).
+`resources/литература/{состав_нефти, давление_WAT, асфальтены, реология_гель}/README.md`. Сами PDF/DOC/XML
+хранятся только в библиотеке books (`C:\Users\Игорь\books`), путь каждого файла — в
+`resources/литература/ГДЕ_ФАЙЛЫ.md`; скачанное `fetch_open_access.py` в git не попадает, его перекладывают в books.
 
 **Флаги - константы в конце `constants.py`, по умолчанию выключены.** С выключенными расчет побитово равен
 прежнему: `tests/test_regression_flags_off.py` сравнивает 100 сут на сетке 75x75 с эталоном
 `tests/test_data/regression_flags_off.npz` (снят кодом до правок, `tests/regression_baseline.py`; на другой
-машине или версии numba тест пропускается). Отсюда правило: **старые ядра не править** - рядом
+машине или версии numba тест пропускается - текущий эталон снят на Linux). Тогда эталон снимают здесь же кодом
+до правок: `git archive HEAD paraphin tests | tar -x -C <tmp>` (worktree на Windows падает на длинных именах в
+`resources/`), в `<tmp>` - `python -m tests.regression_baseline --write`, и `run()` текущего кода сравнивается с
+этим npz через `np.array_equal`. Отсюда правило: **старые ядра не править** - рядом
 заводятся сиблинги (`calc_qp_m_k_fi_2`, `_update_fi_2`, `components_equation`), а выбор между ними -
 `if FLAG:` на константе модуля, как `suffusion`. В `flows_in_cells` ветки такие, что после свертки цикл по
 граням буква в букву прежний. `wax_pressure` и `asphaltenes` требуют `wax_components` (проверка в constants.py).
@@ -370,6 +381,57 @@ sum Dep_wax/ro_p + (Dep_af + Dep_r)/ro_asph_dep = m0 - m.
 отката, мог бы взять код с чужими флагами. `test_composition_flags_on.py` проверяет балансы каждой группы,
 асфальтенов и смол (1e-16 фактически), тождества пористости и осадка, отсутствие гонок (два прогона
 побитово), устойчивость геля и режим 'single' против эталона. `demo_composition.py` - так же.
+
+## Уравнение состояния (флаги `wax_eos`, `asph_nghiem`; `paraphin/thermo`)
+
+Перенесено из отдельного пакета `C:\postgraduate\research` (не импортируется: код переписан на массивы): PR EOS
+(PR78 при omega > 0.491), тест устойчивости Michelsen, flash Рачфорда-Райса, `bubble_pressure`, multi-solid,
+идеальный твердый раствор (только для сравнения), модель твердой фазы асфальтенов Nghiem, корреляции Riazi /
+Riazi-Daubert / Kesler-Lee (обе ветви), гамма-распределение (`wax_characterization = 'gamma'`, `scn_gamma_alpha`;
+при alpha = 1 - ровно экспонента `scn_slope`). Описание - `docs/модель_АСПО.md`, разд. 2.2, 3.4, 4.5.
+
+Числа в ядра попадают только таблицами: `thermo/tables.py` при импорте (и только с флагом) строит `LNXSAT[k, T, P]`,
+`NG[T, P]`, `LNWAMAX[T, P]` на сетке `eos_T_grid` x `eos_P_grid` (без `wax_pressure` - одна точка `P_ref_wax`), ядра
+читают их через njit `eos_interp` (билинейно, за сеткой - край). Сборка с газом ~9 с; без флагов - нули, ветки
+свернуты. Точки подключения: `Thermo_wax.x_saturation`, `Thermo_wax.n_gas(T, p)` (сигнатура с T - ради таблицы
+газа), `wat_cell` (бисекция вместо замкнутой формулы), `Asphaltene.asph_soluble`. Состав в phi заморожен на
+исходной нефти, равновесие в узле последовательное: flash, затем multi-solid. Однофазное состояние flash для нефти
+всегда жидкость (`live_liquid`): метка «пар» по корню Z под давлением ошибочна. Flash живой нефти и
+`bubble_pressure` ищут только газ (`flash(..., vapor_only=True)`: паровой старт и пробная фаза с T_pc по Кею ниже
+T): при большом kij асфальтены-легкие PR делит нефть выше P_b на две жидкости, и к асфальтеновой сходился даже
+паровой старт, а это расслоение в модели описывает твердая фаза Nghiem. Без ограничения у флюида Tabzar давления
+насыщения не было вовсе (`test_live_oil_flash_ignores_asphaltene_liquid`).
+
+Калибровки при импорте: kij газ-тяжелые - по `P_bubble` при `init_T` (выходит -0.003), f_s* Nghiem - по
+`P_onset_asph`. `eos_kij_asph_gas = 0.4` (Tabzar 2018) держит колокол выпадения асфальтенов; при 0 ниже P_b
+растворения нет. **Скачок объема в твердой фазе обязателен** (`MultiSolidWax(dv=...)`, Pan et al. 1997): вариант
+research брал фугитивность твердого от чистой жидкости при системном P, то есть v_S = v_L, и dWAT/dP выходил
+0.017 C/МПа против 0.15-0.23 у Sandyga. В таблицах `WAX_DV_EOS` - физический, из `ro_wax_liq` и `ro_p`
+(0.13 v_L), а не `wax_dv_frac`: тот подобран вместе с заниженной эффективной теплотой. Tm, dH в варианте EOS -
+Вона без сдвига или Coutinho с твердо-твердым переходом (`eos_melting = 'coutinho'`, `tables.wax_melting`;
+`characterization.coutinho_nalkane` - в статье Coutinho подписи (A4) и (A6) перепутаны, сверено с Broadhurst).
+Скачок теплоемкости по Pedersen есть в `fusion_ln_ratio` / `MultiSolidWax(mw=...)`, но в таблицы не идет: поверх
+перехода он ухудшает WDT синтетических смесей. Твердый раствор UNIQUAC Coutinho (`solids.UniquacSolidWax`) - только
+в сравнениях: на синтетических смесях лучший, на нефти Жетыбая без хроматограммы н-алканов не лучше эффективной
+модели, поэтому в ядра не подключен.
+
+Кривая выпавших асфальтенов `asph_curve` (None по умолчанию; точки (P, доля массы дегазированной нефти) при
+init_T) - калибровка по количеству, а не по одной точке: давление начала осаждения по-прежнему держит
+`P_onset_asph`, а по кривой подбираются v_a Хиршберга (`oil_composition._fit_v_asph` -> `V_ASPH`, его и читает
+`Asphaltene.py` вместо `v_asph`; без кривой это тот же float, регрессия побитовая) или V_s и kij асфальтены-газ
+Nghiem (`tables.fit_nghiem_curve`). У Nghiem выпадение задает разность парциального объема асфальтенов и V_s
+(доли процента), поэтому V_s ищется от v_a при P_onset, а kij - перебором (минимумов несколько). Проверка на
+опыте Tabzar 2018 - раздел E `сравнение_EOS.md`.
+
+PVT по тому же PR (`thermo/pvt.py`): R_s, B_o, B_g, плотность и вязкость газа (Lee-Gonzalez-Eakin) - диагностика,
+уравнения фильтрации их не читают. При `wax_eos` и `wax_pressure` в выгрузку идет поле `Composition['Free gas']` -
+объем газа, который выделился бы, на объем нефти (таблица `tables.GASV`).
+
+Проверки: `tests/test_thermo_eos.py` (якоря сняты кодом research - порт совпадает до 1e-8; в узле сетки
+`sle_split_np(x=...)` с таблицей воспроизводит multi-solid на EOS), сценарий `EOS_ON` в
+`test_composition_flags_on.py`. Сравнение с опытами - `experiments/уравнение_состояния/сравнение_EOS.md`:
+на нефти Жетыбая WAT +22 C, на синтетических смесях da Silva 2017 WDT -9.6 C (у Won нет твердо-твердого перехода),
+поэтому по умолчанию остаются эффективные параметры; пути улучшения - разд. 12 описания, пп. 9-12.
 
 ## Кинетика осаждения (флаги `wax_kinetics`, `wall_transport`, `entrainment`, `asph_aggregation`, `snowball`, `adsorption`, `wettability`, `deposit_aging`, `thermal_nonequilibrium`, `pore_network`, `deposition_model`, `perm_model`)
 

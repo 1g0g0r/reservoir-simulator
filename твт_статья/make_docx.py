@@ -217,6 +217,264 @@ def build_reference(reference_path: Path) -> None:
             default_path.unlink()
 
 
+# --- Формулы по правилам ТВТ (разд. II.4) -------------------------------------------------------------------
+# Одиночные буквы (латинские курсивом, греческие прямо), обозначения только с верхним или только с нижним индексом
+# и простые формулы набираются текстом, а не в редакторе формул. pandoc же переводит в формулу Word всякое $...$,
+# поэтому простые встроенные формулы переводятся в markdown-текст до pandoc: *k*~0~ вместо $k_0$. Все, что
+# конвертер не понимает (дроби, корни, интегралы, nabla, оба индекса сразу), остается формулой.
+GREEK = {'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'epsilon': 'ϵ', 'varepsilon': 'ε', 'zeta': 'ζ',
+         'eta': 'η', 'theta': 'θ', 'vartheta': 'ϑ', 'iota': 'ι', 'kappa': 'κ', 'lambda': 'λ', 'mu': 'μ', 'nu': 'ν',
+         'xi': 'ξ', 'pi': 'π', 'rho': 'ρ', 'sigma': 'σ', 'tau': 'τ', 'upsilon': 'υ', 'phi': 'ϕ', 'varphi': 'φ',
+         'chi': 'χ', 'psi': 'ψ', 'omega': 'ω', 'Gamma': 'Γ', 'Delta': 'Δ', 'Theta': 'Θ', 'Lambda': 'Λ', 'Xi': 'Ξ',
+         'Pi': 'Π', 'Sigma': 'Σ', 'Phi': 'Φ', 'Psi': 'Ψ', 'Omega': 'Ω'}
+# Только знаки, которые есть в Times New Roman: ∝, ∇, ⋅, ∼ в нем нет, и формулы с ними остаются формулами
+SYMBOLS = {'ldots': '…', 'cdots': '…', 'le': ' ≤ ', 'leq': ' ≤ ', 'ge': ' ≥ ', 'geq': ' ≥ ', 'approx': ' ≈ ',
+           'times': ' × ', 'pm': '±', 'infty': '∞', 'to': ' → ', 'sim': ' \\~ ', ',': ' ', ';': ' ', ' ': ' ',
+           'quad': ' ', '%': '%'}
+FUNCTIONS = {'ln', 'lg', 'exp', 'max', 'min', 'log'}
+_ESCAPE = {'[': '\\[', ']': '\\]', '<': '\\<', '>': '\\>', '*': '\\*'}
+
+
+class _NotSimple(Exception):
+    pass
+
+
+def _group(tex, i):
+    """Содержимое {...} с позиции i (на '{') и позиция за '}'; без скобок - один символ или команда."""
+    if tex[i] == '{':
+        depth = 0
+        for j in range(i, len(tex)):
+            depth += {'{': 1, '}': -1}.get(tex[j], 0)
+            if depth == 0:
+                return tex[i + 1:j], j + 1
+        raise _NotSimple
+    if tex[i] == '\\':
+        m = re.match(r'\\([A-Za-z]+|.)', tex[i:])
+        return m.group(0), i + len(m.group(0))
+    return tex[i], i + 1
+
+
+def _md(tex, index=False):
+    """Markdown-текст простой формулы; index - внутри индекса (пробелы экранируются, вложенных индексов нет)."""
+    out, i = [], 0
+    space = '\\ ' if index else ' '
+    while i < len(tex):
+        c = tex[i]
+        if c.isspace():
+            i += 1
+            continue
+        if c in '_^':  # индекс без основы
+            raise _NotSimple
+        if c.isascii() and c.isalpha():
+            j = i
+            while j < len(tex) and tex[j].isascii() and tex[j].isalpha():
+                j += 1
+            word = tex[i:j]
+            # в индексе сокращение из двух и более букв - прямо, из одной - курсивом (правила ТВТ, разд. II.4)
+            atom = word if index and len(word) > 1 else f'*{word}*'
+            i = j
+        elif c.isdigit() or c == '.':
+            j = i
+            while j < len(tex) and (tex[j].isdigit() or tex[j] == '.'):
+                j += 1
+            atom, i = tex[i:j], j
+        elif c == ',':
+            atom, i = (',' if index else ', '), i + 1
+        elif c == '-':  # бинарный минус - с пробелами, унарный и в индексе - без
+            prev = ''.join(out).rstrip()
+            atom = ' − ' if prev and not index and prev[-1] not in '(=+−/,' else '−'
+            i += 1
+        elif c in '+=':
+            atom, i = (c if index else f' {c} '), i + 1
+        elif c in '/()|!\'':
+            atom, i = c, i + 1
+        elif c == '~':  # неразрывный пробел TeX
+            atom, i = ' ', i + 1
+        elif c in _ESCAPE:
+            atom, i = _ESCAPE[c], i + 1
+        elif c == '{':
+            if tex.startswith('{{', i):  # неподставленный шаблон {{КЛЮЧ}}
+                raise _NotSimple
+            inner, i = _group(tex, i)
+            atom = _md(inner, index)
+        elif c == '\\':
+            cmd, i = _group(tex, i)
+            name = cmd[1:]
+            if name in GREEK:
+                atom = GREEK[name]
+            elif name in SYMBOLS:
+                atom = SYMBOLS[name].strip() if index else SYMBOLS[name]
+            elif name in FUNCTIONS:
+                atom = name
+            elif name in ('mathrm', 'text', 'operatorname', 'mathbf'):
+                inner, i = _group(tex, i)
+                if not re.fullmatch(r'[A-Za-zА-Яа-я0-9 .,\-]+', inner):
+                    raise _NotSimple
+                inner = inner.replace(' ', space)
+                atom = f'**{inner}**' if name == 'mathbf' else inner
+            else:
+                raise _NotSimple
+        else:
+            raise _NotSimple
+        # индекс атома: только верхний или только нижний (правила ТВТ); оба сразу - в редакторе формул
+        if i < len(tex) and tex[i] in '_^':
+            if index:
+                raise _NotSimple
+            mark = tex[i]
+            arg, i = _group(tex, i + 1)
+            if i < len(tex) and tex[i] in '_^':
+                raise _NotSimple
+            sub = _md(arg, index=True)
+            atom += f'~{sub}~' if mark == '_' else f'^{sub}^'
+        if out and out[-1].endswith('*') and atom.startswith('*'):
+            out.append(' ')  # *a**b* markdown прочтет как полужирный
+        out.append(atom)
+    return ''.join(out).strip()
+
+
+def tvt_text_math(text: str) -> str:
+    """Простые встроенные формулы $...$ - в текст по правилам ТВТ; выносные $$...$$ не трогаются."""
+    inline = re.compile(r'(?<![\\$])\$(?=\S)([^$\n]+?)(?<=\S)\$(?!\d)')
+
+    def convert(m):
+        try:
+            md = _md(m.group(1))
+        except (_NotSimple, IndexError):
+            return m.group(0)
+        return md or m.group(0)
+
+    parts = text.split('$$')
+    return '$$'.join(inline.sub(convert, p) if k % 2 == 0 else p for k, p in enumerate(parts))
+
+
+CAPTIONS = '# ПОДПИСИ К РИСУНКАМ'
+_PAGE_BREAK = '```{=openxml}\n<w:p><w:r><w:br w:type="page"/></w:r></w:p>\n```\n\n'
+
+
+def tvt_captions(text: str, inline: bool = False) -> str:
+    """Подписи к рисункам. Для журнала (правила ТВТ, разд. II.1-3) - на отдельной странице после списка
+    литературы, рисунки - и по месту в тексте, и после подписей. inline - для версии не в журнал: подпись
+    переезжает под рисунок в тексте, раздела в конце нет."""
+    if inline:  # маркеры версий в полной версии - пустые комментарии, но мешают переставлять строки списков
+        text = renumber(re.sub(r'<!-- /?полная -->\n?', '', text))
+    if CAPTIONS not in text:
+        return text
+    head, _, tail = text.partition(CAPTIONS)
+    if not inline:
+        return head + _PAGE_BREAK + CAPTIONS + tail
+    caps = re.findall(r'!\[\]\(([^)]+)\)\s*\n\s*\n(Рис\. \d+\..*?)\s*(?=\n\n|\n<!--|\Z)', tail, re.S)
+    for path, cap in caps:
+        target = f'![]({path})'
+        # отдельным абзацем: рядом с маркерами <!-- полная --> pandoc не сделал бы из него рисунок с подписью
+        figure = f'\n\n![{cap}]({path})\n\n'
+        head = head.replace(target, figure) if target in head else head + figure
+    return head.rstrip() + '\n'
+
+
+# --- Сквозная нумерация версии не для журнала ----------------------------------------------------------------
+# Блоки только полной версии добавляют рисунки, таблицы и источники, а номера в общем тексте заданы журнальной.
+# Полная версия перенумеровывает их по порядку первого упоминания (правила ТВТ, разд. II.7-9 - то же требование).
+_FIG = re.compile(r'(?P<label>[Рр]ис\.\s*)(?P<nums>\d+[а-я]?(?:\s*(?:,|–|-)\s*\d+[а-я]?)*)')
+_TAB = re.compile(r'(?P<label>[Тт]абл\.\s*|Таблица\s+)(?P<nums>\d+(?:\s*(?:,|–|-)\s*\d+)*)')
+_CITE = re.compile(r'(?<![\\!\w])\[(?P<nums>\d+(?:\s*(?:,|–|-)\s*\d+)*)\]')
+_SEP = re.compile(r'(\s*(?:,|–|-)\s*)')
+
+
+def _expand(nums: str):
+    """'1–3, 5а' -> [1, 2, 3, 5] (буквы подрисунков отбрасываются)."""
+    parts = _SEP.split(nums)
+    out = [int(re.match(r'\d+', parts[0]).group())]
+    for sep, tok in zip(parts[1::2], parts[2::2]):
+        n = int(re.match(r'\d+', tok).group())
+        out += list(range(out[-1] + 1, n + 1)) if sep.strip() in '–-' else [n]
+    return out
+
+
+def _order(text: str, rx) -> dict:
+    """Старый номер -> новый по порядку первого упоминания."""
+    seen = []
+    for m in rx.finditer(text):
+        seen += [n for n in _expand(m.group('nums')) if n not in seen]
+    return {old: new for new, old in enumerate(seen, 1)}
+
+
+def _remap_simple(m, mapping):
+    """Номера с буквами подрисунков и разделителями как есть, только сами числа - по mapping."""
+    parts = _SEP.split(m.group('nums'))
+    out = [re.sub(r'\d+', lambda d: str(mapping.get(int(d.group()), int(d.group()))), p) if k % 2 == 0 else p
+           for k, p in enumerate(parts)]
+    return m.group('label') + ''.join(out)
+
+
+def _compress(nums):
+    """[9, 10, 11, 14] -> '9–11, 14'."""
+    nums, out, i = sorted(set(nums)), [], 0
+    while i < len(nums):
+        j = i
+        while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1:
+            j += 1
+        out.append(f'{nums[i]}–{nums[j]}' if j - i >= 2 else ', '.join(map(str, nums[i:j + 1])))
+        i = j + 1
+    return ', '.join(out)
+
+
+def renumber(text: str) -> str:
+    """Рисунки, таблицы и источники - по порядку первого упоминания; список литературы - в новом порядке."""
+    refs_head = '# СПИСОК ЛИТЕРАТУРЫ'
+    body, _, refs = text.partition(refs_head)
+    for rx in (_FIG, _TAB):
+        mapping = _order(body, rx)
+        text = rx.sub(lambda m: _remap_simple(m, mapping), text)
+    body, _, refs = text.partition(refs_head)
+    mapping = _order(body, _CITE)
+    if not refs or not mapping:
+        return text
+    body = _CITE.sub(lambda m: '[' + _compress(mapping.get(n, n) for n in _expand(m.group('nums'))) + ']', body)
+    head, nl, tail = refs.partition('\n#')  # список - до следующего заголовка
+    items = re.findall(r'^(\d+)\.\s+(.*)$', head, re.M)
+    rest = [n for n, _ in items if int(n) not in mapping]
+    mapping.update({int(n): len(mapping) + k for k, n in enumerate(rest, 1)})
+    lines = sorted((mapping[int(n)], t) for n, t in items)
+    first = re.search(r'^\d+\.\s', head, re.M)
+    intro = head[:first.start()] if first else head
+    new_head = intro + '\n'.join(f'{n}. {t}' for n, t in lines) + '\n'
+    return body + refs_head + new_head + (nl + tail if nl else '')
+
+
+def _fix_docx(path: Path) -> None:
+    """Правки готового docx, от которых зависит, как формулы выглядят в других программах и версиях Word.
+
+    - Режим совместимости 15 и шрифт формул Cambria Math в settings.xml: без них Word открывает файл в режиме
+      ограниченной функциональности, и разные версии верстают формулы по-разному. Порядок элементов в
+      settings.xml задан схемой: compat - перед rsids, mathPr - сразу после.
+    - В формулах оператор-точка U+22C5 и тильда U+223C заменяются на U+00B7 и '~': если Cambria Math нет
+      (LibreOffice, WPS, просмотрщики), подставляется Times New Roman, а в нем этих знаков нет - они пропадают.
+      ∇ и ∝ заменить нечем; если нужна полная переносимость - писать grad, div и «пропорционально».
+    """
+    tmp = path.with_name(path.stem + '_fix.docx')
+    with zipfile.ZipFile(path) as src, zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as dst:
+        for item in src.infolist():
+            data = src.read(item.filename)
+            if item.filename == 'word/settings.xml':
+                xml = data.decode('utf-8')
+                if 'compatibilityMode' not in xml and '<w:rsids' in xml:
+                    xml = xml.replace('<w:rsids', '<w:compat><w:compatSetting w:name="compatibilityMode" '
+                                      'w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat>'
+                                      '<w:rsids', 1)
+                if '<m:mathPr' not in xml and '</w:rsids>' in xml and 'xmlns:m=' in xml:
+                    xml = xml.replace('</w:rsids>', '</w:rsids><m:mathPr><m:mathFont m:val="Cambria Math"/>'
+                                      '</m:mathPr>', 1)
+                data = xml.encode('utf-8')
+            elif item.filename == 'word/document.xml':
+                xml = data.decode('utf-8')
+                xml = re.sub(r'(<m:t(?: [^>]*)?>)([^<]*)(</m:t>)',
+                             lambda m: m.group(1) + m.group(2).replace('⋅', '·').replace('∼', '~')
+                             + m.group(3), xml)
+                data = xml.encode('utf-8')
+            dst.writestr(item, data)
+    tmp.replace(path)
+
+
 def build_docx(
     source_path: Path,
     output_path: Path,
@@ -234,6 +492,7 @@ def build_docx(
         ],
         check=True,
     )
+    _fix_docx(output_path)
 
 
 def main(short_docx: bool = False) -> None:
@@ -244,18 +503,22 @@ def main(short_docx: bool = False) -> None:
     source_path = Path.cwd() / f'{source}.md'
     output_path = Path.cwd() / f'{source}.docx'
     reference = Path.cwd() / 'reference.docx'
+    work = Path.cwd() / f'_{source}_tvt.md'
 
     try:
         # 1. Генерируем временный reference.
         build_reference(reference)
 
-        # 2. Создаём итоговый DOCX.
-        build_docx(source_path, output_path, reference)
+        # 2. Простые формулы - текстом, подписи к рисункам - по правилам ТВТ; создаём итоговый DOCX.
+        text = source_path.read_text(encoding='utf-8')
+        work.write_text(tvt_captions(tvt_text_math(text)), encoding='utf-8')
+        build_docx(work, output_path, reference)
 
     finally:
-        # 3. Удаляем reference даже при ошибке.
-        if reference.exists():
-            reference.unlink()
+        # 3. Удаляем временные файлы даже при ошибке.
+        for path in (reference, work):
+            if path.exists():
+                path.unlink()
 
 
 if __name__ == "__main__":

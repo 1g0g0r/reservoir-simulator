@@ -35,9 +35,9 @@ import numpy as np
 
 from paraphin.constants import (data_type, init_Wp, init_Wps, init_T, MW, M_o, Tm_K, alpha, latent_heat,
                                 kal_to_J, R, ro_o, wax_characterization, scn_first, scn_last, scn_bounds,
-                                scn_slope, wax_alpha_eff, wax_Tm_shift, wax_dv_frac, ro_wax_liq,
+                                scn_slope, scn_gamma_alpha, wax_alpha_eff, wax_Tm_shift, wax_dv_frac, ro_wax_liq,
                                 sara_aromatics, sara_resins, sara_asphaltenes, P_bubble, Rs_bubble,
-                                T_sc_gas, P_sc_gas, v_gas, delta_gas, P_onset_asph, v_asph, ro_asph,
+                                T_sc_gas, P_sc_gas, v_gas, delta_gas, P_onset_asph, v_asph, ro_asph, asph_curve,
                                 delta_sat, delta_aro, delta_res, c_oil_comp, beta_oil, P_ref_wax,
                                 wax_kinetics, asph_aggregation)
 
@@ -54,8 +54,9 @@ def won_dh(M):
     return 0.1426 * M * won_tm(M) * kal_to_J
 
 
-def scn_distribution(slope=scn_slope, n_first=scn_first, n_last=scn_last, total=WAX_TOTAL):
-    """Массовые доли н-алканов C_n в нефтяной фазе при мольных долях z_n ~ exp(-slope*n).
+def scn_distribution(slope=scn_slope, n_first=scn_first, n_last=scn_last, total=WAX_TOTAL, alpha=None):
+    """Массовые доли н-алканов C_n в нефтяной фазе при мольных долях z_n ~ exp(-slope*n) или, если задана
+    форма alpha, по гамма-распределению Уитсона с тем же масштабом (`thermo.characterization`).
 
     Returns
     -------
@@ -64,7 +65,11 @@ def scn_distribution(slope=scn_slope, n_first=scn_first, n_last=scn_last, total=
     """
     n = np.arange(n_first, n_last + 1)
     M = 14.027 * n + 2.016
-    w = np.exp(-slope * n) * M
+    if alpha is None:
+        w = np.exp(-slope * n) * M
+    else:
+        from paraphin.thermo.characterization import gamma_scn_fractions
+        w = gamma_scn_fractions(M, alpha, M[0] - 7.0135, 14.027 / slope) * M
     w *= total / w.sum()
     return n, M, w
 
@@ -104,11 +109,13 @@ def group_properties(slope=scn_slope, alpha_eff=wax_alpha_eff, tm_shift=wax_Tm_s
             'L': lk}
 
 
-def sle_split_np(w, M, tm, dh, dv, t_c, dp=0.0, n_g=0.0, m_o=M_o):
+def sle_split_np(w, M, tm, dh, dv, t_c, dp=0.0, n_g=0.0, m_o=M_o, x=None):
     """Растворенные доли групп - numpy-эталон njit-ядра `equations/Thermo_wax.sle_split` с параметрами
-    аргументами (тот же жадный набор насыщенных групп). dp = P - P_ref, [Па]; n_g - газ, [моль/г]."""
-    t = t_c + 273.15
-    x = np.minimum(1.0, np.exp(-dh / R * (1.0 / t - 1.0 / tm) - dv * dp / (R * t)))
+    аргументами (тот же жадный набор насыщенных групп). dp = P - P_ref, [Па]; n_g - газ, [моль/г];
+    x - готовые мольные доли насыщения групп (уравнение состояния), тогда tm, dh, dv, t_c, dp не нужны."""
+    if x is None:
+        t = t_c + 273.15
+        x = np.minimum(1.0, np.exp(-dh / R * (1.0 / t - 1.0 / tm) - dv * dp / (R * t)))
     a = (1.0 - w.sum()) / m_o + n_g + (w / M).sum()
     b = 1.0
     sat = np.zeros(w.size, bool)
@@ -142,7 +149,7 @@ if wax_characterization == 'single':
     WAX_L_REL = np.array([1.0], data_type)
     SCN_N, SCN_M, SCN_W = np.array([0]), np.array([MW]), np.array([WAX_TOTAL])
 else:
-    SCN_N, SCN_M, SCN_W = scn_distribution()
+    SCN_N, SCN_M, SCN_W = scn_distribution(alpha=scn_gamma_alpha if wax_characterization == 'gamma' else None)
     _w, _M, _Tm, _L = lump_groups(SCN_N, SCN_M, SCN_W)
     WAX_W0 = _w.astype(data_type)
     WAX_M = _M.astype(data_type)
@@ -210,20 +217,49 @@ def asph_volume_fraction(w_a):
     return va / (va + (1.0 - w_a) / ro_o)
 
 
-def _calibrate_delta_a() -> float:
+_W_SAT0 = REST0 * F_SAT_REST + WAX_TOTAL  # насыщенные исходной нефти: при init_T весь парафин растворен
+_W_ARO0 = REST0 * (1.0 - F_SAT_REST)
+
+
+def _calibrate_delta_a(v_a=v_asph) -> float:
     """Параметр растворимости асфальтенов, при котором в точке (P_onset_asph, init_T) начальная доля
     асфальтенов ровно насыщающая (Hirschberg et al., 1984): ln phi_a0 = v_a/v_m - 1 - v_a*dd^2/(R*T)."""
     if sara_asphaltenes <= 0.0:
         return 21.0
-    w_sat = REST0 * F_SAT_REST + WAX_TOTAL  # при пластовой температуре весь парафин растворен
-    w_aro = REST0 * (1.0 - F_SAT_REST)
-    d_m = delta_maltene_py(w_sat, w_aro, sara_resins, P_onset_asph, init_T)
+    d_m = delta_maltene_py(_W_SAT0, _W_ARO0, sara_resins, P_onset_asph, init_T)
     rt = R * (init_T + 273.15)
-    arg = rt * (v_asph / V_M - 1.0 - math.log(asph_volume_fraction(sara_asphaltenes))) / v_asph
+    arg = rt * (v_a / V_M - 1.0 - math.log(asph_volume_fraction(sara_asphaltenes))) / v_a
     return d_m + math.sqrt(arg) * 1e-3  # Па^0.5 -> МПа^0.5
 
 
-DELTA_ASPH = _calibrate_delta_a()  # параметр растворимости асфальтенов, [МПа^0.5]
+def hirschberg_precipitated(v_a, p_list):
+    """Равновесно выпавшие асфальтены исходной нефти при init_T, [доля массы нефти]: w_a0 - w_a^max(p) по (1)
+    `equations/Asphaltene.py`, delta_a - по P_onset_asph при этом v_a."""
+    d_a = _calibrate_delta_a(v_a)
+    rt = R * (init_T + 273.15)
+    out = []
+    for p in p_list:
+        dd = (d_a - delta_maltene_py(_W_SAT0, _W_ARO0, sara_resins, p, init_T)) * 1e3
+        phi = min(1.0, math.exp(v_a / V_M - 1.0 - v_a * dd * dd / rt))
+        out.append(max(0.0, sara_asphaltenes - phi * ro_asph / (phi * ro_asph + (1.0 - phi) * ro_o)))
+    return np.array(out)
+
+
+def _fit_v_asph() -> float:
+    """Мольный объем асфальтенов по кривой выпавших `asph_curve` (МНК по ln v_a; delta_a держит P_onset_asph);
+    без кривой - v_asph из констант."""
+    if asph_curve is None or sara_asphaltenes <= 0.0:
+        return v_asph
+    from scipy.optimize import least_squares
+
+    p, w = np.asarray(asph_curve, float).T
+    fit = least_squares(lambda x: hirschberg_precipitated(math.exp(x[0]), p) - w, [math.log(v_asph)],
+                        bounds=([math.log(0.1e-3)], [math.log(10e-3)]))
+    return math.exp(fit.x[0])
+
+
+V_ASPH = _fit_v_asph()  # мольный объем асфальтенов в (1), [м^3/моль]
+DELTA_ASPH = _calibrate_delta_a(V_ASPH)  # параметр растворимости асфальтенов, [МПа^0.5]
 # Индекс коллоидной неустойчивости начальной нефти: < 0.7 - асфальтены устойчивы, > 0.9 - неустойчивы
 # (Yen, Yin & Asomaning, SPE 65376, 2001)
 CII0 = (SAT0 + sara_asphaltenes) / (sara_aromatics + sara_resins)
@@ -247,4 +283,5 @@ if __name__ == '__main__':
     for k in range(N_W):
         print(f'| {k + 1} | {WAX_W0[k]:.4f} | {WAX_M[k]:.1f} | {WAX_TM_K[k] - 273.15:.1f} | '
               f'{won_tm(WAX_M[k]) - 273.15:.1f} | {WAX_L_REL[k] * latent_heat / 1e3:.1f} | {WAX_DV[k] * 1e6:.2f} |')
-    print(f'Газ при P_b: {N_GAS_B * 1e3:.3f} моль/кг; delta_a = {DELTA_ASPH:.2f} МПа^0.5')
+    print(f'Газ при P_b: {N_GAS_B * 1e3:.3f} моль/кг; delta_a = {DELTA_ASPH:.2f} МПа^0.5, '
+          f'v_a = {V_ASPH * 1e3:.3f} л/моль' + (' (по asph_curve)' if asph_curve is not None else ''))

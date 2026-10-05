@@ -23,3 +23,9 @@ outputs/
 *-converted-to.pdf
 
 experiments/results/cache/
+
+# литература хранится в books (см. resources/литература/ГДЕ_ФАЙЛЫ.md)
+resources/литература/**/*.pdf
+resources/литература/**/*.xml
+resources/литература/**/*.doc
+resources/всякие статьи/

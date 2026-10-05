@@ -104,3 +104,31 @@ def test_kinetics_active_and_stable(kin_all):
     assert r['dep_wax'] > 0.0 and r['dep_asph'] > 0.0
     assert r['min_dt'] > r['dt_min'], 'шаг упал до нижней границы'
     assert kin_all[0]['fingerprint'] == kin_all[1]['fingerprint'], 'два прогона разошлись: гонка в prange'
+
+
+# Уравнение состояния поверх ALL_ON (`paraphin/thermo`): x_sat групп и газ - из таблиц Пенга-Робинсона (плавление
+# по Coutinho с переходом), растворимость асфальтенов - модель Nghiem, подобранная по кривой выпавших. Ядра те же,
+# меняются только пределы растворимости
+EOS_ON = dict(ALL_ON, wax_eos='True', asph_nghiem='True', eos_melting="'coutinho'",
+              asph_curve='((8.0e6, 1.0e-4), (9.5e6, 3.0e-4), (10.5e6, 1.0e-4))')
+
+
+@pytest.fixture(scope='module')
+def eos_on():
+    return run_worker('eos_on', EOS_ON, WORKER, args=(300.0, 2))['runs']
+
+
+def test_eos_conservation(eos_on):
+    r = eos_on[0]
+    assert r['worst_q'] < 1e-6
+    assert max(abs(x) for x in r['balance']) < 1e-8, r['balance']
+    assert r['worst_pore'] < 1e-10 and r['worst_dep'] < 1e-10
+    assert r['worst_closure'] < 1e-12 and r['worst_groups'] < 1e-12
+    assert r['min_frac'] >= 0.0
+
+
+def test_eos_active_and_stable(eos_on):
+    r = eos_on[0]
+    assert r['dep_wax'] > 0.0 and r['dep_asph'] > 0.0
+    assert r['min_dt'] > r['dt_min'], 'шаг упал до нижней границы'
+    assert eos_on[0]['fingerprint'] == eos_on[1]['fingerprint'], 'два прогона разошлись: гонка в prange'

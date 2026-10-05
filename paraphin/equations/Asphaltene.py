@@ -17,20 +17,26 @@ Tabzar et al., Oil Gas Sci. Technol. 2018, 73:51). Смолы с высоким 
 23:3681), поэтому доля флокул релаксирует к равновесной с константой k_floc, а обратное растворение
 медленнее (k_redis): частичная необратимость, отмеченная Leontaritis & Mansoori (1987).
 Осаждение флокул в порах - `calc_velocity_asph` и `Qp_m_k_fi.calc_qp_m_k_fi_2`.
+
+С флагом `asph_nghiem` предел растворимости берется из таблицы модели твердой фазы Nghiem на уравнении
+состояния Пенга-Робинсона (`thermo/tables.py`), откалиброванной по тому же давлению начала осаждения.
+Если задана кривая выпавших `asph_curve`, по ней подбираются v_a в (1) или V_s и kij асфальтены-газ Нгхайема.
 """
 import math
 
 import numpy as np
 from numba import njit
 
-from paraphin.constants import (R, ro_o, ro_asph, v_asph, delta_sat, delta_aro, delta_res, delta_gas, v_gas,
+from paraphin.constants import (R, ro_o, ro_asph, delta_sat, delta_aro, delta_res, delta_gas, v_gas,
                                 c_oil_comp, beta_oil, P_ref_wax, k_floc, k_redis, k_B, D_asph, Lk, S_max,
-                                min_Wps_bound)
-from paraphin.oil_composition import DELTA_ASPH, V_M, V_LIQ, IA_F
+                                min_Wps_bound, asph_nghiem)
+from paraphin.oil_composition import DELTA_ASPH, V_ASPH, V_M, V_LIQ, IA_F
+from paraphin.thermo.tables import LNWAMAX, eos_interp
 from .Thermo_wax import n_gas
 
-_VA_VM_1 = v_asph / V_M - 1.0
-_VA_R = v_asph / R
+# v_a - v_asph или подобранный по кривой выпавших asph_curve (`oil_composition._fit_v_asph`)
+_VA_VM_1 = V_ASPH / V_M - 1.0
+_VA_R = V_ASPH / R
 # Броуновская диффузия флокулы по Стоксу-Эйнштейну: D_a = k_B*T/(3*pi*mu*d_a), как для кристаллов парафина
 _DIFF_A = k_B / (3.0 * np.pi * D_asph)
 _So_max = 1.0 - S_max
@@ -47,7 +53,7 @@ def delta_maltene(w_sat, w_aro, w_res, p, T):
     w_liq = w_sat + w_aro + w_res
     d_liq = (w_sat * delta_sat + w_aro * delta_aro + w_res * delta_res) / w_liq
     d_liq *= 1.0 + c_oil_comp * (p - P_ref_wax) - beta_oil * (T - 25.0)
-    vg = n_gas(p) * v_gas
+    vg = n_gas(T, p) * v_gas
     vl = w_liq * V_LIQ
     phi_g = vg / (vg + vl)
     return (1.0 - phi_g) * d_liq + phi_g * delta_gas
@@ -56,6 +62,9 @@ def delta_maltene(w_sat, w_aro, w_res, p, T):
 @njit(cache=True)
 def asph_soluble(w_sat, w_aro, w_res, p, T):
     """Наибольшая массовая доля растворенных асфальтенов в нефтяной фазе по (1), [-]."""
+    if asph_nghiem:
+        # ponytail: состав на исходной нефти - смолы и насыщенные ячейки (аргументы) на предел не влияют
+        return min(1.0, math.exp(eos_interp(LNWAMAX, T, p)))
     dd = (DELTA_ASPH - delta_maltene(w_sat, w_aro, w_res, p, T)) * 1e3  # МПа^0.5 -> Па^0.5
     arg = _VA_VM_1 - _VA_R * dd * dd / (T + 273.15)
     phi = 1.0 if arg >= 0.0 else math.exp(arg)

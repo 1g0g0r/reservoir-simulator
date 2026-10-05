@@ -572,6 +572,424 @@ def field_numbers(th, num):
     num['F_WALL_SHARE'] = f"{100 * k_w / (k_w + th['kin']['K_CRYST']):.0f}"
 
 
+# --- Термодинамика и реология, подбор параметров (только полная версия) -------------------------------------------
+
+EOS_DIR = EXP / 'уравнение_состояния'
+# Теплоты плавления и твердо-твердого перехода н-C24 (Broadhurst, J. Res. NBS 1962, 66A:241, табл. 3), ккал/моль
+BROADHURST_C24 = (13.12, 7.48)
+STYLE_N = {1: '-', 2: '--', 3: ':', 4: '-.', 5: STYLES[4], 6: STYLES[5]}
+UQ_LINE = dict(linestyle='-', color='0.55', lw=2.2)  # кривая 7 рис. 9 - твердый раствор UNIQUAC
+PSI = 6894.757  # Па в psi
+# Разложение эффектов прежней однокомпонентной моделью (статья о теплопотерях, `твт_статья/article.md`, табл. 3;
+# расчеты `твт_статья/run_cases.py`, `make_figures.py`): КИН, эффекты парафина и взаимодействие
+OLD_FACTORIAL = {'wax_hl': -0.0004, 'wax_nohl': -0.0173, 'inter': 0.0170, 'total': 0.0211}
+
+
+def _jload(path):
+    return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
+
+
+def _rng(vals, d=1):
+    lo, hi = min(vals), max(vals)
+    return _f(lo, d) if round(lo, d) == round(hi, d) else f'{_f(lo, d)}–{_f(hi, d)}'
+
+
+def _e10(e):
+    """10 в целой степени надстрочными цифрами: 10⁻³."""
+    return '10' + str(int(round(e))).translate(str.maketrans('-0123456789', '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'))
+
+
+def _signed(x, d=1):
+    return f'{x:+.{d}f}'.replace('-', '−')
+
+
+def _asph_peak(p, frac):
+    p, frac = np.asarray(p) / 1e6, 100.0 * np.asarray(frac)
+    i, on = int(np.argmax(frac)), p[frac > 0.1]
+    return frac[i], p[i], (on.min(), on.max()) if on.size else (float('nan'),) * 2
+
+
+def fig_thermo(eos, cal, ds, num):
+    """Рис. 9: кривая выпадения нефти Жетыбая и две синтетические смеси н-алканов."""
+    import core_flood as cf
+    exp = np.array(cf.LI_PRECIPITATION)
+    z, tli, sc = eos['zhetybai'], np.array(eos['t_li']), cal['scn']
+    fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.6))
+    ax = axes[0]
+    ax.plot(exp[:, 0], exp[:, 1], 'o', mfc='white', mec='k', ms=3.5)
+    for n, key in ((1, 'eff'), (2, 'pr'), (3, 'ideal')):
+        ax.plot(tli, z['curves'][key], linestyle=STYLE_N[n], color='k', lw=1.2, label=str(n))
+    ax.plot(sc['T'], sc['legacy'], linestyle=STYLE_N[4], color='k', lw=1.2, label='4')
+    ax.plot(tli, z['curves']['uq'], label='7', **UQ_LINE)
+    ax.set_xlim(-20, 75)
+    ax.set_ylim(0, 31)
+    ax.set_xlabel('T, °C')
+    ax.set_ylabel('w, % масс.')
+    ax.legend(loc='upper right', fontsize=7, handlelength=2.4)
+    _panel(ax, 'а')
+    for ax, name, letter in zip(axes[1:], ('Bim 0', 'Bim 13'), 'бв'):
+        t, s = np.array(ds['mixtures'][name]['solid_wt']).T
+        ax.plot(t, s, 'o', mfc='white', mec='k', ms=3.5)
+        c = eos['synthetic'][name]['curves']
+        for n, key in ((2, 'pr'), (5, 'ss'), (6, 'ms_c')):
+            ax.plot(eos['t_syn'], c[key], linestyle=STYLE_N[n], color='k', lw=1.2, label=str(n))
+        ax.plot(eos['t_syn'], c['uq'], label='7', **UQ_LINE)
+        ax.set_xlim(-10, 45)
+        ax.set_ylim(0, 40)
+        ax.set_xlabel('T, °C')
+        _panel(ax, letter)
+    axes[2].legend(loc='upper right', fontsize=7, handlelength=2.4)
+    fig.tight_layout()
+    _save(fig, 'aspo_f9')
+
+
+def fig_pressure_asph(eos, cal, num):
+    """Рис. 10: сдвиг WAT с давлением у дегазированной и живой нефти, колокол выпадения асфальтенов."""
+    pr = eos['pressure']
+    sl = cal['pressure']['slopes'].values()
+    fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.6))
+    ax = axes[0]
+    pd = np.array(eos['p_dead']) / 1e6
+    ax.fill_between(pd, min(sl) * (pd - pd[0]), max(sl) * (pd - pd[0]), color='0.85', lw=0)
+    for n, key in ((1, 'eff'), (2, 'pr')):
+        ax.plot(pd, np.array(pr['dead'][key]) - pr['dead'][key][0], linestyle=STYLE_N[n], color='k', label=str(n))
+    ax.set_ylabel('ΔWAT, °C')
+    ax.legend(loc='lower right', fontsize=7, handlelength=2.4)
+    _panel(ax, 'а')
+    ax = axes[1]
+    pl = np.array(eos['p_live']) / 1e6
+    for n, key in ((1, 'eff'), (2, 'pr')):
+        ax.plot(pl, np.array(pr['live'][key]) - pr['live'][key][0], linestyle=STYLE_N[n], color='k', marker='o',
+                ms=2.5)
+    ax.axvline(eos['P_bubble'] / 1e6, color='0.5', lw=0.6, ls='--')
+    _panel(ax, 'б')
+    ax = axes[2]
+    pa = np.array(eos['p_asph']) / 1e6
+    for n, key in ((1, 'hirschberg'), (2, 'nghiem'), (3, 'nghiem_kij0')):
+        ax.plot(pa, 100.0 * np.array(eos['asph']['precipitated'][key]), linestyle=STYLE_N[n], color='k', lw=1.2,
+                label=str(n))
+    for x in (eos['P_bubble'], eos['P_onset_asph']):
+        ax.axvline(x / 1e6, color='0.5', lw=0.6, ls='--')
+    ax.set_ylabel('выпало, %')
+    ax.set_ylim(0, 55)
+    ax.legend(loc='upper right', fontsize=7, handlelength=2.4)
+    _panel(ax, 'в')
+    for ax in axes:
+        ax.set_xlabel('P, МПа')
+    fig.tight_layout()
+    _save(fig, 'aspo_f10')
+
+
+def fig_tabzar(eos, num):
+    """Рис. 12: выпадение асфальтенов из живой нефти Tabzar et al. (2018) - модель Нгхайема, калибровка по точке начала
+    осаждения и по кривой выпавших."""
+    tz, data = eos['tabzar'], _jload(EXP / 'data' / 'tabzar2018_asphaltene.json')
+    mpa = lambda psig: (np.asarray(psig, float) + 14.696) * PSI / 1e6  # noqa: E731
+    p_exp, w_exp = np.array(data['precipitated']).T
+    fig, ax = plt.subplots(figsize=(3.6, 2.7))
+    ax.plot(mpa(p_exp), w_exp, 'o', mfc='white', mec='k', ms=3.5, zorder=3)
+    for n, key in ((1, 'curve'), (2, 'vs'), (3, 'onset')):
+        ax.plot(mpa(eos['p_tabzar_psig']), tz['variants'][key]['curve'], linestyle=STYLE_N[n], color='k', lw=1.2,
+                label=str(n))
+    ax.axvline(data['P_bubble_psia'] * PSI / 1e6, color='0.5', lw=0.6, ls='--')
+    ax.set_xlim(0, 36)
+    ax.set_ylim(0, 2)
+    ax.set_xlabel('P, МПа')
+    ax.set_ylabel('w, % масс.')
+    ax.legend(loc='upper right', fontsize=7, handlelength=2.4)
+    fig.tight_layout()
+    _save(fig, 'aspo_f12')
+
+
+def fig_viscosity(cal, num):
+    """Рис. 11: вязкость нефти Жетыбая при охлаждении (Li et al., 150 1/с) и модели."""
+    rh = cal['rheology']
+    fig, ax = plt.subplots(figsize=(3.6, 2.7))
+    ax.semilogy(rh['T'], rh['mu'], 'o', mfc='white', mec='k', ms=3.5)
+    for n, key in ((1, 'bingham'), (2, 'kd'), (3, 'pr_full')):
+        ax.semilogy(rh['T'], rh[key], linestyle=STYLE_N[n], color='k', lw=1.2, label=str(n))
+    ax.set_ylim(5, 2000)
+    ax.set_xlabel('T, °C')
+    ax.set_ylabel('μ, мПа·с')
+    ax.legend(loc='upper right', fontsize=7, handlelength=2.4)
+    fig.tight_layout()
+    _save(fig, 'aspo_f11')
+
+
+def thermo_numbers(eos, cal, ds, val, params, th, num):
+    """Числа раздела о термодинамике и реологии, разбора расхождений и подбора параметров."""
+    import core_flood as cf
+    import li2024
+    import sandyga2020
+    import sutton_roberts
+    from paraphin import oil_composition as oc
+    from paraphin.constants import MW, R, gamma, r_m, sigma_r, r_max, ro_p, ro_wax_liq
+    exp = dict(cf.LI_PRECIPITATION)
+
+    # A. Кривая выпадения: один псевдокомпонент по Вону без подбора, он же с эффективными параметрами, 4 группы, EOS
+    w1, m1 = np.array([oc.WAX_TOTAL]), np.array([float(MW)])
+    tm1, dh1 = oc.won_tm(m1), oc.won_dh(m1)
+    prec1 = lambda t: 100 * (w1.sum() - oc.sle_split_np(w1, m1, tm1, dh1, np.zeros(1), t).sum())
+    num['TH_WON1_WAT'] = _f(oc.wat_np(w1, m1, tm1, dh1, np.zeros(1)), 1)
+    num['TH_WON1_35'], num['TH_WON1_25'] = _f(prec1(35.0), 1), _f(prec1(25.0), 1)
+    num['TH_EXP_35'], num['TH_EXP_25'] = _f(exp[35.0], 1), _f(exp[25.0], 1)
+    num['TH_WAT_EXP'] = _f(cf.LI_PRECIPITATION[0][0], 2)
+    sc = cal['scn']
+    num['TH_RMS_GROUPS'], num['TH_RMS_LEGACY'] = _f(100 * sc['rms_groups'], 2), _f(100 * sc['rms_legacy'], 2)
+    num['TH_WAT_GROUPS'], num['TH_WAT_LEGACY'] = _f(sc['wat'], 1), _f(sc['wat_legacy'], 1)
+    num['TH_SLOPE'] = _f(sc.get('slope', 0.07), 2)
+    num['TH_DH'], num['TH_SHIFT'] = _f(sc['alpha'] / 1e3, 1), _f(sc['shift'], 1)
+    z = eos['zhetybai']
+    for key, tag in (('pr', 'PR'), ('ideal', 'IDEAL'), ('ss', 'SS')):
+        num[f'EOS_LI_WAT_{tag}'] = _f(z['wat'][key], 1)
+        num[f'EOS_LI_RMS_{tag}'] = _f(z['rms_fit'][key], 1)
+    num['EOS_LI_DWAT'] = _f(z['wat']['pr'] - cf.LI_PRECIPITATION[0][0], 0)
+    num['EOS_LI_PR_IDEAL'] = _f(z['wat']['pr'] - z['wat']['ideal'], 1)
+
+    # Б. Синтетические смеси (da Silva et al., 2017)
+    syn = eos['synthetic']
+    dev = lambda key: [m['wdt'][key] - ds['mixtures'][n]['wdt_exp'] for n, m in syn.items()]
+    auth = lambda model: [ds['mixtures'][n]['wdt_models'][model] - ds['mixtures'][n]['wdt_exp'] for n in syn]
+    num['EOS_SYN_DPR'], num['EOS_SYN_DIDEAL'] = _signed(np.mean(dev('pr'))), _signed(np.mean(dev('ideal')))
+    num['EOS_SYN_DSS_RNG'] = f"{_signed(min(dev('ss')))}…{_signed(max(dev('ss')))}"
+    num['EOS_SYN_DAUTH_MS'] = _signed(np.mean(auth('PR+Multisolid')))
+    num['EOS_SYN_DAUTH_SS'] = _signed(np.mean(auth('PR+IdealSolidSolution')))
+    num['EOS_SYN_DAUTH_UQ'] = _signed(np.mean(auth('PR+UNIQUAC')))
+    num['EOS_SYN_DPR_ABS'] = _f(abs(np.mean(dev('pr'))), 1)
+    num['EOS_SYN_DIDEAL_ABS'] = _f(abs(np.mean(dev('ideal'))), 1)
+    num['EOS_SYN_DAUTH_MS_ABS'] = _f(abs(np.mean(auth('PR+Multisolid'))), 1)
+    num['EOS_SYN_SHIFT'] = _f(np.mean([m['wdt']['pr'] - m['wdt']['ideal'] for m in syn.values()]), 1)
+    for key, tag in (('pr', 'PR'), ('ideal', 'IDEAL'), ('ss', 'SS')):
+        num[f'EOS_SYN_RMS_{tag}'] = _rng([m['rms'][key] for m in syn.values()])
+    num['EOS_SYN_AAD_UQ'] = _rng([ds['mixtures'][n]['aad_models']['PR+UNIQUAC'] for n in syn], 2)
+    srng = lambda v: f'{_signed(min(v))}…{_signed(max(v))}'  # noqa: E731
+    # Твердо-твердый переход и твердый раствор UNIQUAC по Coutinho (`paraphin/thermo`)
+    for key, tag in (('ms_c', 'MSC'), ('ms_cp', 'MSCP'), ('uq', 'UQ'), ('uq_id', 'UQID')):
+        num[f'EOS_SYN_D{tag}_RNG'] = srng(dev(key))
+        num[f'EOS_SYN_RMS_{tag}'] = _rng([m['rms'][key] for m in syn.values()])
+    num['EOS_SYN_DPR_RNG'] = srng(dev('pr'))
+    num['EOS_SYN_DUQ_ABS'] = _f(max(abs(x) for x in dev('uq')), 1)
+    num['EOS_SYN_DAUTH_UQ_RNG'] = srng(auth('PR+UNIQUAC'))
+    num['EOS_SYN_AAD_UQ_OWN'] = _rng([m['aad']['uq'] for m in syn.values()], 2)
+    for key, tag in (('ms_c', 'MSC'), ('uq', 'UQ')):
+        num[f'EOS_LI_WAT_{tag}'] = _f(z['wat'][key], 1)
+        num[f'EOS_LI_RMS_{tag}'] = _f(z['rms_fit'][key], 1)
+    uf = z['uq_fit']
+    num['EOS_LI_UQFIT_RMS'], num['EOS_LI_UQFIT_WAT'] = _f(uf['rms'], 1), _f(uf['wat'], 0)
+    num['EOS_LI_UQFIT_S'], num['EOS_LI_UQFIT_LAST'] = _f(uf['scn_slope'], 3), str(uf['scn_last'])
+    num['EOS_LI_WAT_HI'] = _f(max(z['wat'][k] for k in ('pr', 'ideal', 'ss', 'ms_c', 'uq'))
+                              - cf.LI_PRECIPITATION[0][0], 0)
+    m24 = 14.027 * 24 + 2.016
+    num['BR_C24_WON'] = _f(oc.won_dh(np.array([m24]))[0] / 1e3, 0)
+    f_kj, t_kj = (x * 4.184 for x in BROADHURST_C24)
+    num['BR_C24_F'], num['BR_C24_T'], num['BR_C24_TOT'] = _f(f_kj, 1), _f(t_kj, 1), _f(f_kj + t_kj, 0)
+    num['BR_C24_TR_PCT'] = _f(100 * t_kj / (f_kj + t_kj), 0)
+
+    # В. Давление и газ
+    pr, slopes = eos['pressure'], list(cal['pressure']['slopes'].values())
+    num['PRESS_SANDYGA'] = f'{_f(min(slopes), 2)}–{_f(max(slopes), 2)}'
+    num['PRESS_SL_EFF'] = _f(pr['slope_dead']['eff'], 3)
+    num['PRESS_SL_PR'] = _f(pr['slope_dead']['pr'], 2)
+    num['PRESS_SL_PR0'] = _f(pr['slope_dead']['pr_no_dv'], 3)
+    i_b = eos['p_live'].index(eos['P_bubble'])
+    for key, tag in (('eff', 'EFF'), ('pr', 'PR')):
+        live = pr['live'][key]
+        num[f'PRESS_DROP_{tag}'] = _f(live[0] - live[i_b], 1)
+        num[f'PRESS_RISE_{tag}'] = _f((live[-1] - live[i_b]) / ((eos['p_live'][-1] - eos['P_bubble']) / 1e6), 2)
+    num['PRESS_KIJ'] = _f(pr['kij_gas'], 3).replace('-', '−')
+    num['PRESS_DV_EFF'] = _f(cal['pressure']['dv_frac'], 3)
+    num['PRESS_DV_EOS'] = _f(1.0 - ro_wax_liq / ro_p, 2)
+
+    # Г. Асфальтены: модели и лабораторные условия опыта Li
+    a = eos['asph']['precipitated']
+    for key, tag in (('hirschberg', 'H'), ('nghiem', 'N'), ('nghiem_kij0', 'N0')):
+        peak, p_at, (lo, hi) = _asph_peak(eos['p_asph'], a[key])
+        num[f'ASPH_{tag}_MAX'], num[f'ASPH_{tag}_P'] = _f(peak, 0), _f(p_at, 1)
+        num[f'ASPH_{tag}_WIN'] = f'{_f(lo, 1)}–{_f(hi, 1)}'
+    dead = max(max(v) for v in val['asphaltenes']['dead'].values())
+    num['ASPH_LAB_DEAD'] = _f(100 * dead, 1)
+    pl = val['asphaltenes']['plateau_exp']
+    num['ASPH_LAB_PLATEAU'] = f"{_f(min(pl.values()), 2)}–{_f(max(pl.values()), 2)}"
+    num['ASPH_DELTA_A'] = _f(val['asphaltenes']['delta_a'], 2)
+    # Калибровка Нгхайема по кривой выпавших (Tabzar et al., 2018)
+    tz, tzd = eos['tabzar'], _jload(EXP / 'data' / 'tabzar2018_asphaltene.json')
+    tv = tz['variants']
+    num['TZ_ASPH_WT'] = _f(tz['asph_wt'], 1)
+    num['TZ_T'] = _f((tzd['T_F'] - 32.0) / 1.8, 0)
+    num['TZ_PB'], num['TZ_PON'] = _f(tzd['P_bubble_psia'] * PSI / 1e6, 1), _f(tzd['P_onset_psia'] * PSI / 1e6, 1)
+    num['TZ_PB_PR0'] = _f(tz['p_b_pr_kij0'] * PSI / 1e6, 1)
+    num['TZ_EXP_RNG'] = _rng([w for _, w in tzd['precipitated']], 2)
+    num['TZ_ONSET_RNG'] = _rng(tv['onset']['at_exp'], 0)
+    num['TZ_KIJ_AUTH'], num['TZ_VS_AUTH'] = _f(tv['onset']['kij'], 1), _f(tv['onset']['V_s'], 1)
+    num['TZ_ONSET_RMS'], num['TZ_VS04_RMS'] = _f(tv['onset']['rms'], 1), _f(tv['vs']['rms'], 2)
+    num['TZ_VS04_LOW'] = _f(tv['vs']['at_exp'][0], 2)
+    c = tv['curve']
+    num['TZ_KIJ'], num['TZ_VS'], num['TZ_VBAR'] = _f(c['kij'], 3), _f(c['V_s'], 3), _f(c['v_bar'], 3)
+    num['TZ_VS_DEV_PCT'], num['TZ_RMS'] = _f(100 * (c['V_s'] / c['v_bar'] - 1.0), 1), _f(c['rms'], 2)
+    # PVT нефти модели по уравнению состояния против линейного R_s симулятора
+    pv = eos['pvt']
+    rel = np.abs(np.array(pv['Rs']) / np.array(pv['Rs_linear']) - 1.0)
+    num['PVT_RS_DEV'], num['PVT_RS_DEV_P'] = _f(100 * rel.max(), 0), _f(eos['p_pvt'][int(rel.argmax())] / 1e6, 1)
+    i6 = eos['p_pvt'].index(6e6)
+    num['PVT_FREE6'], num['PVT_BO_B'] = _f(pv['free_gas'][i6], 2), _f(pv['Bo'][eos['p_pvt'].index(eos['P_bubble'])], 3)
+
+    # Д. Вязкость и гель
+    rh = cal['rheology']
+    lnr = lambda key: float(np.sqrt(np.mean((np.log(rh[key]) - np.log(rh['mu'])) ** 2)))
+    num['VISC_RMS'], num['VISC_RMS_KD'] = _f(lnr('bingham'), 3), _f(lnr('kd'), 2)
+    num['VISC_KD_UNDER'] = _f(rh['mu'][0] / rh['kd'][0], 1)
+    num['VISC_PR_OVER'] = _sci(rh['pr_full'][0] / rh['mu'][0], 0)
+    num['VISC_T0'] = _f(rh['T'][0], 1)
+    num['VISC_MU25'], num['VISC_E'] = _f(rh['mu25'], 1), _f(rh['E'] / 1e3, 1)
+    num['VISC_D'], num['GEL_PHI'] = _f(rh['visc_D'], 2), _f(100 * rh['gel_phi'], 1)
+    num['GEL_TAU'], num['GEL_N'] = _f(rh['gel_tau_ref'], 1), _f(rh['gel_n'], 2)
+    runs = val['runs']
+    for key, tag in (('sr1_legacy', 'SR_LEG'), ('sr1_gel_1.0', 'SR_1'), ('sr1_gel_0.1', 'SR_01'),
+                     ('sr1_gel_0.03', 'SR_003'), ('sr2_legacy', 'SR2_LEG'), ('sr2_gel_0.03', 'SR2_003'),
+                     ('li25_comp', 'LI_COMP'), ('li25_gel_1.0', 'LI_1')):
+        num[f'GEL_{tag}'] = _f(runs[key]['rms'], 3)
+    num['GEL_SD_STATIC'] = _f(1.0 / min(runs['sd_gelphi_0.02_1.0']['k']), 1)
+    num['GEL_SD_LEG'] = _f(1.0 / min(runs['sd_legacy']['k']), 1)
+
+    # Е. Причины расхождений в керновых опытах
+    sr = _load('sutton_roberts')
+    g = lambda d, n: d[n] if n in d else d[str(n)]
+    joint = sr['lsq']['rate_entrainment']['joint']['rms']
+    num['SR_JOINT'] = _rng([g(joint, 1), g(joint, 2)], 2)
+    cross = sr['entrainment']['cross']
+    num['SR_CROSS'] = f"{_f(min(cross.values()), 2)}–{_f(max(cross.values()), 2)}"
+    x = sr['visc']['x']
+    mult = (10 ** x[3], 10 ** x[4])
+    num['SR_MULT1'], num['SR_MULT2'] = _f(mult[0], 1), _f(mult[1], 2)
+    num['SR_MU1'], num['SR_MU2'] = _f(3.0 / mult[0], 0), _f(3.0 / mult[1], 0)
+    sd = _load('sandyga2020')
+    loss, loss_exp = sd['best']['pore_loss'], sd['best']['pore_loss_exp']
+    num['SD_LOSS_NARROW'], num['SD_LOSS_WIDE'] = _rng(loss[:2], 2), _rng(loss[2:], 2)
+    num['SD_LOSS_EXP'] = _rng(loss_exp, 2)
+
+    # Ж. Пласт: доля блокируемых каналов при d_p полевого расчета, чувствительность вязкости к E_a
+    r = np.linspace(1e-9, r_max, 4001)
+    phi0 = np.exp(-np.log(r / r_m) ** 2 / (2 * sigma_r ** 2)) / r
+    d_p = th['kin']['D_CRYST'] if th else 15e-6
+    r_pass = d_p / (2 * gamma)
+    below = r <= r_pass
+    num['F_RPASS'] = _f(r_pass * 1e6, 1)
+    vol = np.trapezoid(r[below] ** 2 * phi0[below], r[below]) / np.trapezoid(r ** 2 * phi0, r)
+    cond = np.trapezoid(r[below] ** 4 * phi0[below], r[below]) / np.trapezoid(r ** 4 * phi0, r)
+    num['F_VOL_BLOCK'], num['F_COND_BLOCK'] = _f(100 * vol, 0), _f(100 * cond, 0)
+    # то же при диаметре кристалла общего набора Sutton и Roberts (распределение пор в керне - как в пласте)
+    rp_sr = 10 ** params['sutton_roberts_lsq']['rate_entrainment']['joint'][0] / (2 * gamma)
+    b_sr = r <= rp_sr
+    num['SR_RPASS'] = _f(rp_sr * 1e6, 1)
+    num['SR_VOL_BLOCK'] = _f(100 * np.trapezoid(r[b_sr] ** 2 * phi0[b_sr], r[b_sr]) / np.trapezoid(r ** 2 * phi0, r), 0)
+    num['SR_COND_BLOCK'] = _f(100 * np.trapezoid(r[b_sr] ** 4 * phi0[b_sr], r[b_sr]) / np.trapezoid(r ** 4 * phi0, r), 0)
+    t0 = (th['init_T'] if th else 55.0) + 273.15
+    ratio = lambda e: math.exp(e / R * (1.0 / 293.15 - 1.0 / t0))
+    num['F_MU_RATIO_25'], num['F_MU_RATIO_FIT'] = _f(ratio(25e3), 1), _f(ratio(rh['E']), 1)
+
+    # Прежняя модель: эффект парафина и доля взаимодействия в суммарном изменении КИН
+    of = OLD_FACTORIAL
+    num['OLD_FX_WAX_HL'] = _f(abs(of['wax_hl']), 4)
+    num['OLD_FX_WAX_NOHL'] = _f(abs(of['wax_nohl']), 3)
+    num['OLD_FX_INTER_PCT'] = _f(100 * of['inter'] / of['total'], 0)
+    # Таблица 4: термодинамика и реология против независимых измерений
+    rows = [
+        ('Кривая выпадения, нефть Жетыбая [19]', 'СКО, % масс.', '—', num['TH_RMS_GROUPS'], num['EOS_LI_RMS_PR'],
+         f"один псевдокомпонент: {num['TH_RMS_LEGACY']}; PR + UNIQUAC: {num['EOS_LI_RMS_UQ']}, с подобранным "
+         f"распределением н-алканов: {num['EOS_LI_UQFIT_RMS']}"),
+        ('То же', 'WAT, °C', num['TH_WAT_EXP'], num['TH_WAT_GROUPS'], num['EOS_LI_WAT_PR'],
+         f"один псевдокомпонент: {num['TH_WAT_LEGACY']}; по Вону без подбора: {num['TH_WON1_WAT']}; "
+         f"PR + UNIQUAC: {num['EOS_LI_WAT_UQ']}"),
+        ('Синтетические смеси C18–C36 [30]', 'WDT − WDT опыта, °C', '—', num['EOS_SYN_DIDEAL'], num['EOS_SYN_DPR'],
+         f"PR + переход по Coutinho: {num['EOS_SYN_DMSC_RNG']}; PR + UNIQUAC: {num['EOS_SYN_DUQ_RNG']}; "
+         f"PR + multi-solid [30]: {num['EOS_SYN_DAUTH_MS']}; PR + UNIQUAC [30]: {num['EOS_SYN_DAUTH_UQ']}"),
+        ('То же', 'отклонение доли твердого, % масс.', '—', num['EOS_SYN_RMS_IDEAL'], num['EOS_SYN_RMS_PR'],
+         f"PR + переход по Coutinho: {num['EOS_SYN_RMS_MSC']}; PR + UNIQUAC: {num['EOS_SYN_RMS_UQ']} "
+         f"(среднее абсолютное {num['EOS_SYN_AAD_UQ_OWN']}); PR + UNIQUAC [30]: {num['EOS_SYN_AAD_UQ']}"),
+        ('Сдвиг WAT с давлением [2]', 'dWAT/dP, °C/МПа', num['PRESS_SANDYGA'], num['PRESS_SL_EFF'],
+         num['PRESS_SL_PR'], f"PR без скачка объема: {num['PRESS_SL_PR0']}"),
+        ('Вязкость при охлаждении [19]', 'СКО ln μ', '—', num['VISC_RMS'], '—',
+         f"Кригер—Догерти: {num['VISC_RMS_KD']}"),
+        ('Асфальтены у давления насыщения', 'выпало, % содержания', 'нет замеров', num['ASPH_H_MAX'],
+         num['ASPH_N_MAX'], f"Nghiem, kij = 0: {num['ASPH_N0_MAX']} при {num['ASPH_N0_P']} МПа"),
+        ('Асфальтены, живая нефть [34]', 'СКО выпавших, % масс.', '—', '—', num['TZ_RMS'],
+         f"Нгхайем по точке начала осаждения: {num['TZ_ONSET_RMS']}; V_s по кривой при k_ij = "
+         f"{num['TZ_KIJ_AUTH']}: {num['TZ_VS04_RMS']}"),
+    ]
+    num['T4'] = _table(['Измерение', 'Величина', 'Опыт', 'Настоящая модель', 'Уравнение состояния',
+                        'Другие модели'], rows)
+
+    # Таблица 5: что подбирается и по каким данным
+    lsq = sutton_roberts.LSQ_FAMILIES['rate_entrainment']
+    sj = params['sutton_roberts_lsq']['rate_entrainment']['joint']
+    ad = params['li2024']['solid']['kin']
+    cold = params['li2024_cold']['x']
+    sdb = params['sandyga2020']['best']
+    um = lambda lg, d=1: _f(10 ** lg * 1e6, d)
+    rows = [
+        ('Кривая выпадения и WAT нефти Жетыбая [19]', 'наклон распределения s, эффективная теплота ΔH_eff, сдвиг '
+         'T_m; перебор разбиений на группы', 'метод наименьших квадратов', 'доля выпавшего при 10–45°C и WAT',
+         f"s = {num['TH_SLOPE']}, ΔH_eff = {num['TH_DH']} кДж/моль, сдвиг {num['TH_SHIFT']} K"),
+        ('Сдвиг WAT с давлением [2]', 'доля скачка объема Δv/v_L в (11)', 'по среднему наклону регрессий '
+         'для 10–60% парафина', 'dWAT/dP', f"Δv/v_L = {num['PRESS_DV_EFF']}"),
+        ('Вязкость при 24–100°C [19]', 'μ_ref, E_a (выше 40°C); D, φ_gel, τ_ref, n_g (ниже)',
+         'наименьшие квадраты по ln μ, μ = μ_p + τ_y/γ̇', 'СКО ln μ',
+         f"μ(25°C) = {num['VISC_MU25']} мПа·с, E_a = {num['VISC_E']} кДж/моль, D = {num['VISC_D']}, "
+         f"φ_gel = {num['GEL_PHI']}%, τ_ref = {num['GEL_TAU']} Па, n_g = {num['GEL_N']}"),
+        ('Давление начала осаждения асфальтенов', 'δ_a (Хиршберг) или f_s* (Нгхайем)',
+         'насыщение в одной точке', '—', f"δ_a = {num['ASPH_DELTA_A']} МПа⁰·⁵"),
+        ('Кривая выпавших асфальтенов [34]', 'k_ij асфальтены—легкие 0–0.5, V_s (Нгхайем); v_a (Хиршберг)',
+         'перебор k_ij с шагом 0.005, V_s — метод наименьших квадратов; k_ij метан—C7+ по давлению насыщения',
+         'СКО выпавших, % масс.', f"k_ij = {num['TZ_KIJ']}, V_s = {num['TZ_VS']} л/моль"),
+        ('Sutton и Roberts [27]', f"d_p = {um(lsq['lo'][0], 0)}–{um(lsq['hi'][0], 0)} мкм, f_D = "
+         f"{_e10(lsq['lo'][1])}–{_e10(lsq['hi'][1])}, порог выноса {lsq['lo'][2]:g}–{lsq['hi'][2]:g} Па и его "
+         f"скорость {_e10(lsq['lo'][3])}–{_e10(lsq['hi'][3])} с⁻¹", 'метод наименьших квадратов по расчетам керна: '
+         'общий набор, набор на опыт, перекрестный прогноз', 'СКО k/k₀',
+         f"общий набор: d_p = {um(sj[0])} мкм, f_D = {_f(10 ** sj[1], 2)}, порог {_f(sj[2], 1)} Па, "
+         f"скорость {_sci(10 ** sj[3], 1)} с⁻¹"),
+        ('Li и др., 90–45°C [19]', f"Γ_max = {_e10(li2024.FIT_LO[0])}–{_e10(li2024.FIT_HI[0])} кг/м², "
+         f"K_ref = {_e10(li2024.FIT_LO[1])}–{_e10(li2024.FIT_HI[1])}, −ΔH_ads = 0–{li2024.FIT_HI[2] * 10:g} кДж/моль, "
+         f"k_ads = {_e10(li2024.FIT_LO[3])}–{_e10(li2024.FIT_HI[3])} с⁻¹", 'точно по трем плато, затем метод '
+         'наименьших квадратов; две формы кинетики', 'СКО k/k₀ ступеней',
+         f"Γ_max = {_sci(ad['ADS_GMAX'], 1)} кг/м², K_ref = {_f(ad['ADS_K'], 0)}, ΔH_ads = "
+         f"−{_f(-ad['ADS_DH'] / 1e3, 0)} кДж/моль, k_ads = {_sci(ad['ADS_RATE'], 1)} с⁻¹"),
+        ('Li и др., 25°C [19]', f"d_p = {um(li2024.COLD_LO[0], 0)}–{um(li2024.COLD_HI[0], 0)} мкм, f_D = "
+         f"{_e10(li2024.COLD_LO[1])}–{_e10(li2024.COLD_HI[1])}, k_cr = {_e10(li2024.COLD_LO[2])}–"
+         f"{_e10(li2024.COLD_HI[2])} с⁻¹; тиксотропное время геля "
+         f"{', '.join(f'{t / 60:g}' for t in sorted(li2024.COLD_GEL_TIMES))} мин", 'метод наименьших квадратов',
+         'СКО k/k₀', f"d_p = {um(cold[0])} мкм, f_D = {_f(10 ** cold[1], 2)}, 1/k_cr = {_f(10 ** -cold[2], 0)} с, "
+         f"время геля {params['li2024_cold']['gel_time'] / 60:g} мин"),
+        ('Sandyga и др. [2]', f"WAT пористой среды {', '.join(f'{w:g}' for w in sandyga2020.WATS)}°C; "
+         f"k_w = {_e10(sandyga2020.FIT_LO[0])}–1 с⁻¹, C_0 = {_e10(sandyga2020.FIT_LO[1])}–1, "
+         f"k_cr = {_e10(sandyga2020.FIT_LO[2])}–1 с⁻¹", 'сетка, затем метод наименьших квадратов',
+         'СКО lg(∇p/∇p₀)', f"WAT {sdb[0]:g}°C, k_w = {_sci(sdb[1], 1)} с⁻¹, C_0 = {_f(sdb[2], 1)}, "
+         f"1/k_cr = {_f(1 / sdb[3] / 60, 0)} мин"),
+        ('He и др. [28]', 'отношение горла к поре (сеть), показатель n (степенная зависимость)',
+         'одномерная минимизация', 'СКО k/k₀', f"горло/пора 0.40 при z = 8; n = {num.get('HE_POWER_N', '—')}"),
+        ('Вариант на уравнении состояния', 'k_ij газ—нефть', 'по давлению насыщения при T_0', '—',
+         f"k_ij = {num['PRESS_KIJ']}; T_m и ΔH — по Вону или Coutinho с переходом, без подбора"),
+    ]
+    num['T5'] = _table(['Данные', 'Что варьируется', 'Метод', 'Критерий', 'Результат'], rows)
+
+
+def thermo_rheology(num, th):
+    """Сопоставление термодинамики и реологии с независимыми измерениями (рис. 9-11, табл. 4) и подбор
+    параметров (табл. 5) - только для полной версии статьи."""
+    sys.path.insert(0, str(EXP / 'исходная_модель'))
+    cal, eos = _load('calibration'), _jload(EOS_DIR / 'results.json')
+    ds, val = _jload(EXP / 'data' / 'dasilva2017_sle.json'), _jload(EXP / 'состав' / 'validation.json')
+    params = _jload(EXP / 'params.json')
+    if not (cal and eos and ds and val and params):
+        print('нет сравнений термодинамики: experiments/calibrate.py, experiments/уравнение_состояния/compare.py, '
+              'experiments/состав/validate.py')
+        return
+    fig_thermo(eos, cal, ds, num)
+    fig_pressure_asph(eos, cal, num)
+    fig_viscosity(cal, num)
+    fig_tabzar(eos, num)
+    thermo_numbers(eos, cal, ds, val, params, th, num)
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     num = {}
@@ -582,6 +1000,7 @@ def main():
     fig_he(pm, he, num)
     table_experiments(num)
     th_path = RESULTS / 'thermal.json'
+    th = None
     if th_path.is_file():
         th = json.loads(th_path.read_text(encoding='utf-8'))
         if 'maps' in th:
@@ -591,6 +1010,7 @@ def main():
         field_numbers(th, num)
     else:
         print('нет results/thermal.json - сначала python твт_статья_АСПО/run_thermal.py')
+    thermo_rheology(num, th)
     RESULTS.mkdir(exist_ok=True)
     (RESULTS / 'numbers.json').write_text(json.dumps(num, ensure_ascii=False, indent=1), encoding='utf-8')
     lines = ['# Числа статьи', '', 'Создается `python твт_статья_АСПО/make_article.py`, руками не править.', '']

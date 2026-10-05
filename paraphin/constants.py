@@ -138,9 +138,13 @@ latent_heat_mult = 1.0
 # ======================================================================================================
 # Флаги
 wax_components = False        # N_w групп парафина по SCN (multi-solid) + асфальтены + смолы вместо одного псевдокомпонента
-wax_characterization = 'scn'  # 'scn' - группы по SCN-распределению; 'single' - одна группа ровно с MW, Tm, alpha (проверка переноса)
+wax_characterization = 'scn'  # 'scn' - группы по SCN-распределению; 'gamma' - SCN по гамма-распределению (Whitson);
+                              # 'single' - одна группа ровно с MW, Tm, alpha (проверка переноса)
 wax_pressure = False          # давление в равновесии: поправка Пойнтинга (Клапейрон-Клаузиус) и растворенный газ
 asphaltenes = False           # выпадение (Hirschberg), флокуляция и осаждение асфальтенов в порах, соосаждение смол
+wax_eos = False               # равновесие групп парафина - multi-solid на уравнении состояния Пенга-Робинсона (вместо
+                              # идеального раствора с эффективными параметрами), газ - из flash (`paraphin/thermo`)
+asph_nghiem = False           # растворимость асфальтенов - модель твердой фазы Nghiem на том же уравнении состояния
 gelation = False              # предел текучести геля и течение Букингема-Райнера в пучке капилляров
 wax_viscosity: int = 0        # 0 - Кригер-Догерти (прежняя модель); 1 - Pedersen & Ronningsen (2000), D-член
 pressure_viscosity = False    # зависимость вязкости нефти от давления (Barus)
@@ -171,6 +175,9 @@ scn_bounds = (22, 30, 40)
 scn_slope      = 0.07     # [1/атом C]
 wax_alpha_eff  = 41.86e3  # [Дж/моль]
 wax_Tm_shift   = 52.4     # [K]
+# Форма гамма-распределения при wax_characterization = 'gamma' (Whitson, SPEJ 1983, 23:683): мольные доли SCN -
+# интегралы плотности по границам групп, масштаб beta = 14.027/scn_slope. При 1 - ровно экспонента scn_slope.
+scn_gamma_alpha = 1.0
 
 # --- Давление в равновесии твердое-жидкость ---------------------------------------------------------------
 # Пойнтинг для чистой твердой фазы: ln x_sat += -dv*(P - P_ref)/(R*T), dv = v_L - v_S > 0, откуда
@@ -204,6 +211,12 @@ delta_gas  = 12.0         # параметр растворимости раст
 # Узеня нет): давление начала осаждения должно лежать между P_b и пластовым.
 P_onset_asph = 11.0e6     # давление начала осаждения асфальтенов при init_T, [Па]
 v_asph       = 1.0e-3     # мольный объем асфальтенов, [м^3/моль] (Hirschberg et al., 1984: 0.5-4e-3)
+# Кривая выпавших асфальтенов при init_T: ((P, [Па]; равновесно выпавшие, [доля массы дегазированной нефти]), ...).
+# Давление начала осаждения по-прежнему держит P_onset_asph, а кривая задает остальное: у Хиршберга - мольный
+# объем v_a (вместо v_asph), у Нгхайема (asph_nghiem) - мольный объем твердого V_s и kij асфальтены-газ (вместо
+# v_asph и eos_kij_asph_gas). По одной точке начала осаждения количество выпавших не определено: проверка на опыте
+# Tabzar et al. (2018) - `experiments/уравнение_состояния/compare.py`. None - кривой нет.
+asph_curve   = None
 ro_asph      = 1150.0     # плотность асфальтенов, [кг/м^3]
 ro_asph_dep  = 1200.0     # плотность осадка асфальтены + смолы, [кг/м^3]
 resin_in_deposit = 0.3    # массовая доля смол в осадке (пептизирующие смолы уходят вместе с асфальтенами), [-]
@@ -219,6 +232,30 @@ k_redis    = 1.0e-5       # [1/с]
 # Диаметр флокулы: в пору она проникает (r_pass_a = D_asph/(2*gamma)) и оседает на стенках по той же
 # формуле, что и кристаллы парафина, с броуновской диффузией по Стоксу-Эйнштейну.
 D_asph     = 1.0e-6       # [м]
+
+# --- Уравнение состояния (флаги wax_eos, asph_nghiem; `paraphin/thermo`) -----------------------------------
+# Нефть - псевдокомпоненты PR EOS (Peng & Robinson, 1976): газ, растворитель M_o, группы парафина, асфальтены.
+# Свойства растворителя и групп - по корреляциям (Riazi-Daubert, Kesler-Lee), газа и асфальтенов - здесь.
+# kij газ-тяжелые подбирается при импорте так, чтобы давление насыщения при init_T было P_bubble; f_s* асфальтенов
+# (Nghiem et al., SPE 26642, 1993) - так, чтобы при P_onset_asph и init_T нефть была ровно насыщена.
+eos_gas_M      = 16.043     # газ - метан (NIST): молярная масса, [г/моль]
+eos_gas_Tc     = 190.564    # [K]
+eos_gas_Pc     = 4.5992e6   # [Па]
+eos_gas_omega  = 0.0114
+# Асфальтены: M = v_asph*ro_asph; критические свойства - порядковые, как у тяжелого хвоста (не из конкретной нефти)
+eos_asph_Tc    = 1100.0     # [K]
+eos_asph_Pc    = 0.8e6      # [Па]
+eos_asph_omega = 1.0
+# kij асфальтены-газ: газ - осадитель, и ниже P_b его уход снова растворяет асфальтены (колокол выпадения по
+# давлению). Tabzar et al. (OGST 2018, 73:51): 0.4 с компонентами легче C6 (подбор), 0 с C6+
+eos_kij_asph_gas = 0.4
+# Плавление групп в multi-solid (wax_eos): 'won' - T_m и dH Вона; 'coutinho' - Coutinho (SPE 78324, 2002) с
+# твердо-твердым переходом ротаторной фазы. На синтетических смесях da Silva et al. (2017) переход сокращает
+# занижение WDT вдвое, на нефти Жетыбая не помогает (`experiments/уравнение_состояния/сравнение_EOS.md`).
+eos_melting = 'won'
+# Таблицы по (T, P), которые читают ядра: от, до, число узлов. По давлению - только при wax_pressure.
+eos_T_grid = (0.0, 150.0, 31)   # [C]
+eos_P_grid = (0.1e6, 40e6, 21)  # [Па]
 
 # --- Реология и гелеобразование ---------------------------------------------------------------------------
 # Вязкость суспензии кристаллов: mu = mu_L*exp(visc_D*phi_s) (Pedersen & Ronningsen, Energy Fuels 2000,
@@ -394,8 +431,18 @@ if perm_model not in ('kozeny_carman', 'power', 'damage', 'surface'):
     raise ValueError(f"perm_model = '{perm_model}'")
 if asphaltenes and P_onset_asph <= P_bubble:
     raise ValueError('P_onset_asph должно быть выше P_bubble: максимум выпадения асфальтенов - у давления насыщения')
-if wax_characterization not in ('scn', 'single'):
-    raise ValueError(f"wax_characterization = '{wax_characterization}': ожидается 'scn' или 'single'")
+if wax_characterization not in ('scn', 'gamma', 'single'):
+    raise ValueError(f"wax_characterization = '{wax_characterization}': ожидается 'scn', 'gamma' или 'single'")
+if wax_eos and not wax_components:
+    raise ValueError('wax_eos - равновесие групп парафина: нужен wax_components = True')
+if asph_nghiem and not asphaltenes:
+    raise ValueError('asph_nghiem - растворимость асфальтенов: нужен asphaltenes = True')
+if eos_T_grid[2] < 2 or eos_P_grid[2] < 2:
+    raise ValueError('в таблицах уравнения состояния нужно не меньше двух узлов по T и по P')
+if eos_melting not in ('won', 'coutinho'):
+    raise ValueError(f"eos_melting = '{eos_melting}': ожидается 'won' или 'coutinho'")
+if asph_curve is not None and (not asphaltenes or len(asph_curve) < 2):
+    raise ValueError('asph_curve - кривая выпавших асфальтенов: нужны asphaltenes = True и не меньше двух точек')
 
 # Параметры адаптивного шага по времени.
 CFL_target = 1.0        # целевое число Куранта для явной схемы по насыщенности

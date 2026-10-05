@@ -5,7 +5,7 @@ import numpy as np
 
 from paraphin.constants import (layers_file, init_k, init_m, Nx, Ny, wax_components, gelation, ro_o, ro_p,
                                 ro_asph_dep, volume, _re, deposition_kinetics, adsorption, deposit_aging,
-                                asph_aggregation, wax_kinetics, thermal_nonequilibrium)
+                                asph_aggregation, wax_kinetics, thermal_nonequilibrium, wax_eos, wax_pressure)
 from paraphin.kinetics_params import KX_GA, KX_GR, KX_VGEL, KX_TS
 
 # Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и `graphs._plot_fi`.
@@ -101,6 +101,10 @@ def _composition_fields(solver) -> dict:
     for k in range(N_W):
         comp[f'Wax {k + 1}'] = wc[..., k]
         comp[f'Wax {k + 1} susp'] = solver.Ws[..., k]
+    if wax_eos and wax_pressure:
+        # Диагностика: объем газа, который выделился бы ниже P_b, на объем нефти (`thermo.pvt`); в уравнения не входит
+        from paraphin.thermo.tables import GASV, eos_interp
+        comp['Free gas'] = np.vectorize(lambda t, p: eos_interp(GASV, t, p))(solver.T, solver.p)
 
     # Массы компонентов в пласте, [кг]: в нефтяной фазе и в отложениях
     oil = solver.m * (1.0 - solver.S) * ro_o * volume

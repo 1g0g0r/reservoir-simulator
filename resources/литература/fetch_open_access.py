@@ -1,10 +1,11 @@
 """Скачивание открытых (легальных) копий статей, на которых построен детальный состав нефти.
 
-    python resources/литература/fetch_open_access.py --email you@example.org
+    python resources/литература/fetch_open_access.py [--email you@example.org]
 
 Для каждой статьи сначала пробуется известная открытая ссылка (издатель в открытом доступе, NIST,
-arXiv, OSTI, Europe PMC), затем - Unpaywall по DOI (api.unpaywall.org требует адрес почты в запросе;
-он уходит только туда). Платные статьи не скачиваются: скрипт пишет, что их нет в открытом доступе.
+arXiv, OSTI, Europe PMC), затем - открытая копия по DOI: Unpaywall, если задана почта (api.unpaywall.org
+требует адрес в запросе; он уходит только туда), иначе OpenAlex (почта не нужна). Платные статьи не
+скачиваются: скрипт пишет, что их нет в открытом доступе.
 Пиратские источники не используются. Уже скачанные файлы пропускаются.
 
 Статьи разложены по папкам по темам, описание каждой - в README.md папки. В среде, где собиралась модель,
@@ -32,6 +33,20 @@ ARTICLES = [
     ('состав_нефти', 'katz1978_scn_plus_fraction.pdf', '10.2118/6721-PA', None),
     ('состав_нефти', 'whitson1983_plus_fractions.pdf', '10.2118/12233-PA', None),
     ('состав_нефти', 'riazi1987_petroleum_fractions.pdf', '10.1021/ie00064a023', None),
+    # --- уравнение состояния, flash, твердые фазы на нем (`paraphin/thermo`) ---
+    ('уравнение_состояния', 'peng_robinson1976_eos.pdf', '10.1021/i160057a011', None),
+    ('уравнение_состояния', 'michelsen1982_stability.pdf', '10.1016/0378-3812(82)85001-2', None),
+    ('уравнение_состояния', 'michelsen1982_phase_split.pdf', '10.1016/0378-3812(82)85002-4', None),
+    ('уравнение_состояния', 'rachford_rice1952_flash.pdf', '10.2118/952327-G',
+     'https://onepetro.org/JPT/article-pdf/4/10/19/2239008/spe-952327-g.pdf'),
+    ('уравнение_состояния', 'riazi_alsahhaf1996_heavy_fractions.pdf', '10.1016/0378-3812(95)02956-7', None),
+    ('уравнение_состояния', 'nghiem1993_asphaltene_solid_model.pdf', '10.2118/26642-MS', None),
+    ('уравнение_состояния', 'qin2000_asphaltene_reservoir_simulation.pdf', '10.1021/ie990781g', None),
+    ('уравнение_состояния', 'burke1990_asphaltene_precipitation_data.pdf', '10.2118/18273-PA', None),
+    ('уравнение_состояния', 'ji2004_wax_phase_equilibria.pdf', '10.1016/j.fluid.2003.05.011', None),
+    ('уравнение_состояния', 'coutinho2001_low_pressure_wax_crude.pdf', '10.1021/ef010072r', None),
+    ('уравнение_состояния', 'coutinho2006_predictive_uniquac_wax.pdf', '10.1016/j.fluid.2006.06.002', None),
+    ('уравнение_состояния', 'dasilva2017_pr_uniquac_paraffin.pdf', '10.1016/j.petrol.2017.06.064', None),
     # --- давление и WAT ---
     ('давление_WAT', 'pan1997_pressure_composition_wax.pdf', '10.2118/36740-PA', None),
     ('давление_WAT', 'hpudsc_presalt_wat_pressure_gas.pdf', None,
@@ -96,9 +111,19 @@ def _unpaywall(doi: str, email: str, session: requests.Session):
         return None
 
 
+def _openalex(doi: str, session: requests.Session):
+    try:
+        resp = session.get(f'https://api.openalex.org/works/doi:{doi}', timeout=30)
+        if resp.status_code != 200:
+            return None
+        return (resp.json().get('best_oa_location') or {}).get('pdf_url')
+    except (requests.RequestException, ValueError):
+        return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--email', required=True, help='адрес для запросов к Unpaywall (требование API)')
+    parser.add_argument('--email', help='адрес для запросов к Unpaywall (требование API); без него - OpenAlex')
     args = parser.parse_args()
 
     session = requests.Session()
@@ -112,7 +137,7 @@ def main() -> None:
         print(f'{folder}/{name} ({doi or url})')
         ok = url is not None and _download(url, target, session)
         if not ok and doi:
-            oa = _unpaywall(doi, args.email, session)
+            oa = _unpaywall(doi, args.email, session) if args.email else _openalex(doi, session)
             ok = oa is not None and _download(oa, target, session)
         if not ok:
             missing.append((folder, name, doi))

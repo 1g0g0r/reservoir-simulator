@@ -16,6 +16,9 @@
     (пишет `твт_статья_АСПО/make_article.py`). Две версии из одного текста: `статья_АСПО` - журнальная
     (`article.docx`, без фрагментов между `<!-- полная -->` и `<!-- /полная -->`), `статья_АСПО_полная` -
     без сокращенных формулировок между `<!-- журнальная -->` и `<!-- /журнальная -->` (`article_full.docx`).
+    В обеих простые встроенные формулы набираются текстом (`make_docx.tvt_text_math`, правила ТВТ, разд. II.4).
+    Журнальная: подписи к рисункам с новой страницы после списка литературы, рисунки и в тексте, и после подписей
+    (правила, разд. II.1-3). Полная в журнал не идет: подписи - под рисунками в тексте, раздела в конце нет.
 
 Стили (Times New Roman 12, выравнивание, поля) - те же, что у статьи: reference.docx собирается функциями
 `твт_статья/make_docx.py`. pandoc берется из пакета `pypandoc_binary` (requirements.txt), если его нет в PATH.
@@ -67,7 +70,7 @@ FULL_ONLY = re.compile(r'<!-- полная -->.*?<!-- /полная -->\n?', re.
 JOURNAL_ONLY = re.compile(r'<!-- журнальная -->.*?<!-- /журнальная -->\n?', re.S)
 
 sys.path.insert(0, str(ROOT / 'твт_статья'))
-from make_docx import build_reference, build_docx  # noqa: E402
+from make_docx import build_reference, build_docx, tvt_captions, tvt_text_math  # noqa: E402
 
 
 def _pandoc_on_path() -> None:
@@ -88,6 +91,8 @@ def build(source: Path, substitutions=dict, version: str = None) -> None:
     missing = re.findall(r'\{\{[^}]+\}\}', text)
     if missing:
         raise SystemExit(f'{source.name}: не подставлено {missing}')
+    if version:  # статья для ТВТ: простые формулы - текстом, подписи к рисункам - по правилам журнала
+        text = tvt_captions(tvt_text_math(text), inline=version == 'full')
     work = folder / '_build.md'
     reference = folder / 'reference.docx'
     cwd = Path.cwd()
