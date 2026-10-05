@@ -21,7 +21,7 @@
     (правила, разд. II.1-3). Полная в журнал не идет: подписи - под рисунками в тексте, раздела в конце нет.
 
 Стили (Times New Roman 12, выравнивание, поля) - те же, что у статьи: reference.docx собирается функциями
-`твт_статья/make_docx.py`. pandoc берется из пакета `pypandoc_binary` (requirements.txt), если его нет в PATH.
+`твт_статья_АСПО/make_docx.py`. pandoc берется из пакета `pypandoc_binary` (requirements.txt), если его нет в PATH.
 Пути рисунков в тексте - относительно папки документа.
 """
 import json
@@ -69,7 +69,7 @@ DOCS['статья_АСПО_полная'] = _ARTICLE + ('full',)
 FULL_ONLY = re.compile(r'<!-- полная -->.*?<!-- /полная -->\n?', re.S)
 JOURNAL_ONLY = re.compile(r'<!-- журнальная -->.*?<!-- /журнальная -->\n?', re.S)
 
-sys.path.insert(0, str(ROOT / 'твт_статья'))
+sys.path.insert(0, str(ROOT / 'твт_статья_АСПО'))
 from make_docx import build_reference, build_docx, tvt_captions, tvt_text_math  # noqa: E402
 
 

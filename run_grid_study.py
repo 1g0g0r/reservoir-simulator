@@ -4,17 +4,17 @@
 сеток и складывает результаты под разными именами: `case_name` размер сетки не различает,
 поэтому без переименования прогоны затерли бы файлы друг друга.
 
-Сетка 50x50 обычно уже посчитана основным прогоном (`run_cases.py`) - тогда ее файл просто
+Сетка 50x50 обычно уже посчитана основным прогоном (`твт_статья_АСПО/однокомпонентная_модель/run_cases.py`) - тогда ее файл просто
 копируется под новым именем, а не считается заново. Ключ --force считает заново все.
 
 Флаг --nr переключает сходимость на сетку радиусов пор (`Nr` в constants.py) вместо Nx/Ny -
 она влияет на блок кольматации (`fi`, `m`, `k`) и не зависит от сетки по x/y.
 
-    python твт_статья/run_grid_study.py             # Nx=Ny: 50 (из готового), 70, 100
-    python твт_статья/run_grid_study.py 70          # только 70x70
-    python твт_статья/run_grid_study.py --force     # пересчитать все, включая 50x50
-    python твт_статья/run_grid_study.py --nr        # Nr: 15, 21, 31, 45
-    python твт_статья/run_grid_study.py --nr 21 61  # только заданные Nr
+    python run_grid_study.py             # Nx=Ny: 50 (из готового), 70, 100
+    python run_grid_study.py 70          # только 70x70
+    python run_grid_study.py --force     # пересчитать все, включая 50x50
+    python run_grid_study.py --nr        # Nr: 15, 21, 31, 45
+    python run_grid_study.py --nr 21 61  # только заданные Nr
 """
 import re
 import shutil
@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 from time import perf_counter
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent
 CONSTANTS = ROOT / 'paraphin' / 'constants.py'
 DATA = ROOT / 'outputs' / 'data'
 

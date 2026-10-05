@@ -1,7 +1,7 @@
 # Асфальтены и смолы: устойчивость, флокуляция, осаждение в порах
 
 Статьи блока асфальтенов (`paraphin/equations/Asphaltene.py`, `Qp_m_k_fi.calc_qp_m_k_fi_2`,
-`oil_composition.py`; `docs/модель_АСПО.docx`, разд. 4, 6). Обзор — `твт_статья/full_review.pdf`, разд. 5.
+`oil_composition.py`; `docs/модель_АСПО.docx`, разд. 4, 6). Обзор — `твт_статья_АСПО/материалы/full_review.pdf`, разд. 5.
 PDF — `fetch_open_access.py`.
 
 ## Использованы в модели

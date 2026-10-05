@@ -1,8 +1,8 @@
-"""Сборка статей для ТВТ (`твт_статья/make_docx.py`): простые формулы - текстом, сквозная нумерация полной версии."""
+"""Сборка статей для ТВТ (`твт_статья_АСПО/make_docx.py`): простые формулы - текстом, сквозная нумерация полной версии."""
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'твт_статья'))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'твт_статья_АСПО'))
 from make_docx import renumber, tvt_captions, tvt_text_math  # noqa: E402
 
 

@@ -3,10 +3,10 @@
 Единственная точка входа: перестроить рисунки после нового расчета - запустить этот файл.
 Ничего править не нужно; состав вариантов задан в `graphs.ARTICLE_CASES`.
 
-    python твт_статья/make_figures.py
+    python твт_статья_АСПО/однокомпонентная_модель/make_figures.py
 
-Результат: `твт_статья/figures/*.tif` (600 dpi, для журнала) и `*.png` (для просмотра),
-`твт_статья/metrics.md` - все числа, на которые ссылается текст статьи.
+Результат: `твт_статья_АСПО/однокомпонентная_модель/figures/*.tif` (600 dpi, для журнала) и `*.png` (для просмотра),
+`твт_статья_АСПО/однокомпонентная_модель/metrics.md` - все числа, на которые ссылается текст статьи.
 """
 import sys
 import numpy as np
@@ -17,7 +17,7 @@ from paraphin import r, fi_0
 from paraphin.constants import day_to_sec, geological_reserves, init_Wp
 from paraphin.utils.visualisation_utils import read_solution_data, x_mesh, y_mesh
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'experiments' / 'исходная_модель'))  # core_flood.py - проверка по керну
 
@@ -56,12 +56,12 @@ def main() -> None:
     sys.stdout.reconfigure(encoding='utf-8')
     cases = create_article_figures()
     if not cases:
-        print('Расчетов нет — сначала python твт_статья/run_cases.py')
+        print('Расчетов нет — сначала python твт_статья_АСПО/однокомпонентная_модель/run_cases.py')
         return
 
     base = cases.get('base')
     lines = ['# Числа для текста статьи', '',
-             'Файл создается автоматически: `python твт_статья/make_figures.py`.',
+             'Файл создается автоматически: `python твт_статья_АСПО/однокомпонентная_модель/make_figures.py`.',
              'Вручную не править — правки затрутся при следующей перегенерации.', '']
 
     lines += ['## Показатели вариантов', '',
@@ -119,7 +119,7 @@ def main() -> None:
     lines += core_flood_numbers()
 
     (Path(__file__).parent / 'metrics.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-    print('Числа записаны в твт_статья/metrics.md')
+    print('Числа записаны в твт_статья_АСПО/однокомпонентная_модель/metrics.md')
 
 
 def _diag_positions() -> np.ndarray:
@@ -304,7 +304,7 @@ def text_numbers(cases: dict) -> list:
 # которого kaleido не умеет. Здесь matplotlib - он уже есть в пакете (`save_in_eps_format`),
 # пишет TIF напрямую и дает общий colorbar на столбец панели 3x3.
 #
-# Перегенерация: python твт_статья/make_figures.py
+# Перегенерация: python твт_статья_АСПО/однокомпонентная_модель/make_figures.py
 # ======================================================================================
 
 # На рисунок идут только три основных варианта: пять кривых по двум величинам нечитаемы,
@@ -339,7 +339,7 @@ LETTERS_POSITION = [0.03, 0.97]
 
 def _article_figures_path():
     from paraphin.constants import root_folder
-    path = root_folder / 'твт_статья' / 'figures'
+    path = Path(__file__).parent / 'figures'
     path.mkdir(parents=True, exist_ok=True)
     return path
 

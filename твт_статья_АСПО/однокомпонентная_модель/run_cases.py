@@ -4,9 +4,9 @@
 поэтому переключить вариант внутри одного процесса нельзя. Скрипт правит `constants.py`,
 запускает `start.py` отдельным процессом и восстанавливает файл в исходный вид.
 
-Запуск: python твт_статья/run_cases.py [номера вариантов через пробел]
-        python твт_статья/run_cases.py        # все варианты
-        python твт_статья/run_cases.py 2 3    # только 2-й и 3-й
+Запуск: python твт_статья_АСПО/однокомпонентная_модель/run_cases.py [номера вариантов через пробел]
+        python твт_статья_АСПО/однокомпонентная_модель/run_cases.py        # все варианты
+        python твт_статья_АСПО/однокомпонентная_модель/run_cases.py 2 3    # только 2-й и 3-й
 """
 import re
 import subprocess
@@ -17,7 +17,7 @@ from time import perf_counter
 from make_figures import main as main_figures
 from paraphin.constants import init_Wp
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 CONSTANTS = ROOT / 'paraphin' / 'constants.py'
 
 # (номер, описание, Wp, heat_losses (0 - нет, 1 - Ловерье, 2 - Винсом-Вестервельд), имя файла)
