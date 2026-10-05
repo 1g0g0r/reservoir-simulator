@@ -1,9 +1,10 @@
 """Сборка статей для ТВТ (`твт_статья_АСПО/make_docx.py`): простые формулы - текстом, сквозная нумерация полной версии."""
 import sys
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'твт_статья_АСПО'))
-from make_docx import renumber, tvt_captions, tvt_text_math  # noqa: E402
+from make_docx import _fix_docx, renumber, tvt_captions, tvt_text_math  # noqa: E402
 
 
 def test_simple_math_becomes_text():
@@ -36,3 +37,16 @@ def test_full_version_captions_inline():
     assert full.index('![Рис. 1. Второй.](f2.png)') < full.index('![Рис. 2. Первый.](f1.png)')
     journal = tvt_captions(text)
     assert 'w:type="page"' in journal and journal.count('![](f1.png)') == 2
+
+
+def test_fix_docx_drops_empty_separator(tmp_path):
+    """Пустой sepChr у скобок \\left(...\\right) телефоны показывают пустыми скобками - его не должно остаться."""
+    doc = ('<m:oMath><m:d><m:dPr><m:begChr m:val="(" /><m:endChr m:val=")" /><m:sepChr m:val="" /><m:grow />'
+           '</m:dPr><m:e><m:r><m:t>m</m:t></m:r></m:e></m:d></m:oMath>')
+    path = tmp_path / 'a.docx'
+    with zipfile.ZipFile(path, 'w') as z:
+        z.writestr('word/document.xml', doc)
+    _fix_docx(path)
+    out = zipfile.ZipFile(path).read('word/document.xml').decode('utf-8')
+    assert 'sepChr' not in out
+    assert '<m:dPr><m:begChr m:val="(" /><m:endChr m:val=")" /><m:grow /></m:dPr><m:e><m:r><m:t>m</m:t>' in out
