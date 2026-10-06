@@ -16,12 +16,12 @@
                                             C растет к C_max за счет растворенного парафина (`deposit_aging`).
 
 Все механизмы собираются в одну скорость изменения радиуса u(r) и коэффициент блокирования b(r), и функция
-пор fi переносится по оси радиусов той же неявной схемой, что в `Qp_m_k_fi._update_fi`. Скорости переноса
+пор fi переносится по оси радиусов той же неявной схемой, что в `Qp_m_k_fi._update_fi` (`Pore_bundle.update_fi_rows`). Скорости переноса
 считаются по текущему слою, а не берутся с прошлого шага, как `Ur`, `Ua` в прежних ядрах: запаздывание на
 шаг с ограничителем подводом давало колебания доли флокул.
 
 Выходной контракт тот же, что у `calc_qp_m_k_fi_2`: скорости потери порового объема по чистым материалам
-(`new_qp1` - осадок парафина на стенках, `new_qp2` - пробки парафина, `new_qpa` - осадок асфальтенов и смол,
+(`new_qp1` - осадок парафина на стенках, `new_qp2` - пробки парафина, `new_kx[KX_QPA]` - осадок асфальтенов и смол,
 плюс новые каналы в `new_kx`: стеночная кристаллизация, старение, адсорбция асфальтенов и смол), и
 тождество  (q_p1 + q_p2 + q_pa + q_w + q_g + q_ada + q_adr)*dt = m - m^new  выполняется по построению.
 Отрицательная скорость - вынос: осадок возвращается в нефть (`components_equation`).
@@ -31,12 +31,11 @@
 """
 import math
 
-import numpy as np
 from numba import njit
 
-from paraphin import r1, r2, r3, r4, r5, r6, w2_cv, plug_cv, dr_cv, eta, surf_0, fi_0
+from paraphin.geometry import r1, r2, r4, w2_cv, plug_cv, dr_cv, eta, surf_0, fi_0
 from paraphin.constants import (Nr, init_m, init_k, min_Wps_bound, ro_o, ro_p, ro_asph, ro_asph_dep,
-                                resin_in_deposit, volume, D, D_asph, Lk, betta, gamma, g, diff_mult, S_max, R,
+                                resin_in_deposit, volume, D, D_asph, betta, gamma, diff_mult, S_max, R,
                                 E_activation,
                                 asphaltenes, wax_kinetics, wall_transport, entrainment, asph_aggregation,
                                 snowball, adsorption, deposit_aging, thermal_nonequilibrium, perm_model, pore_network)
@@ -44,90 +43,23 @@ from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, DIF
                                       AGG_DF, SNOW_A, ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN,
                                       ADS_FILM, AGE_C0, AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR,
                                       PERM_N, PERM_BETA, PERM_SMAX, PERM_GAMMA, PERM_ALPHA, LTNE_DG, LTNE_DM, NET_Z,
-                                      NET_GAMMA, KX_WEQ,
-                                      KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR, KX_VGEL, KX_TS,
-                                      KX_GMAX, KX_SIG0)
-from paraphin.oil_composition import N_W, IA_D, IA_F, I_R, IN_F
+                                      NET_GAMMA)
+from paraphin.layout import (N_W, IA_D, IA_F, I_R, IN_F, KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA,
+                             KX_GR, KX_VGEL, KX_TS, KX_GMAX, KX_SIG0, KX_QPA, ROW_U, ROW_UW, ROW_UA, ROW_BW, ROW_BA, ROW_UE,
+                             ROW_TMP, ROW_A, ROW_B)
 from paraphin.utils import crystal_volume_fraction
 from .Thermo_wax import sle_split
+from .Pore_bundle import moments, int_r_u_fi, weighted, update_fi_rows
 from .Kinetics_math import (brownian_diffusivity, shear_diffusivity, stokes_velocity, leveque_velocity, floc_size,
                             wall_fraction, langmuir_constant, langmuir_ldf_step, langmuir_film_step, perm_kozeny_carman,
                             perm_power, perm_damage, perm_surface, ema_conductance)
 
 _SO_MAX = 1.0 - S_max
-_A_W = 0.5 * D                                  # радиус кристалла парафина, [м]
-_B_D3 = 6.0 * betta / (D * D * D)               # блокирование кристаллами: So*w*_B_D3*um*r^2 (Velocity_h)
-_SETTLE_W = 2.0 * _A_W * _A_W * (ro_p - ro_o) * g / 9.0  # скорость оседания кристалла без 1/mu, [Па*м/с]
 _RO_P_O = ro_p / ro_o
 _RO_AD_O = ro_asph_dep / ro_o
-_THIRD = 1.0 / 3.0
 
-# Строки скретча `rows` (Nx, NROWS, Nr): профили по радиусам для одной ячейки, строка на каждый i (prange)
-ROW_U, ROW_UW, ROW_UA, ROW_BW, ROW_BA, ROW_UE, ROW_TMP = range(7)
-NROWS = 7
-
-
-# --- Интегралы по радиусам -------------------------------------------------------------------------------------
 
 _K_FLOOR = 1e-8  # остаточная проницаемость, доли init_k
-
-
-@njit(cache=True)
-def _moments(fi, i, j):
-    """Интегралы r*fi, r^2*fi, r^4*fi по кусочно-линейной fi (точно по отрезкам, как `_calculate_integrals`)."""
-    rfi, r2fi, r4fi = 0.0, 0.0, 0.0
-    for ij in range(1, Nr):
-        dr = r1[ij] - r1[ij - 1]
-        a = (fi[i, j, ij - 1] * r1[ij] - fi[i, j, ij] * r1[ij - 1]) / dr
-        b = (fi[i, j, ij] - fi[i, j, ij - 1]) / dr
-        rfi += (r2[ij] - r2[ij - 1]) * a / 2 + (r3[ij] - r3[ij - 1]) * b / 3
-        r2fi += (r3[ij] - r3[ij - 1]) * a / 3 + (r4[ij] - r4[ij - 1]) * b / 4
-        r4fi += (r5[ij] - r5[ij - 1]) * a / 5 + (r6[ij] - r6[ij - 1]) * b / 6
-    return rfi, r2fi, r4fi
-
-
-@njit(cache=True)
-def _int_r_u_fi(fi, i, j, u):
-    """Интеграл r*u*fi по кусочно-линейным u и fi (u - строка скретча)."""
-    s = 0.0
-    for ij in range(1, Nr):
-        dr = r1[ij] - r1[ij - 1]
-        af = (fi[i, j, ij - 1] * r1[ij] - fi[i, j, ij] * r1[ij - 1]) / dr
-        bf = (fi[i, j, ij] - fi[i, j, ij - 1]) / dr
-        au = (u[ij - 1] * r1[ij] - u[ij] * r1[ij - 1]) / dr
-        bu = (u[ij] - u[ij - 1]) / dr
-        s += ((r2[ij] - r2[ij - 1]) * af * au / 2 + (r3[ij] - r3[ij - 1]) * (af * bu + bf * au) / 3
-              + (r4[ij] - r4[ij - 1]) * bf * bu / 4)
-    return s
-
-
-@njit(cache=True)
-def _weighted(fi, i, j, b, weights, scale):
-    """sum(weights*scale*b*fi) - объем каналов или пробок, блокируемых за единицу времени (единицы int r^2*fi)."""
-    s = 0.0
-    for ij in range(Nr):
-        s += min(weights[ij] * scale, w2_cv[ij]) * b[ij] * fi[i, j, ij]
-    return s
-
-
-@njit(cache=True)
-def _update_fi_rows(new_fi, fi, i, j, u, b, a_tdma, b_tdma, dt):
-    """Неявный перенос fi по оси радиусов со скоростью u(r) и неявным блокированием b(r)*fi (как `_update_fi`).
-    Схема против потока по знаку u в каждом узле, поэтому годится и для сужения (u < 0), и для выноса (u > 0)."""
-    d = 1.0 / dt + abs(u[0]) / dr_cv[0] + b[0]
-    e = min(u[1], 0.0) / dr_cv[0]
-    a_tdma[0] = -e / d
-    b_tdma[0] = fi[i, j, 0] / dt / d
-    for ij in range(1, Nr):
-        c = -max(u[ij - 1], 0.0) / dr_cv[ij]
-        d = 1.0 / dt + abs(u[ij]) / dr_cv[ij] + b[ij]
-        e = min(u[ij + 1], 0.0) / dr_cv[ij] if ij + 1 < Nr else 0.0
-        den = c * a_tdma[ij - 1] + d
-        a_tdma[ij] = -e / den
-        b_tdma[ij] = (fi[i, j, ij] / dt - c * b_tdma[ij - 1]) / den
-    new_fi[i, j, Nr - 1] = b_tdma[Nr - 1]
-    for ij in range(Nr - 2, -1, -1):
-        new_fi[i, j, ij] = new_fi[i, j, ij + 1] * a_tdma[ij] + b_tdma[ij]
 
 
 # --- Скорости переноса частиц к стенке ------------------------------------------------------------------------
@@ -176,14 +108,15 @@ def floc_diameter(w_af, n_f, kin):
 
 @njit(cache=True)
 def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p, mu_p, kx, kin,
-                    integr_r2_fi0, integr_r4_fi0, rows, a_tdma, b_tdma,
-                    new_qp1, new_qp2, new_qpa, new_fi, new_h, new_k, new_m, new_kx, out_o, dt) -> None:
+                    integr_r2_fi0, integr_r4_fi0, rows, net_g0,
+                    new_qp1, new_qp2, new_fi, new_h, new_k, new_m, new_kx, out_o, dt) -> None:
     """Кольматация ячейки (i, j) всеми включенными механизмами в модели пучка капилляров.
 
-    rows: numpy.ndarray(NROWS, Nr) - строка скретча `Solver.dep_rows[i]` (своя на каждый i, иначе гонка в prange).
+    rows: numpy.ndarray(NROWS, Nr) - строки скретча `Solver.rows[i]` (свои на каждый i, иначе гонка в prange).
     kx, new_kx - поля кинетических моделей (`kinetics_params`), kin - вектор параметров `solver.kin`.
     out_o - отток нефти из ячейки за шаг через грани и добывающую скважину, [м^3/с]: запас на осаждение -
-    то, что останется после оттока (как в `calc_qp_m_k_fi_2`).
+    то, что останется после оттока (как в `calc_qp_m_k_fi_2`). net_g0 - проводимость исходной сети пор
+    (`network_g0`, при `pore_network`): одна на все ячейки, поэтому считается раз за шаг до цикла по ячейкам.
     """
     u, uw, ua, bw, ba, ue = rows[ROW_U], rows[ROW_UW], rows[ROW_UA], rows[ROW_BW], rows[ROW_BA], rows[ROW_UE]
     tmp = rows[ROW_TMP]
@@ -194,7 +127,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     mso_dt = max(mso / dt - out_o / volume, 0.0)  # запас на осаждение за шаг, [1/с] в долях нефти
     T_K = T[i, j] + 273.15
     mu = mu_p[i, j]
-    rfi, r2fi, r4fi = _moments(fi, i, j)
+    rfi, r2fi, r4fi = moments(fi, i, j)
     surf = 2.0 * to_m * rfi  # удельная поверхность проводящих каналов, [1/м]
 
     snow = 1.0
@@ -219,8 +152,8 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     if wps > min_Wps_bound:
         _particle_rows(uw, bw, so_eff, wps, d_w, ro_p, um_r2[i, j], T_K, mu, kin, snow,
                        crystal_volume_fraction(wps), Nr)
-        i_w = max(-2.0 * to_m * _int_r_u_fi(fi, i, j, uw), 0.0)  # кристаллы, [1/с]
-        p_w = to_m * _weighted(fi, i, j, bw, plug_cv, plug_w)
+        i_w = max(-2.0 * to_m * int_r_u_fi(fi, i, j, uw), 0.0)  # кристаллы, [1/с]
+        p_w = to_m * weighted(fi, i, j, bw, plug_cv, plug_w)
         sink = _RO_P_O * (i_w + p_w)
         avail = mso_dt * wps
         lim_w = avail / sink if sink > avail else 1.0
@@ -236,27 +169,15 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
             _particle_rows(ua, ba, so_eff, w_af, d_f, ro_asph, um_r2[i, j], T_K, mu, kin, snow, phi_f,
                            Nr if asph_aggregation else 0)
             plug_scale = (d_f / D) ** 3
-            i_a = max(-2.0 * to_m * _int_r_u_fi(fi, i, j, ua), 0.0)
-            p_a = to_m * _weighted(fi, i, j, ba, plug_cv, plug_scale)
+            i_a = max(-2.0 * to_m * int_r_u_fi(fi, i, j, ua), 0.0)
+            p_a = to_m * weighted(fi, i, j, ba, plug_cv, plug_scale)
             sink_a = _RO_AD_O * (i_a + p_a)
             avail_a = mso_dt * min(Wc[i, j, IA_F] / (1.0 - resin_in_deposit),
                                    Wc[i, j, I_R] / resin_in_deposit if resin_in_deposit > 0.0 else 1e300)
             lim_a = avail_a / sink_a if sink_a > avail_a else 1.0
 
-    # --- кристаллизация на стенках: пересыщение растворенного парафина (объем кристаллов, [1/с])
-    q_wall = 0.0
-    if wax_kinetics or thermal_nonequilibrium:
-        q_wall = _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, new_kx)
-
-    # --- адсорбция асфальтенов и смол (объем слоя, [1/с]; отрицательный - десорбция)
-    q_ada, q_adr = 0.0, 0.0
-    if adsorption:
-        q_ada, q_adr = _adsorption(i, j, T_K, Wc, kx, kin, mso, mso_dt, dt, new_kx)
-
-    # --- старение гель-отложения: парафин входит в гель при постоянном его объеме (объем кристаллов, [1/с])
-    q_age = 0.0
-    if deposit_aging:
-        q_age = _aging(i, j, Wc, Ws, Dep, kx, kin, mso_dt, tmp, new_kx)
+    # --- кристаллизация на стенках, адсорбция асфальтенов и смол, старение гель-отложения
+    q_wall, q_ada, q_adr, q_age = _wall_sinks(i, j, T, p, m, S, Wc, Ws, Dep, kx, kin, mso, mso_dt, dt, tmp, new_kx)
 
     # --- вынос осадка потоком
     if entrainment:
@@ -279,7 +200,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
             new_h[i, j, ij] = h[i, j, ij]
         new_qp1[i, j] = 0.0
         new_qp2[i, j] = 0.0
-        new_qpa[i, j] = 0.0
+        new_kx[i, j, KX_QPA] = 0.0
         new_kx[i, j, KX_QW] = 0.0
         new_kx[i, j, KX_QG] = 0.0
         new_kx[i, j, KX_QADA] = 0.0
@@ -293,23 +214,23 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     for ij in range(Nr):
         u[ij] = lim_w * uw[ij] / c0 + lim_a * ua[ij] + u_uni + ue[ij]
         tmp[ij] = lim_w * bw[ij] + lim_a * ba[ij]
-    _update_fi_rows(new_fi, fi, i, j, u, tmp, a_tdma, b_tdma, dt)
+    update_fi_rows(new_fi, fi, i, j, u, tmp, rows[ROW_A], rows[ROW_B], dt)
     for ij in range(Nr):
         new_h[i, j, ij] = max(h[i, j, ij] - u[ij] * dt, 0.0)
-    rfi_n, r2fi_n, r4fi_n = _moments(new_fi, i, j)
+    rfi_n, r2fi_n, r4fi_n = moments(new_fi, i, j)
 
     # Разбор фактической убыли проводящих каналов по механизмам
-    blocked = to_m * (lim_w * _weighted(new_fi, i, j, bw, w2_cv, 1.0)
-                      + lim_a * _weighted(new_fi, i, j, ba, w2_cv, 1.0))       # каналы -> тупиковые, [1/с]
-    qp2 = lim_w * to_m * _weighted(new_fi, i, j, bw, plug_cv, plug_w)         # пробки парафина
-    qpa_plug = lim_a * to_m * _weighted(new_fi, i, j, ba, plug_cv, plug_scale)  # пробки флокул
+    blocked = to_m * (lim_w * weighted(new_fi, i, j, bw, w2_cv, 1.0)
+                      + lim_a * weighted(new_fi, i, j, ba, w2_cv, 1.0))       # каналы -> тупиковые, [1/с]
+    qp2 = lim_w * to_m * weighted(new_fi, i, j, bw, plug_cv, plug_w)         # пробки парафина
+    qpa_plug = lim_a * to_m * weighted(new_fi, i, j, ba, plug_cv, plug_scale)  # пробки флокул
     narrow = to_m * (r2fi - r2fi_n) / dt - blocked                            # сужение + вынос, [1/с]
     e_w = lim_w * i_w / c0          # оценки до прогонки: объем геля парафина, флокул, стеночный
     e_a = lim_a * i_a
     e_wall = q_wall / c0
     e_ent = 0.0
     if entrainment:
-        e_ent = 2.0 * to_m * _int_r_u_fi(fi, i, j, ue)  # объем, освобожденный выносом, [1/с]
+        e_ent = 2.0 * to_m * int_r_u_fi(fi, i, j, ue)  # объем, освобожденный выносом, [1/с]
     pos = e_w + e_a + e_wall
     scale = (narrow + e_ent) / pos if pos > 1e-300 else 0.0
     if scale < 0.0:
@@ -338,7 +259,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
 
     new_qp1[i, j] = qp1
     new_qp2[i, j] = qp2
-    new_qpa[i, j] = qpa
+    new_kx[i, j, KX_QPA] = qpa
     new_kx[i, j, KX_QW] = q_w
     new_kx[i, j, KX_QG] = q_age
     new_kx[i, j, KX_QADA] = q_ada
@@ -356,7 +277,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
 
     new_m[i, j] = m[i, j] - (qp1 + qp2 + qpa + q_w + q_age + q_ada + q_adr) * dt
     if pore_network:
-        new_k[i, j] = init_k * _network_ratio(new_fi, new_h, i, j, kin, tmp, ue)  # скратчи уже отработали
+        new_k[i, j] = init_k * _network_ratio(new_fi, new_h, i, j, kin, net_g0, tmp, ue)  # скратчи уже отработали
     else:
         new_k[i, j] = init_k * r4fi_n / integr_r4_fi0
     if adsorption:
@@ -372,25 +293,49 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
 
 
 @njit(cache=True)
-def _network_ratio(fi, h, i, j, kin, g, w):
+def _wall_sinks(i, j, T, p, m, S, Wc, Ws, Dep, kx, kin, mso, mso_dt, dt, tmp, new_kx):
+    """Стоки на стенках, общие для обоих ядер, - объемы за единицу времени, [1/с]; выключенный флагом механизм дает
+    ноль: кристаллизация пересыщенного растворенного парафина (`wax_kinetics`, `thermal_nonequilibrium`),
+    адсорбция асфальтенов и смол (`adsorption`, отрицательная - десорбция), старение гель-отложения
+    (`deposit_aging`: парафин входит в гель при постоянном его объеме). tmp - строка скретча длины Nr."""
+    q_wall = 0.0
+    if wax_kinetics or thermal_nonequilibrium:
+        q_wall = _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, new_kx)
+    q_ada, q_adr = 0.0, 0.0
+    if adsorption:
+        q_ada, q_adr = _adsorption(i, j, T[i, j] + 273.15, Wc, kx, kin, mso, mso_dt, dt, new_kx)
+    q_age = 0.0
+    if deposit_aging:
+        q_age = _aging(i, j, Wc, Ws, Dep, kx, kin, mso_dt, tmp, new_kx)
+    return q_wall, q_ada, q_adr, q_age
+
+
+@njit(cache=True)
+def network_g0(kin, g, w):
+    """Эффективная проводимость исходной сети (fi_0, h = 0) - знаменатель k/k0 в `_network_ratio`. Зависит только
+    от NET_Z, NET_GAMMA, поэтому одна на все ячейки. g, w - скратч-строки длины Nr."""
+    scale = 1.0 / r1[Nr - 1]
+    for ij in range(Nr):
+        g[ij] = (kin[NET_GAMMA] * r1[ij] * scale) ** 4
+        w[ij] = fi_0[ij] * dr_cv[ij] if ij > 0 else 0.0
+    w_open = 0.0
+    for ij in range(Nr):
+        w_open += w[ij]
+    return ema_conductance(g, w, max(1.0 - w_open, 0.0), kin[NET_Z])
+
+
+@njit(cache=True)
+def _network_ratio(fi, h, i, j, kin, gm0, g, w):
     """k/k0 сети пор и горл (`pore_network`, docs/кинетика_осаждения.md, разд. 13.13).
 
     Каналы fi(r) - поры, их горла - net_gamma от исходного радиуса поры: у поры радиуса r с отложением толщины h
     горло net_gamma*(r + h) - h (тот же слой h). Проводимость горла ~ r_t^4, доля горл класса - fi*dr_cv
     (sum(fi_0*dr_cv) = 1). Закрытые горла сети - блокированные каналы (ушли из fi) и горла, закрытые слоем.
     Эффективная проводимость - `ema_conductance` с координационным числом net_z, нормированная на исходную сеть
-    (fi_0, h = 0). g, w - скратч-строки длины Nr (нарезаны по i, как все скратчи ядра)."""
+    (fi_0, h = 0) - она приходит готовой, gm0 (`network_g0`). g, w - скратч-строки длины Nr (нарезаны по i, как все
+    скратчи ядра)."""
     z, gam = kin[NET_Z], kin[NET_GAMMA]
     scale = 1.0 / r1[Nr - 1]
-    # исходная сеть
-    for ij in range(Nr):
-        g[ij] = (gam * r1[ij] * scale) ** 4
-        w[ij] = fi_0[ij] * dr_cv[ij] if ij > 0 else 0.0
-    w_open = 0.0
-    for ij in range(Nr):
-        w_open += w[ij]
-    gm0 = ema_conductance(g, w, max(1.0 - w_open, 0.0), z)
-    # текущая
     w_open = 0.0
     for ij in range(Nr):
         rt = gam * (r1[ij] + h[i, j, ij]) - h[i, j, ij]
@@ -547,7 +492,7 @@ def _perm(m_new, sigma_v, kin):
 
 @njit(cache=True)
 def calc_filtration(i, j, S, T, p, m, k, fi, Wc, Ws, Wps, Dep, grad_p, lam_o, kx, kin, integr_r2_fi0, rows,
-                    new_qp1, new_qp2, new_qpa, new_fi, new_k, new_m, new_kx, out_o, dt) -> None:
+                    new_qp1, new_qp2, new_fi, new_k, new_m, new_kx, out_o, dt) -> None:
     """Глубинная фильтрация Ивса-Цивана (обзор 3.6, 5.4; Civan, Transp Porous Media 2015; Wang & Civan 2001):
 
         d sigma/dt = kd*m*S_o*c + kpl*|u_o|*c - ke*sigma*(|u_o| - u_cr)+,
@@ -584,19 +529,11 @@ def calc_filtration(i, j, S, T, p, m, k, fi, Wc, Ws, Wps, Dep, grad_p, lam_o, kx
                                Wc[i, j, I_R] / resin_in_deposit if resin_in_deposit > 0.0 else 1e300) / _RO_AD_O
         qpa = min(rate_a, avail_a) - min(kin[FILT_KE] * dep_a / ro_asph_dep * ex, dep_a / ro_asph_dep / dt)
 
-    q_wall = 0.0
-    if wax_kinetics or thermal_nonequilibrium:
-        q_wall = _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, new_kx)
-    q_ada, q_adr = 0.0, 0.0
-    if adsorption:
-        q_ada, q_adr = _adsorption(i, j, T[i, j] + 273.15, Wc, kx, kin, mso, mso_dt, dt, new_kx)
-    q_age = 0.0
-    if deposit_aging:
-        q_age = _aging(i, j, Wc, Ws, Dep, kx, kin, mso_dt, tmp, new_kx)
+    q_wall, q_ada, q_adr, q_age = _wall_sinks(i, j, T, p, m, S, Wc, Ws, Dep, kx, kin, mso, mso_dt, dt, tmp, new_kx)
 
     new_qp1[i, j] = qp1
     new_qp2[i, j] = 0.0
-    new_qpa[i, j] = qpa
+    new_kx[i, j, KX_QPA] = qpa
     new_kx[i, j, KX_QW] = q_wall
     new_kx[i, j, KX_QG] = q_age
     new_kx[i, j, KX_QADA] = q_ada

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from tests._patched_copy import ROOT, run_worker
-from tests.regression_baseline import BASELINE
+from tests.regression_baseline import DATA, baseline_path
 
 WORKER = ROOT / 'tests' / '_flags_on_worker.py'
 
@@ -61,7 +61,7 @@ def test_stability(all_on):
 
 
 def test_no_race(all_on):
-    """Два одинаковых прогона побитово равны: гонок в prange (буферы Fo[i], new_Ws[i, j]) нет."""
+    """Два одинаковых прогона побитово равны: гонок в prange (скретч rows[i], буфер new_Ws[i, j]) нет."""
     assert all_on[0]['fingerprint'] == all_on[1]['fingerprint']
 
 
@@ -70,13 +70,16 @@ def test_single_group_reproduces_legacy(tmp_path):
     потокам граней, стоки по группам и носитель скрытой теплоты Hl. Совпасть побитово он не обязан
     (другой порядок сложения), но обязан совпасть с эталоном до округления, накопленного за 100 сут
     (фактически ~1e-13)."""
-    if not BASELINE.is_file():
+    # Сравнение до 1e-9, а не побитовое: годится эталон любого окружения, свой - в первую очередь
+    refs = [baseline_path()] + sorted(DATA.glob('regression_flags_off_*.npz'))
+    ref_path = next((path for path in refs if path.is_file()), None)
+    if ref_path is None:
         pytest.skip('нет эталона')
     fields = tmp_path / 'single.npz'
     r = run_worker('single', {'wax_components': 'True', 'wax_characterization': "'single'"}, WORKER,
                    args=(100.0, 1, fields))['runs'][0]
     assert max(abs(x) for x in r['balance']) < 1e-8
-    ref, got = np.load(BASELINE), np.load(fields)
+    ref, got = np.load(ref_path), np.load(fields)
     assert np.isclose(got['KIN'], ref['KIN'], rtol=1e-9)
     for name in ('p', 'S', 'T', 'm', 'k', 'Wp', 'Wps'):
         scale = np.abs(ref[name]).max()

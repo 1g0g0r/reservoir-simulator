@@ -2,7 +2,7 @@
 import numpy as np
 from numba import njit
 
-from paraphin import r1, r4, cbrt_r1, n_pass
+from paraphin.geometry import r1, r4, cbrt_r1, n_pass
 from paraphin.constants import (data_type, Nr, D, g, betta, Lk, Cf, S_max, Delta, ro_p,
                                 min_Wps_bound, suffusion, k_B, diff_mult)
 
@@ -22,7 +22,7 @@ def calc_velocities_h(i, j, S, T, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_n
 
     Узкие капилляры частица затыкает целиком (Ub), в широкие проходит и оседает на стенке,
     сужая их (Ur < 0). Граница - радиус, при котором частица проходит горло; критерий и деление
-    сетки радиусов на два диапазона - в `paraphin/__init__.py` (`r_pass`, `n_pass`).
+    сетки радиусов на два диапазона - в `paraphin/geometry.py` (`r_pass`, `n_pass`).
     При Wps ниже порога кольматации цикл не имеет смысла и не выполняется.
 
     `Ub` хранит *коэффициент* b(r) блокирования, а не саму скорость: сама скорость

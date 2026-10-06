@@ -6,7 +6,7 @@ import numpy as np
 from paraphin.constants import (layers_file, init_k, init_m, Nx, Ny, wax_components, gelation, ro_o, ro_p,
                                 ro_asph_dep, volume, _re, deposition_kinetics, adsorption, deposit_aging,
                                 asph_aggregation, wax_kinetics, thermal_nonequilibrium, wax_eos, wax_pressure)
-from paraphin.kinetics_params import KX_GA, KX_GR, KX_VGEL, KX_TS
+from paraphin.layout import N_W, IA_D, IA_F, I_R, IN_F, KX_GA, KX_GR, KX_VGEL, KX_TS
 
 # Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и `graphs._plot_fi`.
 # Прижата к сетке: на одномерном керне (Nx = 1) точки (3, 3) нет.
@@ -87,7 +87,7 @@ def _composition_fields(solver) -> dict:
     'Wps dep' здесь - только парафин: пористость теряет и осадок асфальтенов со смолами ('Asph dep').
     """
     from paraphin.equations import calc_wat_field
-    from paraphin.oil_composition import N_W, IA_D, IA_F, I_R, F_SAT_REST
+    from paraphin.oil_composition import F_SAT_REST
 
     wc, dep = solver.Wc, solver.Dep
     calc_wat_field(wc, solver.p, solver.WAT)
@@ -127,8 +127,7 @@ def _kinetics_fields(solver) -> dict:
 
     'm conductive' - пористость проводящих каналов m0*int r^2*fi/int r^2*fi0, в долях m0: ее, а не m, видит
     томография (гель в тупиковых порах и захваченная нефть для нее - отложение, Sandyga et al. 2020)."""
-    from paraphin import w2_cv
-    from paraphin.oil_composition import N_W, IA_F, IN_F
+    from paraphin.geometry import w2_cv
     from paraphin.equations.Deposition import floc_diameter
 
     out = {'m conductive': (solver.fi * w2_cv).sum(axis=-1) / solver.integr_r2_fi0}

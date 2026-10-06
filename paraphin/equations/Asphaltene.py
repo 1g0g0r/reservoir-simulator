@@ -30,7 +30,8 @@ from numba import njit
 from paraphin.constants import (R, ro_o, ro_asph, delta_sat, delta_aro, delta_res, delta_gas, v_gas,
                                 c_oil_comp, beta_oil, P_ref_wax, k_floc, k_redis, k_B, D_asph, Lk, S_max,
                                 min_Wps_bound, asph_nghiem)
-from paraphin.oil_composition import DELTA_ASPH, V_ASPH, V_M, V_LIQ, IA_F
+from paraphin.layout import IA_F, KX_UA
+from paraphin.oil_composition import DELTA_ASPH, V_ASPH, V_M, V_LIQ
 from paraphin.thermo.tables import LNWAMAX, eos_interp
 from .Thermo_wax import n_gas
 
@@ -80,19 +81,19 @@ def floc_relax(w_af, w_af_eq, dt):
 
 
 @njit(cache=True)
-def calc_velocity_asph(i, j, S, T, Um_r2, Wc, mu_p, new_Ua):
+def calc_velocity_asph(i, j, S, T, Um_r2, Wc, mu_p, new_kx):
     """Коэффициент скорости сужения капилляров флокулами асфальтенов: u_a(r) = Ua*r^(1/3), [м^(2/3)/с].
 
     Та же формула типа Левека, что для кристаллов парафина (`Velocity_h.calc_velocities_h`):
     ua = -So*w_af*(2*um*D_a^2/(r*Lk))^(1/3), um = um_r2*r^2, - с броуновской диффузией флокулы D_a и
     вязкостью жидкой основы `mu_p` (гель на подвижность частиц не влияет). Это поверхностное осаждение
     модели Wang & Civan (SPE 64991, 2001; JERT 2005, 127:318), выведенное из течения в капилляре.
-    Как и Ur, считается на новый слой и в `calc_qp_m_k_fi_2` используется на следующем шаге.
+    Как и Ur, считается на новый слой (`new_kx[..., KX_UA]`) и в `calc_qp_m_k_fi_2` используется на следующем шаге.
     """
     w_af = Wc[i, j, IA_F]
     if w_af > min_Wps_bound:
         So = max(0.0, 1.0 - S[i, j] - _So_max)
         d_a = _DIFF_A * (T[i, j] + 273.15) / mu_p[i, j]
-        new_Ua[i, j] = -So * w_af * (Um_r2[i, j] * 2.0 * d_a * d_a / Lk) ** (1.0 / 3.0)
+        new_kx[i, j, KX_UA] = -So * w_af * (Um_r2[i, j] * 2.0 * d_a * d_a / Lk) ** (1.0 / 3.0)
     else:
-        new_Ua[i, j] = 0.0
+        new_kx[i, j, KX_UA] = 0.0

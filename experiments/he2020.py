@@ -30,8 +30,8 @@ from common import load, mode_from_argv, save_results, load_results, RESULTS, FI
 
 DATA = load('he2020')
 M0_HE = 0.27        # пористость кернов до опыта (26.5-27.5 %)
-C0_DEFAULT = 0.1    # доля парафина в свежем геле, если подбора по Sandyga еще нет (constants.age_c0)
-SIGMA_R = 0.4       # ширина fi_0 модели (paraphin/__init__.py); связь k(m) при сужении от r_m не зависит
+C0_DEFAULT = 0.1    # доля парафина в свежем геле, если подбора по Sandyga еще нет (`kinetics_params.DEFAULTS['AGE_C0']`)
+SIGMA_R = 0.4       # ширина fi_0 модели (paraphin/geometry.py); связь k(m) при сужении от r_m не зависит
 
 
 def pairs():
@@ -58,7 +58,7 @@ def narrowing(c0: float):
     return np.array(out)
 
 
-NET_PRIOR = (6.0, 0.4)  # z, gamma - по умолчанию пакета (constants.net_z, net_gamma = gamma)
+NET_PRIOR = (6.0, 0.4)  # z, gamma - по умолчанию пакета (`kinetics_params`: NET_Z, NET_GAMMA = gamma)
 
 
 def network(z: float, gam: float):
@@ -116,7 +116,7 @@ def c0_from_sandyga():
         best = json.loads(path.read_text(encoding='utf-8')).get('best')
         if best and 'c0' in best:
             return float(best['c0']), 'подбор по Sandyga et al.'
-    return C0_DEFAULT, 'constants.age_c0 (подбора по Sandyga нет)'
+    return C0_DEFAULT, 'kinetics_params AGE_C0 (подбора по Sandyga нет)'
 
 
 def run(mode: str = 'full') -> dict:

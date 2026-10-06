@@ -25,9 +25,10 @@ import math
 
 from numba import njit
 
-from paraphin.constants import init_m, ro_f, ro_o, ro_w, K_o, K_w, heat_losses, wax_components, volume
-from paraphin.kinetics_params import LTNE_DG, KX_TS
-from .Temperature import psi_cell, LATENT, _heat_losses_lauwerier, _heat_losses_vw
+from paraphin.constants import init_m, ro_f, ro_o, ro_w, K_o, K_w, wax_components, volume
+from paraphin.kinetics_params import LTNE_DG
+from paraphin.layout import KX_TS
+from .Temperature import psi_cell, LATENT, heat_loss_rate
 
 
 @njit(cache=True)
@@ -71,12 +72,7 @@ def temperature_equation_ltne(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wp
     carrier, carrier_new = (Hl[i, j], new_Hl[i, j]) if wax_components else (Wp[i, j], new_Wp[i, j])
     latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * carrier - new_m[i, j] * (1.0 - new_S[i, j]) * carrier_new) / dt
 
-    if heat_losses == 0:
-        t_losses = 0.0
-    elif heat_losses == 1:
-        t_losses = _heat_losses_lauwerier(i, j, t, T)
-    else:
-        t_losses = _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
+    t_losses = heat_loss_rate(i, j, t, T, T_0, E_ff, dt)
 
     t_f = T[i, j] + dt / cf_next * (cells_T_eq[i, j] / volume - derivative_add - t_losses + latent)
     h_v = interphase_h(new_m[i, j], new_S[i, j], u_abs, mu_o[i, j], C_o[i, j], kin)

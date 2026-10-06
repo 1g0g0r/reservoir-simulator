@@ -13,7 +13,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-from paraphin import r, fi_0
+from paraphin.geometry import r, fi_0
 from paraphin.constants import day_to_sec, geological_reserves, init_Wp
 from paraphin.utils.visualisation_utils import read_solution_data, x_mesh, y_mesh
 

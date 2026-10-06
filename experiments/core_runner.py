@@ -39,7 +39,7 @@ def _gel_equilibrium(solver, u, phi_min):
     for j in range(solver.Phi.shape[1]):
         v_dep = init_m - solver.m[0, j]
         if asphaltenes:
-            from paraphin.oil_composition import IA_F, I_R
+            from paraphin.layout import IA_F, I_R
             v_dep -= (solver.Dep[0, j, IA_F] + solver.Dep[0, j, I_R]) / ro_asph_dep
         phi_s = pore_solid_fraction(solver.m[0, j], solver.S[0, j], crystal_volume_fraction(solver.Wps[0, j]),
                                     max(v_dep, 0.0))
@@ -64,7 +64,7 @@ def _inflow_suspension(solver, t_c):
     состояние). Нужна ступенчатому протоколу: нефть охлаждали до температуры ступени до закачки (Li et al., 2024,
     разд. 2.2.3), а `Solver.initialize` ставит взвесь по температуре границы один раз, при первой ступени."""
     from paraphin.constants import init_p, data_type
-    from paraphin.oil_composition import N_W, IS0
+    from paraphin.layout import N_W, IS0
     from paraphin.equations.Thermo_wax import sle_split
     from paraphin.solver import Bound
     left = Bound.Left.value
@@ -74,7 +74,7 @@ def _inflow_suspension(solver, t_c):
 
 
 def run(case: dict) -> dict:
-    from paraphin import eta, r, fi_0, w2_cv
+    from paraphin.geometry import eta, r, fi_0, w2_cv
     from paraphin.constants import (Ny, hy, hx, h, init_Wp, init_Wps, _re, init_m, gelation,
                                     gel_mobility_min, wax_components, deposition_kinetics, wax_kinetics)
     from paraphin.kinetics_params import kin_index
@@ -221,11 +221,11 @@ def run(case: dict) -> dict:
         'kin': solver.kin.tolist(),
     }
     if wax_components:
-        from paraphin.oil_composition import N_W, IA_F, I_R
+        from paraphin.layout import N_W, IA_F, I_R
         result['dep_wax'] = float(solver.Dep[0, :, :N_W].sum())
         result['dep_asph'] = float(solver.Dep[0, :, IA_F].sum() + solver.Dep[0, :, I_R].sum())
     if deposition_kinetics:
-        from paraphin.kinetics_params import KX_GA, KX_GR, KX_VGEL
+        from paraphin.layout import KX_GA, KX_GR, KX_VGEL
         result['adsorbed'] = float(solver.kx[0, :, KX_GA].sum() + solver.kx[0, :, KX_GR].sum())
         result['gel_volume'] = (solver.kx[0, :, KX_VGEL] / init_m).tolist()
     return result

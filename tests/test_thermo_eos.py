@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 
 from paraphin.constants import M_o, init_T, P_bubble, P_onset_asph, P_ref_wax, sara_asphaltenes
-from paraphin.oil_composition import N_W, WAX_M, WAX_W0, scn_distribution, sle_split_np
+from paraphin.layout import N_W
+from paraphin.oil_composition import WAX_M, WAX_W0, scn_distribution, sle_split_np
 from paraphin.thermo import characterization as ch
 from paraphin.thermo.eos import PengRobinson, bubble_pressure, flash
 from paraphin.thermo.solids import IdealSolidSolutionWax, MultiSolidWax, NghiemAsphaltene

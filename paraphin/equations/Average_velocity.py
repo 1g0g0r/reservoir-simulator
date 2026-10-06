@@ -2,7 +2,7 @@
 import numpy as np
 from numba import njit
 
-from paraphin import eta
+from paraphin.geometry import eta
 from paraphin.constants import Nx, Ny, hx, hy
 
 
@@ -10,7 +10,7 @@ from paraphin.constants import Nx, Ny, hx, hy
 def calc_Um_r2(i, j, p, grad_p, Um_r2, mu_o):
     """Средняя скорость нефти в капилляре без множителя r^2 и модуль градиента давления.
     Градиент - односторонними разностями на границах, центральными во внутренних точках.
-    Коэффициент извилистости `eta` согласует пучок капилляров с k_0, см. `paraphin/__init__.py`.
+    Коэффициент извилистости `eta` согласует пучок капилляров с k_0, см. `paraphin/geometry.py`.
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """

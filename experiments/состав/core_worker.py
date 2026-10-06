@@ -38,7 +38,7 @@ def _gel_equilibrium(solver, u, phi_min):
     for j in range(ny):
         v_dep = init_m - solver.m[0, j]
         if asphaltenes:
-            from paraphin.oil_composition import IA_F, I_R
+            from paraphin.layout import IA_F, I_R
             v_dep -= (solver.Dep[0, j, IA_F] + solver.Dep[0, j, I_R]) / ro_asph_dep
         phi_s = pore_solid_fraction(solver.m[0, j], solver.S[0, j], crystal_volume_fraction(solver.Wps[0, j]),
                                     max(v_dep, 0.0))
@@ -60,7 +60,7 @@ def _gel_equilibrium(solver, u, phi_min):
 
 def worker(case: Path, out: Path, mode: str = 'rate') -> None:
     from shutil import rmtree
-    from paraphin import eta, r, fi_0
+    from paraphin.geometry import eta, r, fi_0
     from paraphin.constants import Ny, hy, hx, h, init_Wp, init_Wps, results_path, _re, init_m, gelation
     from paraphin.constants import gel_mobility_min, wax_components
     from paraphin.solver import Solver, Bound, TypeBC, DataField
@@ -155,7 +155,7 @@ def worker(case: Path, out: Path, mode: str = 'rate') -> None:
         'T_hist': t_hist if mode == 'ramp' else [],
     }
     if wax_components:
-        from paraphin.oil_composition import N_W
+        from paraphin.layout import N_W
         result['dep_groups'] = solver.Dep[0, :, :N_W].sum(axis=0).tolist()  # [кг/м^3 породы], сумма по ячейкам
     out.write_text(json.dumps(result), encoding='utf-8')
 

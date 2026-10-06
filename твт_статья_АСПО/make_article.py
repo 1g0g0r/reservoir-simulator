@@ -537,9 +537,10 @@ def field_numbers(th, num):
     num['F_WPREC'] = f'{100 * live:.1f}'
     num['F_WAX0'] = f'{100 * w0:.1f}'
     # Удержание: рост константы Ленгмюра при охлаждении до температуры закачки и начальное повреждение D(sigma_0)
-    from paraphin import surf_0
+    from paraphin.geometry import surf_0
     from paraphin.constants import R, ro_asph_dep
-    from paraphin.oil_composition import initial_components, IA_D, I_R
+    from paraphin.layout import IA_D, I_R
+    from paraphin.oil_composition import initial_components
     kin = th['kin']
     t_ref = kin.get('ADS_T_REF', 70.0) + 273.15
     k_l = lambda t: kin['ADS_K'] * math.exp(-kin['ADS_DH'] / R * (1.0 / (t + 273.15) - 1.0 / t_ref))
@@ -552,7 +553,8 @@ def field_numbers(th, num):
     num['F_SIG0'] = f'{rel0:.2f}'
     num['F_D0'] = f"{max(1.0 - rel0, 0.0) ** kin['PERM_GAMMA']:.2f}"
     # Тепловое неравновесие: время релаксации температур флюида и зерна при Nu = 2 (нижняя граница Вакао-Кагеи)
-    from paraphin.constants import ltne_dg
+    from paraphin.kinetics_params import DEFAULTS
+    ltne_dg = DEFAULTS['LTNE_DG']
     s_mid = 0.5
     lam_f = s_mid * K_w + (1 - s_mid) * K_o
     h_v = 6.0 * (1 - init_m) / ltne_dg * 2.0 * lam_f / ltne_dg
@@ -567,8 +569,7 @@ def field_numbers(th, num):
     num['F_DA'] = _sci(da, 0)
     num['F_TPASS'] = f'{t_pass / 86400:.0f}'
     # Доля пересыщения, кристаллизующаяся на стенках, k_w/(k_w + k_cr) по (13): в поле k_w - значение пакета
-    from paraphin.constants import k_wall
-    k_w = th['kin'].get('K_WALL', k_wall)
+    k_w = th['kin'].get('K_WALL', DEFAULTS['K_WALL'])
     num['F_WALL_SHARE'] = f"{100 * k_w / (k_w + th['kin']['K_CRYST']):.0f}"
 
 

@@ -17,8 +17,7 @@ import numpy as np
 def _run(t_days: float, fields_path: str = None) -> dict:
     from paraphin.constants import (Nx, Ny, Pw, Po, rw, day_to_sec, ro_o, ro_p, ro_asph_dep, init_m, volume,
                                     dt_min, gel_mobility_min, asphaltenes, gelation)
-    from paraphin.oil_composition import N_W, NCB, IA_D, IA_F, I_R
-    from paraphin.kinetics_params import KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR
+    from paraphin.layout import N_W, NCB, IA_D, IA_F, I_R, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR
     from paraphin.solver import Solver
 
     solver = Solver()

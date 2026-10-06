@@ -28,8 +28,8 @@ def calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells,
         Вязкости нефти и воды, [Па*с]
     lam_o, lam_w: numpy.ndarray(Nx, Ny)
         Подвижности фаз k*pf/mu, посчитанные `calc_mobility` до вызова, [м^2/(Па*с)]
-    wells: numpy.ndarray(n_wells)
-        Массив скважин
+    wells: numpy.ndarray(n_wells), dtype `WELL`
+        Скважины - структурный массив (`utils/well.py`)
     diag, ex, ey: numpy.ndarray(Nx*Ny)
         Диагонали матрицы: центр, связь с idx+1 (сосед по x), связь с idx+Nx (сосед по y)
     rhs: numpy.ndarray(Nx*Ny)
@@ -125,7 +125,7 @@ def _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
 def _adding_wells(wells, S, k, mu_o, mu_w, lam_o, lam_w, diag, rhs):
     """Учет скважин в уравнении давления, неявный по давлению.
 
-        q = prod*(P_забой - P_ячейки)
+        q = J*(P_забой - P_ячейки)
 
     Слагаемое с давлением ячейки уходит на диагональ, с забойным - в правую часть. Явные `q^t`
     здесь стоять не могут: задача несжимаемая с непроницаемыми границами, то есть чисто нейманнова,
@@ -133,14 +133,15 @@ def _adding_wells(wells, S, k, mu_o, mu_w, lam_o, lam_w, diag, rhs):
     При неявной записи равенство суммарных дебитов выполняется тождественно.
 
     Коэффициенты продуктивности при этом не пересчитываются здесь, а считаются `calc_well_pi` и остаются на скважине:
-    после решения СЛАУ `upd_q_and_eta` умножает те же самые `prod` на перепад.
+    после решения СЛАУ `upd_q_and_eta` умножает те же самые `J` на перепад.
     """
-    for i in range(len(wells)):
-        wells[i] = calc_well_prod(wells[i], S, k, mu_o, mu_w, lam_o, lam_w)
-        well = wells[i]
+    for w in range(wells.shape[0]):
+        calc_well_prod(wells, w, S, k, mu_o, mu_w, lam_o, lam_w)
+        wl = wells[w]
+        idx = wl.idx_rhs
 
-        if well.rate_control == 1:
-            rhs[well.idx_rhs] += well.q[2]
+        if wl.rate_control:
+            rhs[idx] += wl.q[2]
         else:
-            diag[well.idx_rhs] += well.prod[2]
-            rhs[well.idx_rhs] += well.prod[2] * well.p
+            diag[idx] += wl.J[2]
+            rhs[idx] += wl.J[2] * wl.p

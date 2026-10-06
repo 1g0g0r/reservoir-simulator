@@ -49,12 +49,7 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, ne
         latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * Wp[i, j]
                            - new_m[i, j] * (1.0 - new_S[i, j]) * new_Wp[i, j]) * volume / dt
 
-    if heat_losses == 0:
-        T_losses = 0.0
-    elif heat_losses == 1:
-        T_losses = _heat_losses_lauwerier(i, j, t, T)
-    else:
-        T_losses = _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
+    T_losses = heat_loss_rate(i, j, t, T, T_0, E_ff, dt)
 
     new_T[i, j] = T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + latent)
 
@@ -62,8 +57,8 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, ne
 
 
 @njit(cache=True)
-def temperature_source(well, T, C_o, C_w, C_p, Wo, Wp, Wps, Hl) -> float:
-    """Приток энергии со скважиной, [Вт].
+def temperature_source(wells, w, T, C_o, C_w, C_p, Wo, Wp, Wps, Hl) -> float:
+    """Приток энергии со скважиной w (запись массива скважин `utils/well.py`), [Вт].
 
     У нагнетательной берется температура закачиваемой воды, у добывающей - температура ячейки.
     Дебиты знаковые: q > 0 - закачка, q < 0 - отбор. Нефть уносит и скрытую теплоту растворенного в ней парафина -
@@ -71,16 +66,17 @@ def temperature_source(well, T, C_o, C_w, C_p, Wo, Wp, Wps, Hl) -> float:
 
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
-    i, j = well.i, well.j
-    Twell = well.T if well.is_injector == 1 else T[i, j]
+    wl = wells[w]
+    i, j = wl.i, wl.j
+    Twell = wl.T_inj if wl.is_injector else T[i, j]
 
     if wax_components:
         hl = Hl[i, j]
     else:
         hl = Wp[i, j]
 
-    return (ro_w * C_w[i, j] * well.q[1] * Twell
-            + h_oil(c_oil(Wo[i, j], Wp[i, j] + Wps[i, j], C_o[i, j], C_p[i, j]), T[i, j], hl) * well.q[0])
+    return (ro_w * C_w[i, j] * wl.q[1] * Twell
+            + h_oil(c_oil(Wo[i, j], Wp[i, j] + Wps[i, j], C_o[i, j], C_p[i, j]), T[i, j], hl) * wl.q[0])
 
 
 @njit(cache=True)
@@ -131,6 +127,17 @@ def psi_cell(i, j, m, S, Wo_ij, Wp_ij, Wps_ij, C_w, C_o, C_p, C_f):
 
     return (m[i, j] * (S[i, j] * ro_w * C_w[i, j] + (1.0 - S[i, j]) * c_o)
             + (init_m - m[i, j]) * ro_p * C_p[i, j] + (1.0 - init_m) * ro_f * C_f[i, j])
+
+
+@njit(cache=True)
+def heat_loss_rate(i, j, t, T, T_0, E_ff, dt):
+    """Потери тепла через кровлю и подошву, [Вт/м^3], по флагу `heat_losses`: 0 - нет, 1 - Ловерье,
+    иначе - Винсом-Вестервельд. Общая для обоих уравнений энергии (`temperature_equation`, LTNE)."""
+    if heat_losses == 0:
+        return 0.0
+    elif heat_losses == 1:
+        return _heat_losses_lauwerier(i, j, t, T)
+    return _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
 
 
 @njit(cache=True)

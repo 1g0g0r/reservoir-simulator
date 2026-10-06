@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT / 'experiments' / 'исходная_модель'))
 
 import core_flood as cf  # noqa: E402
 from paraphin import oil_composition as oc  # noqa: E402
+from paraphin.layout import N_W  # noqa: E402
 from paraphin.constants import (P_ref_wax, P_bubble, P_onset_asph, init_T, R, ro_o, ro_asph, v_asph,  # noqa: E402
                                 sara_asphaltenes, sara_resins, scn_first, Rs_bubble, ro_wax_liq, ro_p)
 from paraphin.thermo import tables as tb  # noqa: E402
@@ -112,7 +113,7 @@ def zhetybai(t_curve):
     w0 = oc.WAX_W0
     eos, n, mw, _, iw, _ = tb.oil_fluid(0.0, gas=False)
     z = n / n.sum()
-    g = np.arange(iw, iw + oc.N_W)
+    g = np.arange(iw, iw + N_W)
     is_f = np.zeros(eos.nc, bool)
     is_f[g] = True
     tm_all, dh_all = np.full(eos.nc, np.nan), np.full(eos.nc, np.nan)
@@ -178,17 +179,17 @@ def zhetybai_uniquac_fit(exp):
 def wat_pressure(p_dead, p_live):
     w0 = oc.WAX_W0
     eos, n, _, _, iw, _ = tb.oil_fluid(0.0, gas=False)
-    ms = MultiSolidWax(eos, np.arange(iw, iw + oc.N_W), tb.WAX_TM_WON, tb.WAX_DH_WON, tb.WAX_DV_EOS, P_ref_wax)
+    ms = MultiSolidWax(eos, np.arange(iw, iw + N_W), tb.WAX_TM_WON, tb.WAX_DH_WON, tb.WAX_DV_EOS, P_ref_wax)
     z = n / n.sum()
     dead_pr = [ms.wat(p, z) - 273.15 for p in p_dead]
     # без скачка объема (вариант пакета research): твердое с объемом жидкости
-    ms0 = MultiSolidWax(eos, np.arange(iw, iw + oc.N_W), tb.WAX_TM_WON, tb.WAX_DH_WON)
+    ms0 = MultiSolidWax(eos, np.arange(iw, iw + N_W), tb.WAX_TM_WON, tb.WAX_DH_WON)
     dead_pr0 = [ms0.wat(p, z) - 273.15 for p in p_dead]
     dead_eff = [oc.wat_np(w0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV, p - P_ref_wax) for p in p_dead]
 
     kij = tb.calibrate_kij_gas()
     eos, n, _, ig, iw, _ = tb.oil_fluid(kij, gas=True)
-    g = np.arange(iw, iw + oc.N_W)
+    g = np.arange(iw, iw + N_W)
     ms = MultiSolidWax(eos, g, tb.WAX_TM_WON, tb.WAX_DH_WON, tb.WAX_DV_EOS, P_ref_wax)
 
     def supersat(t, p):  # самая пересыщенная группа жидкости живой нефти при всем растворенном парафине

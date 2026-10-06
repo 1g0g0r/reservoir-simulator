@@ -9,7 +9,7 @@ from PIL import Image
 from joblib import Parallel, delayed
 
 from ..read_data_files import read_solution_data
-from paraphin import r
+from paraphin.geometry import r
 from paraphin.constants import outputs_path, bar_to_pa, day_to_sec, S_min, init_T, Twater, init_Wp
 
 gif_path = outputs_path / 'gif'

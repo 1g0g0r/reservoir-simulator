@@ -3,7 +3,7 @@ import math
 
 import numpy as np
 
-from paraphin import fi_0, r1, w4_cv, eta, dr_cv, r4
+from paraphin.geometry import fi_0, r1, w4_cv, eta
 from paraphin.constants import Nr, gel_phi, gel_phi_ref, gel_tau_ref, gel_tau_mult, gel_time
 from paraphin.equations.Gel import br_factor, gel_phi_eq, yield_stress, pore_solid_fraction
 

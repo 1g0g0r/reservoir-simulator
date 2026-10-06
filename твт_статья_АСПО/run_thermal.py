@@ -153,7 +153,7 @@ def _drop(q):
 def metrics(name: str, d) -> dict:
     """Показатели варианта: КИН, обводненность, скин, приемистость, отложения, гель, фронты, во времени и на конец."""
     from paraphin.constants import geological_reserves, P_bubble
-    from paraphin.oil_composition import N_W
+    from paraphin.layout import N_W
     t_inj = float(VARIANTS.get(name, {}).get('Twater', T_INJ))
     time = d['Time'] / 86400.0 / 365.0
     tot = d['Totals']

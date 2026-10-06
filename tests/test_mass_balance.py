@@ -243,7 +243,7 @@ def test_paraffin_inflow_bc():
     """
     from paraphin.constants import init_p, init_S, init_k, init_m, init_T, c_o, c_w, c_p, data_type
     from paraphin.equations import flows_in_cells
-    from paraphin.oil_composition import NC
+    from paraphin.layout import NC
     from paraphin.utils import Bound, DataField, calc_mu_o, calc_mu_w, calc_mobility
 
     def field(value):

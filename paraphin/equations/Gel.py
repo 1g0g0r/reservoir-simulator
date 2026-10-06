@@ -20,7 +20,7 @@ V_осадок = m0 - m за вычетом осадка асфальтенов 
 может ли оставшаяся в поре нефть сдвинуть ее сетку.
 
 В капилляре радиуса r с градиентом давления вдоль него G напряжение на стенке tau_w = r*G/2; в пучке
-G = |grad p|/eta (та же извилистость, что согласует пучок с k_0, `paraphin/__init__.py`). Расход
+G = |grad p|/eta (та же извилистость, что согласует пучок с k_0, `paraphin/geometry.py`). Расход
 бингамовской жидкости отличается от пуазейлевского множителем Букингема-Райнера (Buckingham, 1921):
 
     F(xi) = 1 - 4*xi/3 + xi^4/3 при xi = tau_y/tau_w < 1, иначе 0,                           (2)
@@ -38,8 +38,11 @@ Chevalier et al., JNNFM 2013, 195:57 - «начальный градиент» �
 """
 from numba import njit
 
-from paraphin import r1, w4_cv, eta
-from paraphin.constants import Nr, gel_phi, gel_tau_ref, gel_phi_ref, gel_n, gel_tau_mult, gel_deposit_weight
+from paraphin.geometry import r1, w4_cv, eta
+from paraphin.constants import (Nr, gel_phi, gel_tau_ref, gel_phi_ref, gel_n, gel_tau_mult, gel_deposit_weight,
+                                gel_mobility_min, gelation, deposition_kinetics, asphaltenes, init_m, ro_p, ro_asph_dep)
+from paraphin.layout import N_W, IA_F, I_R
+from paraphin.utils.math_utils.fluids_correlations import calc_mu_p, crystal_volume_fraction
 
 _TAU_SCALE = gel_tau_mult * gel_tau_ref
 _INV_PHI_SPAN = 1.0 / (gel_phi_ref - gel_phi)
@@ -86,3 +89,34 @@ def gel_phi_eq(i, j, fi, grad_p, tau_y):
         if tau_w > tau_y:
             num += wf * br_factor(tau_y / tau_w)
     return num / den if den > 0.0 else 1.0
+
+
+@njit(cache=True)
+def oil_viscosity(i, j, t, w_ps, p, S, m, fi, grad_p, Dep, Phi, mu_p, mu_o, relax) -> None:
+    """Вязкость нефти ячейки на новом слое при геле (`gelation`) или зависимости от давления (`pressure_viscosity`).
+
+    Зовется из `_swap_time_steps` после обмена m, S и fi: множителю нужны поля нового слоя. t, w_ps - температура и
+    доля взвеси нового слоя. Без геля mu_o - `calc_mu_p` (Барус). С гелем mu_p - пластическая вязкость, а
+    эффективная mu_o = mu_p/Phi, где Phi релаксирует к равновесному (3) по градиенту давления этого шага:
+    Phi = Phi_eq + (Phi - Phi_eq)*relax, relax = exp(-dt/gel_time). Твердая фаза геля в поре (1а) - взвесь и осадок
+    парафина: с кинетикой осаждения объем кристаллов берется прямо из осадка (у нее есть и слой адсорбции), иначе -
+    потеря пористости за вычетом осадка асфальтенов."""
+    mu = calc_mu_p(t, w_ps, p[i, j])
+    if not gelation:
+        mu_o[i, j] = mu
+        return
+    mu_p[i, j] = mu
+    if deposition_kinetics:
+        v_dep = 0.0
+        for kk in range(N_W):
+            v_dep += Dep[i, j, kk]
+        v_dep /= ro_p
+    else:
+        v_dep = init_m - m[i, j]
+        if asphaltenes:
+            v_dep -= (Dep[i, j, IA_F] + Dep[i, j, I_R]) / ro_asph_dep
+    phi_s = pore_solid_fraction(m[i, j], S[i, j], crystal_volume_fraction(w_ps), max(v_dep, 0.0))
+    tau_y = yield_stress(phi_s)
+    phi_eq = gel_phi_eq(i, j, fi, grad_p[i, j], tau_y)
+    Phi[i, j] = phi_eq + (Phi[i, j] - phi_eq) * relax
+    mu_o[i, j] = mu / max(Phi[i, j], gel_mobility_min)

@@ -1,7 +1,7 @@
 """Детальный состав нефти: характеризация по SARA и SCN, свойства групп парафинов, асфальтенов и смол.
 
-Считается один раз при импорте (как `eta` в `paraphin/__init__.py`), результат - константы уровня
-модуля: njit-функции уравнений читают их как литералы. Работает только при `wax_components = True`,
+Считается один раз при импорте (как `eta` в `paraphin/geometry.py`), результат - константы уровня
+модуля (индексы компонентов в `Wc` - `paraphin/layout.py`): njit-функции уравнений читают их как литералы. Работает только при `wax_components = True`,
 но считается всегда: массивы маленькие, а импорт от флага не зависит.
 
 Состав нефти (обзор `твт_статья_АСПО/материалы/full_review.pdf`, разд. 1.2-1.3):
@@ -38,8 +38,8 @@ from paraphin.constants import (data_type, init_Wp, init_Wps, init_T, MW, M_o, T
                                 scn_slope, scn_gamma_alpha, wax_alpha_eff, wax_Tm_shift, wax_dv_frac, ro_wax_liq,
                                 sara_aromatics, sara_resins, sara_asphaltenes, P_bubble, Rs_bubble,
                                 T_sc_gas, P_sc_gas, v_gas, delta_gas, P_onset_asph, v_asph, ro_asph, asph_curve,
-                                delta_sat, delta_aro, delta_res, c_oil_comp, beta_oil, P_ref_wax,
-                                wax_kinetics, asph_aggregation)
+                                delta_sat, delta_aro, delta_res, c_oil_comp, beta_oil, P_ref_wax)
+from paraphin.layout import N_W, IA_D, I_R, NC
 
 WAX_TOTAL = init_Wp + init_Wps  # суммарная доля парафина в нефтяной фазе, [-]
 
@@ -157,22 +157,10 @@ else:
     WAX_DH = np.full(_w.size, wax_alpha_eff, data_type)
     WAX_L_REL = (_L / latent_heat).astype(data_type)  # удельная теплота группы в долях прежней latent_heat
 
-N_W = int(WAX_W0.size)          # число групп парафина
+assert WAX_W0.size == N_W, 'число групп характеризации не совпало с раскладкой `layout.N_W`'
 WAX_DV = (wax_dv_frac * WAX_M * 1e-3 / ro_wax_liq).astype(data_type)  # dv = v_L - v_S, [м^3/моль]
 WAX_DH_R = (WAX_DH / R).astype(data_type)   # dH/R, [K]
 WAX_DV_R = (WAX_DV / R).astype(data_type)   # dv/R, [м^3*K/Дж]
-
-# Индексы компонентов в массиве Wc (Nx, Ny, NC): группы парафина, асфальтены растворенные и флокулы, смолы
-IA_D = N_W
-IA_F = N_W + 1
-I_R = N_W + 2
-NCB = N_W + 3  # «массовые» компоненты: по ним сходятся балансы массы, их сумма с остатком - единица
-# Дальше - переносимые с нефтью величины, которые компонентами не являются (включаются флагами кинетики):
-#   Wc[..., IS0 + k] - взвешенные кристаллы группы k, часть Wc[..., k] (`wax_kinetics`: взвесь не равновесная);
-#   Wc[..., IN_F]    - число флокул асфальтенов на килограмм нефти (`asph_aggregation`), [1/кг].
-IS0 = NCB
-IN_F = IS0 + (N_W if wax_kinetics else 0)
-NC = IN_F + (1 if asph_aggregation else 0)
 
 # --- Нефть без парафина: растворитель, SARA ----------------------------------------------------------------
 SAT0 = 1.0 - sara_aromatics - sara_resins - sara_asphaltenes  # насыщенные вместе с парафином

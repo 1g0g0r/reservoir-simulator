@@ -8,10 +8,10 @@
 """
 import numpy as np
 
-from paraphin import N
+from paraphin.geometry import N
 from paraphin.constants import Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_m, init_p, init_T, init_Wp, init_Wps, data_type
 from paraphin.equations import calc_pressure
-from paraphin.utils import WellStruct, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility
+from paraphin.utils import new_well, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility
 
 INJ = (3, 7)
 PROD = (Nx - 5, Ny - 10)
@@ -19,10 +19,10 @@ PROD = (Nx - 5, Ny - 10)
 
 def _solve_pressure():
     """Однократное решение уравнения давления на однородном пласте с двумя скважинами."""
-    injector = WellStruct(i=INJ[0], j=INJ[1], p=Pw, q_set=0.0, rate_control=0, T=Twater, rw=rw,
-                          is_injector=1, mult=0.25)
-    producer = WellStruct(i=PROD[0], j=PROD[1], p=Po, q_set=0.0, rate_control=0, T=0.0, rw=rw,
-                          is_injector=0, mult=0.25)
+    injector = new_well(i=INJ[0], j=INJ[1], p=Pw, q_set=0.0, rate_control=0, T=Twater, rw=rw,
+                        is_injector=1, mult=0.25)
+    producer = new_well(i=PROD[0], j=PROD[1], p=Po, q_set=0.0, rate_control=0, T=0.0, rw=rw,
+                        is_injector=0, mult=0.25)
     buffer = [{'well': injector, 'name': 'inj'}, {'well': producer, 'name': 'prod'}]
     wells = preprocess_wells(buffer)
 

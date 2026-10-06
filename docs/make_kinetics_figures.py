@@ -103,7 +103,7 @@ def fig_langmuir():
         print('   kin03 пропущен: нет подбора в experiments/results/li2024.json (python experiments/li2024.py)')
         return
     kin, cum = got
-    from paraphin import fi_0, w1_cv, w2_cv
+    from paraphin.geometry import fi_0, w1_cv, w2_cv
     data = json.loads((EXPERIMENTS / 'data' / 'li2024.json').read_text(encoding='utf-8'))
     m0 = data['core']['porosity']
     a0 = 2.0 * m0 * float((w1_cv * fi_0).sum()) / float((w2_cv * fi_0).sum())

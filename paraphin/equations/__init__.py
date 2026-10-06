@@ -53,7 +53,7 @@ numpy-массивами позиционно (jitclass не потянет ве
                 ячеек со скважинами. Отток нефтяной фазы и тепловой `flows_in_cells` возвращает
                 значениями - вне своей итерации цикла они никому не нужны
 
-Поля (Nx, Ny, Nr) - распределения по радиусам пор (сетка радиусов `r1` в `paraphin/__init__.py`):
+Поля (Nx, Ny, Nr) - распределения по радиусам пор (сетка радиусов `r1` в `paraphin/geometry.py`):
     fi          функция распределения пор по размерам, [-]
     h_sloy      толщина осадочного слоя парафина, [м]
     Ur          скорость изменения радиуса капилляра, [м/с]
@@ -61,25 +61,27 @@ numpy-массивами позиционно (jitclass не потянет ве
                 разделение нужно, чтобы взять слагаемое блокирования неявно в `_update_fi`
 
 Детальный состав нефти (флаги `wax_components`, `asphaltenes`, `gelation`, см. `paraphin/oil_composition.py`
-и `docs/модель_АСПО.docx`); массивы есть всегда, с выключенными флагами не используются:
+и `docs/модель_АСПО.docx`; индексы - `paraphin/layout.py`); массивы есть всегда, с выключенными флагами не используются:
     Wc          (Nx, Ny, NC) доли компонентов: [:N_W] группы парафина (растворенные + взвешенные),
                 IA_D растворенные асфальтены, IA_F флокулы, I_R смолы, [-]
     Ws          (Nx, Ny, N_W) взвешенные кристаллы по группам, [-]; `new_Ws[i, j]` - буфер `sle_split`
     Hl          носитель скрытой теплоты sum_k (L_k/latent_heat)*w_k^dis, [-]; без флага - сам Wp
     Dep         (Nx, Ny, NC) накопленные отложения по компонентам, [кг/м^3 породы]
-    Fo_row      (4) потоки нефтяной фазы через грани ячейки, [м^3/с]: строка `Fo[i]` (как a_tdma)
+    Fo_row      (4) потоки нефтяной фазы через грани ячейки, [м^3/с]: строка скретча `rows[i, ROW_FO]`
     bc_Wc       (4, NC) состав нефти, втекающей через границу с ГУ Дирихле `DataField.Paraffin`
     src_Qo      дебит нефти скважины, [м^3/с]
-    Ua          коэффициент скорости сужения капилляров флокулами, u_a = Ua*r^(1/3), [м^(2/3)/с]
-    qpa         скорость потери порового объема на осадок асфальтены + смолы, [1/с];
-                q_p1 + q_p2 + q_pa = -dm/dt
+    kx          (Nx, Ny, NKX) поля механизмов с именованными индексами `layout.KX_*`, в том числе
+                KX_UA - коэффициент сужения капилляров флокулами, u_a = Ua*r^(1/3), [м^(2/3)/с], и
+                KX_QPA - скорость потери порового объема на осадок асфальтены + смолы, [1/с]
+                (q_p1 + q_p2 + q_pa = -dm/dt)
+    rows        (Nx, NROWS, Nr) скретч: рабочие профили ячейки, свои строки на каждый i (`layout.ROW_*`)
     mu_p        вязкость нефти без геля (пластическая), [Па*с]; без флага `gelation` - сам mu_o
     Phi         множитель подвижности нефти от геля (Букингем-Райнер в пучке капилляров), [-]
 
 Прочее:
     boundary_conditions     (4, 4, 2): граница -> поле -> (тип, значение), индексы из enum'ов
                             `Bound` / `DataField` / `TypeBC`
-    well                    объект `WellStruct` (jitclass), см. `utils/well.py`
+    wells, w                массив скважин (строки с именованными столбцами) и номер скважины, см. `utils/well.py`
 
 Порядок вызовов внутри `_equations_loop` значим и повторяет порядок вычислений на шаге из
 постановки задачи: сначала кольматация (fi -> m, k, q_p1, q_p2), затем перетоки через грани и
@@ -90,7 +92,7 @@ from .Average_velocity import calc_Um_r2
 from .Asphaltene import calc_velocity_asph
 from .Components import components_equation
 from .Flows_in_cells import flows_in_cells
-from .Gel import yield_stress, gel_phi_eq, pore_solid_fraction
+from .Gel import yield_stress, gel_phi_eq, pore_solid_fraction, oil_viscosity
 from .Pressure import calc_pressure
 from .Qp_m_k_fi import calc_qp_m_k_fi, calc_qp_m_k_fi_2
 from .Saturation import saturation_equation

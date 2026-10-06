@@ -12,8 +12,8 @@ Reservoirs // Processes. 2024. V. 12. P. 421 - кривая выпадения �
 По ней подбираются эффективные Tm и alpha в (6.1) для полевого расчета (`--fit`).
 
 Параметры модели (d_p, L_k) у одного варианта - константы уровня модуля, numba вшивает их в машинный
-код. Поэтому, как в `run_cases.py`, каждый вариант - отдельный процесс: скрипт правит `constants.py`,
-запускает сам себя с `--worker` и восстанавливает файл в `finally`.
+код. Поэтому каждый вариант - отдельный процесс в копии пакета с поправленным `constants.py`
+(`tests/_patched_copy.make_copy`): скрипт запускает сам себя с `--worker`, репозиторий и его кеш numba не трогаются.
 
     python experiments/исходная_модель/core_flood.py          # калибровка d_p, L_k по опыту 1, прогноз опыта 2
     python experiments/исходная_модель/core_flood.py --fit    # подгонка Tm, alpha по кривой Li
@@ -25,7 +25,7 @@ Reservoirs // Processes. 2024. V. 12. P. 421 - кривая выпадения �
 Результат - `outputs/data/core_flood.json`, его читает `make_figures.py`.
 """
 import json
-import re
+import os
 import subprocess
 import sys
 from itertools import product
@@ -35,7 +35,10 @@ import numpy as np
 from scipy.optimize import brentq, least_squares
 
 ROOT = Path(__file__).resolve().parents[2]
-CONSTANTS = ROOT / 'paraphin' / 'constants.py'
+# В конец пути: рабочий процесс берет `paraphin` из копии (PYTHONPATH), а `tests` - из репозитория
+sys.path.append(str(ROOT))
+from tests._patched_copy import make_copy  # noqa: E402
+
 RESULT = ROOT / 'outputs' / 'data' / 'core_flood.json'
 
 R_GAS = 8.31446261815324
@@ -170,16 +173,6 @@ def w_ring_solids(number: int) -> float:
 
 # --- Прогон одного варианта -------------------------------------------------------------------------
 
-def _patch(text: str, values: dict) -> str:
-    """Подстановка значений в `constants.py`. Каждое имя обязано найтись ровно один раз."""
-    for name, value in values.items():
-        pattern = rf'^{re.escape(name)}(\s*:\s*\w+)?\s*=.*$'
-        text, n = re.subn(pattern, f'{name} = {value}', text, count=1, flags=re.M)
-        if n != 1:
-            raise KeyError(f'В constants.py не найдена строка `{name} = ...`')
-    return text
-
-
 def _case_constants(exp: dict, d_p: float, lk: float, ny: int, dt: float) -> dict:
     """Константы прогона. Геометрия керна (`length`, `side`, `porosity`), его температура `T`, вязкость
     жидкой основы при ней `mu` и длительность в PV `pv_end` берутся из опыта, если заданы, иначе - керн
@@ -219,7 +212,7 @@ def _case_constants(exp: dict, d_p: float, lk: float, ny: int, dt: float) -> dic
 
 def run_case(number: int, d_p: float, lk: float, ny: int = NY, dt: float = DT, w: float = None,
              oil: dict = None, extra: dict = None, mode: str = 'rate', exp: dict = None) -> dict:
-    """Прогон опыта `number` отдельным процессом с поправленным `constants.py`.
+    """Прогон опыта `number` отдельным процессом в копии пакета с поправленным `constants.py`.
 
     `w` - суммарная доля парафина вместо указанной в опыте (см. `w_ring_solids`); `oil` - свойства нефти
     вместо свойств опыта (MW, M_o, ro_o, ro_p, Tm, dH); `extra` - дополнительные константы `constants.py`;
@@ -231,19 +224,12 @@ def run_case(number: int, d_p: float, lk: float, ny: int = NY, dt: float = DT, w
     if mode == 'thermal':  # керн нагрет и без взвеси, парафин весь растворен
         values.update(init_T=repr(exp.get('T_hot', T_HOT)), init_Wp=repr(exp['w']), init_Wps='0.0')
     values.update(extra or {})
-    original = CONSTANTS.read_text(encoding='utf-8')
-    out = ROOT / 'outputs' / 'data' / f'_core_flood_{number}.json'
-    case = out.with_name(f'_core_flood_{number}_case.json')
+    root = make_copy(f'core_flood_{number}', values)
+    case, out = root / 'case.json', root / 'result.json'
     case.write_text(json.dumps(exp), encoding='utf-8')
-    try:
-        CONSTANTS.write_text(_patch(original, values), encoding='utf-8')
-        subprocess.run([sys.executable, __file__, '--worker', str(case), str(out), mode], cwd=ROOT, check=True)
-    finally:
-        CONSTANTS.write_text(original, encoding='utf-8')
-        case.unlink()
-
+    subprocess.run([sys.executable, __file__, '--worker', str(case), str(out), mode], cwd=root,
+                   env=dict(os.environ, PYTHONPATH=str(root)), check=True)
     result = json.loads(out.read_text(encoding='utf-8'))
-    out.unlink()
     result.update(d_p=d_p, lk=lk, ny=ny, dt=dt, rms=rms(result, exp['exp']))
     return result
 
@@ -275,8 +261,7 @@ def worker(case: Path, out: Path, mode: str = 'rate') -> None:
     `case` - json с опытом (его пишет `run_case`), `out` - json с результатом.
     """
     from shutil import rmtree
-    sys.path.insert(0, str(ROOT))
-    from paraphin import eta, r, fi_0
+    from paraphin.geometry import eta, r, fi_0
     from paraphin.constants import Ny, hy, hx, h, init_Wp, init_Wps, results_path, _re, init_m
     from paraphin.solver import Solver, Bound, TypeBC, DataField
     from paraphin.utils import calc_mu_o

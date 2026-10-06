@@ -112,6 +112,51 @@ Reservoir // International Symposium of the Society of Core Analysts. Abu Dhabi,
 | Авдонин Н.А., Орлов В.С. Effect of cold and hot water injection on temperature distribution in Uzen Oil Field // Нефтяное хозяйство. 1967. 45(5):43–47 (на русском; русское название по записи OSTI 6322845 не установлено) | Распределение температуры у нагнетательных скважин Узеня при холодной и горячей закачке; забойная температура устанавливается за 4–10 сут; горячая оторочка с последующей холодной водой | средняя — полевой масштаб тепловой задачи (`твт_статья_АСПО`) | реферат: https://www.osti.gov/etdeweb/biblio/6322845 |
 | Ковалев А.Г., Лютин Л.В., Перевалов В.Г. Problems in waterflooding fields containing paraffinic crude oils // Нефтяное хозяйство. 1968. № 11:49–51 (на русском; OSTI 5602810) | Узень: закачка морской воды охлаждает пласт на 10–20 °C; капиллярные свойства и смачиваемость от температуры не зависят | низкая | реферат: https://www.osti.gov/etdeweb/biblio/5602810 |
 
+## 7. Вынос отложений (суффозия): опыты и модели
+
+В модели вынос — флаг `entrainment` (`equations/Deposition.py`, разд. «Кинетика осаждения»), сейчас подобран
+только по плато опыта 2 Sutton & Roberts. Прежняя ветка `suffusion` (второе слагаемое в `u_r`) по умолчанию выключена.
+Классика уже в `docs/кинетика_осаждения.md`: Gruesbeck & Collins (1982), Wang & Civan (2001, 2005), Civan (2015).
+Ниже работы, где вынос отложения потоком измерен отдельно от осаждения, или модели его порога. Отдельно — вынос
+при нагреве (плавление и растворение), это второй путь восстановить проницаемость.
+
+### Опыты: вынос потоком (порог скорости или напряжения сдвига)
+
+| Файл | Источник | Что в нем для сравнения | Польза | Доступ |
+|---|---|---|---|---|
+| `boek2008_ef_asphaltene_capillary_deposition.pdf` | Boek E.S., Ladva H.K., Crawshaw J.P., Padding J.T. Deposition of Colloidal Asphaltene in Capillary Flow: Experiments and Mesoscopic Simulation // Energy & Fuels. 2008. 22(2):805–813. doi:10.1021/ef700670f | Щелевой капилляр: при 5 мкл/мин перепад медленно растет, затем закупорка; при 10 мкл/мин осадок вначале растет быстрее, а затем **уносится потоком**. Прямая проверка порога выноса по скорости | высокая | скачано (рукопись, Imperial Spiral) |
+| `do2021_msc_calgary_asphaltene_deposition_temperature.pdf` | Do N. Effect of Temperature on Asphaltene Deposition Mechanisms in Horizontal Flow: MSc thesis. University of Calgary, 2021 | Битум с н-гептаном в капилляре при разных температурах: стеклообразные частицы дают пористый осадок у входа с **циклами осаждения и смыва**; выше температуры стеклования — жидкие капли. Перепад от времени, масса и место осадка | высокая | скачано |
+| — | Bemani A., Poozesh A., Bahrami M., Ashoori S. Experimental study of asphaltene deposition: Focus on critical size and temperature effect // Journal of Petroleum Science and Engineering. 2019. 181:106186. doi:10.1016/j.petrol.2019.106186 | Капилляр: отложение растет с температурой и падает с расходом; критический размер агрегата для осаждения | средняя | платный |
+| — | Li X., Guo Y., Sun Q., Lan W., Liu A., Guo X. Experimental study for the impacts of flow rate and concentration of asphaltene precipitant on dynamic asphaltene deposition in microcapillary medium // Journal of Petroleum Science and Engineering. 2018. 162:333–340. doi:10.1016/j.petrol.2017.12.031 | Отложение в микрокапилляре от расхода: при большом расходе осадок тоньше | средняя | платный |
+| — | Hashmi S.M., Loewenberg M., Firoozabadi A. Colloidal asphaltene deposition in laminar pipe flow: Flow rate and parametric effects // Physics of Fluids. 2015. 27(8):083302. doi:10.1063/1.4927221 | Ламинарное течение в трубке: масса осадка от расхода, размер частиц | средняя | платный |
+| — | Lin Y.-J., He P., Tavakkoli M., Mathew N.T., Fatt Y.Y., Chai J.C., Goharzadeh A., Vargas F.M., Biswal S.L. Examining Asphaltene Solubility on Deposition in Model Porous Media // Langmuir. 2016. 32(34):8729–8734. doi:10.1021/acs.langmuir.6b02376 | Микромодель: осаждение и смыв в порах при разной растворимости асфальтенов | средняя | платный |
+| — | Enayat S., Rajan Babu N., Kuang J., Rezaee S., Lu H., Tavakkoli M., Wang J., Vargas F.M. On the development of experimental methods to determine the rates of asphaltene precipitation, aggregation, and deposition // Fuel. 2020. 260:116250. doi:10.1016/j.fuel.2019.116250 | Методики измерения скоростей выпадения, агрегации и осаждения по отдельности — источник констант для `asph_aggregation` | средняя | платный |
+| `bizmark2020_sciadv_colloid_deposition_erosion.pdf` | Bizmark N., Schneider J., Priestley R.D., Datta S.S. Multiscale dynamics of colloidal deposition and erosion in porous media // Science Advances. 2020. 6(46):eabc2530. doi:10.1126/sciadv.abc2530 | Конфокальная микроскопия в 3D-упаковке: при большом перепаде частицы непрерывно оседают и смываются, осадок распределен по всей длине; при малом — сосредоточен у входа. Профиль осадка по длине при разных перепадах. Частицы не нефтяные, механизм тот же | средняя | скачано (CC BY-NC, arXiv) |
+| — | Gruesbeck C., Collins R.E. Entrainment and Deposition of Fine Particles in Porous Media // Society of Petroleum Engineers Journal. 1982. 22(6):847–856. doi:10.2118/8430-PA | Классика: модель параллельных путей (закупоривающие и незакупоривающие) с критической скоростью выноса и опыты с частицами в насыпных моделях. Модель `entrainment` в пакете — ее потомок | высокая | платный |
+| — | Bedrikovetsky P., Siqueira F.D., Furtado C.A., Souza A.L.S. Modified Particle Detachment Model for Colloidal Transport in Porous Media // Transport in Porous Media. 2011. 86(2):353–383. doi:10.1007/s11242-010-9626-4 | Функция максимального удержания σ_cr(U): вынос мгновенный при росте скорости, без коэффициента скорости. Керны со ступенчатым ростом расхода: концентрация на выходе и перепад. Альтернатива кинетическому выносу Wang–Civan | высокая | платный |
+| — | Bedrikovetsky P., Zeinijahromi A., Siqueira F.D., Furtado C.A., de Souza A.L.S. Particle Detachment Under Velocity Alternation During Suspension Transport in Porous Media // Transport in Porous Media. 2012. 91(1):173–197. doi:10.1007/s11242-011-9839-1 | Вынос при чередовании скорости: что уходит при повторном росте расхода | средняя | платный |
+| — | Russell T., Bedrikovetsky P. Colloidal-suspension flows with delayed fines detachment: Analytical model & laboratory study // Chemical Engineering Science. 2018. 190:98–109. doi:10.1016/j.ces.2018.05.062 | Вынос с запаздыванием (кинетический) против мгновенного: аналитическое решение и опыты | средняя | платный |
+| — | You Z., Bedrikovetsky P., Badalyan A., Hand M. Particle mobilization in porous media: Temperature effects on competing electrostatic and drag forces // Geophysical Research Letters. 2015. 42(8):2852–2860. doi:10.1002/2015GL063986 | Порог выноса зависит от температуры (вязкость и электростатика) — неизотермический вынос | средняя | открыт, скачать вручную: https://agupubs.onlinelibrary.wiley.com/doi/10.1002/2015GL063986 |
+| — | Khilar K.C., Fogler H.S. Permeability Reduction in Water Sensitivity of Sandstones // Surface Phenomena in Enhanced Oil Recovery. Springer, 1981. P. 721–740. doi:10.1007/978-1-4757-0337-5_34 | Классика выноса и захвата частиц в горлах (критическая концентрация соли) | низкая | платный |
+
+### Модели выноса АСПО в пласте
+
+| Файл | Источник | Что в нем | Польза | Доступ |
+|---|---|---|---|---|
+| — | Wang S., Civan F., Strycker A.R. Simulation of Paraffin and Asphaltene Deposition in Porous Media // SPE International Symposium on Oilfield Chemistry. 1999. SPE-50746-MS. doi:10.2118/50746-MS | Совместное осаждение парафина и асфальтенов с выносом по критической скорости — предшественник Wang & Civan (2005) | высокая | платный |
+| — | Wang S., Civan F. Modeling Formation Damage by Asphaltene Deposition During Primary Oil Recovery // Journal of Energy Resources Technology. 2005. 127(4):310–317. doi:10.1115/1.1924465 | Поверхностное осаждение, закупорка горл и вынос выше критической скорости; параметры по керновым опытам | высокая | платный |
+| — | Almehaideb R.A. Asphaltene precipitation and deposition in the near wellbore region: a modeling approach // Journal of Petroleum Science and Engineering. 2004. 42(2–4):157–170. doi:10.1016/j.petrol.2003.12.008 | Призабойная зона, осаждение и вынос в радиальной постановке | средняя | платный |
+| — | Eskin D. Modeling porous media impairment by asphaltenes caused by pressure reduction // Fuel. 2026. 404:136365. doi:10.1016/j.fuel.2025.136365 | Новая модель повреждения при снижении давления (автор опытов Mohammadzadeh et al. 2017 из разд. 3) | средняя | платный |
+| `jager2017_pre_erosion_deposition_channelization.pdf` | Jäger R., Mendoza M., Herrmann H.J. Channelization in porous media driven by erosion and deposition // Physical Review E. 2017. 95(1):013110. doi:10.1103/PhysRevE.95.013110 | Решеточная модель с порогами сдвига для осаждения и смыва: при смыве поток уходит в каналы, проницаемость не возвращается к k₀ | низкая | скачано (arXiv) |
+| — | Kahza H.E., Sanaei P. Mathematical modeling of erosion and deposition in porous media // Physical Review Fluids. 2024. 9(2):024301. doi:10.1103/PhysRevFluids.9.024301 | Модель пор с одновременным осаждением и эрозией по порогу напряжения сдвига | низкая | платный |
+
+### Вынос при нагреве: плавление и растворение отложений
+
+| Файл | Источник | Что в нем | Польза | Доступ |
+|---|---|---|---|---|
+| `bekibayev2026_applsci_wax_removal_model.pdf` | Bekibayev T., Bekbau B., Boiko G. Thermochemical Removal of Near-Wellbore Paraffin Deposits Using the Activated Aluminum–Water Reaction: A Coupled Multi-Component Multistate Wax Model // Applied Sciences. 2026. 16(17):8546. doi:10.3390/app16178546 | Казахстанская группа (Сатпаев). Радиальная модель, близкая к пакету: двухфазная фильтрация, теплота фазового перехода, 8 псевдокомпонентов парафина в растворенном, взвешенном и осажденном состоянии, плавление и растворение осадка, восстановление k. После прогрева скин падает, при остывании частично возвращается — повторная кристаллизация. Модель для сравнения расчета прогрева призабойной зоны | высокая | скачано (CC BY) |
+| — | Rocha N., Khalil C., Leite L., Bastos R. A Thermochemical Process for Wax Damage Removal // International Symposium on Oilfield Chemistry. 2003. SPE-80266-MS. doi:10.2118/80266-MS | Керны, поврежденные парафином, и восстановление проницаемости теплом реакции | средняя | платный |
+
 ## Что сравнить в первую очередь
 
 1. **WAT пористой среды у Sandyga.** Рогачев и Сандыга (2019): в порах на 3–4 °C выше, чем в объеме. Подобранные
@@ -125,3 +170,8 @@ Reservoir // International Symposium of the Society of Core Analysts. Abu Dhabi,
 5. **Пары $(m/m_0, k/k_0)$ с асфальтенами** — Lin et al. (2021): 39 % порового объема и проницаемость в 29 раз
    меньше. Добавить к парам He et al. в `pore_models.py`.
 6. **Гель в пористой среде** — Al-Fariss & Pinder (1987): расход от градиента для нефти с пределом текучести.
+7. **Порог выноса.** Boek et al. (2008) и Do (2021): осадок смывается при удвоении расхода и в циклах осаждения
+   и смыва. Это проверка флага `entrainment` вне Sutton & Roberts. Функция максимального удержания Bedrikovetsky
+   (2011) — альтернативная форма выноса без кинетической константы.
+8. **Прогрев призабойной зоны** — Bekibayev et al. (2026): та же постановка (взвесь, осадок, плавление,
+   восстановление k), с ней можно сверить расчет горячей закачки.

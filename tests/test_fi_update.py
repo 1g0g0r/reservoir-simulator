@@ -11,7 +11,7 @@
 """
 import numpy as np
 
-from paraphin import r1, fi_0, n_pass, dr_cv, w2_cv, plug_cv
+from paraphin.geometry import r1, fi_0, n_pass, dr_cv, w2_cv, plug_cv
 from paraphin.constants import Nr, init_m, init_k
 from paraphin.equations.Qp_m_k_fi import _update_fi, _calculate_integrals, calc_qp_m_k_fi
 
@@ -85,18 +85,21 @@ if __name__ == '__main__':
     print('OK')
 
 
-def test_update_fi_2_matches_legacy_without_asphaltenes():
-    """Прогонка с асфальтенами при ua = 0 совпадает с прежней `_update_fi` до округления, а одно сужение
-    флокулами (без парафина) сохраняет число капилляров sum(fi*dr_cv) - они только сползают к малым r."""
-    from paraphin.equations.Qp_m_k_fi import _update_fi_2
+def test_update_fi_rows_matches_legacy():
+    """Общая прогонка по профилям u = lim*Ur, b = lim*Ub (`Pore_bundle.update_fi_rows`, ее зовут сиблинги) совпадает с
+    прежней `_update_fi(limiter=lim)` до округления, а одно сужение флокулами u = ua*r^(1/3) (без парафина) сохраняет
+    число капилляров sum(fi*dr_cv) - они только сползают к малым r."""
+    from paraphin.equations.Pore_bundle import update_fi_rows
+    from paraphin.geometry import cbrt_r1, n_pass_a
 
     fi, new_fi, Ur, Ub, a, b = _fields(-1e-9, 1e-3)
     _update_fi(new_fi, fi, Ur, Ub, 0, 0, a, b, dt, 0.7)
     legacy = new_fi[0, 0].copy()
-    _update_fi_2(new_fi, fi, Ur, Ub, 0.0, 0, 0, a, b, dt, 0.7, 1.0)
+    update_fi_rows(new_fi, fi, 0, 0, 0.7 * Ur[0, 0], 0.7 * Ub[0, 0], a, b, dt)
     assert np.allclose(new_fi[0, 0], legacy, rtol=1e-13, atol=0.0)
 
     fi, new_fi, Ur, Ub, a, b = _fields(0.0, 0.0)
-    _update_fi_2(new_fi, fi, Ur, Ub, -1e-6, 0, 0, a, b, dt, 0.0, 1.0)
+    u = np.where(np.arange(Nr) >= n_pass_a, -1e-6 * cbrt_r1, 0.0)
+    update_fi_rows(new_fi, fi, 0, 0, u, np.zeros(Nr), a, b, dt)
     assert np.isclose((new_fi[0, 0] * dr_cv).sum(), (fi[0, 0] * dr_cv).sum(), rtol=1e-12)
     assert np.all(new_fi[0, 0] >= 0.0)

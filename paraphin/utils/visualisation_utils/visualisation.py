@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 import plotly.graph_objects as go
 
-from paraphin import r, fi_0
+from paraphin.geometry import r, fi_0
 from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, layers_file, js_path, bar_to_pa,
                                 day_to_sec, CONTOUR_PLOT, S_max, case_name)
 from paraphin.utils.read_data_files import read_solution_data, convert_pkl_files

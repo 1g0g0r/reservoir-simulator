@@ -19,7 +19,11 @@ ponytail: состав в phi заморожен на исходной нефт�
 
 `python -m paraphin.thermo.tables` - свойства псевдокомпонентов, калибровки и время сборки таблиц.
 """
+import hashlib
+import os
 import time
+from importlib.metadata import version
+from pathlib import Path
 
 import numpy as np
 from numba import njit
@@ -30,7 +34,8 @@ from paraphin.constants import (data_type, wax_eos, asph_nghiem, wax_pressure, w
                                 ro_wax_liq,
                                 v_asph, ro_asph, sara_asphaltenes, latent_heat, wax_Tm_shift, eos_gas_M, eos_gas_Tc,
                                 eos_gas_Pc, eos_gas_omega, eos_asph_Tc, eos_asph_Pc, eos_asph_omega, eos_kij_asph_gas)
-from paraphin.oil_composition import N_W, WAX_W0, WAX_M, WAX_TM_K, WAX_L_REL, N_GAS_B, won_tm
+from paraphin.layout import N_W
+from paraphin.oil_composition import WAX_W0, WAX_M, WAX_TM_K, WAX_L_REL, N_GAS_B, won_tm
 
 T_LO, T_HI, NT = eos_T_grid
 T_STEP = (T_HI - T_LO) / (NT - 1)
@@ -220,18 +225,40 @@ def fit_nghiem_curve(curve, kij_gas, gas):
     return f.x[0] * v_s, float(f.x[1])
 
 
-# ponytail: таблицы считаются при каждом импорте с флагами (секунды); кеш в npz по хешу пакета - если станет долго
-BUILD_TIME = 0.0
-GASV = np.zeros((NT, NP))  # объем свободного газа на объем нефти V_g/V_L - диагностика выгрузки (`thermo.pvt`)
-if wax_eos or asph_nghiem:
-    _t0 = time.perf_counter()
-    LNXSAT, NG, LNWAMAX, KIJ_GAS = build_tables(T_GRID, P_GRID)
+def _cached_tables():
+    """Таблицы и kij газ-нефть из дискового кеша, иначе - сборка и запись в кеш.
+
+    Сборка с газом и подбором по кривой асфальтенов - 10-20 с на каждый процесс, а зависят таблицы только от
+    исходников пакета (constants.py, состав, thermo/) и версий numpy/scipy. Поэтому ключ кеша - штамп хеша
+    исходников, который пишет `paraphin/__init__.py`, плюс версии; файл лежит рядом с кешем numba."""
+    pycache = Path(__file__).resolve().parents[1] / '__pycache__'
+    stamp = (pycache / 'constants_hash.txt').read_text(encoding='ascii')
+    key = hashlib.md5(f'{stamp} {np.__version__} {version("scipy")}'.encode()).hexdigest()[:16]
+    path = pycache / f'eos_tables_{key}.npz'
+    if path.is_file():
+        with np.load(path) as f:
+            return f['lnxsat'], f['ng'], f['lnwamax'], float(f['kij_gas']), f['gasv']
+    lnxsat, ng, lnwamax, kij_gas = build_tables(T_GRID, P_GRID)
+    gasv = np.zeros((NT, NP))  # объем свободного газа на объем нефти V_g/V_L - диагностика выгрузки (`thermo.pvt`)
     if wax_eos and wax_pressure:
         from .pvt import free_gas_table
-        GASV = free_gas_table(KIJ_GAS, T_GRID, P_GRID)
+        gasv = free_gas_table(kij_gas, T_GRID, P_GRID)
+    for stale in pycache.glob('eos_tables_*.npz'):
+        stale.unlink(missing_ok=True)
+    tmp = pycache / f'eos_tmp_{os.getpid()}.npz'  # параллельные процессы копии не видят недописанный файл
+    np.savez(tmp, lnxsat=lnxsat, ng=ng, lnwamax=lnwamax, kij_gas=kij_gas, gasv=gasv)
+    os.replace(tmp, path)
+    return lnxsat, ng, lnwamax, kij_gas, gasv
+
+
+BUILD_TIME = 0.0  # сборка таблиц или чтение из кеша, [с]
+if wax_eos or asph_nghiem:
+    _t0 = time.perf_counter()
+    LNXSAT, NG, LNWAMAX, KIJ_GAS, GASV = _cached_tables()
     BUILD_TIME = time.perf_counter() - _t0
 else:  # ядра таблиц не читают: ветки свернуты на компиляции
     LNXSAT, NG, LNWAMAX, KIJ_GAS = np.zeros((N_W, NT, NP)), np.zeros((NT, NP)), np.zeros((NT, NP)), 0.0
+    GASV = np.zeros((NT, NP))
 LNXSAT, NG, LNWAMAX, GASV = (a.astype(data_type) for a in (LNXSAT, NG, LNWAMAX, GASV))
 
 

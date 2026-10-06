@@ -34,7 +34,8 @@ import math
 from numba import njit, prange
 
 from paraphin.constants import M_o, Nx, Ny, P_ref_wax, P_bubble, wax_pressure, wax_pore_shift, wax_eos
-from paraphin.oil_composition import N_W, WAX_M, WAX_TM_K, WAX_DH_R, WAX_DV_R, WAX_L_REL, N_GAS_B
+from paraphin.layout import N_W
+from paraphin.oil_composition import WAX_M, WAX_TM_K, WAX_DH_R, WAX_DV_R, WAX_L_REL, N_GAS_B
 from paraphin.thermo.tables import LNXSAT, NG, T_LO, T_HI, eos_interp
 
 

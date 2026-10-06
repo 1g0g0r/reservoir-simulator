@@ -1,6 +1,6 @@
 """Перенос компонентов нефтяной фазы и их равновесие: группы парафина, асфальтены, смолы (флаг `wax_components`).
 
-Компоненты (массовые доли в нефтяной фазе, индексы - `paraphin.oil_composition`):
+Компоненты (массовые доли в нефтяной фазе, индексы - `paraphin/layout.py`):
     Wc[..., :N_w]   группы н-алканов, растворенные + взвешенные кристаллы;
     Wc[..., IA_D]   растворенные (пептизированные) асфальтены;
     Wc[..., IA_F]   флокулы асфальтенов;
@@ -25,11 +25,12 @@ import math
 
 from numba import njit
 
-from paraphin.constants import (Nx, Ny, volume, ro_o, ro_p, ro_asph, ro_asph_dep, resin_in_deposit, asphaltenes, k_B,
+from paraphin.constants import (Nx, Ny, volume, ro_o, ro_p, ro_asph, ro_asph_dep, resin_in_deposit, asphaltenes,
                                 wax_kinetics, asph_aggregation, adsorption, deposition_kinetics)
-from paraphin.kinetics_params import (K_CRYST, K_DISS, AGG_D0, AGG_W, KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG,
-                                      KX_QADA, KX_QADR, KX_GA, KX_GR)
-from paraphin.oil_composition import N_W, NCB, NC, IA_D, IA_F, I_R, IS0, IN_F, F_SAT_REST, WAX_L_REL
+from paraphin.kinetics_params import K_CRYST, K_DISS, AGG_D0, AGG_W
+from paraphin.layout import (N_W, NC, IA_D, IA_F, I_R, IS0, IN_F, KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR,
+                             KX_GA, KX_GR, KX_QPA)
+from paraphin.oil_composition import F_SAT_REST, WAX_L_REL
 from paraphin.utils import get_bound, DI, DJ
 from .Asphaltene import asph_soluble, floc_relax
 from .Thermo_wax import sle_split
@@ -41,12 +42,13 @@ _RO_AD_O = ro_asph_dep / ro_o
 
 @njit(cache=True)
 def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, T, m, S, new_m, new_S,
-                        Wc, new_Wc, Ws, new_Ws, src_Qo, new_qp1, new_qp2, new_qpa, new_Wp, new_Wps, new_Hl,
+                        Wc, new_Wc, Ws, new_Ws, src_Qo, new_qp1, new_qp2, new_Wp, new_Wps, new_Hl,
                         Dep, kin, kx, new_kx, mu_p, dt) -> None:
     """Перенос (1), стоки в отложения, равновесие. Пишет new_Wc, new_Ws, суммы new_Wp, new_Wps и new_Hl.
 
     Fo_row: numpy.ndarray(4)
-        Потоки нефтяной фазы через грани ячейки из `flows_in_cells` этой же итерации (строка скретча `Fo[i]`).
+        Потоки нефтяной фазы через грани ячейки из `flows_in_cells` этой же итерации (строка скретча
+        `rows[i, ROW_FO]`, первые 4 элемента).
     bc_Wc: numpy.ndarray(4, NC)
         Состав нефти, втекающей через границу с ГУ Дирихле `DataField.Paraffin`.
     Dep: numpy.ndarray(Nx, Ny, NC)
@@ -92,7 +94,7 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
         new_Wc[i, j, k] = mso * Wc[i, j, k] - dt * s_k
         if wax_kinetics:  # захват уносит взвесь, вынос ее возвращает
             new_Wc[i, j, IS0 + k] = mso * Wc[i, j, IS0 + k] - dt * s_cap
-    qpa = new_qpa[i, j]
+    qpa = new_kx[i, j, KX_QPA]
     if deposition_kinetics and qpa < 0.0:
         dep_a = Dep[i, j, IA_F] + Dep[i, j, I_R]
         f_af = Dep[i, j, IA_F] / dep_a if dep_a > 0.0 else 1.0 - resin_in_deposit

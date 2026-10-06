@@ -1,8 +1,8 @@
 """Регрессия «все новые флаги выключены»: расчет побитово совпадает с эталоном до детального состава нефти.
 
 Эталон и прогон - `tests/regression_baseline.py`. Побитовое совпадение возможно только на той же
-платформе и с теми же версиями numba/llvmlite/numpy: на другой машине или после обновления библиотек
-тест пропускается с сообщением (сравнивать там нечего - меняется сама машинная арифметика).
+платформе и с теми же версиями numba/llvmlite/numpy, поэтому эталон у каждого окружения свой
+(`baseline_path`); без эталона своего окружения тест пропускается с подсказкой, как его снять.
 """
 import ast
 
@@ -11,19 +11,18 @@ import pytest
 
 from paraphin.constants import (wax_components, wax_pressure, asphaltenes, gelation, wax_viscosity,
                                 pressure_viscosity)
-from tests.regression_baseline import BASELINE, metadata, run
+from tests.regression_baseline import baseline_path, metadata, run
 
 
 def test_flags_off_bitwise():
-    if not BASELINE.is_file():
-        pytest.skip(f'нет эталона {BASELINE}')
+    path = baseline_path()
+    if not path.is_file():
+        pytest.skip(f'нет эталона для окружения {metadata()}: снять кодом до правок, см. tests/regression_baseline.py')
     if wax_components or wax_pressure or asphaltenes or gelation or wax_viscosity != 0 or pressure_viscosity:
         pytest.skip('в constants.py включены новые механизмы - регрессия осмысленна только при выключенных')
 
-    ref = np.load(BASELINE, allow_pickle=False)
-    ref_meta = ast.literal_eval(str(ref['__meta__']))
-    if ref_meta != metadata():
-        pytest.skip(f'эталон снят в другом окружении: {ref_meta} != {metadata()}')
+    ref = np.load(path, allow_pickle=False)
+    assert ast.literal_eval(str(ref['__meta__'])) == metadata()
 
     fields = run()
     diffs = []

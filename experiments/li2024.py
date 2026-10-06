@@ -111,7 +111,7 @@ def cumulative_plateaus():
 
 def surface_area(m0: float) -> float:
     """Удельная поверхность породы - пучка fi_0, [1/м] (`paraphin.surf_0` при m0)."""
-    from paraphin import fi_0, w1_cv, w2_cv
+    from paraphin.geometry import fi_0, w1_cv, w2_cv
     return 2.0 * m0 * float((w1_cv * fi_0).sum()) / float((w2_cv * fi_0).sum())
 
 
@@ -180,7 +180,7 @@ FIT_STEP = np.array([0.02, 0.02, 0.05, 0.02])
 FIT_LO, FIT_HI = [-7.0, -2.0, 0.0, -6.0], [-2.0, 6.0, 15.0, -1.0]
 
 
-# Формы кинетики адсорбции (`constants.ads_film`): со стороны твердой фазы - экспоненциальный подход к изотерме,
+# Формы кинетики адсорбции (`kinetics_params` ADS_FILM): со стороны твердой фазы - экспоненциальный подход к изотерме,
 # пленочная - постоянная скорость до насыщения при выпуклой изотерме. Подбираются обе, сравниваются по опыту.
 FORMS = {'solid': 0.0, 'film': 1.0}
 FORM_NAMES = {'solid': 'кинетика твердой фазы', 'film': 'пленочная кинетика'}

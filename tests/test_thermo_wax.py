@@ -12,7 +12,8 @@ import numpy as np
 from paraphin.constants import MW, M_o, Tm_K, alpha, R, init_Wp, init_Wps
 from paraphin.equations.Thermo_wax import sle_split, wat_cell, x_saturation
 from paraphin.equations.Wp_balance import _wp_saturated
-from paraphin.oil_composition import (WAX_M, WAX_TM_K, WAX_DH, WAX_DV, N_W, WAX_W0, scn_distribution,
+from paraphin.layout import N_W
+from paraphin.oil_composition import (WAX_M, WAX_TM_K, WAX_DH, WAX_DV, WAX_W0, scn_distribution,
                                       lump_groups, won_tm)
 
 

@@ -7,18 +7,22 @@
 Постановка повторяет `test_mass_balance._make_solver` (закачка при 5 C, чтобы парафин выпадал и блок
 кольматации реально работал), но заморожена здесь: правка тестов баланса не должна сдвигать эталон.
 
-Пересъем эталона (только если сознательно меняется базовая физика):
-    git worktree add ../baseline <коммит>; cd ../baseline; python -m tests.regression_baseline --write
-и скопировать tests/test_data/regression_flags_off.npz обратно.
+Побитовое совпадение возможно только в том же окружении (платформа, версии numba/llvmlite/numpy, python),
+поэтому эталонов несколько - по одному на окружение, имя файла содержит хеш `metadata()` (`baseline_path`).
+Эталон для нового окружения снимают кодом ДО правок (worktree на Windows падает на длинных именах в `resources/`):
+    git archive <коммит> paraphin tests | tar -x -C <tmp>; cd <tmp>; python -m tests.regression_baseline --write
+и копируют tests/test_data/regression_flags_off_<хеш>.npz из <tmp> обратно. Пересъем существующего - только если
+сознательно меняется базовая физика.
 """
 import argparse
+import hashlib
 import platform
 import sys
 from pathlib import Path
 
 import numpy as np
 
-BASELINE = Path(__file__).parent / 'test_data' / 'regression_flags_off.npz'
+DATA = Path(__file__).parent / 'test_data'
 T_END_DAYS = 100.0
 T_INJECTION = 5.0
 
@@ -36,6 +40,12 @@ def metadata() -> dict:
             'numpy': np.__version__, 'numba': numba.__version__, 'llvmlite': llvmlite.__version__,
             'machine': platform.machine(), 'libc': ' '.join(platform.libc_ver()),
             'python': platform.python_version()}
+
+
+def baseline_path(meta: dict = None) -> Path:
+    """Файл эталона окружения `meta` (по умолчанию - текущего)."""
+    meta = metadata() if meta is None else meta
+    return DATA / f'regression_flags_off_{hashlib.sha256(repr(sorted(meta.items())).encode()).hexdigest()[:12]}.npz'
 
 
 def run() -> dict:
@@ -78,9 +88,10 @@ def main() -> None:
     fields = run()
     meta = metadata()
     if args.write:
-        BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(BASELINE, __meta__=np.array(repr(meta)), **fields)
-        print('Эталон записан:', BASELINE, 'шагов:', fields['dt_hist'].size)
+        path = baseline_path(meta)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(path, __meta__=np.array(repr(meta)), **fields)
+        print('Эталон записан:', path, 'шагов:', fields['dt_hist'].size)
     else:
         print('Шагов:', fields['dt_hist'].size, 'КИН:', float(fields['KIN']))
     sys.stdout.flush()
