@@ -6,7 +6,7 @@
 
 Опыт (`data/sandyga2020.json`): 20 % парафина C20-C40 в керосине, песчаник 3 x 5 см, пористость 9 %, 0.5 см^3/мин,
 весь стенд охлаждается от 40 C со скоростью 1 C/ч. Градиент давления плавно растет до 34 C и затем за 1.2 C - в 44
-раза; томография после опыта: пористость 9 -> 2.1 %, все классы пор потеряли 76-87 % объема. Прежняя модель с WAT
+раза; томография после опыта: пористость 9 -> 2.1 %, все классы пор потеряли 76-87 % объема. Упрощенная модель с WAT
 пористой среды (33.8 C) угадывает начало роста, но дает лишь 4.1 раза и пористость 0.96: захват кристаллов
 сортирует поры по размеру (узкие затыкаются, широкие почти не тронуты), а объем кристаллов мал.
 
@@ -236,6 +236,7 @@ def run(mode: str = 'full') -> dict:
                                  **metrics(r_best))}
     out['best'] = {k: v for k, v in out['kinetics_best'].items() if k != 'result'}
     out['cooling'] = cooling_rates(dict(zip(COOLING_RATES, r_rates)), r_best, p_best[2])
+    out['wat_rate'] = wat_rate(wat, p_best[2])
     print(f'шумовой порог СКО lg {out["noise_log"]:.3f}; пористость после опыта {out["porosity_exp"]:.3f}', flush=True)
     for name, e in (('прежняя', out['legacy']), ('гель 2 %', out['gel2']),
                     (f'кинетика, WAT {SOL["WAT_core"]} C', out['wat_authors']),
@@ -271,12 +272,66 @@ def cooling_rates(runs: dict, r_best, k_cr: float) -> dict:
     return out
 
 
+def _appearance(cf, w, tm, eq, v, k_cr, thr):
+    """Температура появления кристаллов в объеме при охлаждении со скоростью v [C/с]: доля кристаллов
+    релаксирует к равновесной с k_cr (как `relax_exp` в `components_equation`), прибор их видит с доли thr."""
+    dt, t, ws = 0.02 / v, eq + 0.5, 0.0
+    while t > eq - 30.0:
+        t -= v * dt
+        w_eq = w - float(cf.w_saturated(w, t, SOL['MW_wax'], SOL['M_kerosene'], tm, SOL['dH']))
+        if w_eq > ws:
+            ws = w_eq + (ws - w_eq) * np.exp(-k_cr * dt)
+        if ws >= thr:
+            return t  # шаг 0.02 C - точнее оцифровки
+    return eq - 30.0
+
+
+def wat_rate(wat: float, k_cr: float) -> dict:
+    """Проверка кинетики без керна: WAT раствора от скорости охлаждения (Struchkov, Rogachev, 2017).
+
+    Подбираются порог видимости кристаллов реометром thr (доля массы раствора) и сдвиг равновесной WAT 30 %-го
+    раствора dT: идеальный раствор с Tm по 20 %-му раствору дает для 30 %-го равновесную WAT выше опыта. Запаздывание
+    WAT при первом порядке кинетики ~ sqrt(thr*v/k_cr), поэтому опыт задает отношение thr/k_cr: проверка в том,
+    что при k_cr подбора по керну порог правдоподобен (десятые доли процента кристаллов). Затем той же моделью -
+    объемная WAT 20 %-го раствора при скорости реометра против измеренной (30 C) и при 1 C/ч керна."""
+    cf, rr = _cf(), DATA['wat_cooling_rate']
+    v_exp, wat_exp = np.array(rr['points']).T
+    tm = brentq(lambda t: float(cf.w_saturated(SOL['wax'], wat, SOL['MW_wax'], SOL['M_kerosene'], t, SOL['dH']))
+                - SOL['wax'] + 1e-9, wat + 0.1, 200.0)
+    eq30 = cf.cloud_point(rr['w'], SOL['MW_wax'], SOL['M_kerosene'], tm, SOL['dH'])
+
+    out = {}
+    for name, k in (('sandyga', k_cr), ('li2024', 10.0 ** load_params('li2024_cold')['x'][2])):
+        # модель ступенчатая (шаг по температуре), поэтому порог - перебором, сдвиг при нем - средняя невязка
+        best = None
+        for thr in 10.0 ** np.arange(-5.0, -0.95, 0.05):
+            m = np.array([_appearance(cf, rr['w'], tm, eq30, v, k, thr) for v in v_exp])
+            shift = float(np.mean(wat_exp - m))
+            rms = float(np.sqrt(np.mean((m + shift - wat_exp) ** 2)))
+            if best is None or rms < best['rms']:
+                best = dict(k_cryst=k, thr=float(thr), shift=shift, model=(m + shift).tolist(), rms=rms)
+        out[name] = best
+    s = out['sandyga']
+    w20 = lambda v: _appearance(cf, SOL['wax'], tm, wat, v, k_cr, s['thr'])
+    rate_core = CORE['cooling_C_per_s']
+    out.update(v=v_exp.tolist(), wat_exp=wat_exp.tolist(), eq30=eq30, eq20=wat,
+               bulk20_rheometer=w20(rr['bulk_rate']), bulk20_core=w20(rate_core),
+               bulk20_shift=w20(rate_core) - w20(rr['bulk_rate']),
+               exp_span=float(wat_exp[0] - wat_exp[-1]))
+    print(f'WAT от скорости охлаждения: k_cryst {k_cr:.2e} 1/с -> порог {s["thr"] * 100:.2f} % кристаллов, '
+          f'СКО {s["rms"]:.2f} C; k_cryst Li {out["li2024"]["k_cryst"]:.2e} -> порог '
+          f'{out["li2024"]["thr"] * 100:.1f} %, СКО {out["li2024"]["rms"]:.2f} C; 20 %-й раствор: '
+          f'{out["bulk20_rheometer"]:.1f} C при {rr["bulk_rate"]} C/с (опыт {SOL["WAT_bulk"]} C), '
+          f'{out["bulk20_core"]:.1f} C при 1 C/ч', flush=True)
+    return out
+
+
 def summary(out) -> list:
     """Строки сводной таблицы: (вариант, СКО lg(grad/grad0), СКО k/k0, наибольшее расхождение в 5 точках, раз,
     проводящая пористость)."""
     pore = lambda e: 'пучок' if e.get('net') is None else f'сеть, горло {e["net"]:g}'
     rows = [('шумовой порог опыта', out['noise_log'], None, None, out['porosity_exp'])]
-    for name, e in (('прежняя модель', out['legacy']), ('гель, порог 2 %', out['gel2']),
+    for name, e in (('упрощенная модель', out['legacy']), ('гель, порог 2 %', out['gel2']),
                     (f'стенки + гель-отложение, {pore(out["wat_authors"])}, WAT {out["wat_authors"]["wat"]:g} °C '
                      f'(авторы)', out['wat_authors']),
                     (f'стенки + гель-отложение, {pore(out["best"])}, WAT {out["best"]["wat"]:g} °C (подбор)',
@@ -294,7 +349,7 @@ def plot(out):
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(8.6, 3.4), gridspec_kw={'width_ratios': [1.35, 1]})
     t_exp, g_exp = np.array(DATA['gradient']['points']).T
     ax.plot(t_exp, g_exp / g_exp[0], 'o', mfc='white', mec='k', ms=4.5, label='опыт')
-    for e, style, label in ((out['legacy'], '-', 'прежняя модель'), (out['gel2'], '--', 'гель, порог 2 %'),
+    for e, style, label in ((out['legacy'], '-', 'упрощенная модель'), (out['gel2'], '--', 'гель, порог 2 %'),
                             (out['wat_authors'], ':', f'стенки + гель, WAT {out["wat_authors"]["wat"]:g} °C'),
                             (best, '-.', f'стенки + гель, WAT {best["wat"]:g} °C (подбор)')):
         t, g = curve(e['result'])
@@ -308,7 +363,7 @@ def plot(out):
     w = 2.2
     ax2.bar(d - w, best['pore_loss_exp'], width=2 * w, color='0.75', edgecolor='k', label='томография')
     ax2.bar(d + w, best['pore_loss'], width=2 * w, color='#2a78d6', label='модель (проводящие каналы)')
-    ax2.plot(d, out['legacy']['pore_loss'], 'x', color='k', label='прежняя модель')
+    ax2.plot(d, out['legacy']['pore_loss'], 'x', color='k', label='упрощенная модель')
     ax2.set_xlabel('диаметр пор, мкм')
     ax2.set_ylabel('потерянная доля объема класса')
     ax2.set_ylim(0, 1.05)

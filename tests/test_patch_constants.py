@@ -28,6 +28,7 @@ def _patch_sets() -> dict:
     sr = _module(EXPERIMENTS / 'sutton_roberts.py')
     sd = _module(EXPERIMENTS / 'sandyga2020.py')
     li = _module(EXPERIMENTS / 'li2024.py')
+    ml = _module(EXPERIMENTS / 'maloney2004.py')
     val = _module(EXPERIMENTS / 'состав' / 'validate.py')
 
     core = common.core_constants(sr.exp_dict(1))
@@ -40,6 +41,7 @@ def _patch_sets() -> dict:
         'run_cases': {'init_Wp': '0.0', 'heat_losses': '1'},
         'core_flood': dict(flood, Nr='21', r_m='16e-6', sigma_r='0.6', r_max='5e-5', init_T='54.4'),
         'li2024': li.constants(dict(li.RETENTION, wax_kinetics='True')),
+        'maloney2004': ml.job(ml.WAX[1])[1],
         'sandyga2020': {**common.core_constants(sd_exp, dt=2.0), **sd_extra, **sd.KINETICS, 'pore_network': 'True'},
         'validate': {**flood, **val.COMP, **val.GEL, 'gel_tau_mult': '0.1', 'gel_deposit_weight': '0.0', 'gel_phi': '0.02'},
     }

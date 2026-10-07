@@ -1,0 +1,19 @@
+{
+ "note": "Пары пористость - проницаемость после осаждения асфальтенов: только проверка моделей порового пространства (рис. 4 статьи), не подбираются. Разбор - new/обзор_источников.md, разд. 2.4",
+ "pairs": [
+  {
+   "name": "Lin 2021",
+   "source": "Lin Q., Akai T., Blunt M.J. et al. Pore-scale imaging of asphaltene-induced pore clogging in carbonate rocks // Fuel. 2021. V. 283. P. 118871. doi:10.1016/j.fuel.2020.118871",
+   "m_ratio": 0.61,
+   "k_ratio": 0.034,
+   "note": "карбонат Estaillades, флокулы из смеси нефти с гептаном 50/50; m/m0 - по разрешенным порам микро-КТ в 3 мм от входа (39.1 % пор занято осадком; 0.81, если микропоры не тронуты), k - по всему образцу: 110.4 -> 3.8 мД"
+  },
+  {
+   "name": "Struchkov 2019",
+   "source": "Struchkov I.A., Rogachev M.K., Kalinin E.S., Roschin P.V. Laboratory investigation of asphaltene-induced formation damage // J. Petrol. Explor. Prod. Technol. 2019. V. 9. P. 1443-1455. doi:10.1007/s13202-018-0539-z",
+   "m_ratio": 0.80,
+   "k_ratio": 0.89,
+   "note": "терригенный керн, живая нефть у давления начала осаждения, 48 C; пористость по томографии 16.5 -> 13.2 %, k по керосину -11.2 % (стадии 1 и 5); осадок в порах < 12 мкм"
+  }
+ ]
+}

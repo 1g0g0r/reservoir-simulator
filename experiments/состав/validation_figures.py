@@ -1,7 +1,7 @@
 """Рисунки и таблицы к сравнению с опытами (`validate.py`): figures/val*.png, validation_tables.json.
 
 Стиль и палитра - как у рисунков описания модели (`make_model_figures.py`): опыт - черные маркеры,
-прежняя модель - первый цвет, варианты новой - следующие по порядку; у вариантов свой тип линии.
+упрощенная модель - первый цвет, варианты новой - следующие по порядку; у вариантов свой тип линии.
 """
 import json
 import sys
@@ -59,7 +59,7 @@ def fig_sutton_roberts(data):
     mults = sorted({float(k.rsplit('_', 1)[1]) for k in runs if k.startswith('sr1_gel_')}, reverse=True)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8.2, 3.4), sharey=True)
     _exp(ax1, cf.EXPERIMENTS[1]['exp'])
-    _plot_run(ax1, runs['sr1_legacy'], SERIES[0], '-', f'прежняя модель (калибровка), СКО {runs["sr1_legacy"]["rms"]:.3f}')
+    _plot_run(ax1, runs['sr1_legacy'], SERIES[0], '-', f'упрощенная модель (калибровка), СКО {runs["sr1_legacy"]["rms"]:.3f}')
     for n, m in enumerate(mults):
         run = runs[f'sr1_gel_{m}']
         _plot_run(ax1, run, SERIES[1 + n], LINE_STYLES[1 + n], f'+ гель, множитель {_mult_label(m)}: {run["rms"]:.3f}')
@@ -69,7 +69,7 @@ def fig_sutton_roberts(data):
     ax1.legend(fontsize=6.5, loc='upper right')
 
     _exp(ax2, cf.EXPERIMENTS[2]['exp'])
-    _plot_run(ax2, runs['sr2_legacy'], SERIES[0], '-', f'прежняя модель, СКО {runs["sr2_legacy"]["rms"]:.3f}')
+    _plot_run(ax2, runs['sr2_legacy'], SERIES[0], '-', f'упрощенная модель, СКО {runs["sr2_legacy"]["rms"]:.3f}')
     gel = runs[f'sr2_gel_{mult}']
     k = 1 + mults.index(mult)
     _plot_run(ax2, gel, SERIES[k], LINE_STYLES[k], f'+ гель, множитель {_mult_label(mult)}: {gel["rms"]:.3f}')
@@ -90,7 +90,7 @@ def fig_sutton_roberts(data):
 
 def _li_variants(data):
     runs, mult = data['runs'], data['mult']
-    out = [('li25_legacy', 'прежняя модель'), ('li25_comp', '4 группы, вязкость P–R')]
+    out = [('li25_legacy', 'упрощенная модель'), ('li25_comp', '4 группы, вязкость P–R')]
     for m in sorted({1.0, mult}, reverse=True):
         out.append((f'li25_gel_{m}', f'+ гель, множитель {_mult_label(m)}'))
     return [(key, label) for key, label in out if key in runs]
@@ -145,7 +145,7 @@ def fig_sandyga(data):
     fig, ax = plt.subplots(figsize=(5.2, 3.4))
     t_exp, g_exp = np.array(sd.GRADIENT).T
     ax.plot(t_exp, g_exp / g_exp[0], 'o', mfc='white', mec=INK, ms=4.5, mew=1.1, label='опыт (рис. 4)', zorder=5)
-    keys = [('sd_legacy', 'прежняя модель, WAT 33.8 °C')]
+    keys = [('sd_legacy', 'упрощенная модель, WAT 33.8 °C')]
     for m in sorted({1.0, mult}, reverse=True):
         keys.append((f'sd_gel_{m}', f'+ гель, множитель {_mult_label(m)}'))
     keys.append(('sd_gelphi_0.02_1.0', '+ гель с порогом 2 % (статический)'))
@@ -227,7 +227,7 @@ def tables(data):
 
     rows = [f'| опыт 1 | — | {exp_at(cf.EXPERIMENTS[1]["exp"])} | — | — | — |']
     mults = sorted({float(k.rsplit('_', 1)[1]) for k in runs if k.startswith('sr1_gel_')}, reverse=True)
-    sr_rows = [('sr1_legacy', 'прежняя модель')] + [(f'sr1_gel_{m}', f'+ гель, множитель {_mult_label(m)}')
+    sr_rows = [('sr1_legacy', 'упрощенная модель')] + [(f'sr1_gel_{m}', f'+ гель, множитель {_mult_label(m)}')
                                                      for m in mults]
     if 'sr1_gel_dep0_1.0' in runs:
         sr_rows.append(('sr1_gel_dep0_1.0', 'гель только из взвеси, множитель 1'))
@@ -236,7 +236,7 @@ def tables(data):
         rows.append(f'| {label} | {run["rms"]:.3f} | {_at(run)} | {_plug(run)} | '
                     f'{np.mean(run["m_profile"]):.2f} | {min(run["phi_profile"]):.2f} |')
     rows.append(f'| опыт 2 | — | {exp_at(cf.EXPERIMENTS[2]["exp"])} | — | — | — |')
-    for key, label in (('sr2_legacy', 'прежняя модель'), (f'sr2_gel_{mult}', f'+ гель, множитель {_mult_label(mult)}')):
+    for key, label in (('sr2_legacy', 'упрощенная модель'), (f'sr2_gel_{mult}', f'+ гель, множитель {_mult_label(mult)}')):
         run = runs[key]
         rows.append(f'| {label} | {run["rms"]:.3f} | {_at(run)} | {_plug(run)} | '
                     f'{np.mean(run["m_profile"]):.2f} | {min(run["phi_profile"]):.2f} |')
@@ -261,7 +261,7 @@ def tables(data):
     pts = (35.0, 34.0, 33.5, 33.0, 32.8)
     rows = [f'| опыт | {" / ".join(f"{np.interp(-x, -t_exp, ratio_exp):.1f}" for x in pts)} | ≈ 34.0 | '
             f'{sd.POROSITY_AFTER / sd.CORE_M:.2f} | — |']
-    keys = [('sd_legacy', 'прежняя модель, WAT 33.8 °C')] + [(f'sd_gel_{m}', f'+ гель, множитель {_mult_label(m)}')
+    keys = [('sd_legacy', 'упрощенная модель, WAT 33.8 °C')] + [(f'sd_gel_{m}', f'+ гель, множитель {_mult_label(m)}')
                                                                 for m in sorted({1.0, mult}, reverse=True)]
     keys += [('sd_gelphi_0.02_1.0', '+ гель, порог 2 % (статический), множитель 1'),
              ('sd_gelphi_0.02_dep0_1.0', 'то же, гель только из взвеси')]

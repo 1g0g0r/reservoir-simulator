@@ -19,7 +19,7 @@ import time
 
 from common import RESULTS, mode_from_argv
 
-ORDER = ('sutton_roberts', 'li2024', 'sandyga2020', 'he2020', 'pore_models')
+ORDER = ('sutton_roberts', 'li2024', 'sandyga2020', 'maloney2004', 'he2020', 'pore_models')
 TARGET = 0.03  # СКО k/k0 (решение автора); где шумовой порог опыта выше, цель - порог
 
 
@@ -79,9 +79,23 @@ def tables(results: dict) -> dict:
                                       'рост к 32.8 °C, раз'],
                                      [(f"{e['rate']:g}", _f(e['damkohler'], 2), _f(e['t2'], 2), _f(e['t10'], 2),
                                        f"{e['final']:.0f}") for e in rates])
+        if 'wat_rate' in results['sandyga2020']:
+            wr = results['sandyga2020']['wat_rate']
+            out['SD_WAT_RATE'] = _table(['k_cr, 1/с', 'порог видимости, % кристаллов', 'СКО WAT, °C'],
+                                        [(f"{wr[n]['k_cryst']:.1e} ({label})", _f(100 * wr[n]['thr'], 2),
+                                          _f(wr[n]['rms'], 2))
+                                         for n, label in (('sandyga', 'подбор по Sandyga et al.'),
+                                                          ('li2024', 'подбор по Li et al.'))])
+            out['SD_BULK20'] = (f"{wr['bulk20_rheometer']:.1f} °C при скорости реометра (опыт "
+                                f"{sandyga2020.SOL['WAT_bulk']:g} °C) и {wr['bulk20_core']:.1f} °C при 1 °C/ч")
         out['SD_PORES'] = _table(['Диаметр пор, мкм'] + [str(d) for d in sandyga2020.DATA['pores']['d_um']],
                                  [['томография'] + [_f(v, 2) for v in best['pore_loss_exp']],
                                   ['модель'] + [_f(v, 2) for v in best['pore_loss']]])
+    if 'maloney2004' in results:
+        import maloney2004
+        out['ML'] = _table(['Вариант', 'k_w(10 °C)/k_w(26 °C), сразу', 'то же через 3 сут', 'k_w(10 °C)/k_w(66 °C)'],
+                           [(n, _f(a, 2), _f(b, 2), _f(c, 2)) for n, a, b, c in
+                            maloney2004.summary(results['maloney2004'])])
     if 'he2020' in results:
         rows = he2020.summary(results['he2020'])
         out['HE'] = _table(['Зависимость k(m)', 'СКО lg(k/k₀)', 'СКО k/k₀', 'точек вне досягаемости'],
@@ -129,7 +143,7 @@ def summary_table(results: dict) -> str:
         power = [r for name, r in o.items() if name.startswith('6.')]
         rows.append(('He et al., k(m)', '—', _f(bundle[0]['lin']) if bundle else '—', _f(net[0]['lin']) if net else '—',
                      '—', _f(power[0]['lin']) if power else '—'))
-    return _table(['Опыт', 'шумовой порог', 'прежняя модель', 'лучшая модель (калибровка)',
+    return _table(['Опыт', 'шумовой порог', 'упрощенная модель', 'лучшая модель (калибровка)',
                    'общая кинетика, своя вязкость', 'другие авторы / замыкание'], rows)
 
 

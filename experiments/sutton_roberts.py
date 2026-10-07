@@ -5,7 +5,7 @@
     python experiments/sutton_roberts.py --plot    # только рисунок по results/sutton_roberts.json
 
 Данные - `data/sutton_roberts_{1,2}.json` (опыт, керн, кривые моделей Ring et al. 1994 и Wang & Civan 2005).
-Прежняя модель: d_p = 15 мкм и L_k = 0.3 мм подобраны по опыту 1 (СКО 0.048), опыт 2 - прогноз (СКО 0.246,
+Упрощенная модель: d_p = 15 мкм и L_k = 0.3 мм подобраны по опыту 1 (СКО 0.048), опыт 2 - прогноз (СКО 0.246,
 закупорка к 4.4 PV вместо плато ~0.3). К ней добавляются механизмы кинетики (`docs/кинетика_осаждения.md`):
 
   - новое ядро без дополнительных механизмов - что меняет само ядро (скорости по текущему слою);
@@ -184,7 +184,7 @@ def run(mode: str = 'full') -> dict:
     out = {'legacy': {n: base[n - 1] for n in (1, 2)}, 'kernel': {n: base[n + 1] for n in (1, 2)},
            'noise': {n: noise_floor(EXPS[n]['k_pv']) for n in (1, 2)}, 'others': others()}
     for n in (1, 2):
-        print(f'опыт {n}: шум {out["noise"][n]:.3f}; прежняя модель СКО {rms(out["legacy"][n], n):.3f}; '
+        print(f'опыт {n}: шум {out["noise"][n]:.3f}; упрощенная модель СКО {rms(out["legacy"][n], n):.3f}; '
               f'новое ядро {rms(out["kernel"][n], n):.3f}', flush=True)
     if mode == 'full':
         ent = fit_grid('ent', ENTRAINMENT, ENT_GRID, ent_kin)
@@ -252,7 +252,7 @@ def summary(out) -> list:
     rows = [('шумовой порог опыта', g(out['noise'], 1), g(out['noise'], 2), '-')]
     for name, d in out['others'].items():
         rows.append((name, g(d, 1), g(d, 2), 'по публикации'))
-    rows.append(('прежняя модель (пучок)', rms(g(out['legacy'], 1), 1), rms(g(out['legacy'], 2), 2), 'd_p, L_k по опыту 1'))
+    rows.append(('упрощенная модель (пучок)', rms(g(out['legacy'], 1), 1), rms(g(out['legacy'], 2), 2), 'd_p, L_k по опыту 1'))
     for key, name in (('entrainment', 'пучок + вынос'), ('filtration', 'глубинная фильтрация')):
         f = out[key]
         rows.append((f'{name}, общий набор', f['best']['rms1'], f['best']['rms2'], 'оба опыта'))
@@ -280,7 +280,7 @@ def plot(out):
     for ax, n in zip(axes, (1, 2)):
         pv, k = np.array(EXPS[n]['k_pv']).T
         ax.plot(pv, k, 'o', mfc='white', mec='k', ms=4.5, label='опыт')
-        series = [(g(out['legacy'], n), '-', 'прежняя модель'),
+        series = [(g(out['legacy'], n), '-', 'упрощенная модель'),
                   (g(out['entrainment']['curves'], n), '-.', 'пучок + вынос (общий набор)'),
                   (g(out['filtration']['own_curves'], n), (0, (5, 1, 1, 1)), 'глубинная фильтрация (свой набор)')]
         if 'lsq' in out and 'rate_entrainment' in out['lsq']:

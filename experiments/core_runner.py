@@ -15,6 +15,8 @@ case.json: {"exp": {...свойства опыта...}, "mode": "rate" | "ramp" 
 - см. `experiments/common.py`, который его пишет. Режим 'stages' - ступенчатый протокол (Li et al. 2024): один керн
 охлаждается ступенями exp["stages"] = [[T, PV], ...]; на каждой ступени керн и втекающая нефть при T, проницаемость
 нормируется на начало ступени, отложения и адсорбция переходят на следующую ступень.
+exp["water"] = true - вместо нефти закачивается вода в керн с остаточной нефтью (init_S = S_max, Maloney &
+Oesthus 2004): перепад считается по вязкости воды, взвесь и отложения дает только неподвижная остаточная нефть.
 
 Постановка (Ring et al. 1994; `core_flood.worker`): керн вдоль j, слева прокачка нефти с постоянным расходом,
 справа противодавление. Расход держится перепадом dP = q*sum(hy*mu_j/(A*k_j)); измеряемая величина та же, что в
@@ -80,7 +82,7 @@ def run(case: dict) -> dict:
     from paraphin.kinetics_params import kin_index
     import paraphin.solver as solver_module
     from paraphin.solver import Solver, Bound, TypeBC, DataField
-    from paraphin.utils import calc_mu_o, calc_mu_p
+    from paraphin.utils import calc_mu_o, calc_mu_p, calc_mu_w
 
     # Слои полей керну не нужны (результат - кривая k/k0 и профили ниже). Выгрузка отключается: параллельные
     # прогоны в одной копии пакета делили бы общий файл слоев, и очистка одного прогона ломала бы другой.
@@ -88,6 +90,8 @@ def run(case: dict) -> dict:
     solver_module._logging_solution = lambda solver, t: None
 
     exp, mode = case['exp'], case.get('mode', 'rate')
+    # Закачка воды в керн при остаточной нефти (init_S = S_max): течет одна вода, перепад - по ее вязкости
+    water = exp.get('water', False)
     p_out = exp['P_out']
     t_core = exp.get('T', T_CORE_DEFAULT)
     plugged_k = exp.get('plugged', 0.02)
@@ -109,6 +113,7 @@ def run(case: dict) -> dict:
                 solver.mu_o[0, j] = solver.mu_p[0, j] / max(solver.Phi[0, j], gel_mobility_min)
             else:
                 solver.mu_o[0, j] = calc_mu_o(profile[j], solver.Wps[0, j])
+            solver.mu_w[0, j] = calc_mu_w(profile[j])
 
     def impose_temperature():
         solver.T[0] = profile
@@ -119,18 +124,19 @@ def run(case: dict) -> dict:
         impose_temperature()
 
     def pressure_drop():
-        return exp['q'] * float(np.sum(hy * solver.mu_o[0] / (area * solver.k[0])))
+        mu = solver.mu_w[0] if water else solver.mu_o[0]
+        return exp['q'] * float(np.sum(hy * mu / (area * solver.k[0])))
 
     solver.add_bc(field=DataField.Pressure, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=p_out)
     solver.add_bc(field=DataField.Pressure, bound=Bound.Right, type_bc=TypeBC.Dirichlet, value=p_out)
-    solver.add_bc(field=DataField.Saturation, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=0.0)
+    solver.add_bc(field=DataField.Saturation, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=1.0 if water else 0.0)
     solver.add_bc(field=DataField.Temperature, bound=Bound.Left, type_bc=TypeBC.Dirichlet,
                   value=exp.get('T_hot', t_core) if mode == 'thermal' else t_core)
     solver.add_bc(field=DataField.Paraffin, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=init_Wp + init_Wps)
     solver.initialize()
 
     dp_newton = pressure_drop()
-    if gelation:
+    if gelation and not water:
         _gel_equilibrium(solver, exp['q'] / area, gel_mobility_min)
     dp0 = pressure_drop()
     solver.boundary_conditions[Bound.Left.value, DataField.Pressure.value, 1] = p_out + dp0
@@ -168,7 +174,7 @@ def run(case: dict) -> dict:
                 if plugged is not None:
                     break
                 impose_temperature()
-            if gelation:
+            if gelation and not water:
                 _gel_equilibrium(solver, exp['q'] / area, gel_mobility_min)
             dp0 = pressure_drop()  # проницаемость ступени нормируется на ее начало, как в опыте
             if n_stage > 0:

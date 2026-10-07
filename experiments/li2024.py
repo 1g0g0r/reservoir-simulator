@@ -347,7 +347,7 @@ def summary(out) -> list:
     temps = [str(float(t)) for t, _ in STAGES]
     get = lambda d, t: d.get(t, d.get(float(t), float('nan'))) if isinstance(d, dict) else float('nan')
     rows = [('шумовой порог опыта', [out['noise'][str(int(float(t)))] for t in temps])]
-    for name, key in (('прежняя модель', 'legacy'), ('4 группы парафина + гель', 'scn')):
+    for name, key in (('упрощенная модель', 'legacy'), ('4 группы парафина + гель', 'scn')):
         r = stage_rms(out[key])
         rows.append((name, [r.get(float(t), float('nan')) for t in temps]))
     rows.append(('удержание, плато по равновесию', [get(out['equilibrium']['rms'], t) for t in temps]))

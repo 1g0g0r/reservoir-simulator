@@ -139,7 +139,7 @@ wax_eos = False               # равновесие групп парафина
                               # идеального раствора с эффективными параметрами), газ - из flash (`paraphin/thermo`)
 asph_nghiem = False           # растворимость асфальтенов - модель твердой фазы Nghiem на том же уравнении состояния
 gelation = False              # предел текучести геля и течение Букингема-Райнера в пучке капилляров
-wax_viscosity: int = 0        # 0 - Кригер-Догерти (прежняя модель); 1 - Pedersen & Ronningsen (2000), D-член
+wax_viscosity: int = 0        # 0 - Кригер-Догерти (упрощенная модель); 1 - Pedersen & Ronningsen (2000), D-член
 pressure_viscosity = False    # зависимость вязкости нефти от давления (Barus)
 # Кинетика осаждения: любой флаг переводит кольматацию на ядро `equations/Deposition.py`, числа - `kinetics_params.py`
 wax_kinetics = False           # кинетика кристаллизации в объеме и на стенках пор (Huang et al., 2011)

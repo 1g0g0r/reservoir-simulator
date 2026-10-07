@@ -112,6 +112,10 @@ def fig_sutton_roberts(sr, num):
         num[f'SR_LEG{n}'] = _f(m.rms(leg, n))
         num[f'SR_NOISE{n}'] = _f(g(sr['noise'], n))
         num[f'SR_VISC{n}'] = _f(g(sr['visc']['rms'], n))
+        if n == 1:  # начало кривых: ступенька блокирования против плавной закупорки Wang и Civan
+            num['SR_EARLY_OWN'] = _f(float(np.interp(0.02, own['pv'], own['k'])), 2)
+            num['SR_WC_01'], num['SR_WC_025'] = (_f(float(np.interp(v, x, y)), 2) for v in (0.1, 0.25))
+            num['SR_EXP_PV1'], num['SR_EXP_K1'] = _f(pv[1], 2), _f(k[1], 2)
     axes[0].set_ylabel('k/k₀')
     axes[1].legend(loc='lower left', fontsize=8, handlelength=2.6)
     fig.tight_layout()
@@ -122,17 +126,13 @@ def fig_li(li, num):
     import li2024 as m
     fig, ax = plt.subplots(figsize=(6.7, 2.7))
     best = m.stage_curves(li['cold']['result'])
-    legacy = m.stage_curves(li['legacy'])
     start = 0.0
     for t, pv_stage in m.STAGES:
         pts = np.array(m.DATA['k_pv'][str(int(t))])
         ax.plot(start + pts[:, 0], pts[:, 1], 'o', mfc='white', mec='k', ms=3.5)
         if t in best:
             x, y = best[t]
-            ax.plot(start + x, y, '-', color='k', label='1' if start == 0 else None)
-        if t in legacy:
-            x, y = legacy[t]
-            ax.plot(start + x, y, '--', color='k', lw=1.2, label='2' if start == 0 else None)
+            ax.plot(start + x, y, '-', color='k')
         ax.axvline(start, color='0.6', lw=0.6)
         ax.text(start + 0.5 * pv_stage, 1.08, f'{t:.0f}°C', ha='center', fontsize=8)
         start += pv_stage
@@ -140,7 +140,6 @@ def fig_li(li, num):
     ax.set_ylim(0, 1.15)
     ax.set_xlabel('V')
     ax.set_ylabel('k/k₀')
-    ax.legend(loc='lower left', fontsize=8, handlelength=2.6)
     fig.tight_layout()
     _save(fig, 'aspo_f2')
     rms = li['cold']['rms']
@@ -227,6 +226,13 @@ def fig_sandyga(sd, num):
     num['SD_DT10'] = _f(lo['t10'] - hi['t10'], 1)
     num['SD_DT10_LO'] = f"{lo['rate']:g}"
     num['SD_DT10_HI'] = f"{hi['rate']:g}"
+    # WAT раствора от скорости охлаждения (Struchkov, Rogachev, 2017) - проверка k_cr без керна
+    wr = sd['wat_rate']
+    num['SD_RATE_SPAN'] = _f(wr['exp_span'], 1)
+    num['SD_RATE_THR'], num['SD_RATE_RMS'] = _f(100 * wr['sandyga']['thr'], 2), _f(wr['sandyga']['rms'], 1)
+    num['SD_RATE_LI_THR'], num['SD_RATE_LI_RMS'] = _f(100 * wr['li2024']['thr'], 0), _f(wr['li2024']['rms'], 1)
+    num['SD_BULK20_RHEO'], num['SD_BULK20_CORE'] = _f(wr['bulk20_rheometer'], 1), _f(wr['bulk20_core'], 1)
+    num['SD_BULK20_SHIFT'], num['SD_WAT_BULK'] = _f(wr['bulk20_shift'], 1), _f(m.SOL['WAT_bulk'], 1)
 
 
 def fig_he(pm, he, num):
@@ -258,6 +264,14 @@ def fig_he(pm, he, num):
     num['HE_POWER'] = _f(get('6.')['lin'])
     num['HE_POWER_N'] = get('6.')['name'].split('=')[-1].strip()
     num['HE_LATTICE'] = _f(pm['ema_vs_lattice'])
+    # пары после осаждения асфальтенов (Lin 2021, Struchkov 2019): кривые моделей в их m/m0, без подбора
+    curve = lambda prefix: np.array(pm['curves'][next(n for n in pm['curves'] if n.startswith(prefix))])
+    at = lambda prefix, x: float(np.interp(x, *curve(prefix)[np.argsort(curve(prefix)[:, 0])].T))
+    for p, tag in zip(_jload(EXP / 'data' / 'asphaltene_pairs.json')['pairs'], ('LIN', 'ST')):
+        num[f'ASPH_{tag}_M'], num[f'ASPH_{tag}_K'] = _f(p['m_ratio'], 2), _f(p['k_ratio'], 3 if tag == 'LIN' else 2)
+        num[f'ASPH_{tag}_BUNDLE'] = _f(at('1.', p['m_ratio']), 2)
+        num[f'ASPH_{tag}_NET'] = _f(at('4. сеть, эффективная среда, z = 6, горло 0.42', p['m_ratio']), 3)
+        num[f'ASPH_{tag}_LAT'] = _f(at('5.', p['m_ratio']), 3)
     num['HE_N'] = str(sum(len(v) for v in pm['pairs'].values()))
 
 
@@ -271,7 +285,7 @@ def table_experiments(num):
                      num[f'LI_{t}'], '—'))
     rows.append(('Sandyga и др., охлаждение', '—', num['SD_LEG'], num['SD_RMS'], '—'))
     rows.append(('He и др., k(m)', '—', num['HE_BUNDLE'], num['HE_NET'], num['HE_POWER']))
-    num['T1'] = _table(['Опыт', 'Шумовой порог', 'Прежняя модель', 'Настоящая модель', 'Другие модели'], rows)
+    num['T1'] = _table(['Опыт', 'Шумовой порог', 'Упрощенная модель', 'Настоящая модель', 'Другие модели'], rows)
     own = [float(r[3]) for r in rows]
     num['RMS_MIN'], num['RMS_MAX'] = f'{min(own):.3f}', f'{max(own):.3f}'
     legacy = [float(r[2]) for r in rows if r[2] not in ('закупорка', '—')]
@@ -578,10 +592,10 @@ def field_numbers(th, num):
 EOS_DIR = EXP / 'уравнение_состояния'
 # Теплоты плавления и твердо-твердого перехода н-C24 (Broadhurst, J. Res. NBS 1962, 66A:241, табл. 3), ккал/моль
 BROADHURST_C24 = (13.12, 7.48)
-STYLE_N = {1: '-', 2: '--', 3: ':', 4: '-.', 5: STYLES[4], 6: STYLES[5]}
+STYLE_N = {1: '-', 2: '--', 3: ':', 4: '-.', 5: STYLES[4], 6: (0, (10, 3))}  # 6 - длинный штрих: (1, 1) не отличить от ':'
 UQ_LINE = dict(linestyle='-', color='0.55', lw=2.2)  # кривая 7 рис. 9 - твердый раствор UNIQUAC
 PSI = 6894.757  # Па в psi
-# Разложение эффектов прежней однокомпонентной моделью (статья о теплопотерях, `old_article.md`, табл. 3;
+# Разложение эффектов упрощенной однокомпонентной моделью (статья о теплопотерях, `old_article.md`, табл. 3;
 # расчеты `однокомпонентная_модель/run_cases.py`, `make_figures.py`): КИН, эффекты парафина и взаимодействие
 OLD_FACTORIAL = {'wax_hl': -0.0004, 'wax_nohl': -0.0173, 'inter': 0.0170, 'total': 0.0211}
 
@@ -621,6 +635,8 @@ def fig_thermo(eos, cal, ds, num):
     for n, key in ((1, 'eff'), (2, 'pr'), (3, 'ideal')):
         ax.plot(tli, z['curves'][key], linestyle=STYLE_N[n], color='k', lw=1.2, label=str(n))
     ax.plot(sc['T'], sc['legacy'], linestyle=STYLE_N[4], color='k', lw=1.2, label='4')
+    for n, key in ((5, 'ss'), (6, 'ms_c')):
+        ax.plot(tli, z['curves'][key], linestyle=STYLE_N[n], color='k', lw=1.2, label=str(n))
     ax.plot(tli, z['curves']['uq'], label='7', **UQ_LINE)
     ax.set_xlim(-20, 75)
     ax.set_ylim(0, 31)
@@ -632,7 +648,9 @@ def fig_thermo(eos, cal, ds, num):
         t, s = np.array(ds['mixtures'][name]['solid_wt']).T
         ax.plot(t, s, 'o', mfc='white', mec='k', ms=3.5)
         c = eos['synthetic'][name]['curves']
-        for n, key in ((2, 'pr'), (5, 'ss'), (6, 'ms_c')):
+        # 1 - эффективные параметры нефти Жетыбая на смеси известного состава (перенос не работает); 4 - один
+        # псевдокомпонент нефти, на смесь н-алканов не переносится вовсе
+        for n, key in ((1, 'eff'), (2, 'pr'), (3, 'ideal'), (5, 'ss'), (6, 'ms_c')):
             ax.plot(eos['t_syn'], c[key], linestyle=STYLE_N[n], color='k', lw=1.2, label=str(n))
         ax.plot(eos['t_syn'], c['uq'], label='7', **UQ_LINE)
         ax.set_xlim(-10, 45)
@@ -769,6 +787,8 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
         num[f'EOS_SYN_D{tag}_RNG'] = srng(dev(key))
         num[f'EOS_SYN_RMS_{tag}'] = _rng([m['rms'][key] for m in syn.values()])
     num['EOS_SYN_DPR_RNG'] = srng(dev('pr'))
+    # настоящая модель с эффективными параметрами нефти Жетыбая на смесях: проверка переноса параметров
+    num['EOS_SYN_DEFF_RNG'], num['EOS_SYN_RMS_EFF'] = srng(dev('eff')), _rng([m['rms']['eff'] for m in syn.values()])
     num['EOS_SYN_DUQ_ABS'] = _f(max(abs(x) for x in dev('uq')), 1)
     num['EOS_SYN_DAUTH_UQ_RNG'] = srng(auth('PR+UNIQUAC'))
     num['EOS_SYN_AAD_UQ_OWN'] = _rng([m['aad']['uq'] for m in syn.values()], 2)
@@ -888,7 +908,7 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
     ratio = lambda e: math.exp(e / R * (1.0 / 293.15 - 1.0 / t0))
     num['F_MU_RATIO_25'], num['F_MU_RATIO_FIT'] = _f(ratio(25e3), 1), _f(ratio(rh['E']), 1)
 
-    # Прежняя модель: эффект парафина и доля взаимодействия в суммарном изменении КИН
+    # Упрощенная модель: эффект парафина и доля взаимодействия в суммарном изменении КИН
     of = OLD_FACTORIAL
     num['OLD_FX_WAX_HL'] = _f(abs(of['wax_hl']), 4)
     num['OLD_FX_WAX_NOHL'] = _f(abs(of['wax_nohl']), 3)
@@ -907,7 +927,7 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
         ('То же', 'отклонение доли твердого, % масс.', '—', num['EOS_SYN_RMS_IDEAL'], num['EOS_SYN_RMS_PR'],
          f"PR + переход по Coutinho: {num['EOS_SYN_RMS_MSC']}; PR + UNIQUAC: {num['EOS_SYN_RMS_UQ']} "
          f"(среднее абсолютное {num['EOS_SYN_AAD_UQ_OWN']}); PR + UNIQUAC [30]: {num['EOS_SYN_AAD_UQ']}"),
-        ('Сдвиг WAT с давлением [2]', 'dWAT/dP, °C/МПа', num['PRESS_SANDYGA'], num['PRESS_SL_EFF'],
+        ('Сдвиг WAT с давлением [46]', 'dWAT/dP, °C/МПа', num['PRESS_SANDYGA'], num['PRESS_SL_EFF'],
          num['PRESS_SL_PR'], f"PR без скачка объема: {num['PRESS_SL_PR0']}"),
         ('Вязкость при охлаждении [19]', 'СКО ln μ', '—', num['VISC_RMS'], '—',
          f"Кригер—Догерти: {num['VISC_RMS_KD']}"),
@@ -931,7 +951,7 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
         ('Кривая выпадения и WAT нефти Жетыбая [19]', 'наклон распределения s, эффективная теплота ΔH_eff, сдвиг '
          'T_m; перебор разбиений на группы', 'метод наименьших квадратов', 'доля выпавшего при 10–45°C и WAT',
          f"s = {num['TH_SLOPE']}, ΔH_eff = {num['TH_DH']} кДж/моль, сдвиг {num['TH_SHIFT']} K"),
-        ('Сдвиг WAT с давлением [2]', 'доля скачка объема Δv/v_L в (11)', 'по среднему наклону регрессий '
+        ('Сдвиг WAT с давлением [46]', 'доля скачка объема Δv/v_L в (11)', 'по среднему наклону регрессий '
          'для 10–60% парафина', 'dWAT/dP', f"Δv/v_L = {num['PRESS_DV_EFF']}"),
         ('Вязкость при 24–100°C [19]', 'μ_ref, E_a (выше 40°C); D, φ_gel, τ_ref, n_g (ниже)',
          'наименьшие квадраты по ln μ, μ = μ_p + τ_y/γ̇', 'СКО ln μ',
@@ -999,6 +1019,12 @@ def main():
     fig_li(li, num)
     fig_sandyga(sd, num)
     fig_he(pm, he, num)
+    ml = _load('maloney2004')  # закачка холодной воды при остаточной нефти: прогноз без подбора
+    if ml:
+        v = sorted(ml['variants'].values(), key=lambda e: -e['wax'])
+        num['ML_WAX_HI'], num['ML_WAX_LO'] = _f(100 * v[0]['wax'], 1), _f(100 * v[1]['wax'], 0)
+        num['ML_K_HI'], num['ML_K_LO'] = _f(v[0]['k10_26'][1], 2), _f(v[1]['k10_26'][1], 2)
+        num['ML_M_HI'] = _f(100 * (1.0 - v[0]['m_end']), 1)
     table_experiments(num)
     th_path = RESULTS / 'thermal.json'
     th = None

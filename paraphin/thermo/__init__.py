@@ -6,6 +6,6 @@
     solids           - multi-solid (Lira-Galeana), идеальный твердый раствор (Won), асфальтены (Nghiem);
     characterization - свойства псевдокомпонентов (Riazi, Riazi-Daubert, Kesler-Lee), гамма-распределение;
     tables           - флюид модели из констант, калибровки, таблицы; `python -m paraphin.thermo.tables` -
-                       сравнение с прежними моделями.
+                       сравнение с упрощенными моделями.
 Пакет нарочно ничего не импортирует: `oil_composition` берет отсюда только `characterization`.
 """

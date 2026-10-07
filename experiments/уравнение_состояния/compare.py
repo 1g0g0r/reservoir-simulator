@@ -31,7 +31,8 @@ import core_flood as cf  # noqa: E402
 from paraphin import oil_composition as oc  # noqa: E402
 from paraphin.layout import N_W  # noqa: E402
 from paraphin.constants import (P_ref_wax, P_bubble, P_onset_asph, init_T, R, ro_o, ro_asph, v_asph,  # noqa: E402
-                                sara_asphaltenes, sara_resins, scn_first, Rs_bubble, ro_wax_liq, ro_p)
+                                sara_asphaltenes, sara_resins, scn_first, Rs_bubble, ro_wax_liq, ro_p, wax_alpha_eff,
+                                wax_Tm_shift)
 from paraphin.thermo import tables as tb  # noqa: E402
 from paraphin.thermo.characterization import (coutinho_nalkane, critical_props, nalkane_sg,  # noqa: E402
                                               nalkane_tb)
@@ -69,6 +70,8 @@ def synthetic(t_curve):
         z = (w / M) / np.sum(w / M)
         f = n != DATA['solvent']
         tm, dh = oc.won_tm(M), oc.won_dh(M)
+        # настоящая модель с эффективными параметрами нефти Жетыбая: перенос на смесь известного состава
+        tm_eff, dh_eff = tm + wax_Tm_shift, np.full(M.size, wax_alpha_eff)
         ms = MultiSolidWax(eos, np.where(f)[0], tm[f], dh[f])
         ss = IdealSolidSolutionWax(f, tm, dh)
         t_m, dh_m, t_tr, dh_tr = coutinho_nalkane(n)
@@ -86,6 +89,8 @@ def synthetic(t_curve):
                     'ss': solid_pct(ss.precipitate(t, z)[0]),
                     'ideal': 100.0 * (w[f].sum() - oc.sle_split_np(w[f], M[f], tm[f], dh[f], 0.0, t_c,
                                                                    m_o=m_solv).sum()),
+                    'eff': 100.0 * (w[f].sum() - oc.sle_split_np(w[f], M[f], tm_eff[f], dh_eff[f], 0.0, t_c,
+                                                                 m_o=m_solv).sum()),
                     'ms_c': solid_pct(ms_c.precipitate(t, P_ATM, z)[0]),
                     'ms_cp': solid_pct(ms_cp.precipitate(t, P_ATM, z)[0]),
                     'uq': solid_pct(uq.precipitate(t, P_ATM, z)[0]),
@@ -94,10 +99,11 @@ def synthetic(t_curve):
         t_exp, s_exp = np.array(mix['solid_wt']).T
         at_exp = [curves(t) for t in t_exp]
         grid = [curves(t) for t in t_curve]
-        keys = ('pr', 'ss', 'ideal', 'ms_c', 'ms_cp', 'uq', 'uq_id')
+        keys = ('pr', 'ss', 'ideal', 'eff', 'ms_c', 'ms_cp', 'uq', 'uq_id')
         out[name] = {
             'wdt': {'pr': ms.wat(P_ATM, z) - 273.15, 'ss': ss.wat(z) - 273.15,
                     'ideal': oc.wat_np(w[f], M[f], tm[f], dh[f], 0.0 * M[f], m_o=m_solv),
+                    'eff': oc.wat_np(w[f], M[f], tm_eff[f], dh_eff[f], 0.0 * M[f], m_o=m_solv),
                     'ms_c': ms_c.wat(P_ATM, z) - 273.15, 'ms_cp': ms_cp.wat(P_ATM, z) - 273.15,
                     'uq': uq.wat(P_ATM, z) - 273.15,
                     'uq_id': uq_id.wat(P_ATM, z) - 273.15},
