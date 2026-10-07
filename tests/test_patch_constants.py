@@ -49,6 +49,10 @@ def _patch_sets() -> dict:
                  for n in ('SINGLE', 'KERNEL', 'ENTRAINMENT', 'FILTRATION')})
     sets.update({f'demo_{n}': values for n, values in demo.VARIANTS.items()})
     sets.update({f'thermal_{n}': dict(thermal.COMMON, **values) for n, values in thermal.VARIANTS.items()})
+    from tests.mrst_tests import common as mrst
+    from tests.mrst_tests.test_thermal import PATCH as MRST_THERMAL
+    sets['mrst_two_phase'] = {'Nx, Ny': '40, 40', **mrst.PATCH_TWO_PHASE}
+    sets['mrst_thermal'] = {'Nx, Ny': '20, 20', **MRST_THERMAL}
     return sets
 
 

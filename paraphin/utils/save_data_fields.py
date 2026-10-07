@@ -5,8 +5,10 @@ import numpy as np
 
 from paraphin.constants import (layers_file, init_k, init_m, Nx, Ny, wax_components, gelation, ro_o, ro_p,
                                 ro_asph_dep, volume, _re, deposition_kinetics, adsorption, deposit_aging,
-                                asph_aggregation, wax_kinetics, thermal_nonequilibrium, wax_eos, wax_pressure)
-from paraphin.layout import N_W, IA_D, IA_F, I_R, IN_F, KX_GA, KX_GR, KX_VGEL, KX_TS
+                                asph_aggregation, wax_kinetics, thermal_nonequilibrium, wax_eos, wax_pressure,
+                                asphaltenes, wettability)
+from paraphin.layout import (N_W, IA_D, IA_F, I_R, IN_F, KX_GA, KX_GR, KX_VGEL, KX_TS, KX_QW, KX_QG, KX_QADA, KX_QADR,
+                             KX_GMAX, KX_UA, KX_QPA)
 
 # Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и `graphs._plot_fi`.
 # Прижата к сетке: на одномерном керне (Nx = 1) точки (3, 3) нет.
@@ -59,7 +61,10 @@ def save_fields(solver, t: float) -> None:
             layer.update(_composition_fields(solver))
 
     if gelation:
-        layer['Gel'] = {'Phi': solver.Phi, 'mu_o': solver.mu_o, 'mu_p': solver.mu_p}
+        from paraphin.equations.Gel import yield_stress_field
+        tau_y = np.empty_like(solver.S)
+        yield_stress_field(solver.Wps, solver.S, solver.m, solver.Dep, tau_y)
+        layer['Gel'] = {'Phi': solver.Phi, 'mu_o': solver.mu_o, 'mu_p': solver.mu_p, 'tau_y': tau_y}
 
     layer.update({
         'Wells': wells,
@@ -97,10 +102,17 @@ def _composition_fields(solver) -> dict:
     # Индекс коллоидной неустойчивости (Yen, Yin & Asomaning, SPE 65376, 2001): > 0.9 - асфальтены неустойчивы
     cii = (rest * F_SAT_REST + wax + asph) / np.maximum(rest * (1.0 - F_SAT_REST) + wc[..., I_R], 1e-12)
     comp = {'WAT': solver.WAT, 'Asph dissolved': wc[..., IA_D], 'Asph flocs': wc[..., IA_F], 'Resins': wc[..., I_R],
-            'Asph dep': (dep[..., IA_F] + dep[..., I_R]) / ro_asph_dep / init_m, 'CII': cii}
+            'Asph dep': (dep[..., IA_F] + dep[..., I_R]) / ro_asph_dep / init_m, 'CII': cii,
+            # Отложения по видам - в долях m0, как 'Wps dep'; скорость потери пористости на парафин этого шага, [1/с]
+            'Asph flocs dep': dep[..., IA_F] / ro_asph_dep / init_m, 'Resins dep': dep[..., I_R] / ro_asph_dep / init_m,
+            'Wax dep rate': solver.qp1 + solver.qp2}
+    if asphaltenes:
+        comp['Asph dep rate'] = solver.kx[..., KX_QPA]  # асфальтены + смолы, [1/с]
+        comp['Asph Ua'] = solver.kx[..., KX_UA]         # сужение капилляров флокулами u_a = Ua*r^(1/3), [м^(2/3)/с]
     for k in range(N_W):
         comp[f'Wax {k + 1}'] = wc[..., k]
         comp[f'Wax {k + 1} susp'] = solver.Ws[..., k]
+        comp[f'Wax {k + 1} dep'] = dep[..., k] / ro_p / init_m
     if wax_eos and wax_pressure:
         # Диагностика: объем газа, который выделился бы ниже P_b, на объем нефти (`thermo.pvt`); в уравнения не входит
         from paraphin.thermo.tables import GASV, eos_interp
@@ -130,18 +142,28 @@ def _kinetics_fields(solver) -> dict:
     from paraphin.geometry import w2_cv
     from paraphin.equations.Deposition import floc_diameter
 
-    out = {'m conductive': (solver.fi * w2_cv).sum(axis=-1) / solver.integr_r2_fi0}
+    kx = solver.kx
+    # Скорости потери порового объема этого шага по механизмам, [1/с]: контракт ядра (`equations/Deposition.py`)
+    out = {'m conductive': (solver.fi * w2_cv).sum(axis=-1) / solver.integr_r2_fi0, 'Wall cryst rate': kx[..., KX_QW]}
     if adsorption:
-        out['Adsorbed asph'] = solver.kx[..., KX_GA]    # [кг/м^3 породы]
-        out['Adsorbed resins'] = solver.kx[..., KX_GR]
+        out['Adsorbed asph'] = kx[..., KX_GA]    # [кг/м^3 породы]
+        out['Adsorbed resins'] = kx[..., KX_GR]
+        out['Asph ads rate'] = kx[..., KX_QADA]
+        out['Resins ads rate'] = kx[..., KX_QADR]
+    if wettability:
+        # Доля покрытия поверхности асфальтенами - как в `calc_mobility_w`: 0 - водо-, 1 - нефтесмачиваемая
+        g_max = kx[..., KX_GMAX]
+        out['Wettability omega'] = np.where(g_max > 0.0, np.minimum(kx[..., KX_GA] / np.maximum(g_max, 1e-30), 1.0), 0.0)
     if deposit_aging:
-        v_gel = solver.kx[..., KX_VGEL]
+        v_gel = kx[..., KX_VGEL]
         wax_v = solver.Dep[..., :N_W].sum(axis=-1) / ro_p
         out['Gel volume'] = v_gel / init_m
         out['Gel wax fraction'] = np.where(v_gel > 0.0, wax_v / np.maximum(v_gel, 1e-30), 0.0)
+        out['Gel aging rate'] = kx[..., KX_QG]
     if wax_kinetics:
-        out['Supersaturation'] = np.maximum(solver.kx[..., :N_W] - solver.Ws, 0.0).sum(axis=-1)
+        out['Supersaturation'] = np.maximum(kx[..., :N_W] - solver.Ws, 0.0).sum(axis=-1)
     if asph_aggregation:
+        out['Floc number'] = solver.Wc[..., IN_F]
         d = np.zeros(solver.kx.shape[:2])
         for i in range(d.shape[0]):
             for j in range(d.shape[1]):

@@ -338,7 +338,9 @@ class Solver:
                     _t += self.dt
                     pbar.update(self.dt)
                     self.upd_time_step(_t)
-                    pbar.set_postfix(день=_t / day_to_sec, шаг_сут=round(self.dt / day_to_sec, 5))
+                    # Без refresh=False tqdm перерисовывал строку каждый шаг: 79 мкс, ~14 % шага 75x75. Строка и так
+                    # обновляется раз в mininterval (0.1 с) и подхватит последний postfix
+                    pbar.set_postfix(день=_t / day_to_sec, шаг_сут=round(self.dt / day_to_sec, 5), refresh=False)
                     if self.wells[self._producer].eta >= max_eta:
                         break
         except (KeyboardInterrupt, SystemError):
@@ -400,7 +402,8 @@ class Solver:
         self.dt = dt_next
 
         # Запись данных в файл
-        if t >= self._i_img * sol_time_step or np.isclose(t, Time_end) or self.wells[self._producer].eta >= max_eta:
+        if (t >= self._i_img * sol_time_step or abs(t - Time_end) <= 1e-6 or
+        self.well_data[self._producer]['eta'] >= max_eta):
             _logging_solution(self, t)
             save_fields(self, t)
             self._i_img += 1
@@ -430,6 +433,28 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
     net_g0 = 1.0
     if pore_network:  # проводимость исходной сети пор одна на все ячейки - раз за шаг, до параллельного цикла
         net_g0 = network_g0(kin, rows[0, ROW_TMP], rows[0, ROW_UE])
+    # Кольматация без детального состава - отдельным циклом по списку ячеек выше порога. Все они у нагнетательной
+    # скважины, в первых строках i, и в общем цикле по строкам их считали один-два потока.
+    # Ячейки списка раздаются кускам по кругу, скретч - строка куска `rows[c]`. Перетоков эта
+    # кольматация не читает, поэтому идет до общего цикла; ячейки независимы, результат побитово прежний.
+    if _paraphin and not deposition_kinetics and not wax_components:
+        n_act = 0
+        act = np.empty(Nx * Ny, np.int64)
+        for ia in range(Nx):
+            for ja in range(Ny):
+                if Wps[ia, ja] > min_Wps_bound:
+                    act[n_act] = ia * Ny + ja
+                    n_act += 1
+        if n_act > 0:
+            n_ch = min(n_act, Nx)  # строк скретча - Nx
+            for c in prange(n_ch):
+                for ka in range(c, n_act, n_ch):
+                    ia = act[ka] // Ny
+                    ja = act[ka] % Ny
+                    calc_Um_r2(ia, ja, p, grad_p, _Um_r2, mu_o)
+                    calc_velocities_h(ia, ja, S, T, _Um_r2, Wps, mu_p, h_sloy, Ur, new_h, new_Ur, new_Ub, dt)
+                    calc_qp_m_k_fi(ia, ja, S, Wp, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, rows[c, ROW_A],
+                                   rows[c, ROW_B], new_qp1, new_qp2, new_fi, new_k, new_m, dt)
     for i in prange(Nx):
         for j in range(Ny):
             calc_Um_r2(i, j, p, grad_p, _Um_r2, mu_o)  # Средняя скорость в капилляре * r^2
@@ -451,28 +476,27 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
                         calc_deposition(i, j, S, T, p, m, k, fi, h_sloy, Wc, Ws, Wps, Dep, _Um_r2, grad_p, mu_p, kx, kin,
                                         integr_r2_fi0, integr_r4_fi0, rows[i], net_g0,
                                         new_qp1, new_qp2, new_fi, new_h, new_k, new_m, new_kx, out_o, dt)
-                elif not wax_components and Wps[i, j] <= min_Wps_bound:
-                    # Ниже порога кольматации обе функции ниже ничего не считают, а вызов с двумя десятками
-                    # массивов-аргументов стоит ~100 нс на ячейку - треть цикла при 1 % активных ячеек
-                    # (docs/PERFORMANCE_FINDINGS.md, «Раунд 6»). Ровно то, что сделал бы `calc_qp_m_k_fi` ниже порога.
-                    new_qp1[i, j] = 0.0
-                    new_qp2[i, j] = 0.0
-                    new_m[i, j] = m[i, j]
-                    new_k[i, j] = k[i, j]
+                elif not wax_components:
+                    # Выше порога кольматация посчитана циклом по списку активных ячеек до этого цикла. Ниже порога
+                    # `calc_velocities_h` и `calc_qp_m_k_fi` ничего не считают, а вызов с двумя десятками
+                    # массивов-аргументов стоит ~100 нс на ячейку (docs/PERFORMANCE_FINDINGS.md, «Раунд 6»), поэтому
+                    # здесь ровно то, что сделал бы `calc_qp_m_k_fi` ниже порога.
+                    if Wps[i, j] <= min_Wps_bound:
+                        new_qp1[i, j] = 0.0
+                        new_qp2[i, j] = 0.0
+                        new_m[i, j] = m[i, j]
+                        new_k[i, j] = k[i, j]
                 else:
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и коэффициента блокирования
                     # Броуновская диффузия частиц - в жидкой основе: вязкость без геля `mu_p` (без флага `gelation` это mu_o)
                     calc_velocities_h(i, j, S, T, _Um_r2, Wps, mu_p, h_sloy, Ur, new_h, new_Ur, new_Ub, dt)
                     # Обновление функции пор по размерам, скоростей потери порового объема, пористости, проницаемости
-                    if wax_components:
-                        if asphaltenes:
-                            calc_velocity_asph(i, j, S, T, _Um_r2, Wc, mu_p, new_kx)
-                        # Взвесь и флокулы за шаг уходят и в осадок, и с оттоком нефти (грани и добывающая скважина):
-                        # без учета оттока ограничитель подводом пропускал отрицательные доли тяжелых групп и флокул.
-                        out_o = qo_out + max(-src_Qo[i, j], 0.0)
-                        calc_qp_m_k_fi_2(i, j, S, Wps, Wc, m, k, fi, Ur, Ub, kx, integr_r2_fi0, integr_r4_fi0, rows[i], new_qp1, new_qp2, new_fi, new_k, new_m, new_kx, out_o, dt)
-                    else:
-                        calc_qp_m_k_fi(i, j, S, Wp, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, rows[i, ROW_A], rows[i, ROW_B], new_qp1, new_qp2, new_fi, new_k, new_m, dt)
+                    if asphaltenes:
+                        calc_velocity_asph(i, j, S, T, _Um_r2, Wc, mu_p, new_kx)
+                    # Взвесь и флокулы за шаг уходят и в осадок, и с оттоком нефти (грани и добывающая скважина):
+                    # без учета оттока ограничитель подводом пропускал отрицательные доли тяжелых групп и флокул.
+                    out_o = qo_out + max(-src_Qo[i, j], 0.0)
+                    calc_qp_m_k_fi_2(i, j, S, Wps, Wc, m, k, fi, Ur, Ub, kx, integr_r2_fi0, integr_r4_fi0, rows[i], new_qp1, new_qp2, new_fi, new_k, new_m, new_kx, out_o, dt)
 
             # ---гидродинамика и перенос---
             # Скважины входят в уравнения наравне с перетоками через грани, поэтому делятся на те же поля нового слоя.

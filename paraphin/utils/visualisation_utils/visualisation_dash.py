@@ -20,6 +20,7 @@ from __future__ import annotations
 import gc
 import json
 import math
+import re
 import shutil
 import threading
 import traceback
@@ -48,7 +49,22 @@ JSON_DECIMALS = 5
 GRAPH_W, GRAPH_H = 720, 800             # размер фигуры карты (фиксированный, квадратная область)
 WIDE_W = 950                            # 1D-графики (временные ряды, φ(r)) шире карты — слайдер уже них не растягивается
 SKIP_FIELDS = {}
-SERIES_GROUPS = ('Wells', 'Wells_accumulated', 'Other params')
+SERIES_GROUPS = ('Wells', 'Wells_accumulated', 'Totals', 'Other params')
+SERIES_TITLES = {'Wells': 'Скважины', 'Wells_accumulated': 'Накопленная добыча', 'Totals': 'Массы компонентов',
+                 'Other params': 'Прочие ряды'}
+
+# Разделы столбца кнопок: поле попадает в первый подходящий. Имена полей - из `save_data_fields`.
+_WAX_GROUP = re.compile(r'^Wax \d+( susp| dep)?$')
+FIELD_SECTIONS = (
+    ('Пласт', lambda n: n in ('Pressure', 'Saturation', 'Temperature', 'm', 'k', 'm conductive', 'Wo', 'T rock',
+                              'Free gas')),
+    ('Парафин', lambda n: n in ('Wp', 'Wps', 'Wps dep', 'WAT', 'Supersaturation', 'Wax dep rate', 'Wall cryst rate')
+                          or bool(_WAX_GROUP.match(n))),
+    ('Асфальтены и смолы', lambda n: n.startswith(('Asph', 'Resins', 'Adsorbed', 'Floc')) or n in ('CII',
+                                                                                                    'Wettability omega')),
+    ('Гель', lambda n: n in ('Phi', 'mu_o', 'mu_p', 'tau_y') or n.startswith('Gel')),
+    ('Прочее', lambda n: True),
+)
 
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
 y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
@@ -72,6 +88,7 @@ _CSS = f"""
 .plt-btn:hover{{background:#f3f6fb;border-color:#d5dbe5;}}
 .plt-btn:focus,.plt-btn:focus-visible{{outline:none;box-shadow:none;}}
 .plt-btn:active{{background:#eef2f9;}}
+.plt-section{{font-family:{_FONT};font-size:12px;font-weight:bold;color:#7f8c9d;padding:8px 2px 2px;}}
 
 .plt-time-label{{font-family:{_FONT};font-size:13px;font-weight:bold;color:#2a3f5f;
                  height:22px;padding-left:2px;font-variant-numeric:tabular-nums;white-space:nowrap;}}
@@ -172,12 +189,14 @@ class SolutionStore:
         meta['n_times'] = n_times
         meta['time'] = [round(float(t), 6) for t in time]
 
-        # Детальный состав нефти и гель (флаги `wax_components`, `gelation`): поля - картами, массы - рядами
+        # Детальный состав нефти и гель (флаги `wax_components`, `gelation`): поля - картами, массы ('Totals') - рядами
         for group in ('Composition', 'Gel'):
             if group in raw:
                 raw.update(raw.pop(group))
-        if 'Totals' in raw:
-            raw.setdefault('Other params', {}).update(raw.pop('Totals'))
+        # Скин-фактор - безразмерный и бывает отрицательным: не к дебитам, а в прочие ряды
+        wells = raw.get('Wells') or {}
+        for k in [k for k in wells if k.endswith('_skin')]:
+            raw.setdefault('Other params', {})[k] = wells.pop(k)
 
         if 'Pressure' in raw:
             raw['Pressure'] = np.asarray(raw['Pressure']) / bar_to_pa
@@ -228,13 +247,16 @@ class SolutionStore:
                     if 'eta' in k:
                         y, ax, unit = v, 'y2', ''
                     elif 'bhp' in k:
-                        y, ax, unit = v, 'y', 'бар'
+                        y, ax, unit = v / bar_to_pa, 'y', 'бар'  # `save_fields` пишет забойное давление в Па
                     else:
                         y, ax, unit = np.abs(v) * day_to_sec, 'y', 'м^3/день'
                 elif g == 'Wells_accumulated':
                     visible, y, ax, unit = not np.all(np.isclose(v, 0.0)), np.abs(v), 'y', 'м^3'
+                elif g == 'Totals':
+                    # Массы в нефти на порядки больше отложений: отложения и адсорбция - на правой оси
+                    visible, y, ax, unit = bool(np.any(v != 0.0)), v, 'y' if 'in oil' in k else 'y2', 'кг'
                 else:
-                    visible, y, ax, unit = True, np.abs(v), 'y', ''
+                    visible, y, ax, unit = True, v, 'y', ''
                 names.append(k); axes.append(ax); units.append(unit); vis.append(visible)
                 rows.append(y.astype(DTYPE))
             if names:
@@ -314,25 +336,23 @@ def _axis_dict() -> dict:
     return dict(showgrid=True, gridcolor='black', linecolor='black', linewidth=1, title_font=dict(size=18))
 
 
-def _map_axes(x_range: tuple[float, float], y_range: tuple[float, float]) -> tuple[dict, dict]:
-    """Оси карты: квадратная область, сетка строго в пределах фактического диапазона трассы.
+def _map_axes() -> tuple[dict, dict]:
+    """Оси карты: квадратная область, диапазон - autorange по трассе.
 
     constrain='domain' обязателен на ОБЕИХ осях: по умолчанию ('range') ось,
     подогнанная под scaleanchor, РАСШИРЯЕТ свой диапазон — из-за этого сетка
     выходила за границы области данных.
 
-    Диапазон приходится параметром, а не берётся из X_min/X_max напрямую: Heatmap сам
-    дотягивает крайние ячейки до границ домена (x[0]-hx/2 .. x[-1]+hx/2 == X_min..X_max),
-    а Contour — нет, его область ограничена ровно первой/последней точкой сетки (без
-    полу-ячейки с краёв). На общем [X_min, X_max] Contour оказывается визуально "просевшим"
-    внутрь осей на пол-ячейки с каждой стороны — лечится только двойным кликом (autorange),
-    проверено эмпирически через full_figure_for_development. Поэтому для Contour сюда
-    передают (store.x[0], store.x[-1]), а не (X_min, X_max).
+    Явного диапазона нет: Heatmap дотягивает крайние ячейки до границ домена (X_min..X_max), Contour
+    занимает только отрезок от первой до последней точки сетки, и диапазоны у них разные. Явный
+    диапазон plotly при переключении Contour <-> Heatmap (Plotly.react) применял только к оси x, а ось y
+    со scaleanchor оставляла прежний: контур «приподнимался» над осью x на пол-ячейки до двойного
+    щелчка. Autorange пересчитывается при react на обеих осях (проверено в Edge).
     """
     xax = _axis_dict()
-    xax.update(range=list(x_range), constrain='domain')
+    xax.update(autorange=True, constrain='domain')
     yax = _axis_dict()
-    yax.update(range=list(y_range), scaleanchor='x', scaleratio=1, constrain='domain')
+    yax.update(autorange=True, scaleanchor='x', scaleratio=1, constrain='domain')
     return xax, yax
 
 
@@ -361,18 +381,10 @@ def _map_figure(view: dict, i: int, store: SolutionStore, animate: bool = False)
             traces = [go.Heatmap(**common)]
 
     fig = go.Figure(data=traces)
-    is_contour = bool(view.get('sattemp')) or CONTOUR_PLOT
-    if is_contour:
-        x_range = (float(store.x[0]), float(store.x[-1]))
-        y_range = (float(store.y[0]), float(store.y[-1]))
-    else:
-        x_range = (float(X_min), float(X_max))
-        y_range = (float(Y_min), float(Y_max))
-    xax, yax = _map_axes(x_range, y_range)
-    # uirevision меняется вместе с диапазоном осей выше: иначе при переключении Contour<->Heatmap
-    # plotly попытается перенести старый масштаб на новый (другой!) диапазон и промахнётся —
-    # лечилось бы только двойным кликом (autorange). Между полями (Pressure/Saturation/...) в
-    # одном и том же режиме uirevision не меняется, так что масштаб/зум сохраняется как раньше.
+    xax, yax = _map_axes()
+    # uirevision меняется вместе с режимом: у Contour и Heatmap разные диапазоны, и масштаб пользователя
+    # переносить между ними нельзя. Между полями (Pressure/Saturation/...) в одном режиме uirevision
+    # не меняется, так что масштаб/зум сохраняется.
     uirevision = 'map-sattemp' if view.get('sattemp') else f"map-{'contour' if CONTOUR_PLOT else 'heatmap'}"
     fig.update_layout(plot_bgcolor='white', uirevision=uirevision,
                       xaxis=xax, yaxis=yax, legend=dict(x=1.05, y=1.0),
@@ -401,6 +413,8 @@ def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
             ht = 'x: %{x} день<br>y: %{y}<br>' if s['axes'][j] == 'y2' else 'x: %{x} день<br>y: %{y} м^3/день<br>'
         elif g == 'Wells_accumulated':
             ht = 'x: %{x} день<br>y: %{y} м^3<br>'
+        elif g == 'Totals':
+            ht = 'x: %{x} день<br>y: %{y} кг<br>'
         else:
             ht = 'x: %{x}<br>y: %{y}<br>'
         kw = {'yaxis': 'y2'} if s['axes'][j] == 'y2' else {}
@@ -474,30 +488,35 @@ def _figure_for(view_id: str, i: int, store: SolutionStore, animate: bool = Fals
 
 
 # ============================ Интерфейс ======================================
-def _valid_view_ids(meta: dict) -> list[str]:
-    """Порядок кнопок как в оригинале: поля, скважины, 'Sat and Temp', φ(r)."""
-    ids = [f'field:{n}' for n in meta['fields'] if n not in SKIP_FIELDS]
-    ids += [f'series:{g}' for g in SERIES_GROUPS if g in meta['series']]
+def _view_entries(meta: dict) -> list[tuple[str, str, str]]:
+    """Кнопки по разделам: (раздел, id вида, подпись). Один порядок на столбец кнопок и на список их стилей в
+    `_update` (wildcard-выход сопоставляет стили кнопкам по порядку)."""
+    out = []
+    names = [n for n in meta['fields'] if n not in SKIP_FIELDS]
+    for title, fits in FIELD_SECTIONS:
+        out += [(title, f'field:{n}', n) for n in names if fits(n)]
+        names = [n for n in names if not fits(n)]
+    out += [('Графики', f'series:{g}', SERIES_TITLES[g]) for g in SERIES_GROUPS if g in meta['series']]
     if {'Saturation', 'Temperature'} <= set(meta['fields']):
-        ids.append('sattemp')
+        out.append(('Графики', 'sattemp', 'Sat and Temp'))
     if meta.get('has_plots'):
-        ids.append('fi')
-    return ids
+        out.append(('Графики', 'fi', 'Графики φ(r)'))
+    return out
+
+
+def _valid_view_ids(meta: dict) -> list[str]:
+    return [vid for _, vid, _ in _view_entries(meta)]
 
 
 def _view_buttons(meta: dict, current: str | None) -> list:
-    """Вертикальный столбец кнопок в стиле plotly."""
-    def btn(vid: str, label: str) -> html.Button:
-        return html.Button(label, id={'type': 'view-btn', 'index': vid}, n_clicks=0,
-                           className='plt-btn',
-                           style=_BTN_ACTIVE if vid == current else _BTN_INACTIVE)
-
-    els = [btn(f'field:{n}', n) for n in meta['fields'] if n not in SKIP_FIELDS]
-    els += [btn(f'series:{g}', g) for g in SERIES_GROUPS if g in meta['series']]
-    if {'Saturation', 'Temperature'} <= set(meta['fields']):
-        els.append(btn('sattemp', 'Sat and Temp'))
-    if meta.get('has_plots'):
-        els.append(btn('fi', 'Графики φ(r)'))
+    """Вертикальный столбец кнопок в стиле plotly, с заголовками разделов."""
+    els, section = [], None
+    for title, vid, label in _view_entries(meta):
+        if title != section:
+            els.append(html.Div(title, className='plt-section'))
+            section = title
+        els.append(html.Button(label, id={'type': 'view-btn', 'index': vid}, n_clicks=0, className='plt-btn',
+                               style=_BTN_ACTIVE if vid == current else _BTN_INACTIVE))
     return els
 
 
@@ -630,8 +649,10 @@ def _init(_n):
                 _view_buttons(store.meta, view_id) + [
                     html.Button('Сохранить в HTML', id='btn-save', n_clicks=0, style=_BTN_SAVE),
                 ],
+                # С детальным составом кнопок за сорок: столбец прокручивается в пределах высоты графика
                 style={'width': '185px', 'display': 'flex', 'flexDirection': 'column',
-                       'gap': '2px', 'paddingTop': '110px', 'flexShrink': 0}),
+                       'gap': '2px', 'paddingTop': '40px', 'flexShrink': 0,
+                       'maxHeight': f'{GRAPH_H}px', 'overflowY': 'auto'}),
         ], style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '30px', 'alignItems': 'flex-start'}),
 
         dcc.Store(id='view-state', data=_payload(view_id, store)),

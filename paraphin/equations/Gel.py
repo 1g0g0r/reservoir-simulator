@@ -76,6 +76,32 @@ def br_factor(xi):
 
 
 @njit(cache=True)
+def cell_yield_stress(i, j, w_ps, S, m, Dep):
+    """Предел текучести геля в ячейке (1), [Па]. Твердая фаза геля в поре (1а) - взвесь и осадок парафина: с кинетикой
+    осаждения объем кристаллов берется прямо из осадка (у нее есть и слой адсорбции), иначе - потеря пористости за
+    вычетом осадка асфальтенов. w_ps, S, m - нового слоя."""
+    if deposition_kinetics:
+        v_dep = 0.0
+        for kk in range(N_W):
+            v_dep += Dep[i, j, kk]
+        v_dep /= ro_p
+    else:
+        v_dep = init_m - m[i, j]
+        if asphaltenes:
+            v_dep -= (Dep[i, j, IA_F] + Dep[i, j, I_R]) / ro_asph_dep
+    phi_s = pore_solid_fraction(m[i, j], S[i, j], crystal_volume_fraction(w_ps), max(v_dep, 0.0))
+    return yield_stress(phi_s)
+
+
+@njit(cache=True)
+def yield_stress_field(Wps, S, m, Dep, out) -> None:
+    """Поле предела текучести для выгрузки (`save_fields`): то же, что видит `oil_viscosity` на этом слое."""
+    for i in range(out.shape[0]):
+        for j in range(out.shape[1]):
+            out[i, j] = cell_yield_stress(i, j, Wps[i, j], S, m, Dep)
+
+
+@njit(cache=True)
 def gel_phi_eq(i, j, fi, grad_p, tau_y):
     """Равновесный множитель подвижности нефти по (3) для ячейки (i, j). Ровно 1 при tau_y = 0."""
     if tau_y <= 0.0:
@@ -106,17 +132,7 @@ def oil_viscosity(i, j, t, w_ps, p, S, m, fi, grad_p, Dep, Phi, mu_p, mu_o, rela
         mu_o[i, j] = mu
         return
     mu_p[i, j] = mu
-    if deposition_kinetics:
-        v_dep = 0.0
-        for kk in range(N_W):
-            v_dep += Dep[i, j, kk]
-        v_dep /= ro_p
-    else:
-        v_dep = init_m - m[i, j]
-        if asphaltenes:
-            v_dep -= (Dep[i, j, IA_F] + Dep[i, j, I_R]) / ro_asph_dep
-    phi_s = pore_solid_fraction(m[i, j], S[i, j], crystal_volume_fraction(w_ps), max(v_dep, 0.0))
-    tau_y = yield_stress(phi_s)
+    tau_y = cell_yield_stress(i, j, w_ps, S, m, Dep)
     phi_eq = gel_phi_eq(i, j, fi, grad_p[i, j], tau_y)
     Phi[i, j] = phi_eq + (Phi[i, j] - phi_eq) * relax
     mu_o[i, j] = mu / max(Phi[i, j], gel_mobility_min)
