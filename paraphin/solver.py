@@ -451,6 +451,14 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
                         calc_deposition(i, j, S, T, p, m, k, fi, h_sloy, Wc, Ws, Wps, Dep, _Um_r2, grad_p, mu_p, kx, kin,
                                         integr_r2_fi0, integr_r4_fi0, rows[i], net_g0,
                                         new_qp1, new_qp2, new_fi, new_h, new_k, new_m, new_kx, out_o, dt)
+                elif not wax_components and Wps[i, j] <= min_Wps_bound:
+                    # Ниже порога кольматации обе функции ниже ничего не считают, а вызов с двумя десятками
+                    # массивов-аргументов стоит ~100 нс на ячейку - треть цикла при 1 % активных ячеек
+                    # (docs/PERFORMANCE_FINDINGS.md, «Раунд 6»). Ровно то, что сделал бы `calc_qp_m_k_fi` ниже порога.
+                    new_qp1[i, j] = 0.0
+                    new_qp2[i, j] = 0.0
+                    new_m[i, j] = m[i, j]
+                    new_k[i, j] = k[i, j]
                 else:
                     # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и коэффициента блокирования
                     # Броуновская диффузия частиц - в жидкой основе: вязкость без геля `mu_p` (без флага `gelation` это mu_o)

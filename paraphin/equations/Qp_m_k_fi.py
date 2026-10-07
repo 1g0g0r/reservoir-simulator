@@ -1,11 +1,25 @@
 """Решение уравнения концентрации взвешенных частиц парафина по явной схеме."""
+import numpy as np
 from numba import njit
 
-from paraphin.geometry import r1, r2, r3, r4, r5, r6, n_pass, dr_cv, w2_cv, plug_cv, w43_cv, n_pass_a, cbrt_r1
+from paraphin.geometry import r1, r5, r6, n_pass, dr_cv, w2_cv, plug_cv, w43_cv, n_pass_a, cbrt_r1
 from paraphin.constants import Nr, init_m, init_k, min_Wps_bound, ro_o, ro_asph_dep, resin_in_deposit, volume
 from paraphin.layout import IA_F, I_R, KX_UA, KX_QPA, ROW_U, ROW_TMP, ROW_A, ROW_B
 from paraphin.equations.Pore_bundle import update_fi_rows
 from paraphin.equations.Wp_balance import _RO_P_RO_O  # тот же множитель стока кристаллов, что в `wp_equation`
+
+# Веса интегралов по кусочно-линейным fi и ur (`_calculate_integrals`) - константы сетки радиусов: интегралы
+# r^2*fi и r^4*fi - скалярные произведения с узловыми весами, r*ur*fi - билинейная форма по соседним узлам. Раньше
+# на каждом отрезке делилось на dr и вычитались степени r: активная ячейка стоила ~3 мкс, почти все - в интегралах
+# (docs/PERFORMANCE_FINDINGS.md, «Раунд 6»). На отрезке [a, b], r = a + s*dr: fi = fi0*(1 - s) + fi1*s.
+_A, _DR = r1[:-1], r1[1:] - r1[:-1]
+_W4 = np.zeros(Nr)  # int r^4*fi dr = sum(_W4*fi); для r^2 - `w2_cv` (geometry), те же формулы
+_W4[1:] += ((r6[1:] - r6[:-1]) / 6 - _A * (r5[1:] - r5[:-1]) / 5) / _DR
+_W4[:-1] += (r1[1:] * (r5[1:] - r5[:-1]) / 5 - (r6[1:] - r6[:-1]) / 6) / _DR
+_Q00 = _DR * (_A / 3 + _DR / 12)  # int r*phi0*phi0 dr на отрезке, phi0 = 1 - s
+_Q01 = _DR * (_A / 6 + _DR / 12)  # int r*phi0*phi1 dr, phi1 = s
+_Q11 = _DR * (_A / 3 + _DR / 4)   # int r*phi1*phi1 dr
+_INV_DR_CV = 1.0 / dr_cv          # прогонка `_update_fi`: умножение вместо деления
 
 
 @njit(cache=True)
@@ -122,19 +136,13 @@ def _calculate_integrals(fi, Ur, i: int, j: int):
         Интегралы r*ur*fi, r^2*fi и r^4*fi
     """
     int_r_ur_fi, r2fi, r4fi = 0.0, 0.0, 0.0
-
-    for ij in range(1, Nr):
-        dr = r1[ij] - r1[ij - 1]
-        A_fi = (fi[i, j, ij - 1] * r1[ij] - fi[i, j, ij] * r1[ij - 1]) / dr
-        B_fi = (fi[i, j, ij] - fi[i, j, ij - 1]) / dr
-        A_ur = (Ur[i, j, ij - 1] * r1[ij] - Ur[i, j, ij] * r1[ij - 1]) / dr
-        B_ur = (Ur[i, j, ij] - Ur[i, j, ij - 1]) / dr
-
-        int_r_ur_fi += ((r2[ij] - r2[ij - 1]) * A_fi * A_ur / 2 +
-                        (r3[ij] - r3[ij - 1]) * (A_fi * B_ur + B_fi * A_ur) / 3 +
-                        (r4[ij] - r4[ij - 1]) * B_fi * B_ur / 4)  # r * ur * fi
-        r2fi += (r3[ij] - r3[ij - 1]) * A_fi / 3 + (r4[ij] - r4[ij - 1]) * B_fi / 4  # r^2 * fi
-        r4fi += (r5[ij] - r5[ij - 1]) * A_fi / 5 + (r6[ij] - r6[ij - 1]) * B_fi / 6  # r^4 * fi
+    for ij in range(Nr):
+        f = fi[i, j, ij]
+        r2fi += w2_cv[ij] * f  # r^2 * fi
+        r4fi += _W4[ij] * f    # r^4 * fi
+    for ij in range(1, Nr):    # r * ur * fi
+        f0, f1, u0, u1 = fi[i, j, ij - 1], fi[i, j, ij], Ur[i, j, ij - 1], Ur[i, j, ij]
+        int_r_ur_fi += f0 * (_Q00[ij - 1] * u0 + _Q01[ij - 1] * u1) + f1 * (_Q01[ij - 1] * u0 + _Q11[ij - 1] * u1)
 
     return int_r_ur_fi, r2fi, r4fi
 
@@ -166,18 +174,19 @@ def _update_fi(new_fi, fi, Ur, Ub, i: int, j: int, a_tdma, b_tdma, dt, limiter=1
     Описание аргументов - в докстринге пакета `paraphin.equations`.
     """
     # Вычисление прогоночных коэффициентов
-    d = 1.0 / dt + (abs(Ur[i, j, 0]) / dr_cv[0] + Ub[i, j, 0]) * limiter
-    e = min(Ur[i, j, 1], 0.0) / dr_cv[0] * limiter
+    inv_dt = 1.0 / dt
+    d = inv_dt + (abs(Ur[i, j, 0]) * _INV_DR_CV[0] + Ub[i, j, 0]) * limiter
+    e = min(Ur[i, j, 1], 0.0) * _INV_DR_CV[0] * limiter
     a_tdma[0] = -e / d
-    b_tdma[0] = fi[i, j, 0] / dt / d
+    b_tdma[0] = fi[i, j, 0] * inv_dt / d
 
     for ij in range(1, Nr):
-        c = -max(Ur[i, j, ij - 1], 0.0) / dr_cv[ij] * limiter
-        d = 1.0 / dt + (abs(Ur[i, j, ij]) / dr_cv[ij] + Ub[i, j, ij]) * limiter
-        e = min(Ur[i, j, ij + 1], 0.0) / dr_cv[ij] * limiter if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
-        denominator = c * a_tdma[ij - 1] + d
-        a_tdma[ij] = -e / denominator
-        b_tdma[ij] = (fi[i, j, ij] / dt - c * b_tdma[ij - 1]) / denominator
+        c = -max(Ur[i, j, ij - 1], 0.0) * _INV_DR_CV[ij] * limiter
+        d = inv_dt + (abs(Ur[i, j, ij]) * _INV_DR_CV[ij] + Ub[i, j, ij]) * limiter
+        e = min(Ur[i, j, ij + 1], 0.0) * _INV_DR_CV[ij] * limiter if ij + 1 < Nr else 0.0  # за Nr-1 соседа нет
+        inv = 1.0 / (c * a_tdma[ij - 1] + d)
+        a_tdma[ij] = -e * inv
+        b_tdma[ij] = (fi[i, j, ij] * inv_dt - c * b_tdma[ij - 1]) * inv
 
     # Вычисление функции пор размерам
     new_fi[i, j, Nr - 1] = b_tdma[Nr - 1]
