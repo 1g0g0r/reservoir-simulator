@@ -10,12 +10,13 @@ Python-коду (выгрузка, тесты, критерий останова
 import numpy as np
 from numba import njit
 
-from paraphin.constants import h, _re, Nx, wettability
+from paraphin.constants import h, _re, wettability
+from paraphin.layout import P0, PX
 from .math_utils import pf_w, pf_o, Buckley_Leverett
 
 WELL = np.dtype([
     ('i', np.int64), ('j', np.int64),  # ячейка скважины
-    ('idx_rhs', np.int64),             # индекс неизвестной в СЛАУ давления idx = i + j*Nx
+    ('idx_rhs', np.int64),             # индекс неизвестной в СЛАУ давления idx = P0 + i + j*PX (`layout`)
     ('rw', np.float64),                # радиус скважины, [м]
     ('p', np.float64),                 # забойное давление, [Па]: задано или, в режиме заданного дебита, считается
     ('T_inj', np.float64),             # температура закачки, [С] (не 'T': у записи numpy это транспонирование)
@@ -117,8 +118,8 @@ def preprocess_wells(wells_buffer) -> np.ndarray:
     """Массив скважин из буфера `add_well` с индексом неизвестной.
 
     Уравнение давления собирается сразу в диагонали ленты (`equations/Pressure.py`),
-    поэтому скважина правит `diag[idx]` и `rhs[idx]` по одному и тому же индексу `idx = i + j*Nx`.
+    поэтому скважина правит `diag[idx]` и `rhs[idx]` по одному и тому же индексу `idx = P0 + i + j*PX` (`layout`).
     """
     wells = np.array([item['well'] for item in wells_buffer], WELL)
-    wells['idx_rhs'] = wells['i'] + wells['j'] * Nx
+    wells['idx_rhs'] = P0 + wells['i'] + wells['j'] * PX
     return wells

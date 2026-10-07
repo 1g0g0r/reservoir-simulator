@@ -9,12 +9,22 @@
 import numpy as np
 
 from paraphin.geometry import N
-from paraphin.constants import Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_m, init_p, init_T, init_Wp, init_Wps, data_type
+from paraphin.constants import (Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_m, init_p, init_T, init_Wp, init_Wps,
+                                data_type, p_guess_m)
+from paraphin.layout import NP, PX
 from paraphin.equations import calc_pressure
 from paraphin.utils import new_well, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility
+from paraphin.utils.math_utils import MG_ROWS, MG_TOTAL, MG_COARSE, MG_COARSE_KD, P_STATE, solve_mg_system
+from paraphin.utils.math_utils.mg_solver import mg_pad, mg_unpad
 
 INJ = (3, 7)
 PROD = (Nx - 5, Ny - 10)
+
+
+def _solver_buffers():
+    """Буферы решателя, как в `Solver.__init__`: уровни многосеточного, фактор грубого уровня, состояние."""
+    return (np.zeros((MG_ROWS, MG_TOTAL), data_type), np.zeros((MG_COARSE, MG_COARSE_KD + 1), data_type),
+            np.zeros(P_STATE, data_type))
 
 
 def _solve_pressure():
@@ -30,7 +40,7 @@ def _solve_pressure():
         return np.full((Nx, Ny), value, data_type)
 
     def vec():
-        return np.zeros(N, data_type)
+        return np.zeros(NP, data_type)
 
     k, S = field(init_k), field(init_S)
     mu_o, mu_w = field(calc_mu_o(init_T, init_Wps)), field(calc_mu_w(init_T))
@@ -38,14 +48,16 @@ def _solve_pressure():
     calc_mobility(k, S, field(init_m), field(1.0 - init_Wp - init_Wps), field(init_Wp),
                   field(init_Wps), mu_o, mu_w, lam_o, lam_w, lam_h)
 
-    diag, ex, ey, rhs = vec(), vec(), vec(), vec()
+    mg_buf, mg_wc, state = _solver_buffers()
+    diag, ex, ey, rhs = mg_buf[0, :NP], mg_buf[1, :NP], mg_buf[2, :NP], vec()  # матрица - мелкий уровень решателя
     p = np.zeros((Nx, Ny), data_type)
-    calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells, diag, ex, ey, rhs,
-                  np.zeros((N, Nx + 1), data_type), np.full(N, init_p, data_type),
-                  vec(), vec(), vec(), vec(),
-                  np.zeros((4, 4, 2), data_type), 0, p)
+    x0 = np.full(NP, init_p, data_type)
+    calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells, diag, ex, ey, rhs, mg_buf, mg_wc, state, x0,
+                  np.tile(x0, (p_guess_m, 1)), vec(), vec(), np.zeros((4, 4, 2), data_type), p)
 
-    return p, diag, ex, ey, rhs
+    # матрица в раскладке подряд (idx = i + j*Nx) - для сравнения с SuperLU
+    unpad = lambda v: v.reshape(Ny + 2, PX)[1:-1, 1:-1].ravel()
+    return p, unpad(diag), unpad(ex), unpad(ey), unpad(rhs)
 
 
 def test_pressure_orientation():
@@ -65,11 +77,11 @@ def test_pressure_maximum_principle():
     assert p.max() <= Pw + 1e-6, f'давление выше забойного давления нагнетательной: {p.max()}'
 
 
-def test_band_solver_matches_superlu():
-    """Ленточный Холецкий обязан давать то же, что и SuperLU на той же матрице.
+def test_solver_matches_superlu():
+    """Многосеточный PCG обязан давать то же, что SuperLU: и в расчете (`calc_pressure`), и со старта издалека.
 
-    Сборка идет сразу в три диагонали, минуя CSC, поэтому независимая проверка нужна: разложение
-    делается без выбора главного элемента и опирается на положительную определенность матрицы.
+    Сборка идет сразу в три диагонали, минуя CSC, поэтому независимая проверка нужна: PCG останавливается по невязке
+    `p_pcg_rtol`, а предобуславливатель опирается на положительную определенность матрицы.
     """
     from scipy.sparse import csc_matrix
     from scipy.sparse.linalg import splu
@@ -79,13 +91,22 @@ def test_band_solver_matches_superlu():
     M = (np.diag(diag) + np.diag(ex[:n - 1], 1) + np.diag(ex[:n - 1], -1)
          + np.diag(ey[:n - Nx], Nx) + np.diag(ey[:n - Nx], -Nx))
     x_ref = splu(csc_matrix(M)).solve(rhs)
+    rel = lambda x: np.linalg.norm(x - x_ref) / np.linalg.norm(x_ref)
 
-    err = np.linalg.norm(p.T.ravel() - x_ref) / np.linalg.norm(x_ref)
-    assert err < 1e-10, f'ленточный решатель разошелся с SuperLU: относительная ошибка {err:.2e}'
+    assert rel(p.T.ravel()) < 1e-8, f'решатель расчета разошелся с SuperLU: {rel(p.T.ravel()):.2e}'
+    mg_buf, mg_wc, state = _solver_buffers()
+    rhs_p, x_p = np.zeros(MG_TOTAL), np.zeros(MG_TOTAL)
+    for row, v in enumerate((diag, ex, ey)):
+        mg_pad(v, mg_buf[row])
+    mg_pad(rhs, rhs_p)
+    mg_pad(np.full(n, init_p), x_p)
+    it = solve_mg_system(rhs_p, x_p, np.zeros(MG_TOTAL), np.zeros(MG_TOTAL), mg_buf, mg_wc, state)
+    x = mg_unpad(x_p)
+    assert rel(x) < 1e-8, f'многосеточный PCG разошелся с SuperLU: {rel(x):.2e} за {it} итераций'
 
 
 if __name__ == '__main__':
     test_pressure_orientation()
     test_pressure_maximum_principle()
-    test_band_solver_matches_superlu()
+    test_solver_matches_superlu()
     print('OK')

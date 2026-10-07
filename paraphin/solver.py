@@ -10,7 +10,7 @@ import numpy as np
 from numba import njit, prange
 from tqdm import tqdm
 
-from paraphin.geometry import N, r1, r3, r4, r5, r6, fi_0, surf_0
+from paraphin.geometry import r1, r3, r4, r5, r6, fi_0, surf_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs_path, init_T, init_k, init_S, init_m,
                         init_p, init_Wp, init_Wps, bar_to_pa, dt, day_to_sec,
                         max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, geological_reserves,
@@ -19,7 +19,8 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs
                         gel_time, gel_mobility_min, alpha_p_visc, P_ref_wax, sara_asphaltenes, case_name,
                         ro_asph_dep, ro_asph, deposition_kinetics, deposition_model, wax_kinetics,
                         asph_aggregation, wettability, thermal_nonequilibrium, adsorption,
-                        ads_init_equilibrium, R, pore_network)
+                        ads_init_equilibrium, R, pore_network, p_guess_m)
+from .utils.math_utils import MG_ROWS, MG_TOTAL, MG_COARSE, MG_COARSE_KD, P_STATE
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, temperature_source,
                         temperature_equation, wp_equation, calc_velocities_h, flows_in_cells,
                         calc_Um_r2, components_equation, calc_qp_m_k_fi_2, calc_velocity_asph, oil_viscosity,
@@ -29,7 +30,7 @@ from .equations.Deposition import calc_deposition, calc_filtration, network_g0
 from .kinetics_params import (default_kin, AGG_D0, OW_S_MIN, OW_S_MAX, OW_N_O, OW_N_W, ADS_GMAX, ADS_K, ADS_DH,
                               ADS_T_REF, ADS_RESIN, PERM_BETA, PERM_SMAX)
 from .layout import (N_W, NC, IA_D, IA_F, I_R, IS0, IN_F, NKX, KX_WEQ, KX_TS, KX_GA, KX_GR, KX_GMAX, KX_SIG0, KX_UA, KX_QPA,
-                     NROWS, ROW_A, ROW_B, ROW_FO, ROW_UE, ROW_TMP)
+                     NROWS, ROW_A, ROW_B, ROW_FO, ROW_UE, ROW_TMP, NP)
 from .equations.Kinetics_math import langmuir_constant
 from .equations.Thermal_ltne import temperature_equation_ltne
 from .oil_composition import WAX_W0, F_SAT_REST, initial_components
@@ -116,18 +117,20 @@ class Solver:
         # Скретч: рабочие профили ячейки (прогонка fi, профили по радиусам, потоки граней) - свои строки на каждый i,
         # иначе гонка в prange по ячейкам; имена строк - `layout.ROW_*`
         self.rows = np.zeros((Nx, NROWS, Nr), data_type)
-        # Матрица давления в трех диагоналях (idx = i + j*Nx) и буферы ленточного решателя
-        self.diag  = np.zeros(N, data_type)
-        self.ex    = np.zeros(N, data_type)
-        self.ey    = np.zeros(N, data_type)
-        self.rhs   = np.zeros(N, data_type)
-        self.band_w = np.zeros((N, Nx + 1), data_type)  # фактор Холецкого, живет между шагами
-        self.p_vec = np.full(N, init_p, data_type)  # решение и начальное приближение для PCG
-        self.pcg_r = np.zeros(N, data_type)  # PCG: невязка
-        self.pcg_z = np.zeros(N, data_type)  # PCG: предобусловленная невязка
-        self.pcg_p = np.zeros(N, data_type)  # PCG: направление поиска
-        self.pcg_q = np.zeros(N, data_type)  # PCG: A*p
-        self._band_age = 0  # 0 - фактора еще нет, считаем точно
+        # Уравнение давления (`calc_pressure`): PCG с многосеточным предобуславливателем. Векторы - в раскладке `layout`
+        # (ячейка - P0 + i + j*PX, с рамкой фиктивных ячеек, как уровни решателя). Матрица - мелкий уровень `mg_buf`
+        # (diag, ex, ey - его строки), невязка и предобусловленная невязка PCG - его строки b и x
+        self.mg_buf = np.zeros((MG_ROWS, MG_TOTAL), data_type)  # уровни многосеточного решателя
+        self.mg_wc = np.zeros((MG_COARSE, MG_COARSE_KD + 1), data_type)  # фактор самого грубого уровня
+        self.diag, self.ex, self.ey = self.mg_buf[0, :NP], self.mg_buf[1, :NP], self.mg_buf[2, :NP]
+        self.rhs   = np.zeros(NP, data_type)
+        self.pcg_p = np.zeros(NP, data_type)  # PCG: направление поиска
+        self.pcg_q = np.zeros(NP, data_type)  # PCG: M*p
+        # возраст грубых уровней, сумма итераций с пересборки, флаг пересборки, голова кольца прошлых решений
+        self.p_state = np.zeros(P_STATE, data_type)
+        self.p_vec = np.full(NP, init_p, data_type)  # решение; перед решением - начальное приближение
+        self.p_hist = np.tile(self.p_vec, (p_guess_m, 1))  # кольцо прошлых решений - для начального приближения
+        self.p_iters = 0                # итераций PCG на последнем шаге
         # Детальный состав нефти (флаг `wax_components`, см. `paraphin/oil_composition.py`). Массивы есть всегда,
         # с выключенными флагами они не используются, а `Hl` и `mu_p` - просто другие имена `Wp` и `mu_o`.
         self.Wc     = np.tile(initial_components(), (Nx, Ny, 1))  # доли компонентов в нефтяной фазе, [-]
@@ -369,9 +372,9 @@ class Solver:
                           self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h)
         # Обновление давления. Проницаемость берется с текущего слоя: блок кольматации идет ниже,
         # в общем цикле по ячейкам, поэтому k отстает от m на полшага.
-        self._band_age = calc_pressure(self.k, self.S, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.well_data,
-                                       self.diag, self.ex, self.ey, self.rhs, self.band_w, self.p_vec, self.pcg_r, self.pcg_z, self.pcg_p, self.pcg_q,
-                                       self.boundary_conditions, self._band_age, self.p)
+        self.p_iters = calc_pressure(self.k, self.S, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.well_data,
+                                     self.diag, self.ex, self.ey, self.rhs, self.mg_buf, self.mg_wc, self.p_state,
+                                     self.p_vec, self.p_hist, self.pcg_p, self.pcg_q, self.boundary_conditions, self.p)
         # Обновление данных скважин
         self.KIN = _update_wells_data(self.n_wells, self.well_data, self.p, self.S, self.mu_o, self.mu_w, step_dt)
         # Источники скважин в тех же единицах, что и перетоки через грани

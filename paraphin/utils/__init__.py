@@ -10,5 +10,5 @@ from .save_data_fields import save_fields
 from .well import new_well, upd_q_and_eta, calc_well_prod, preprocess_wells
 
 from .math_utils import (mid, lam_heat, calc_mu_o, calc_mu_p, calc_mu_w, crystal_volume_fraction, pf_o, pf_w,
-                         Buckley_Leverett, calc_mobility, calc_mobility_w, up_fraction, solve_band_system,
+                         Buckley_Leverett, calc_mobility, calc_mobility_w, up_fraction,
                          mobility_o, mobility_w, DI, DJ, HIJ, AREA)

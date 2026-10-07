@@ -68,9 +68,11 @@ def test_no_race(all_on):
 def test_single_group_reproduces_legacy(tmp_path):
     """Детальный состав с одной группой (режим 'single') - прежняя термодинамика, но через перенос по
     потокам граней, стоки по группам и носитель скрытой теплоты Hl. Совпасть побитово он не обязан
-    (другой порядок сложения), но обязан совпасть с эталоном до округления, накопленного за 100 сут
-    (фактически ~1e-13)."""
-    # Сравнение до 1e-9, а не побитовое: годится эталон любого окружения, свой - в первую очередь
+    (другой порядок сложения), но обязан совпасть с эталоном до погрешности решателя давления, накопленной за 100 сут.
+    Многосеточный PCG останавливается сразу под `p_pcg_rtol` = 1e-10, поэтому разница порядка сложения дает давление
+    другим на ~5e-11 (с прежним ленточным Холецким, решавшим почти точно, было ~1e-13), а взвесь Wps - малая разность
+    близких w и w_sat - расходится сильнее всех полей, ~4e-9 от своего максимума."""
+    # Сравнение до 1e-8, а не побитовое: годится эталон любого окружения, свой - в первую очередь
     refs = [baseline_path()] + sorted(DATA.glob('regression_flags_off_*.npz'))
     ref_path = next((path for path in refs if path.is_file()), None)
     if ref_path is None:
@@ -83,7 +85,7 @@ def test_single_group_reproduces_legacy(tmp_path):
     assert np.isclose(got['KIN'], ref['KIN'], rtol=1e-9)
     for name in ('p', 'S', 'T', 'm', 'k', 'Wp', 'Wps'):
         scale = np.abs(ref[name]).max()
-        assert np.abs(got[name] - ref[name]).max() <= 1e-9 * scale, name
+        assert np.abs(got[name] - ref[name]).max() <= 1e-8 * scale, name
 
 
 @pytest.fixture(scope='module')

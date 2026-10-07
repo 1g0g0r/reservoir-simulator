@@ -1,22 +1,26 @@
-"""Решение уравнения давления: сборка матрицы (МКО) и решение ленточной СЛАУ."""
+"""Решение уравнения давления: сборка матрицы (МКО) и решение СЛАУ (PCG с многосеточным предобуславливателем)."""
 from numba import njit, prange
 
 from paraphin.constants import Nx, Ny
-from paraphin.utils import (apply_bc, get_bound, calc_well_prod, mid, solve_band_system,
-                            mobility_o, mobility_w, DI, DJ, HIJ, AREA)
+from paraphin.layout import P0, PX
+from paraphin.utils import apply_bc, get_bound, calc_well_prod, mid, mobility_o, mobility_w, DI, DJ, HIJ, AREA
+from paraphin.utils.math_utils import solve_mg_system, project_guess
 
 
 @njit(cache=True)
-def calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells,
-                  diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q,
-                  boundary_condition, band_age, p):
-    """Сборка матрицы и решение СЛАУ уравнения давления (МКО).
+def calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells, diag, ex, ey, rhs, mg_buf, mg_wc, p_state, p_vec, p_hist,
+                  pcg_p, pcg_q, boundary_condition, p):
+    """Сборка матрицы и решение СЛАУ уравнения давления (МКО). Возвращает число итераций PCG (0 - начальное
+    приближение уже в пределах `p_pcg_rtol`).
 
-    Матрица собирается не в CSC, а сразу в три диагонали положительно определенной формы
-    `M = -A` (см. `utils/math_utils/band_solver.py`): пятиточечный шаблон при нумерации
-    `idx = i + j*Nx` дает ленту с полушириной Nx, для которой разложение Холецкого на порядок
-    дешевле SuperLU. Инвариант «порядок записи в препроцессинге и в сборке должен совпадать»
-    при этом исчезает: каждая ячейка пишет в свои `diag[idx]`, `ex[idx]`, `ey[idx]`.
+    Начальное приближение - проекция на разности прошлых решений (`utils/math_utils/guess.py`): итераций 0.5-0.8 вместо
+    1.7 у квадратичной экстраполяции. Точность от этого не зависит - ее держит `p_pcg_rtol`.
+
+    Матрица собирается не в CSC, а сразу в три диагонали положительно определенной формы `M = -A`
+    (`utils/math_utils/mg_solver.py`). Каждая ячейка пишет в свои `diag[idx]`, `ex[idx]`, `ey[idx]`, поэтому сборка
+    параллельна и согласовывать порядок записи не нужно. Векторы - в раскладке `layout` с рамкой фиктивных ячеек:
+    ячейка (i, j) - индекс P0 + i + j*PX, а `diag`, `ex`, `ey` - строки мелкого уровня `mg_buf` (`Solver.__init__`),
+    так что матрица собирается прямо в уровень многосеточного решателя.
 
     Parameters
     ----------
@@ -30,20 +34,22 @@ def calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells,
         Подвижности фаз k*pf/mu, посчитанные `calc_mobility` до вызова, [м^2/(Па*с)]
     wells: numpy.ndarray(n_wells), dtype `WELL`
         Скважины - структурный массив (`utils/well.py`)
-    diag, ex, ey: numpy.ndarray(Nx*Ny)
-        Диагонали матрицы: центр, связь с idx+1 (сосед по x), связь с idx+Nx (сосед по y)
-    rhs: numpy.ndarray(Nx*Ny)
+    diag, ex, ey: numpy.ndarray(NP)
+        Диагонали матрицы: центр, связь с idx+1 (сосед по x), связь с idx+PX (сосед по y)
+    rhs: numpy.ndarray(NP)
         Правая часть в форме M x = rhs, то есть с обратным знаком к исходной
-    band_w: numpy.ndarray(Nx*Ny, Nx+1)
-        Буфер фактора Холецкого, живет между шагами
-    p_vec: numpy.ndarray(Nx*Ny)
-        Решение; на входе - давление с прошлого шага, оно же начальное приближение для PCG
-    pcg_r, pcg_z, pcg_p, pcg_q: numpy.ndarray(Nx*Ny)
-        Рабочие векторы PCG
+    mg_buf, mg_wc: numpy.ndarray(MG_ROWS, MG_TOTAL), numpy.ndarray(MG_COARSE, MG_COARSE_KD+1)
+        Уровни многосеточного решателя (мелкий - сама матрица, невязки PCG - его строки) и фактор самого грубого
+    p_state: numpy.ndarray(P_STATE)
+        Состояние решателя: возраст грубых уровней, сумма итераций с пересборки, флаг пересборки, голова кольца `p_hist`
+    p_vec: numpy.ndarray(NP)
+        Решение; на входе - давление с прошлого шага
+    p_hist: numpy.ndarray(p_guess_m, NP)
+        Кольцо прошлых решений до прошлого шага (`guess.py`); после вызова сдвинуто на шаг
+    pcg_p, pcg_q: numpy.ndarray(NP)
+        Рабочие векторы PCG: направление поиска и M*p
     boundary_condition: numpy.ndarray(4, 3, 2)
         Граничные условия: Граница -> Поле -> Тип, Значение
-    band_age: int
-        Возраст фактора Холецкого в шагах
     p: numpy.ndarray(Nx, Ny)
         Поле давления - результат; заполняется на месте, [Па]
     """
@@ -51,15 +57,16 @@ def calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells,
                          diag, ex, ey, rhs, boundary_condition)
     _adding_wells(wells, S, k, mu_o, mu_w, lam_o, lam_w, diag, rhs)
 
-    band_age = solve_band_system(diag, ex, ey, rhs, band_w, p_vec, pcg_r, pcg_z, pcg_p, pcg_q, band_age)
+    project_guess(diag, ex, ey, rhs, p_vec, p_hist, p_state)
+    it = solve_mg_system(rhs, p_vec, pcg_p, pcg_q, mg_buf, mg_wc, p_state)
 
-    # Неизвестная нумеруется как idx = i + j*Nx (быстрый индекс - i), поэтому раскладка идет по этой же формуле.
+    # Неизвестная нумеруется как idx = P0 + i + j*PX (быстрый индекс - i), поэтому раскладка идет по этой же формуле.
     # Без нее поле давления оказывается зеркальным относительно главной диагонали (транспонировалось).
     for i in range(Nx):
         for j in range(Ny):
-            p[i, j] = p_vec[i + j * Nx]
+            p[i, j] = p_vec[P0 + i + j * PX]
 
-    return band_age
+    return it
 
 
 @njit(parallel=True, cache=True)
@@ -80,7 +87,7 @@ def _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
     """
     for i in prange(Nx):
         for j in range(Ny):
-            idx = i + j * Nx
+            idx = P0 + i + j * PX
             lam_ij = lam_o[i, j] + lam_w[i, j]
 
             acc = 0.0  # только вклад Дирихле: производные по времени сократились при сложении фаз

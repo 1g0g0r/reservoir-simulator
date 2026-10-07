@@ -4,7 +4,7 @@
 считаются здесь, а не в модулях, которые массивы заполняют: ядра, решатель, выгрузка и опыты берут их из одного места.
 Как и флаги, это константы уровня модуля - numba вшивает их литералами.
 """
-from paraphin.constants import wax_characterization, scn_bounds, wax_kinetics, asph_aggregation
+from paraphin.constants import wax_characterization, scn_bounds, wax_kinetics, asph_aggregation, Nx, Ny
 
 # --- Компоненты нефтяной фазы Wc[Nx, Ny, NC] (`oil_composition`, `equations/Components.py`) -------------------------
 N_W = 1 if wax_characterization == 'single' else len(scn_bounds) + 1  # число групп парафина (`lump_groups`)
@@ -44,3 +44,10 @@ NKX = 3 * N_W + 12
 # через четыре грани ячейки (ROW_FO, первые 4 элемента; `flows_in_cells` -> `components_equation`)
 ROW_U, ROW_UW, ROW_UA, ROW_BW, ROW_BA, ROW_UE, ROW_TMP, ROW_A, ROW_B, ROW_FO = range(10)
 NROWS = 10
+
+# --- Векторы уравнения давления: неизвестная ячейки (i, j) - p_vec[P0 + i + j*PX] -----------------------------------
+# С рамкой фиктивных ячеек, как уровни многосеточного решателя (`mg_solver.py`): матрица собирается прямо в его мелкий
+# уровень, а векторы PCG - это строки его же буфера, без копий на каждом V-цикле. У рамки связи и решение нулевые.
+PX = Nx + 2                  # шаг строки
+P0 = PX + 1                  # индекс ячейки (0, 0)
+NP = (Nx + 2) * (Ny + 2)     # длина векторов
