@@ -15,7 +15,10 @@ from pathlib import Path
 # по умолчанию - constants.py (там же - когда какие брать), переменные окружения важнее. Читаются они при запуске OpenMP, поэтому задаются до `_launch_threads` ниже.
 from paraphin.constants import omp_wait_policy, omp_spin_count  # noqa: E402  (в constants.py нет numba)
 
-os.environ.setdefault('OMP_WAIT_POLICY', omp_wait_policy)
+# На Windows слой omp numba - MS OpenMP (vcomp140): GOMP_SPINCOUNT он не читает, и PASSIVE там - сон сразу после
+# каждого параллельного цикла, шаг в 2.3 раза медленнее умолчания vcomp и при одном, и при трех расчетах сразу
+if os.name != 'nt':
+    os.environ.setdefault('OMP_WAIT_POLICY', omp_wait_policy)
 os.environ.setdefault('GOMP_SPINCOUNT', str(omp_spin_count))
 
 # Слой потоков numba запускается при первом параллельном цикле, вызванном из Python. Если первым вызвана функция из

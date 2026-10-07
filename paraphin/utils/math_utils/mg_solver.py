@@ -46,6 +46,8 @@
 `p_mg_setup_ratio`. Мелкий уровень всегда свежий - это сама матрица; V-цикл с устаревшими грубыми уровнями
 остается симметричным и годится предобуславливателем.
 """
+import types
+
 import numpy as np
 from numba import njit, prange
 
@@ -168,12 +170,21 @@ def _black_corrected(D, EX, EY, lev, b, x):
             x[f] = (b[f] - EX[f] * xe - EX[f - 1] * xw - EY[f] * xn - EY[f - px] * xs) / D[f]
 
 
+def _serial(f):
+    """Последовательная версия ядра - под своим именем. Ключ дискового кеша numba - имя функции и ее байткод, флага
+    parallel в нем нет: njit(cache=True) от той же функции брал из кеша параллельную версию, и каждое ядро грубого
+    уровня платило за запуск параллельной области (~4 мкс; V-цикл 75x75 - 85 мкс вместо 30)."""
+    g = types.FunctionType(f.__code__, f.__globals__, f.__name__ + '_s')
+    g.__qualname__ = g.__name__
+    return njit(cache=True)(g)
+
+
 # одно тело - две версии: prange в njit без parallel - обычный range
-_coarsen_p, _coarsen_s = njit(parallel=True, cache=True)(_coarsen), njit(cache=True)(_coarsen)
-_init_p, _init_s = njit(parallel=True, cache=True)(_red_init), njit(cache=True)(_red_init)
-_sweep_p, _sweep_s = njit(parallel=True, cache=True)(_sweep), njit(cache=True)(_sweep)
-_rr_p, _rr_s = njit(parallel=True, cache=True)(_red_residual_restrict), njit(cache=True)(_red_residual_restrict)
-_bc_p, _bc_s = njit(parallel=True, cache=True)(_black_corrected), njit(cache=True)(_black_corrected)
+_coarsen_p, _coarsen_s = njit(parallel=True, cache=True)(_coarsen), _serial(_coarsen)
+_init_p, _init_s = njit(parallel=True, cache=True)(_red_init), _serial(_red_init)
+_sweep_p, _sweep_s = njit(parallel=True, cache=True)(_sweep), _serial(_sweep)
+_rr_p, _rr_s = njit(parallel=True, cache=True)(_red_residual_restrict), _serial(_red_residual_restrict)
+_bc_p, _bc_s = njit(parallel=True, cache=True)(_black_corrected), _serial(_black_corrected)
 
 
 @njit(cache=True)
