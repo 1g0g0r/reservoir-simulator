@@ -53,6 +53,9 @@ def _patch_sets() -> dict:
     from tests.mrst_tests.test_thermal import PATCH as MRST_THERMAL
     sets['mrst_two_phase'] = {'Nx, Ny': '40, 40', **mrst.PATCH_TWO_PHASE}
     sets['mrst_thermal'] = {'Nx, Ny': '20, 20', **MRST_THERMAL}
+    from tests.mrst_tests.test_boundary_conditions import PATCH as MRST_BC, PATCH_THERMAL as MRST_BC_THERMAL
+    sets['mrst_bc'] = MRST_BC
+    sets['mrst_bc_thermal'] = MRST_BC_THERMAL
     return sets
 
 

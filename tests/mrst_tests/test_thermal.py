@@ -25,7 +25,8 @@ from tests.mrst_tests import common as c
 TEST = 'test_thermal'
 GRIDS, DAYS, DT = (20, 40), 1000, 1.0
 FIELD_DAYS = (100, 250, 500, 1000)
-PATCH = {**c.PATCH_TWO_PHASE, 'S_max': '1.0', 'init_S': 'S_max'}
+# Без нефти геологические запасы нулевые, а КИН (solver._update_wells_data) делит на них - здесь он не нужен
+PATCH = {**c.PATCH_TWO_PHASE, 'S_max': '1.0', 'init_S': 'S_max', 'geological_reserves': '1.0'}
 
 
 def physics() -> dict:
@@ -79,8 +80,9 @@ def test_production_temperature(result):
 
 
 def test_temperature_field(result):
-    """Поле температуры, [K]: среднее расхождение и наибольшее (у фронта - сдвиг на ячейку дает десятки K)."""
-    c.assert_limits(result[1], {'dT_mean': 1.0, 'dT_max': 15.0})
+    """Поле температуры, [K]: расхождение - нагрев трением в MRST, он копится в породе и к 1000 сут дает в среднем
+    ~1.3 K; наибольшее - он же плюс запас на сдвиг холодного фронта."""
+    c.assert_limits(result[1], {'dT_mean': dT_friction(), 'dT_max': dT_friction() + 1.0})
 
 
 def test_pressure_field(result):
@@ -96,6 +98,19 @@ def test_frictional_heating(result):
         heat = runs[f'thermal_n{n}']['T_prod'][49] - (init_T + 273.15)
         assert abs(runs[f'paraphin_n{n}_thermal']['T_prod'][49] - (init_T + 273.15)) < 1e-6
         assert 0.0 < heat <= dT_friction(), f'{n}x{n}: нагрев на добывающей в MRST {heat:.3f} K'
+
+
+def test_frictional_heating_field(result):
+    """К концу расчета (1000 сут) течение установилось, и MRST теплее paraphin на нагрев трением воды, прошедшей от
+    нагнетательной: в среднем по полю ΔT = (Pw - p)/(ρ_w*c_w) с точностью 15 % (проверено: 7 % на 20x20, 0.4 % на
+    40x40). Остального расхождения по температуре между кодами нет."""
+    runs, _ = result
+    from paraphin.constants import Pw, ro_w, c_w
+    for n in GRIDS:
+        m, p = runs[f'thermal_n{n}'], runs[f'paraphin_n{n}_thermal']
+        dT = (m['T'][-1] - p['T'][-1]).mean()
+        expected = ((Pw - p['p'][-1]) / (ro_w * c_w)).mean()
+        assert abs(dT / expected - 1.0) < 0.15, f'{n}x{n}: ΔT ср. {dT:.3f} K, нагрев трением {expected:.3f} K'
 
 
 if __name__ == '__main__':

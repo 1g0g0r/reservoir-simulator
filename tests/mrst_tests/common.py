@@ -185,7 +185,7 @@ def metrics(r) -> dict:
         idx = np.flatnonzero(mask)
         return int(idx[0]) + 1 if idx.size else None
     return {'t_bt': first_day(r['eta'] > 0.01), 't98': first_day(r['eta'] >= 0.98),
-            'Q_inj_10': float(r['Q_inj'][9]), 'Qo': float(r['Q_o'][-1]), 'Q_inj': float(r['Q_inj'][-1]),
+            'Q_inj_10': float(r['Q_inj'][min(9, r['Q_inj'].size - 1)]), 'Qo': float(r['Q_o'][-1]), 'Q_inj': float(r['Q_inj'][-1]),
             'KIN': float(r['Q_o'][-1] / oil_in_place), 'steps': int(r['steps']), 'elapsed': float(r['elapsed'])}
 
 
@@ -200,7 +200,7 @@ def differences(r, ref) -> dict:
          'q_inj_1': float(r['q_inj'][0] / ref['q_inj'][0] - 1.0),
          't_bt': None if m['t_bt'] is None or m_ref['t_bt'] is None else m['t_bt'] - m_ref['t_bt'],
          'bhp_inj_30': rel(r['bhp_inj'][30:], ref['bhp_inj'][30:]),
-         'bhp_inj_1': float(r['bhp_inj'][0] / ref['bhp_inj'][0] - 1.0),
+         'bhp_inj_1': float(r['bhp_inj'][0] / ref['bhp_inj'][0] - 1.0) if ref['bhp_inj'][0] else 0.0,
          'T_prod_max': float(np.abs(r['T_prod'] - ref['T_prod']).max()) if r['T_prod'].any() else 0.0}
     ds, dp = r['sw'] - ref['sw'], (r['p'] - ref['p']) / 1e5
     d.update(dS_mean=np.abs(ds).mean(axis=1).tolist(), dS_max=np.abs(ds).max(axis=1).tolist(),
