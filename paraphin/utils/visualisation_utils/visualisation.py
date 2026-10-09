@@ -64,7 +64,7 @@ def _visualize_fields(data):
         input_data['Wps'] *= (S_max - input_data['Saturation'])
         del input_data['plots']
 
-    # Детальный состав нефти и гель (флаги `wax_components`, `gelation`): поля - картами, массы - графиками
+    # Детальный состав нефти и гель (группы парафина, асфальтены, `gelation`): поля - картами, массы - графиками
     for group in ('Composition', 'Gel'):
         if group in input_data:
             input_data.update(input_data.pop(group))

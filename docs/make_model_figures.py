@@ -27,7 +27,6 @@ sys.path.insert(0, str(ROOT))
 
 from paraphin.geometry import fi_0  # noqa: E402
 from paraphin import oil_composition as oc  # noqa: E402
-from paraphin.layout import N_W  # noqa: E402
 from paraphin.constants import (init_T, P_onset_asph, P_bubble, sara_asphaltenes, sara_resins, v_asph, R,  # noqa: E402
                                 ro_asph, ro_o, gel_phi, gel_phi_ref, gel_tau_ref, gel_n, X_max, Y_max,
                                 geological_reserves, gel_mobility_min, alpha_p_visc)
@@ -317,7 +316,7 @@ def fig_demo():
     ax1.legend(fontsize=6.5, loc='lower right')
     tot = full['Totals']
     t = full['Time'] / 86400.0 / 365.0
-    dep_wax = sum(tot[f'wax {k + 1} deposited'] for k in range(N_W))
+    dep_wax = sum(tot[f'wax {k + 1} deposited'] for k in range(oc.GR_W0.size))
     # Цвета 6-7: первые пять слева заняты вариантами расчета
     ax2.plot(t, dep_wax / 1e3, color=SERIES[5], label='парафин (все группы)')
     ax2.plot(t, (tot['asph flocs deposited'] + tot['resins deposited']) / 1e3, color=SERIES[6], ls='--',
@@ -361,19 +360,19 @@ def demo_text():
     years = full['Time'][idx] / 86400.0 / 365.0
     wat, wat0 = comp['WAT'][idx], comp['WAT'][0]
     phi = full['Gel']['Phi'][idx]
-    dep_wax = sum(tot[f'wax {g + 1} deposited'][idx] for g in range(N_W))
+    dep_wax = sum(tot[f'wax {g + 1} deposited'][idx] for g in range(oc.GR_W0.size))
     dep_asph = tot['asph flocs deposited'][idx] + tot['resins deposited'][idx]
-    by_group = [tot[f'wax {g + 1} deposited'][idx] / max(dep_wax, 1e-30) for g in range(N_W)]
+    by_group = [tot[f'wax {g + 1} deposited'][idx] / max(dep_wax, 1e-30) for g in range(oc.GR_W0.size)]
     asph_dep = comp['Asph dep'][idx]
     p_min = float(full['Pressure'][idx].min() / 1e6)
 
     # Выпадение при закачиваемой температуре: дегазированная нефть (упрощенная модель) и живая при 12 МПа
     from paraphin.constants import P_ref_wax, Twater
-    from paraphin.equations.Wp_balance import _wp_saturated
-    w0 = oc.WAX_W0.sum()
-    live = w0 - oc.sle_split_np(oc.WAX_W0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV, Twater,
+    from paraphin.equations.Thermo_wax import single_wp_saturated
+    w0 = oc.GR_W0.sum()
+    live = w0 - oc.sle_split_np(oc.GR_W0, oc.GR_M, oc.GR_TM_K, oc.GR_DH, oc.GR_DV, Twater,
                                 dp=12e6 - P_ref_wax, n_g=oc.gas_moles(12e6)).sum()
-    dead = w0 - _wp_saturated(w0, Twater)
+    dead = w0 - single_wp_saturated(w0, Twater)
     visc = math.exp(alpha_p_visc * (12e6 - P_ref_wax))
 
     text = f"""Постановка — элемент заводнения, как в `start.py`: пласт 200 x 200 x 10 м, сетка 50 x 50. Нагнетательная

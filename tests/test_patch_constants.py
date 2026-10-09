@@ -36,7 +36,6 @@ def _patch_sets() -> dict:
     sd_exp, sd_extra = sd.exp_case()
     sets = {
         'ALL_ON': ALL_ON, 'KIN_ALL': KIN_ALL, 'EOS_ON': EOS_ON,
-        'single': {'wax_components': 'True', 'wax_characterization': "'single'"},
         'run_grid_study': {'Nx, Ny': '100, 100'}, 'run_grid_study_nr': {'Nr': '45'},
         'run_cases': {'init_Wp': '0.0', 'heat_losses': '1'},
         'core_flood': dict(flood, Nr='21', r_m='16e-6', sigma_r='0.6', r_max='5e-5', init_T='54.4'),

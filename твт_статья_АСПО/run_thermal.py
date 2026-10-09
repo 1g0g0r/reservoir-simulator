@@ -44,7 +44,7 @@ MAP_YEARS = (1.0, 3.0, 5.0)  # моменты карт базового вари
 COMMON = {'Nx, Ny': '50, 50', 'Time_end': f'day_to_sec * 365 * {YEARS}', 'Pw': '170 * bar_to_pa',
           'Po': '70 * bar_to_pa', 'init_T': repr(T0), 'Twater': repr(T_INJ),
           # полная модель детального состава (`demo_composition.FULL`)
-          'wax_components': 'True', 'wax_pressure': 'True', 'asphaltenes': 'True', 'gelation': 'True',
+          'wax_characterization': "'scn'", 'wax_pressure': 'True', 'asphaltenes': 'True', 'gelation': 'True',
           'wax_viscosity': '1', 'pressure_viscosity': 'True',
           # кинетика кристаллизации, подтвержденная опытами
           'wax_kinetics': 'True'}

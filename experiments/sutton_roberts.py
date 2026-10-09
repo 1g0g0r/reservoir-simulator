@@ -29,7 +29,7 @@ from common import (load, core_constants, run_many, rms_k, noise_floor, mode_fro
 EXPS = {n: load(f'sutton_roberts_{n}') for n in (1, 2)}
 PV_END = 5.2
 # Детальный состав с одной группой ('single') - ровно прежняя термодинамика, через новый перенос компонентов
-SINGLE = {'wax_components': 'True', 'wax_characterization': "'single'"}
+SINGLE = {'wax_characterization': "'single'"}
 # Новое ядро без механизмов: snowball с нулевым коэффициентом (флаг только включает ядро `Deposition.py`)
 KERNEL = dict(SINGLE, snowball='True')
 ENTRAINMENT = dict(KERNEL, entrainment='True')

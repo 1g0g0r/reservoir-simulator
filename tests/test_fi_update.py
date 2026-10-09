@@ -1,4 +1,4 @@
-"""Проверки схемы для функции пор по размерам (`_update_fi`).
+"""Проверки схемы для функции пор по размерам (`Pore_bundle.update_fi_rows`).
 
 1. `test_fi_conserved_across_r_pass` - без блокирования интеграл fi по сетке (сумма fi*dr_cv)
    обязан сохраняться:
@@ -13,7 +13,9 @@ import numpy as np
 
 from paraphin.geometry import r1, fi_0, n_pass, dr_cv, w2_cv, plug_cv
 from paraphin.constants import Nr, init_m, init_k
-from paraphin.equations.Qp_m_k_fi import _update_fi, _calculate_integrals, calc_qp_m_k_fi
+from paraphin.equations.Pore_bundle import update_fi_rows
+from paraphin.equations.Qp_m_k_fi import _calculate_integrals, calc_qp_m_k_fi
+from paraphin.layout import NC, KX, ROWS
 
 dt = 86400.0 / 20
 
@@ -30,7 +32,7 @@ def test_fi_conserved_across_r_pass():
     """Сужение без блокирования: интеграл fi сохраняется, в том числе через стык r_pass."""
     fi, new_fi, Ur, Ub, a, b = _fields(u0=0.3 * dr_cv.min() / dt, b0=0.0)  # Куранта 0.3 за шаг
     for _ in range(200):
-        _update_fi(new_fi, fi, Ur, Ub, 0, 0, a, b, dt)
+        update_fi_rows(new_fi, fi, 0, 0, Ur[0, 0], Ub[0, 0], a, b, dt)
         fi, new_fi = new_fi, fi
 
     assert fi[0, 0, n_pass - 1] > fi_0[n_pass - 1], 'поток из узла n_pass не дошел до n_pass-1'
@@ -40,7 +42,7 @@ def test_fi_conserved_across_r_pass():
 def test_fi_positive_under_strong_blocking():
     """b*dt = 1e3: fi узких капилляров обнуляется, но не становится отрицательной."""
     fi, new_fi, Ur, Ub, a, b = _fields(u0=0.3 * dr_cv.min() / dt, b0=1e3 / dt)
-    _update_fi(new_fi, fi, Ur, Ub, 0, 0, a, b, dt)
+    update_fi_rows(new_fi, fi, 0, 0, Ur[0, 0], Ub[0, 0], a, b, dt)
 
     assert new_fi.min() >= 0.0
     # Неявное блокирование делит узел на (1 + b*dt); сверху в последний блокируемый узел еще притекает
@@ -64,8 +66,9 @@ def test_blocking_keeps_pore_volume():
         return np.full((1, 1), value)
 
     new_qp1, new_qp2, new_k, new_m = cell(0.0), cell(0.0), cell(0.0), cell(0.0)
-    calc_qp_m_k_fi(0, 0, cell(0.0), cell(0.05), cell(0.1), cell(init_m), cell(init_k), fi, Ur, Ub, i2, i4,
-                   a, b, new_qp1, new_qp2, new_fi, new_k, new_m, dt)
+    wc, kx = np.zeros((1, 1, NC)), np.zeros((1, 1), KX)
+    calc_qp_m_k_fi(0, 0, cell(0.0), cell(0.1), wc, cell(init_m), cell(init_k), fi, Ur, Ub, kx, i2, i4,
+                   np.zeros(1, ROWS)[0], new_qp1, new_qp2, new_fi, new_k, new_m, kx.copy(), 0.0, dt)
 
     gone = fi_0 - new_fi[0, 0]  # выбывшие из проводящих каналы
     blocked = init_m * (w2_cv * gone).sum() / i2
@@ -78,28 +81,21 @@ def test_blocking_keeps_pore_volume():
     assert loss < 0.1 * blocked, f'пробки {loss:.3e} не малы по сравнению с каналами {blocked:.3e}'
 
 
-if __name__ == '__main__':
-    test_fi_conserved_across_r_pass()
-    test_fi_positive_under_strong_blocking()
-    test_blocking_keeps_pore_volume()
-    print('OK')
-
-
-def test_update_fi_rows_matches_legacy():
-    """Общая прогонка по профилям u = lim*Ur, b = lim*Ub (`Pore_bundle.update_fi_rows`, ее зовут сиблинги) совпадает с
-    прежней `_update_fi(limiter=lim)` до округления, а одно сужение флокулами u = ua*r^(1/3) (без парафина) сохраняет
-    число капилляров sum(fi*dr_cv) - они только сползают к малым r."""
-    from paraphin.equations.Pore_bundle import update_fi_rows
+def test_floc_narrowing_keeps_capillaries():
+    """Одно сужение флокулами u = ua*r^(1/3) (без парафина) сохраняет число капилляров sum(fi*dr_cv) - они только
+    сползают к малым r."""
     from paraphin.geometry import cbrt_r1, n_pass_a
-
-    fi, new_fi, Ur, Ub, a, b = _fields(-1e-9, 1e-3)
-    _update_fi(new_fi, fi, Ur, Ub, 0, 0, a, b, dt, 0.7)
-    legacy = new_fi[0, 0].copy()
-    update_fi_rows(new_fi, fi, 0, 0, 0.7 * Ur[0, 0], 0.7 * Ub[0, 0], a, b, dt)
-    assert np.allclose(new_fi[0, 0], legacy, rtol=1e-13, atol=0.0)
 
     fi, new_fi, Ur, Ub, a, b = _fields(0.0, 0.0)
     u = np.where(np.arange(Nr) >= n_pass_a, -1e-6 * cbrt_r1, 0.0)
     update_fi_rows(new_fi, fi, 0, 0, u, np.zeros(Nr), a, b, dt)
     assert np.isclose((new_fi[0, 0] * dr_cv).sum(), (fi[0, 0] * dr_cv).sum(), rtol=1e-12)
     assert np.all(new_fi[0, 0] >= 0.0)
+
+
+if __name__ == '__main__':
+    test_fi_conserved_across_r_pass()
+    test_fi_positive_under_strong_blocking()
+    test_blocking_keeps_pore_volume()
+    test_floc_narrowing_keeps_capillaries()
+    print('OK')

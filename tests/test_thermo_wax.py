@@ -11,7 +11,7 @@ import numpy as np
 
 from paraphin.constants import MW, M_o, Tm_K, alpha, R, init_Wp, init_Wps
 from paraphin.equations.Thermo_wax import sle_split, wat_cell, x_saturation
-from paraphin.equations.Wp_balance import _wp_saturated
+from paraphin.equations.Thermo_wax import single_wp_saturated
 from paraphin.layout import N_W
 from paraphin.oil_composition import (WAX_M, WAX_TM_K, WAX_DH, WAX_DV, WAX_W0, scn_distribution,
                                       lump_groups, won_tm)
@@ -43,7 +43,7 @@ def test_single_group_is_legacy_formula():
     worst = 0.0
     for w in np.linspace(0.0, 0.5, 26):
         for t in np.linspace(-20.0, 90.0, 45):
-            legacy = _wp_saturated(w, t)
+            legacy = single_wp_saturated(w, t)
             dis = _split_numpy(np.array([w]), np.array([MW]), np.array([Tm_K]), np.array([alpha]),
                                np.array([0.0]), t)[0]
             worst = max(worst, abs(dis - legacy) / max(legacy, 1e-300))
@@ -84,13 +84,16 @@ def test_wat_is_onset_of_precipitation():
 
 
 def test_calibrated_curve_matches_li2024():
-    """Группы по умолчанию воспроизводят кривую выпадения Li et al. (2024) в интервале 10-45 C."""
+    """Группы детального состава (`GR_*`) воспроизводят кривую выпадения Li et al. (2024) в интервале 10-45 C.
+    Ядро здесь не нужно: его совпадение с numpy-эталоном проверяет `test_kernel_matches_enumeration`."""
+    from paraphin import oil_composition as oc
     li = [(40.0, 1.5), (35.0, 5.0), (30.0, 9.5), (25.0, 13.0), (20.0, 16.0), (10.0, 20.5)]
-    sus = np.zeros(N_W)
-    w = WAX_W0 * 0.2493 / (init_Wp + init_Wps)
-    worst = max(abs(100.0 * sle_split(w, t, 1e5, sus)[1] - prec) for t, prec in li)
+    w = oc.GR_W0 * 0.2493 / (init_Wp + init_Wps)
+    dv = 0.0 * oc.GR_DV
+    worst = max(abs(100.0 * (w.sum() - oc.sle_split_np(w, oc.GR_M, oc.GR_TM_K, oc.GR_DH, dv, t).sum()) - prec)
+                for t, prec in li)
     assert worst < 1.0, worst
-    assert abs(wat_cell(w, 1e5) - 45.65) < 1.5
+    assert abs(oc.wat_np(w, oc.GR_M, oc.GR_TM_K, oc.GR_DH, dv) - 45.65) < 1.5
 
 
 def test_clausius_clapeyron():

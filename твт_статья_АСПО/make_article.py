@@ -542,8 +542,8 @@ def field_numbers(th, num):
     # Скорость теплового фронта к скорости воды: доля теплоемкости воды в теплоемкости пласта
     num['F_VT_RATIO'] = f'{init_m * ro_w * c_w / rc_eff:.2f}'
     t_inj = 20.0
-    w0 = oc.WAX_W0.sum()
-    solid = lambda t: w0 - oc.sle_split_np(oc.WAX_W0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV, t,
+    w0 = oc.GR_W0.sum()
+    solid = lambda t: w0 - oc.sle_split_np(oc.GR_W0, oc.GR_M, oc.GR_TM_K, oc.GR_DH, oc.GR_DV, t,
                                            dp=12e6 - P_ref_wax, n_g=oc.gas_moles(12e6)).sum()
     live = solid(t_inj) - solid(t0)  # выпадает при охлаждении живой нефти от пластовой до температуры закачки
     ste = rc_eff * (t0 - t_inj) / (init_m * (1 - init_S) * ro_o * live * latent_heat)

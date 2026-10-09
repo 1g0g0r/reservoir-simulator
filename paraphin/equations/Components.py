@@ -1,19 +1,21 @@
-"""Перенос компонентов нефтяной фазы и их равновесие: группы парафина, асфальтены, смолы (флаг `wax_components`).
+"""Перенос компонентов нефтяной фазы и их равновесие: группы парафина, асфальтены, смолы.
 
 Компоненты (массовые доли в нефтяной фазе, индексы - `paraphin/layout.py`):
     Wc[..., :N_w]   группы н-алканов, растворенные + взвешенные кристаллы;
     Wc[..., IA_D]   растворенные (пептизированные) асфальтены;
     Wc[..., IA_F]   флокулы асфальтенов;
     Wc[..., I_R]    смолы.
-Остаток 1 - sum(Wc) - ненормальные насыщенные и ароматика в неизменной пропорции (SARA).
+Остаток 1 - sum(Wc) - ненормальные насыщенные и ароматика в неизменной пропорции (SARA). Однокомпонентная модель
+парафина - частный случай: одна группа (`wax_characterization = 'single'`). Без асфальтенов переносятся только
+группы парафина (`layout.NC_T`): доли асфальтенов и смол тогда ни на что не влияют.
 Все компоненты движутся с нефтью с одной скоростью (обзор, разд. 3.2: уравнение неразрывности по
 компоненту со стоком в отложения), поэтому уравнение сохранения для каждого одно и то же:
 
     (m*S_o*w_c)^new = (m*S_o*w_c) + dt/|V|*[sum_f F_f*w_c,up + q_o*w_c] - dt*s_c,          (1)
 
-F_f - объемный поток нефтяной фазы через грань f (`flows_in_cells` пишет их в `Fo_row`), w_c,up - доля
-вверх по потоку, q_o - дебит нефти скважины. Стоки s_c - осадок в порах (`calc_qp_m_k_fi[_2]`), поделенный
-на ro_o, как в `wp_equation`:
+F_f - объемный поток нефтяной фазы через грань f (`flows_in_cells` пишет их в `Fo`), w_c,up - доля
+вверх по потоку, q_o - дебит нефти скважины. Стоки s_c - осадок в порах (`calc_qp_m_k_fi`, `Deposition`), поделенный
+на ro_o (доли массовые, плотность фазы одна):
     группа парафина k:  ro_p/ro_o*(q_p1 + q_p2) * w_ps,k/sum(w_ps)  - оседают взвешенные кристаллы;
     флокулы:            ro_ad/ro_o*(1 - f_r)*q_pa;
     смолы:              ro_ad/ro_o*f_r*q_pa  (соосаждение пептизирующих смол).
@@ -28,12 +30,11 @@ from numba import njit
 from paraphin.constants import (Nx, Ny, volume, ro_o, ro_p, ro_asph, ro_asph_dep, resin_in_deposit, asphaltenes,
                                 wax_kinetics, asph_aggregation, adsorption, deposition_kinetics)
 from paraphin.kinetics_params import K_CRYST, K_DISS, AGG_D0, AGG_W
-from paraphin.layout import (N_W, NC, IA_D, IA_F, I_R, IS0, IN_F, KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR,
-                             KX_GA, KX_GR, KX_QPA)
+from paraphin.layout import N_W, NC_T, IA_D, IA_F, I_R, IS0, IN_F, LEAN
 from paraphin.oil_composition import F_SAT_REST, WAX_L_REL
-from paraphin.utils import get_bound, DI, DJ
+from paraphin.utils import get_bound, DI, DJ, PARAFFIN, DIRICHLET
 from .Asphaltene import asph_soluble, floc_relax
-from .Thermo_wax import sle_split
+from .Thermo_wax import sle_split, single_split
 from .Kinetics_math import relax_exp, coagulation_kernel, smoluchowski_step
 
 _RO_P_O = ro_p / ro_o
@@ -41,14 +42,14 @@ _RO_AD_O = ro_asph_dep / ro_o
 
 
 @njit(cache=True)
-def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, T, m, S, new_m, new_S,
+def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, cells_W_eq, Fo, p, T, m, S, new_m, new_S,
                         Wc, new_Wc, Ws, new_Ws, src_Qo, new_qp1, new_qp2, new_Wp, new_Wps, new_Hl,
                         Dep, kin, kx, new_kx, mu_p, dt) -> None:
     """Перенос (1), стоки в отложения, равновесие. Пишет new_Wc, new_Ws, суммы new_Wp, new_Wps и new_Hl.
 
-    Fo_row: numpy.ndarray(4)
-        Потоки нефтяной фазы через грани ячейки из `flows_in_cells` этой же итерации (строка скретча
-        `rows[i, ROW_FO]`, первые 4 элемента).
+    cells_W_eq, Fo: numpy.ndarray(Nx, Ny), numpy.ndarray(Nx, Ny, 4)
+        Из `flows_in_cells` этого шага: потоки нефтяной фазы через грани `Fo[i, j, :]` или, при одном переносимом
+        компоненте (`NC_T = 1`), сразу его приток через грани sum_f F_f*w_up - `cells_W_eq[i, j]`.
     bc_Wc: numpy.ndarray(4, NC)
         Состав нефти, втекающей через границу с ГУ Дирихле `DataField.Paraffin`.
     Dep: numpy.ndarray(Nx, Ny, NC)
@@ -58,7 +59,7 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
 
     Флаги кинетики (`equations/Deposition.py`) добавляют:
       - стоки стеночной кристаллизации и старения (из растворенного парафина, по долям групп `KX_WSH`,
-        `KX_GSH`) и адсорбции (из растворенных асфальтенов и смол);
+        `kx.gsh`) и адсорбции (из растворенных асфальтенов и смол);
       - отрицательные стоки - вынос: осадок возвращается во взвесь и флокулы по своему составу;
       - `wax_kinetics`: взвесь групп - переносимое состояние Wc[IS0 + k], релаксирующее к равновесию
         с k_cryst (кристаллизация) или k_diss (растворение), d w_s/dt = k*(w_s^eq - w_s), точно за шаг;
@@ -70,6 +71,29 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
 
     mso = m[i, j] * (1.0 - S[i, j])
     mso_new = new_m[i, j] * (1.0 - new_S[i, j])
+
+    if LEAN:
+        # Однокомпонентная модель - (1) для единственной группы без циклов по компонентам и отложениям: приток через
+        # грани собран в `flows_in_cells`, сток - кристаллы q_p1 + q_p2, равновесие - замкнутой формой, взвесь по
+        # группам Ws не нужна. Общий путь здесь вдвое замедлял шаг однокомпонентного расчета. Сумма группы - из Wc, а не
+        # аргументами Wp, Wps: два лишних аргумента-массива замедляли проход по ячейкам на 40 % (75x75)
+        w = Wc[i, j, 0]
+        s_k = _RO_P_O * (new_qp1[i, j] + new_qp2[i, j])
+        Dep[i, j, 0] += dt * ro_o * s_k
+        if mso_new <= 1e-12:  # ячейка промыта водой: нефтяной фазы нет
+            new_Wc[i, j, 0] = 0.0
+            new_Wp[i, j] = 0.0
+            new_Wps[i, j] = 0.0
+            new_Hl[i, j] = 0.0
+            return None
+        w = (mso * w + dt * ((cells_W_eq[i, j] + src_Qo[i, j] * w) / volume - s_k)) / mso_new
+        w = min(max(w, 0.0), 1.0)
+        new_Wc[i, j, 0] = w
+        w_dis, w_sus = single_split(w, T[i, j], p[i, j])
+        new_Wp[i, j] = w_dis
+        new_Wps[i, j] = w_sus
+        new_Hl[i, j] = WAX_L_REL[0] * w_dis
+        return None
 
     # Стоки в отложения
     qw = new_qp1[i, j] + new_qp2[i, j]
@@ -88,31 +112,33 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
             s_cap = _RO_P_O * qw * Ws[i, j, k] / ws_sum if ws_sum > 0.0 else 0.0
         s_k = s_cap
         if deposition_kinetics:
-            s_k += _RO_P_O * (new_kx[i, j, KX_QW] * new_kx[i, j, KX_WSH + k]
-                              + new_kx[i, j, KX_QG] * new_kx[i, j, KX_GSH + k])
+            s_k += _RO_P_O * (new_kx[i, j].qw * new_kx[i, j].wsh[k]
+                              + new_kx[i, j].qg * new_kx[i, j].gsh[k])
         Dep[i, j, k] += dt * ro_o * s_k
         new_Wc[i, j, k] = mso * Wc[i, j, k] - dt * s_k
         if wax_kinetics:  # захват уносит взвесь, вынос ее возвращает
             new_Wc[i, j, IS0 + k] = mso * Wc[i, j, IS0 + k] - dt * s_cap
-    qpa = new_kx[i, j, KX_QPA]
-    if deposition_kinetics and qpa < 0.0:
-        dep_a = Dep[i, j, IA_F] + Dep[i, j, I_R]
-        f_af = Dep[i, j, IA_F] / dep_a if dep_a > 0.0 else 1.0 - resin_in_deposit
-        s_af = _RO_AD_O * f_af * qpa
-        s_r = _RO_AD_O * (1.0 - f_af) * qpa
-    else:
-        s_af = _RO_AD_O * (1.0 - resin_in_deposit) * qpa
-        s_r = _RO_AD_O * resin_in_deposit * qpa
-    Dep[i, j, IA_F] += dt * ro_o * s_af
-    Dep[i, j, I_R] += dt * ro_o * s_r
-    new_Wc[i, j, IA_D] = mso * Wc[i, j, IA_D]
-    new_Wc[i, j, IA_F] = mso * Wc[i, j, IA_F] - dt * s_af
-    new_Wc[i, j, I_R] = mso * Wc[i, j, I_R] - dt * s_r
+    s_af = 0.0
+    if NC_T > N_W:  # асфальтены и смолы переносятся (без асфальтенов осадка у них нет, qpa = 0)
+        qpa = new_kx[i, j].qpa
+        if deposition_kinetics and qpa < 0.0:
+            dep_a = Dep[i, j, IA_F] + Dep[i, j, I_R]
+            f_af = Dep[i, j, IA_F] / dep_a if dep_a > 0.0 else 1.0 - resin_in_deposit
+            s_af = _RO_AD_O * f_af * qpa
+            s_r = _RO_AD_O * (1.0 - f_af) * qpa
+        else:
+            s_af = _RO_AD_O * (1.0 - resin_in_deposit) * qpa
+            s_r = _RO_AD_O * resin_in_deposit * qpa
+        Dep[i, j, IA_F] += dt * ro_o * s_af
+        Dep[i, j, I_R] += dt * ro_o * s_r
+        new_Wc[i, j, IA_D] = mso * Wc[i, j, IA_D]
+        new_Wc[i, j, IA_F] = mso * Wc[i, j, IA_F] - dt * s_af
+        new_Wc[i, j, I_R] = mso * Wc[i, j, I_R] - dt * s_r
     if adsorption:
-        s_ada = _RO_AD_O * new_kx[i, j, KX_QADA]
-        s_adr = _RO_AD_O * new_kx[i, j, KX_QADR]
-        new_kx[i, j, KX_GA] = kx[i, j, KX_GA] + dt * ro_o * s_ada
-        new_kx[i, j, KX_GR] = kx[i, j, KX_GR] + dt * ro_o * s_adr
+        s_ada = _RO_AD_O * new_kx[i, j].qada
+        s_adr = _RO_AD_O * new_kx[i, j].qadr
+        new_kx[i, j].ga = kx[i, j].ga + dt * ro_o * s_ada
+        new_kx[i, j].gr = kx[i, j].gr + dt * ro_o * s_adr
         new_Wc[i, j, IA_D] -= dt * s_ada
         new_Wc[i, j, I_R] -= dt * s_adr
     if asph_aggregation:
@@ -124,30 +150,32 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
     # Перенос: поток через грань и дебит скважины (у добывающей - свой состав, у нагнетательной q_o = 0)
     coef = dt / volume
     q_well = coef * src_Qo[i, j]
-    for c in range(NC):
+    for c in range(NC_T):
         new_Wc[i, j, c] += q_well * Wc[i, j, c]
-    for idx in range(4):
-        f = coef * Fo_row[idx]
+    if NC_T == 1:  # приток единственного компонента уже собран по граням в `flows_in_cells`
+        new_Wc[i, j, 0] += coef * cells_W_eq[i, j]
+    for idx in range(4 if NC_T > 1 else 0):
+        f = coef * Fo[i, j, idx]
         if f > 0.0:
             i1 = i + DI[idx]
             j1 = j + DJ[idx]
             if (0 <= i1 < Nx) and (0 <= j1 < Ny):
-                for c in range(NC):
+                for c in range(NC_T):
                     new_Wc[i, j, c] += f * Wc[i1, j1, c]
             else:
                 bound = get_bound(i1, j1)
-                if boundary_conditions[bound, 3, 0] == 1:
-                    for c in range(NC):
+                if boundary_conditions[bound, PARAFFIN].type == DIRICHLET:
+                    for c in range(NC_T):
                         new_Wc[i, j, c] += f * bc_Wc[bound, c]
                 else:
-                    for c in range(NC):
+                    for c in range(NC_T):
                         new_Wc[i, j, c] += f * Wc[i, j, c]
         elif f < 0.0:
-            for c in range(NC):
+            for c in range(NC_T):
                 new_Wc[i, j, c] += f * Wc[i, j, c]
 
     if mso_new <= 1e-12:  # ячейка промыта водой: нефтяной фазы нет, переносить нечего
-        for c in range(NC):
+        for c in range(NC_T):
             new_Wc[i, j, c] = 0.0
         for k in range(N_W):
             new_Ws[i, j, k] = 0.0
@@ -157,7 +185,7 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
         return None
 
     wax_total = 0.0
-    for c in range(NC):
+    for c in range(NC_T):
         v = max(new_Wc[i, j, c] / mso_new, 0.0)
         new_Wc[i, j, c] = min(v, 1.0) if c < IN_F else v  # число флокул - не доля
         if c < N_W:
@@ -169,7 +197,7 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
         w_dis, w_sus, hl = 0.0, 0.0, 0.0
         for k in range(N_W):
             eq = new_Ws[i, j, k]
-            new_kx[i, j, KX_WEQ + k] = eq
+            new_kx[i, j].weq[k] = eq
             s_k = min(new_Wc[i, j, IS0 + k], new_Wc[i, j, k])
             s_k = relax_exp(s_k, eq, kin[K_CRYST] if s_k < eq else kin[K_DISS], dt)
             new_Wc[i, j, IS0 + k] = s_k
@@ -179,7 +207,7 @@ def components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, Fo_row, p, 
             w_sus += s_k
             hl += WAX_L_REL[k] * dis
     else:
-        # Равновесие групп парафина при температуре текущего слоя (как в `wp_equation`) и новом давлении
+        # Равновесие групп парафина при температуре текущего слоя (энергия считается после) и новом давлении
         w_dis, w_sus, hl = sle_split(new_Wc[i, j, :N_W], T[i, j], p[i, j], new_Ws[i, j, :])
     new_Wp[i, j] = w_dis
     new_Wps[i, j] = w_sus

@@ -1,7 +1,7 @@
 """Локальное тепловое неравновесие флюидов и породы (`thermal_nonequilibrium`; обзор 4.5).
 
 В основной модели флюиды и порода в каждой точке имеют одну температуру (LTE, обзор 3.7). Здесь у породы своя
-температура T_s (поле `kx[..., KX_TS]`), а теплообмен между ними идет с объемным коэффициентом h_v:
+температура T_s (поле `kx['ts']`), а теплообмен между ними идет с объемным коэффициентом h_v:
 
     C_f*dT/dt   = (конвекция, теплопроводность, скрытая теплота, потери) - h_v*(T - T_s),
     C_s*dT_s/dt = h_v*(T - T_s),
@@ -25,9 +25,8 @@ import math
 
 from numba import njit
 
-from paraphin.constants import init_m, ro_f, ro_o, ro_w, K_o, K_w, wax_components, volume
+from paraphin.constants import init_m, ro_f, ro_o, ro_w, K_o, K_w, volume
 from paraphin.kinetics_params import LTNE_DG
-from paraphin.layout import KX_TS
 from .Temperature import psi_cell, LATENT, heat_loss_rate
 
 
@@ -56,27 +55,26 @@ def exchange_step(t_f, t_s, c_f, c_s, h_v, dt):
 
 
 @njit(cache=True)
-def temperature_equation_ltne(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_Wp, new_Wps, Hl, new_Hl,
+def temperature_equation_ltne(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_Wp, new_Wps, Hl, new_Hl,
                               cells_T_eq, t, E_ff, new_T, new_m, new_S, kx, new_kx, u_abs, mu_o, kin, dt):
     """Уравнение энергии флюидов (как `temperature_equation`, но без теплоемкости породы) и обмен с породой.
 
     Возвращает psi - полную теплоемкость ячейки текущего слоя (флюиды + порода): ее, как и в `temperature_equation`,
     берет ограничение Куранта по температуре."""
     c_rock = (1.0 - init_m) * ro_f * C_f[i, j]
-    psi = psi_cell(i, j, m, S, Wo[i, j], Wp[i, j], Wps[i, j], C_w, C_o, C_p, C_f)
+    psi = psi_cell(i, j, m, S, 1.0 - Wp[i, j] - Wps[i, j], Wp[i, j], Wps[i, j], C_w, C_o, C_p, C_f)
     psi_next = psi_cell(i, j, new_m, new_S, 1.0 - new_Wp[i, j] - new_Wps[i, j],
                         new_Wp[i, j], new_Wps[i, j], C_w, C_o, C_p, C_f)
     cf_now, cf_next = psi - c_rock, psi_next - c_rock
     derivative_add = T[i, j] * (cf_next - cf_now) / dt
 
-    carrier, carrier_new = (Hl[i, j], new_Hl[i, j]) if wax_components else (Wp[i, j], new_Wp[i, j])
-    latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * carrier - new_m[i, j] * (1.0 - new_S[i, j]) * carrier_new) / dt
+    latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * Hl[i, j] - new_m[i, j] * (1.0 - new_S[i, j]) * new_Hl[i, j]) / dt
 
     t_losses = heat_loss_rate(i, j, t, T, T_0, E_ff, dt)
 
     t_f = T[i, j] + dt / cf_next * (cells_T_eq[i, j] / volume - derivative_add - t_losses + latent)
     h_v = interphase_h(new_m[i, j], new_S[i, j], u_abs, mu_o[i, j], C_o[i, j], kin)
-    t_f, t_s = exchange_step(t_f, kx[i, j, KX_TS], cf_next, c_rock, h_v, dt)
+    t_f, t_s = exchange_step(t_f, kx[i, j].ts, cf_next, c_rock, h_v, dt)
     new_T[i, j] = t_f
-    new_kx[i, j, KX_TS] = t_s
+    new_kx[i, j].ts = t_s
     return psi

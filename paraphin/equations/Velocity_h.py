@@ -1,14 +1,12 @@
-"""Вычисление скоростей и толщины осадочного слоя в ячейке."""
+"""Скорости сужения и блокирования капилляров кристаллами парафина в ячейке (модель без кинетики осаждения)."""
 import numpy as np
 from numba import njit
 
 from paraphin.geometry import r1, r4, cbrt_r1, n_pass
-from paraphin.constants import (data_type, Nr, D, g, betta, Lk, Cf, S_max, Delta, ro_p,
-                                min_Wps_bound, suffusion, k_B, diff_mult)
+from paraphin.constants import Nr, D, betta, Lk, S_max, min_Wps_bound, k_B, diff_mult
 
 
 b_D_3 = 6.0 * betta / D / D / D
-cf_D2 = Cf * D * D * g / 18.0
 # Броуновская диффузия частицы по Стоксу-Эйнштейну: D_p = k_B*T/(3*pi*mu*d). От ячейки зависят только T и
 # mu_o, остальное - в множителе. В формулу сужения диффузия входит как 2*D_p^2/Lk (см. `calc_velocities_h`).
 # `diff_mult` - множитель калибровки (по умолчанию 1).
@@ -17,8 +15,8 @@ So_max = 1.0 - S_max
 
 
 @njit(cache=True)
-def calc_velocities_h(i, j, S, T, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_new, Ub_new, dt) -> None:
-    """Скорости блокирования и сужения капилляров и толщина осадочного слоя в ячейке.
+def calc_velocities_h(i, j, S, T, Um_r2, Wps, mu_o, Ur_new, Ub_new) -> None:
+    """Скорости блокирования и сужения капилляров в ячейке.
 
     Узкие капилляры частица затыкает целиком (Ub), в широкие проходит и оседает на стенке,
     сужая их (Ur < 0). Граница - радиус, при котором частица проходит горло; критерий и деление
@@ -26,7 +24,7 @@ def calc_velocities_h(i, j, S, T, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_n
     При Wps ниже порога кольматации цикл не имеет смысла и не выполняется.
 
     `Ub` хранит *коэффициент* b(r) блокирования, а не саму скорость: сама скорость
-    ub = b(r)*fi пропорциональна функции пор, и в `_update_fi` слагаемое блокирования берется
+    ub = b(r)*fi пропорциональна функции пор, и в `Pore_bundle.update_fi_rows` слагаемое блокирования берется
     неявно (b уходит на диагональ прогонки). Иначе при больших b*dt функция `fi` уходит в минус,
     и «безусловная устойчивость» неявной схемы положительности не гарантирует.
 
@@ -41,8 +39,7 @@ def calc_velocities_h(i, j, S, T, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_n
     """
     # Тк при Wps=0 цикл не имеет смысла
     if Wps[i, j] > min_Wps_bound:
-        # max(0, S_o - S_o*): ниже предельной нефтенасыщенности формула меняла знак,
-        # то есть капилляры начинали расширяться без всякой суффозии
+        # max(0, S_o - S_o*): ниже предельной нефтенасыщенности формула меняла знак
         So = max(0.0, 1.0 - S[i, j] - So_max)
         wps = Wps[i, j]
         um_r2 = Um_r2[i, j]
@@ -60,108 +57,6 @@ def calc_velocities_h(i, j, S, T, Um_r2, Wps, mu_o, h_sloy, Ur, h_sloy_new, Ur_n
         for ij in range(n_pass):
             Ub_new[i, j, ij] = ub_coef * r4[ij]
             Ur_new[i, j, ij] = 0.0
-            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
         for ij in range(n_pass, Nr):
             Ub_new[i, j, ij] = 0.0
-            Ur_new[i, j, ij] = u_r(ur_coef * cbrt_r1[ij], So, um_r2, r1[ij],
-                                   h_sloy[i, j, ij], mu_o[i, j])
-            h_sloy_new[i, j, ij] = sed_h(h0=h_sloy[i, j, ij], ur=Ur[i, j, ij], r=r1[ij], dt=dt)
-
-
-@njit(cache=True)
-def u_r(ur_narrowing: data_type, So: data_type, um_r2: data_type, r: data_type,
-        h: data_type, mu: data_type) -> data_type:
-    """Скорость изменения радиуса капилляра, [м/с]: сужение минус вынос.
-
-    Сужение (кольматация) приходит готовым в `ur_narrowing`: множитель -So*wps*cbrt(um_r2*diff_2)
-    от радиуса не зависит и считается один раз на ячейку, здесь остается только умножение на
-    cbrt(r) - см. `calc_velocities_h`.
-
-    Расширение (суффозия, вынос осевших частиц потоком) включается флагом `suffusion` в
-    `constants.py`. Флаг - константа времени компиляции, поэтому при выключенной суффозии numba
-    выкидывает всю ветку целиком: ни `u_c`, ни `um` не считаются. Раньше `u_c` вызывалась
-    безусловно на каждой паре (ячейка, радиус), а результат никуда не шел.
-
-    Parameters
-    ----------
-    ur_narrowing: float
-        Готовая скорость сужения для этого радиуса, [м/с]
-    So: float
-        Нефтенасыщенность, [-]
-    um_r2: float
-        Средняя скорость в капилляре без множителя r^2, [1/(м*с)]
-    r: float
-        Радиус капилляра, [м]
-    h: float
-        Толщина осадочного слоя, [м]
-    mu: float
-        Вязкость нефти, [Па*с]
-
-    Returns
-    -------
-    ur: float
-        Скорость изменения радиуса капилляра, [м/с]
-    """
-    ur = ur_narrowing
-
-    if suffusion:
-        um = um_r2 * r * r
-        uc = u_c(r=r, mu=mu, ro=ro_p)
-        if um > uc and h > 0.0:
-            ur += So * Delta * (um - uc) * h * (r + h * 0.5) / r
-
-    return ur
-
-
-@njit(cache=True)
-def u_c(r: data_type, mu: data_type, ro: data_type) -> data_type:
-    """Критическая скорость потока в капилляре, [м/с]. Нужна только суффозии (`u_r`).
-
-    Parameters
-    ----------
-    r: float
-        Радиус капилляра, [м]
-    mu: float
-        Вязкость нефти, [Па*с]
-    ro: float
-        Плотность парафина, [кг/м^3]
-
-    Return
-    ------
-    uc: float
-        Критическая скорость, [м/с]
-    """
-    uc = 0.0
-    if r > 0.0:
-        x0 = 0.5 * D / r
-        if x0 < 1.0:
-            x = 1.0 - x0
-            uc = cf_D2 * ro / (mu * (1.0 - x * x))
-
-    return uc
-
-
-@njit(cache=True)
-def sed_h(h0: data_type, ur: data_type, r: data_type, dt: data_type) -> data_type:
-    """Вычисление толщины осадочного слоя.
-
-    Parameters
-    ----------
-    h0: float
-        Толщина осадочного слоя, [м]
-    ur: float
-        Скорость изменения радиуса капилляра, [м/с]
-    r: float
-        Радиус капилляра, [м]
-    dt: float
-        Текущий шаг по времени, [с]
-
-    Returns
-    -------
-    hr: float
-        Толщина осадочного слоя на новом временном слое, [м]
-    """
-    hr = h0 - dt * ur
-    hr = max(0.0, min(hr, r - 1e-7))
-
-    return hr
+            Ur_new[i, j, ij] = ur_coef * cbrt_r1[ij]

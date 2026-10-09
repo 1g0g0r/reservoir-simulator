@@ -25,9 +25,16 @@ class DataField(Enum):
     Paraffin    = 3  # Суммарная доля парафина во втекающей нефти; учитывается только Дирихле, см. `flows_in_cells`
 
 
+# Граничные условия - массив [граница, поле] (индексы - `Bound`, `DataField`) с dtype BC: тип (`TypeBC`) и значение.
+# В ядрах - `bc[bound, PARAFFIN].type == DIRICHLET`, в Python - `bc['value'][bound, field]`
+BC = np.dtype([('type', np.int64), ('value', np.float64)])
+PRESSURE, SATURATION, TEMPERATURE, PARAFFIN = (f.value for f in DataField)
+DIRICHLET = TypeBC.Dirichlet.value
+
+
 def add_bc(boundary_conditions, boundary: int, field: int, type_bc: int, value: float):
-    boundary_conditions[boundary, field, 0] = type_bc
-    boundary_conditions[boundary, field, 1] = value
+    boundary_conditions['type'][boundary, field] = type_bc
+    boundary_conditions['value'][boundary, field] = value
 
 
 @njit(cache=True)
@@ -35,13 +42,11 @@ def apply_bc(boundary_conditions: np.ndarray, bound: int, data_field_idx: int, d
              i: int, j: int, h: data_type) -> data_type:
     """Учет граничных условий на границе области."""
     ret = 0.0
-    bc_type  = boundary_conditions[bound, data_field_idx, 0]
-    bc_value = boundary_conditions[bound, data_field_idx, 1]
-
-    if bc_type == 1:  # Дирихле (1 рода)
-        ret = bc_value
-    else:             # Неймана (2 рода)
-        ret = data_field[i, j] + bc_value * h
+    bc = boundary_conditions[bound, data_field_idx]
+    if bc.type == DIRICHLET:  # Дирихле (1 рода)
+        ret = bc.value
+    else:                     # Неймана (2 рода)
+        ret = data_field[i, j] + bc.value * h
 
     return ret
 

@@ -29,7 +29,6 @@ sys.path.insert(0, str(ROOT / 'experiments' / 'исходная_модель'))
 
 import core_flood as cf  # noqa: E402
 from paraphin import oil_composition as oc  # noqa: E402
-from paraphin.layout import N_W  # noqa: E402
 from paraphin.constants import (P_ref_wax, P_bubble, P_onset_asph, init_T, R, ro_o, ro_asph, v_asph,  # noqa: E402
                                 sara_asphaltenes, sara_resins, scn_first, Rs_bubble, ro_wax_liq, ro_p, wax_alpha_eff,
                                 wax_Tm_shift)
@@ -116,25 +115,25 @@ def synthetic(t_curve):
 
 # --- B. Нефть Жетыбая (Li et al., 2024) ----------------------------------------------------------------------
 def zhetybai(t_curve):
-    w0 = oc.WAX_W0
-    eos, n, mw, _, iw, _ = tb.oil_fluid(0.0, gas=False)
+    w0 = oc.GR_W0
+    eos, n, mw, _, iw, _ = tb.oil_fluid(0.0, gas=False, w_wax=oc.GR_W0, m_wax=oc.GR_M)
     z = n / n.sum()
-    g = np.arange(iw, iw + N_W)
+    g = np.arange(iw, iw + oc.GR_W0.size)
     is_f = np.zeros(eos.nc, bool)
     is_f[g] = True
     tm_all, dh_all = np.full(eos.nc, np.nan), np.full(eos.nc, np.nan)
-    tm_all[g], dh_all[g] = tb.WAX_TM_WON, tb.WAX_DH_WON
-    ms = MultiSolidWax(eos, g, tb.WAX_TM_WON, tb.WAX_DH_WON, tb.WAX_DV_EOS, P_ref_wax)
+    tm_all[g], dh_all[g] = tb.GR_TM_WON, tb.GR_DH_WON
+    ms = MultiSolidWax(eos, g, tb.GR_TM_WON, tb.GR_DH_WON, tb.GR_DV_EOS, P_ref_wax)
     ss = IdealSolidSolutionWax(is_f, tm_all, dh_all)
-    ms_c, uq = _coutinho_models(eos, g, oc.WAX_M, tb.WAX_DV_EOS)
+    ms_c, uq = _coutinho_models(eos, g, oc.GR_M, tb.GR_DV_EOS)
 
     def wax_pct(model, t):
         return 100.0 * np.sum(model.precipitate(t, P_ref_wax, z)[0] * mw) * n.sum()
 
     def curves(t_c):
         t = t_c + 273.15
-        return {'eff': 100.0 * (w0.sum() - oc.sle_split_np(w0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV, t_c).sum()),
-                'ideal': 100.0 * (w0.sum() - oc.sle_split_np(w0, oc.WAX_M, tb.WAX_TM_WON, tb.WAX_DH_WON, 0.0, t_c).sum()),
+        return {'eff': 100.0 * (w0.sum() - oc.sle_split_np(w0, oc.GR_M, oc.GR_TM_K, oc.GR_DH, oc.GR_DV, t_c).sum()),
+                'ideal': 100.0 * (w0.sum() - oc.sle_split_np(w0, oc.GR_M, tb.GR_TM_WON, tb.GR_DH_WON, 0.0, t_c).sum()),
                 'pr': wax_pct(ms, t), 'ss': 100.0 * np.sum(ss.precipitate(t, z)[0] * mw) * n.sum(),
                 'ms_c': wax_pct(ms_c, t), 'uq': wax_pct(uq, t)}
 
@@ -144,8 +143,8 @@ def zhetybai(t_curve):
     grid = [curves(t) for t in t_curve]
     keys = ('eff', 'ideal', 'pr', 'ss', 'ms_c', 'uq')
     return {
-        'wat': {'eff': oc.wat_np(w0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV),
-                'ideal': oc.wat_np(w0, oc.WAX_M, tb.WAX_TM_WON, tb.WAX_DH_WON, 0.0 * w0),
+        'wat': {'eff': oc.wat_np(w0, oc.GR_M, oc.GR_TM_K, oc.GR_DH, oc.GR_DV),
+                'ideal': oc.wat_np(w0, oc.GR_M, tb.GR_TM_WON, tb.GR_DH_WON, 0.0 * w0),
                 'pr': ms.wat(P_ref_wax, z) - 273.15, 'ss': ss.wat(z) - 273.15,
                 'ms_c': ms_c.wat(P_ref_wax, z) - 273.15, 'uq': uq.wat(P_ref_wax, z) - 273.15},
         'rms_fit': {k: _rms([c[k] for c, ok in zip(at_exp, fit) if ok], exp[fit, 1]) for k in keys},
@@ -183,27 +182,27 @@ def zhetybai_uniquac_fit(exp):
 
 # --- C. WAT от давления --------------------------------------------------------------------------------------
 def wat_pressure(p_dead, p_live):
-    w0 = oc.WAX_W0
-    eos, n, _, _, iw, _ = tb.oil_fluid(0.0, gas=False)
-    ms = MultiSolidWax(eos, np.arange(iw, iw + N_W), tb.WAX_TM_WON, tb.WAX_DH_WON, tb.WAX_DV_EOS, P_ref_wax)
+    w0 = oc.GR_W0
+    eos, n, _, _, iw, _ = tb.oil_fluid(0.0, gas=False, w_wax=oc.GR_W0, m_wax=oc.GR_M)
+    ms = MultiSolidWax(eos, np.arange(iw, iw + oc.GR_W0.size), tb.GR_TM_WON, tb.GR_DH_WON, tb.GR_DV_EOS, P_ref_wax)
     z = n / n.sum()
     dead_pr = [ms.wat(p, z) - 273.15 for p in p_dead]
     # без скачка объема (вариант пакета research): твердое с объемом жидкости
-    ms0 = MultiSolidWax(eos, np.arange(iw, iw + N_W), tb.WAX_TM_WON, tb.WAX_DH_WON)
+    ms0 = MultiSolidWax(eos, np.arange(iw, iw + oc.GR_W0.size), tb.GR_TM_WON, tb.GR_DH_WON)
     dead_pr0 = [ms0.wat(p, z) - 273.15 for p in p_dead]
-    dead_eff = [oc.wat_np(w0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV, p - P_ref_wax) for p in p_dead]
+    dead_eff = [oc.wat_np(w0, oc.GR_M, oc.GR_TM_K, oc.GR_DH, oc.GR_DV, p - P_ref_wax) for p in p_dead]
 
-    kij = tb.calibrate_kij_gas()
-    eos, n, _, ig, iw, _ = tb.oil_fluid(kij, gas=True)
-    g = np.arange(iw, iw + N_W)
-    ms = MultiSolidWax(eos, g, tb.WAX_TM_WON, tb.WAX_DH_WON, tb.WAX_DV_EOS, P_ref_wax)
+    kij = tb.calibrate_kij_gas(w_wax=oc.GR_W0, m_wax=oc.GR_M)
+    eos, n, _, ig, iw, _ = tb.oil_fluid(kij, gas=True, w_wax=oc.GR_W0, m_wax=oc.GR_M)
+    g = np.arange(iw, iw + oc.GR_W0.size)
+    ms = MultiSolidWax(eos, g, tb.GR_TM_WON, tb.GR_DH_WON, tb.GR_DV_EOS, P_ref_wax)
 
     def supersat(t, p):  # самая пересыщенная группа жидкости живой нефти при всем растворенном парафине
         x = tb.live_liquid(eos, n, ig, t, p)[0]
         return float(np.max((ms.liquid_ln_fugacity(t, p, x) - ms.solid_ln_fugacity(t, p))[g]))
 
     live_pr = [brentq(supersat, 250.0, 450.0, args=(p,), xtol=1e-4) - 273.15 for p in p_live]
-    live_eff = [oc.wat_np(w0, oc.WAX_M, oc.WAX_TM_K, oc.WAX_DH, oc.WAX_DV, p - P_ref_wax, oc.gas_moles(p))
+    live_eff = [oc.wat_np(w0, oc.GR_M, oc.GR_TM_K, oc.GR_DH, oc.GR_DV, p - P_ref_wax, oc.gas_moles(p))
                 for p in p_live]
     sel = np.asarray(p_dead) <= 20e6
     slope = {k: float(np.polyfit(np.asarray(p_dead)[sel] / 1e6, np.asarray(v)[sel], 1)[0])
@@ -307,8 +306,8 @@ def tabzar(p_curve_psig):
 
 # --- F. PVT нефти модели ------------------------------------------------------------------------------------
 def pvt(p_grid):
-    kij = tb.calibrate_kij_gas()
-    eos, n, mw, ig = tb.oil_fluid(kij, gas=True)[:4]
+    kij = tb.calibrate_kij_gas(w_wax=oc.GR_W0, m_wax=oc.GR_M)
+    eos, n, mw, ig = tb.oil_fluid(kij, gas=True, w_wax=oc.GR_W0, m_wax=oc.GR_M)[:4]
     rows = [pvt_point(eos, n, mw, ig, init_T + 273.15, p) for p in p_grid]
     out = {k: [float(r[k]) for r in rows] for k in rows[0]}
     out['Rs_linear'] = [Rs_bubble * min(p / P_bubble, 1.0) for p in p_grid]

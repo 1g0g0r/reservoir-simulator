@@ -48,7 +48,7 @@ def _run(t_end=T_TEST):
         solver.upd_time_step(t)
 
         # Дебиты знаковые: q > 0 - закачка, q < 0 - отбор
-        q_in, q_out = solver.wells[0].q[2], -solver.wells[1].q[2]
+        q_in, q_out = solver.wells[0].q_t, -solver.wells[1].q_t
         worst_q = max(worst_q, abs((q_out - q_in) / q_in))
 
         dm = m_before - solver.m
@@ -88,13 +88,13 @@ def test_pore_volume_balance():
 def test_paraffin_mass_balance():
     """Глобальный баланс массы парафина: начальная масса = в фазе + осело + добыто.
 
-    Осевший парафин складывается из стоков `wp_equation` теми же множителями, что стоят в ней:
+    Осевший парафин складывается из стоков `components_equation` теми же множителями, что стоят в ней:
     осадок q_p1 и пробки q_p2 - чистый парафин (ro_p). Нефть блокированных каналов остается в
     пористости и считается в `in_place`. Добытый - через дебит нефтяной фазы добывающей скважины и
     долю парафина в ее ячейке на начало шага, как в `_wells_loop`. Закачивается только вода, приток
     парафина извне нулевой.
 
-    Схема консервативна, единственный неконсервативный элемент - зажим доли в нуле в `wp_equation`:
+    Схема консервативна, единственный неконсервативный элемент - зажим доли в нуле в `components_equation`:
     он срабатывает, когда сток за шаг превышает запас, и создает массу. Именно его ловит проверка,
     вместе с лагом стоков (q_p1, q_p2 прошлого слоя вместо нового).
     """
@@ -115,7 +115,7 @@ def test_paraffin_mass_balance():
 
         # После обмена слоев qp1, qp2 - те, что дали убыль пористости на этом шаге
         deposited += (ro_p * (solver.qp1 + solver.qp2) * volume).sum() * step_dt
-        produced += -producer.q[0] * ro_o * w_sum[i_p, j_p] * step_dt
+        produced += -producer.q_o * ro_o * w_sum[i_p, j_p] * step_dt
 
     assert deposited > 0.0, 'парафин не осел: баланс ничего не проверяет'
     residual = abs(mass_0 - in_place() - deposited - produced) / mass_0
@@ -154,8 +154,8 @@ def test_rate_control():
     while t < 10.0 * day_to_sec:
         t += solver.dt
         solver.upd_time_step(t)
-        worst_set = max(worst_set, abs((solver.wells[0].q[2] - Q_SET) / Q_SET))
-        worst_bal = max(worst_bal, abs((-solver.wells[1].q[2] - Q_SET) / Q_SET))
+        worst_set = max(worst_set, abs((solver.wells[0].q_t - Q_SET) / Q_SET))
+        worst_bal = max(worst_bal, abs((-solver.wells[1].q_t - Q_SET) / Q_SET))
 
     assert worst_set < 1e-14, f'заданный дебит не выдерживается: невязка {worst_set:.3e}'
     assert worst_bal < 1e-6, f'отбор разошелся с заданной закачкой: невязка {worst_bal:.3e}'
@@ -184,8 +184,8 @@ def test_rate_control_producer():
     while t < 10.0 * day_to_sec:
         t += solver.dt
         solver.upd_time_step(t)
-        worst_set = max(worst_set, abs((-solver.wells[1].q[2] - Q_SET) / Q_SET))
-        worst_bal = max(worst_bal, abs((solver.wells[0].q[2] - Q_SET) / Q_SET))
+        worst_set = max(worst_set, abs((-solver.wells[1].q_t - Q_SET) / Q_SET))
+        worst_bal = max(worst_bal, abs((solver.wells[0].q_t - Q_SET) / Q_SET))
 
     assert worst_set < 1e-14, f'заданный отбор не выдерживается: невязка {worst_set:.3e}'
     assert worst_bal < 1e-6, f'закачка разошлась с заданным отбором: невязка {worst_bal:.3e}'
@@ -231,43 +231,55 @@ def test_neumann_pressure_bc():
     solver.upd_time_step(0.0)
 
     inflow = grad * hx * h * float((solver.lam_o[:, 0] + solver.lam_w[:, 0]).sum())
-    outflow = -solver.wells[0].q[2]
+    outflow = -solver.wells[0].q_t
     assert abs(outflow - inflow) / inflow < 1e-6, f'отбор {outflow:.4e} не равен притоку через границу {inflow:.4e}'
 
 
 def test_paraffin_inflow_bc():
-    """ГУ Дирихле `DataField.Paraffin` задает состав втекающей нефти, а не берет его из самой ячейки.
+    """ГУ Дирихле `DataField.Paraffin` (и состав `bc_Wc`) задает состав втекающей нефти, а не берет его из ячейки.
 
     Без него керн, через который прокачивают нефть, получал бы на входе ту долю парафина, что осталась в
-    первой ячейке после осаждения, то есть подвод взвеси иссякал бы сам собой.
+    первой ячейке после осаждения, то есть подвод взвеси иссякал бы сам собой. Приток парафина в угловую ячейку
+    через левую границу - разность доли до и после переноса (`components_equation`) при неизменных m и S.
     """
     from paraphin.constants import init_p, init_S, init_k, init_m, init_T, c_o, c_w, c_p, data_type
-    from paraphin.equations import flows_in_cells
-    from paraphin.layout import NC
-    from paraphin.utils import Bound, DataField, calc_mu_o, calc_mu_w, calc_mobility
+    from paraphin.equations import flows_in_cells, components_equation
+    from paraphin.kinetics_params import default_kin
+    from paraphin.layout import NC, N_W, KX
+    from paraphin.oil_composition import WAX_W0, initial_components
+    from paraphin.utils import BC, Bound, DataField, calc_mu_o, calc_mu_w, calc_mobility
 
     def field(value):
         return np.full((Nx, Ny), value, data_type)
 
     w_cell, w_bc = 0.3, 0.1
     p, S, T, k, m = field(init_p), field(init_S), field(init_T), field(init_k), field(init_m)
-    Wo, Wp, Wps = field(1.0 - w_cell), field(w_cell), field(0.0)
+    Wp, Wps = field(w_cell), field(0.0)
     mu_o, mu_w = field(calc_mu_o(init_T, 0.0)), field(calc_mu_w(init_T))
     lam_o, lam_w, lam_h = field(0.0), field(0.0), field(0.0)
-    calc_mobility(k, S, m, Wo, Wp, Wps, mu_o, mu_w, lam_o, lam_w, lam_h)
+    calc_mobility(k, S, m, Wp, Wps, mu_o, mu_w, lam_o, lam_w, lam_h)
+    wc_cell = initial_components()
+    wc_cell[:N_W] *= w_cell / WAX_W0.sum()
+    Wc = np.tile(wc_cell, (Nx, Ny, 1))
 
     def inflow(w_boundary=None):
         """Приток парафина в угловую ячейку через левую границу с повышенным давлением."""
-        bc = np.zeros((4, 4, 2), data_type)
+        bc = np.zeros((4, 4), BC)
         bc[Bound.Left.value, DataField.Pressure.value] = (1, init_p + bar_to_pa)
+        bc_wc = np.zeros((4, NC), data_type)
         if w_boundary is not None:
             bc[Bound.Left.value, DataField.Paraffin.value] = (1, w_boundary)
-        cells_wp = field(0.0)
-        # bc_Wc и Fo_row нужны только детальному составу (`wax_components`); носитель скрытой теплоты - сам Wp
-        flows_in_cells(0, 0, bc, np.zeros((4, NC), data_type), p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m,
-                       Wo, Wp, Wps, Wp, field(c_o), field(c_w), field(c_p), field(0.0), cells_wp, field(0.0),
-                       field(0.0), np.zeros(4, data_type))
-        return cells_wp[0, 0]
+            bc_wc[Bound.Left.value] = wc_cell * np.where(np.arange(NC) < N_W, w_boundary / w_cell, 1.0)
+        w_eq, fo = field(0.0), np.zeros((Nx, Ny, 4), data_type)
+        flows_in_cells(0, 0, bc, bc_wc, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wp, Wps, Wp,
+                       field(c_o), field(c_w), field(c_p), field(0.0), field(0.0), field(0.0), w_eq, fo)
+        new_wc, kx = Wc.copy(), np.zeros((Nx, Ny), KX)
+        new_ws = np.zeros((Nx, Ny, N_W), data_type)
+        new_wp, new_wps = field(0.0), field(0.0)
+        components_equation(0, 0, True, bc, bc_wc, w_eq, fo, p, T, m, S, m, S, Wc, new_wc, new_ws.copy(), new_ws,
+                            field(0.0), field(0.0), field(0.0), new_wp, new_wps, field(0.0),
+                            np.zeros((Nx, Ny, NC), data_type), default_kin(), kx, kx.copy(), mu_o, 1.0)
+        return new_wp[0, 0] + new_wps[0, 0] - w_cell
 
     assert inflow() > 0.0, 'через левую границу с повышенным давлением нефть обязана втекать'
     assert np.isclose(inflow(w_bc), inflow() * w_bc / w_cell, rtol=1e-12), \

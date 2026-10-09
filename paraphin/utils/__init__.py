@@ -4,7 +4,8 @@
 PIL и joblib (полсекунды импорта), а расчету они не нужны. Точки входа берут ее напрямую из
 `paraphin.utils.visualisation_utils`.
 """
-from .boundary_conditions import Bound, TypeBC, DataField, add_bc, apply_bc, get_bound
+from .boundary_conditions import (Bound, TypeBC, DataField, add_bc, apply_bc, get_bound, BC, PRESSURE, SATURATION,
+                                  TEMPERATURE, PARAFFIN, DIRICHLET)
 from .read_data_files import convert_pkl_files, read_solution_data
 from .save_data_fields import save_fields
 from .well import new_well, upd_q_and_eta, calc_well_prod, preprocess_wells

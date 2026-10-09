@@ -13,7 +13,8 @@ Reservoirs // Processes. 2024. V. 12. P. 421 - кривая выпадения �
 
 Параметры модели (d_p, L_k) у одного варианта - константы уровня модуля, numba вшивает их в машинный
 код. Поэтому каждый вариант - отдельный процесс в копии пакета с поправленным `constants.py`
-(`tests/_patched_copy.make_copy`): скрипт запускает сам себя с `--worker`, репозиторий и его кеш numba не трогаются.
+(`tests/_patched_copy.make_copy`), прогон - общим рабочим процессом `experiments/core_runner.py`; репозиторий и его
+кеш numba не трогаются.
 
     python experiments/исходная_модель/core_flood.py          # калибровка d_p, L_k по опыту 1, прогноз опыта 2
     python experiments/исходная_модель/core_flood.py --fit    # подгонка Tm, alpha по кривой Li
@@ -124,7 +125,7 @@ PLUGGED = 0.02          # k/k_0, ниже которого керн считае
 
 
 def w_saturated(w_sum, T, MW, M_o, Tm, alpha):
-    """Предел растворимости (6.1)-(6.2) - та же формула, что `_wp_saturated`, но с параметрами аргументами:
+    """Предел растворимости (6.1)-(6.2) - та же формула, что `Thermo_wax.single_wp_saturated`, но с параметрами аргументами:
     `paraphin` берет их из `constants.py`, а здесь нужны параметры каждого опыта."""
     x = np.minimum(1.0, np.exp(-alpha / R_GAS * (1.0 / (T + 273.15) - 1.0 / (Tm + 273.15))))
     w_hat = x * MW / (x * MW + (1.0 - x) * M_o)
@@ -216,7 +217,7 @@ def run_case(number: int, d_p: float, lk: float, ny: int = NY, dt: float = DT, w
 
     `w` - суммарная доля парафина вместо указанной в опыте (см. `w_ring_solids`); `oil` - свойства нефти
     вместо свойств опыта (MW, M_o, ro_o, ro_p, Tm, dH); `extra` - дополнительные константы `constants.py`;
-    `mode` - режим рабочего процесса (`worker`): 'rate', 'dp', 'thermal' или 'ramp'; `exp` - сторонний опыт
+    `mode` - режим рабочего процесса (`core_runner.py`): 'rate', 'dp', 'thermal' или 'ramp'; `exp` - сторонний опыт
     вместо `EXPERIMENTS[number]` (тогда `number` - только метка временных файлов).
     """
     exp = dict(exp or EXPERIMENTS[number], **(oil or {}), **({} if w is None else {'w': w}))
@@ -225,12 +226,30 @@ def run_case(number: int, d_p: float, lk: float, ny: int = NY, dt: float = DT, w
         values.update(init_T=repr(exp.get('T_hot', T_HOT)), init_Wp=repr(exp['w']), init_Wps='0.0')
     values.update(extra or {})
     root = make_copy(f'core_flood_{number}', values)
+    result = run_runner(root, exp, mode)
+    result.update(d_p=d_p, lk=lk, ny=ny, dt=dt, rms=rms(result, exp['exp']))
+    return result
+
+
+RUNNER = ROOT / 'experiments' / 'core_runner.py'
+
+
+def run_runner(root: Path, exp: dict, mode: str = 'rate') -> dict:
+    """Прогон опыта общим рабочим процессом керна `experiments/core_runner.py` в копии пакета `root`.
+
+    Опыт дополняется умолчаниями керна Sutton & Roberts (давление на выходе, длина, длительность в PV, температуры,
+    порог закупорки). При закупорке кривая дополняется точкой k = 0 в конце прокачки, как в прежнем рабочем процессе
+    этого модуля: СКО по интерполяции иначе брала бы последнее значение до закупорки."""
+    run_exp = dict(exp, P_out=exp.get('P_out', P_OUT), length=exp.get('length', LENGTH), T=exp.get('T', T_CORE),
+                   T_hot=exp.get('T_hot', T_HOT), pv_end=exp.get('pv_end', PV_END), plugged=exp.get('plugged', PLUGGED))
     case, out = root / 'case.json', root / 'result.json'
-    case.write_text(json.dumps(exp), encoding='utf-8')
-    subprocess.run([sys.executable, __file__, '--worker', str(case), str(out), mode], cwd=root,
+    case.write_text(json.dumps({'exp': run_exp, 'mode': mode}), encoding='utf-8')
+    subprocess.run([sys.executable, str(RUNNER), str(case), str(out)], cwd=root,
                    env=dict(os.environ, PYTHONPATH=str(root)), check=True)
     result = json.loads(out.read_text(encoding='utf-8'))
-    result.update(d_p=d_p, lk=lk, ny=ny, dt=dt, rms=rms(result, exp['exp']))
+    if result['plugged'] is not None:
+        for key, value in (('pv', run_exp['pv_end']), ('k', 0.0), ('k_harm', 0.0)):
+            result[key].append(value)
     return result
 
 
@@ -241,121 +260,6 @@ def rms(result: dict, points) -> float:
     if pts.size == 0:  # опыт без кривой k/k0(PV) (Sandyga et al.: градиент от температуры)
         return float('nan')
     return float(np.sqrt(np.mean((np.interp(pts[:, 0], pv, k) - pts[:, 1]) ** 2)))
-
-
-def worker(case: Path, out: Path, mode: str = 'rate') -> None:
-    """Одномерный керн вдоль j: слева прокачка нефти с постоянным расходом, справа противодавление.
-
-    Постоянный расход держится перепадом: столб одномерный и однофазный, поэтому расход линеен по
-    перепаду, dP = q*sum(hy*mu_j/(A*k_j)) - последовательные сопротивления ячеек (на границе - полуячейка,
-    как в `flows_in_cells`). Перепад пересчитывается перед каждым шагом по текущим k и mu - тем же, по
-    которым шаг соберет матрицу давления, - и пишется в ГУ Дирихле на входе. Измеряемая величина - та же,
-    что в опыте: k/k_0 = dP_0/dP при постоянном расходе.
-
-    Диагностические режимы: 'dp' - постоянный перепад dP_0 вместо постоянного расхода (скорость в
-    капилляре падает вместе с k; k/k_0 = q/q_0); 'thermal' - керн прогрет до T_HOT без взвеси, нефть на
-    входе горячая, а температура вдоль керна перед каждым шагом задается линейной T_HOT -> T_CORE (профиль
-    в опыте не измерен - это допущение); 'ramp' - керн и нагнетаемая нефть охлаждаются равномерно по длине
-    со скоростью `cooling` [C/с] от `T` до `T_end` (опыт Sandyga et al., 2020: весь стенд в термошкафу).
-
-    `case` - json с опытом (его пишет `run_case`), `out` - json с результатом.
-    """
-    from shutil import rmtree
-    from paraphin.geometry import eta, r, fi_0
-    from paraphin.constants import Ny, hy, hx, h, init_Wp, init_Wps, results_path, _re, init_m
-    from paraphin.solver import Solver, Bound, TypeBC, DataField
-    from paraphin.utils import calc_mu_o
-
-    exp = json.loads(Path(case).read_text(encoding='utf-8'))
-    t_core, pv_end, plugged_k = exp.get('T', T_CORE), exp.get('pv_end', PV_END), exp.get('plugged', PLUGGED)
-    area = hx * h
-    pv0 = exp.get('length', LENGTH) * area * init_m
-
-    solver = Solver()
-    # Заглушка: `initialize` требует ровно одну добывающую скважину на забойном давлении. С mult = 1e-12
-    # ее дебит пренебрежимо мал, расход задают граничные условия.
-    solver.add_well(name='Producer', i=0, j=Ny - 1, p=P_OUT, rw=0.5 * _re, mult=1e-12, is_injector=False)
-    profile = np.linspace(exp.get('T_hot', T_HOT), t_core, Ny)
-
-    def impose_temperature():
-        solver.T[0] = profile
-        solver.T_0[0] = profile
-        for j in range(Ny):
-            solver.mu_o[0, j] = calc_mu_o(profile[j], solver.Wps[0, j])
-
-    if mode == 'thermal':
-        impose_temperature()
-
-    def resistance():
-        return float(np.sum(hy * solver.mu_o[0] / (area * solver.k[0])))
-
-    def pressure_drop():
-        return exp['q'] * resistance()
-
-    dp0 = pressure_drop()
-    solver.add_bc(field=DataField.Pressure, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=P_OUT + dp0)
-    solver.add_bc(field=DataField.Pressure, bound=Bound.Right, type_bc=TypeBC.Dirichlet, value=P_OUT)
-    solver.add_bc(field=DataField.Saturation, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=0.0)
-    solver.add_bc(field=DataField.Temperature, bound=Bound.Left, type_bc=TypeBC.Dirichlet,
-                  value=exp.get('T_hot', T_HOT) if mode == 'thermal' else t_core)
-    solver.add_bc(field=DataField.Paraffin, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=init_Wp + init_Wps)
-    solver.initialize()
-    k0 = solver.k[0, 0]
-    t, pv, k_app, k_harm, t_hist = 0.0, [0.0], [1.0], [1.0], [t_core]
-    plugged = None
-    injected = 0.0
-    qp1_sum, qp2_sum = np.zeros(Ny), np.zeros(Ny)  # осадок на стенках и пробки в горлах, доли объема ячейки
-    um_in = []
-    while injected < pv_end * pv0:
-        if mode == 'thermal':
-            impose_temperature()
-        elif mode == 'ramp':
-            t_now = max(t_core - exp['cooling'] * t, exp['T_end'])
-            profile[:] = t_now
-            impose_temperature()
-            solver.boundary_conditions[Bound.Left.value, DataField.Temperature.value, 1] = t_now
-        dp = pressure_drop() if mode != 'dp' else dp0
-        rate = dp / resistance()  # фактический расход; в режиме 'rate' он равен заданному
-        k_now = rate / exp['q'] if mode == 'dp' else dp0 / dp
-        # Керн закупорен: дальше расход держать нечем, а шаг по Куранту в пустых ячейках уходит в dt_min
-        if k_now < plugged_k:
-            plugged = pv[-1]
-            pv.append(pv_end)
-            k_app.append(0.0)
-            k_harm.append(0.0)
-            t_hist.append(t_hist[-1])
-            break
-        solver.boundary_conditions[Bound.Left.value, DataField.Pressure.value, 1] = P_OUT + dp
-        step = solver.dt
-        solver.upd_time_step(t + step)
-        t += step
-        injected += rate * step
-        qp1_sum += solver.qp1[0] * step
-        qp2_sum += solver.qp2[0] * step
-        um_in.append(float(solver._Um_r2[0, 0]))
-        pv.append(injected / pv0)
-        k_app.append(k_now)
-        k_harm.append(float(Ny / np.sum(k0 / solver.k[0])))
-        t_hist.append(float(solver.T[0, 0]))
-
-    # Контроль: отток через правую границу на последнем шаге равен заданному расходу
-    lam = solver.lam_o[0, -1] + solver.lam_w[0, -1]
-    q_out = lam * area * (solver.p[0, -1] - P_OUT) / (0.5 * hy)
-
-    rmtree(results_path, ignore_errors=True)
-    out.write_text(json.dumps({
-        'pv': pv, 'k': k_app, 'k_harm': k_harm,
-        'k_profile': (solver.k[0] / k0).tolist(), 'm_profile': (solver.m[0] / init_m).tolist(),
-        'wps_out': float(solver.Wps[0, -1]), 'q_error': float(q_out / exp['q'] - 1.0), 'eta': float(eta),
-        'plugged': plugged, 'mode': mode,
-        # Учет: q_p1 + q_p2 = -dm/dt, отнесено к объему ячейки; сумма обязана совпасть с m0 - m
-        'qp1_sum': qp1_sum.tolist(), 'qp2_sum': qp2_sum.tolist(),
-        'pore_loss': (init_m - solver.m[0]).tolist(),
-        'um_in': [um_in[0], um_in[len(um_in) // 2], um_in[-1]] if um_in else [],
-        # Функция пор по размерам в начале, середине и конце керна - какие каналы выбыли
-        'r': r.tolist(), 'fi0': fi_0.tolist(), 'fi_end': [solver.fi[0, j].tolist() for j in (0, Ny // 2, Ny - 1)],
-        'T_hist': t_hist if mode == 'ramp' else [],
-    }), encoding='utf-8')
 
 
 def main() -> None:
@@ -472,9 +376,7 @@ def thermal_fit() -> None:
 
 
 if __name__ == '__main__':
-    if sys.argv[1:2] == ['--worker']:
-        worker(Path(sys.argv[2]), Path(sys.argv[3]), *(sys.argv[4:5]))
-    elif sys.argv[1:2] == ['--fit']:
+    if sys.argv[1:2] == ['--fit']:
         fit_solubility()
     elif sys.argv[1:2] == ['--check']:
         check()

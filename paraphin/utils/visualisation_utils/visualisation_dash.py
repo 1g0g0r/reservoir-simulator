@@ -189,7 +189,7 @@ class SolutionStore:
         meta['n_times'] = n_times
         meta['time'] = [round(float(t), 6) for t in time]
 
-        # Детальный состав нефти и гель (флаги `wax_components`, `gelation`): поля - картами, массы ('Totals') - рядами
+        # Детальный состав нефти и гель (группы парафина, асфальтены, `gelation`): поля - картами, массы ('Totals') - рядами
         for group in ('Composition', 'Gel'):
             if group in raw:
                 raw.update(raw.pop(group))

@@ -15,26 +15,24 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs
                         init_p, init_Wp, init_Wps, bar_to_pa, dt, day_to_sec,
                         max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, geological_reserves,
                         volume, S_min, S_max, CFL_target, dt_growth, dt_max, dt_min,
-                        min_Wps_bound, wax_components, asphaltenes, gelation, pressure_viscosity,
+                        min_Wps_bound, asphaltenes, gelation, pressure_viscosity,
                         gel_time, gel_mobility_min, alpha_p_visc, P_ref_wax, sara_asphaltenes, case_name,
                         ro_asph_dep, ro_asph, deposition_kinetics, deposition_model, wax_kinetics,
                         asph_aggregation, wettability, thermal_nonequilibrium, adsorption,
                         ads_init_equilibrium, R, pore_network, p_guess_m)
 from .utils.math_utils import MG_ROWS, MG_TOTAL, MG_COARSE, MG_COARSE_KD, P_STATE
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, temperature_source,
-                        temperature_equation, wp_equation, calc_velocities_h, flows_in_cells,
-                        calc_Um_r2, components_equation, calc_qp_m_k_fi_2, calc_velocity_asph, oil_viscosity,
-                        sle_split)
+                        temperature_equation, calc_velocities_h, flows_in_cells,
+                        calc_Um_r2, components_equation, calc_velocity_asph, oil_viscosity, sle_split)
 from .equations.Asphaltene import asph_soluble
 from .equations.Deposition import calc_deposition, calc_filtration, network_g0
 from .kinetics_params import (default_kin, AGG_D0, OW_S_MIN, OW_S_MAX, OW_N_O, OW_N_W, ADS_GMAX, ADS_K, ADS_DH,
                               ADS_T_REF, ADS_RESIN, PERM_BETA, PERM_SMAX)
-from .layout import (N_W, NC, IA_D, IA_F, I_R, IS0, IN_F, NKX, KX_WEQ, KX_TS, KX_GA, KX_GR, KX_GMAX, KX_SIG0, KX_UA, KX_QPA,
-                     NROWS, ROW_A, ROW_B, ROW_FO, ROW_UE, ROW_TMP, NP)
+from .layout import LEAN, N_W, NC, NC_T, IA_D, IA_F, I_R, IS0, IN_F, KX, ROWS, NP
 from .equations.Kinetics_math import langmuir_constant
 from .equations.Thermal_ltne import temperature_equation_ltne
-from .oil_composition import WAX_W0, F_SAT_REST, initial_components
-from .utils import (calc_mu_o, calc_mu_p, calc_mu_w, preprocess_wells, convert_pkl_files,
+from .oil_composition import WAX_W0, F_SAT_REST, HL_IS_WP, initial_components
+from .utils import (BC, PARAFFIN, TEMPERATURE, DIRICHLET, calc_mu_o, calc_mu_p, calc_mu_w, preprocess_wells, convert_pkl_files,
                     save_fields, Bound, TypeBC, DataField, add_bc, new_well, upd_q_and_eta, Buckley_Leverett,
                     calc_mobility, calc_mobility_w)
 
@@ -47,11 +45,13 @@ class Solver:
         self._wells_buffer = []  # Буфер скважин до обработки
         self._wells_names = []   # Имена скважин по порядку add_well, для логирования и сохранения полей
         self.well_data = None    # Скважины для ядер: структурный массив с dtype `WELL` (`utils/well.py`)
-        self.wells = []          # Они же для Python-кода: вид np.recarray на тот же буфер, `wells[k].q`
-        self.boundary_conditions = np.zeros(dtype=data_type, shape=(4, 4, 2))  # Граница -> Поле (DataField) -> Тип, Значение
+        self.wells = []          # Они же для Python-кода: вид np.recarray на тот же буфер, `wells[k].q_t`
+        self.boundary_conditions = np.zeros((4, 4), BC)  # [граница, поле] -> тип, значение (`utils/boundary_conditions.py`)
         # Свойства флюидов
         self.mu_o = np.full((Nx, Ny), calc_mu_o(init_T, init_Wps), data_type)  # Вязкость нефти, [Па*с]
         self.mu_w = np.full((Nx, Ny), calc_mu_w(init_T), data_type)  # Вязкость воды, [Па*с]
+        # Вязкости нового слоя: считает проход 2 `_equations_loop` по новой температуре, обмен - ссылками
+        self.new_mu_o, self.new_mu_w = self.mu_o.copy(), self.mu_w.copy()
         self.C_w  = np.full((Nx, Ny), c_w, data_type)  # Теплоемкость воды, [Дж*кг/C]
         self.C_o  = np.full((Nx, Ny), c_o, data_type)  # Теплоемкость нефти, [Дж*кг/C]
         self.C_f  = np.full((Nx, Ny), c_f, data_type)  # Теплоемкость пласта, [Дж*кг/C]
@@ -62,7 +62,6 @@ class Solver:
         self.T     = np.full((Nx, Ny), init_T, data_type)  # Температура, [С]
         self.T_0   = np.full((Nx, Ny), init_T, data_type)  # Температура на прошлом временном слое, [С]
         # Доли компонентов нефтяной фазы - объемные (w_o + w_p + w_ps = 1)
-        self.Wo    = np.full((Nx, Ny), 1.0 - init_Wp - init_Wps, data_type)  # Массовая доля масляного компонента, [-]
         self.Wp    = np.full((Nx, Ny), init_Wp, data_type)   # Массовая доля растворенного парафина, [-]
         self.Wps   = np.full((Nx, Ny), init_Wps, data_type)  # Массовая доля взвешенного парафина, [-]
         self.k     = np.full((Nx, Ny), init_k, data_type)  # Проницаемость, [м^2]
@@ -93,12 +92,16 @@ class Solver:
         self.new_m   = np.full((Nx, Ny), init_m, data_type)    # Проницаемость на новом временном слое, [-]
         # Временные массивы перетоков через границы ячеек
         self.cells_T_eq  = np.zeros((Nx, Ny), data_type)  # Суммарный переток температуры в ячейке
-        self.cells_Wp_eq = np.zeros((Nx, Ny), data_type)  # Суммарный переток растворенного в ячейке
         self.cells_S_eq  = np.zeros((Nx, Ny), data_type)  # Суммарный переток водонасыщенности в ячейке
         self.cells_Q_out = np.zeros((Nx, Ny), data_type)  # Суммарный отток через грани ячейки, [м^3/с]
+        # Пишет `flows_in_cells`, читают кольматация, перенос компонентов и условия Куранта. Отдельные двумерные массивы,
+        # а не один трехмерный: запись в трехмерный в цикле перетоков замедляла его в полтора раза (75x75)
+        self.cells_Qo_out = np.zeros((Nx, Ny), data_type)  # отток нефти через грани, [м^3/с]
+        self.cells_T_out = np.zeros((Nx, Ny), data_type)   # тепловой отток (конвекция и кондукция), [Вт/C]
+        self.cells_W_eq = np.zeros((Nx, Ny), data_type)    # приток единственного переносимого компонента (NC_T = 1), [м^3/с]
+        self.Fo = np.zeros((Nx, Ny, 4), data_type)         # потоки нефти через грани (NC_T > 1), [м^3/с]
         # Источники скважин
         self.src_S  = np.zeros((Nx, Ny), data_type)  # Дебит по воде, [м^3/с]
-        self.src_Wp = np.zeros((Nx, Ny), data_type)  # Вынос парафина нефтью, [м^3/с]
         self.src_T  = np.zeros((Nx, Ny), data_type)  # Приток энергии со скважиной, [Вт]
         # Подвижности фаз: считаются один раз за шаг и переиспользуются сборкой матрицы и перетоками
         self.lam_o = np.zeros((Nx, Ny), data_type)  # Подвижность нефтяной фазы, [м^2/(Па*с)]
@@ -111,12 +114,13 @@ class Solver:
         self._i_img = 0  # Индекс следующего сохраняемого слоя (расписание sol_time_step)
         self._results_file = None  # общий файл слоев, открывается при первом сохранении
         self.dt = dt               # Текущий шаг по времени, подбирается по CFL каждую итерацию, [с]
+        self.dt_last = 0.0         # Шаг, которым посчитан текущий слой, [с]
         self.max_dfw = 1.0         # max|df_w/dS|, задается в initialize()
         self._producer = -1        # Индекс добывающей скважины, ищется в initialize() по is_injector
-        self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)  # Флаг: включен ли блок кольматации/суффозии
-        # Скретч: рабочие профили ячейки (прогонка fi, профили по радиусам, потоки граней) - свои строки на каждый i,
-        # иначе гонка в prange по ячейкам; имена строк - `layout.ROW_*`
-        self.rows = np.zeros((Nx, NROWS, Nr), data_type)
+        self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)  # Флаг: включен ли блок кольматации
+        # Скретч: рабочие профили ячейки (прогонка fi, профили по радиусам) - свои строки на каждый i (или кусок
+        # списка активных ячеек), иначе гонка в prange по ячейкам; поля - dtype `layout.ROWS`
+        self.rows = np.zeros(Nx, ROWS)
         # Уравнение давления (`calc_pressure`): PCG с многосеточным предобуславливателем. Векторы - в раскладке `layout`
         # (ячейка - P0 + i + j*PX, с рамкой фиктивных ячеек, как уровни решателя). Матрица - мелкий уровень `mg_buf`
         # (diag, ex, ey - его строки), невязка и предобусловленная невязка PCG - его строки b и x
@@ -131,8 +135,8 @@ class Solver:
         self.p_vec = np.full(NP, init_p, data_type)  # решение; перед решением - начальное приближение
         self.p_hist = np.tile(self.p_vec, (p_guess_m, 1))  # кольцо прошлых решений - для начального приближения
         self.p_iters = 0                # итераций PCG на последнем шаге
-        # Детальный состав нефти (флаг `wax_components`, см. `paraphin/oil_composition.py`). Массивы есть всегда,
-        # с выключенными флагами они не используются, а `Hl` и `mu_p` - просто другие имена `Wp` и `mu_o`.
+        # Состав нефти (`paraphin/oil_composition.py`): группы парафина (при 'single' - одна), асфальтены, смолы. При одной
+        # группе `Hl` - другое имя `Wp` (`HL_IS_WP`), без геля `mu_p` - другое имя `mu_o`.
         self.Wc     = np.tile(initial_components(), (Nx, Ny, 1))  # доли компонентов в нефтяной фазе, [-]
         self.new_Wc = self.Wc.copy()
         self.Ws     = np.zeros((Nx, Ny, N_W), data_type)  # взвешенные кристаллы по группам парафина, [-]
@@ -144,17 +148,17 @@ class Solver:
         # Кинетика осаждения (`deposition_kinetics`, `equations/Deposition.py`): параметры - runtime-вектор (калибровка
         # меняет его без перекомпиляции), поля моделей - один массив с именованными индексами (`layout`)
         self.kin = default_kin()
-        self.kx = np.zeros((Nx, Ny, NKX), data_type)
-        self.kx[..., KX_TS] = init_T
+        self.kx = np.zeros((Nx, Ny), KX)
+        self.kx['ts'] = init_T
         self.new_kx = self.kx.copy()
-        self.Ua = self.kx[..., KX_UA]    # коэффициент сужения капилляров флокулами (вид на kx), [м^(2/3)/с]
-        self.qpa = self.kx[..., KX_QPA]  # скорость потери порового объема на осадок асфальтенов (вид на kx), [1/с]
+        self.Ua = self.kx['ua']    # коэффициент сужения капилляров флокулами (вид на kx), [м^(2/3)/с]
+        self.qpa = self.kx['qpa']  # скорость потери порового объема на осадок асфальтенов (вид на kx), [1/с]
         self.WAT = np.zeros((Nx, Ny), data_type)          # температура начала кристаллизации - только выгрузка, [C]
-        if wax_components:
-            self.Hl, self.new_Hl = np.zeros((Nx, Ny), data_type), np.zeros((Nx, Ny), data_type)
-            self._init_composition()
-        else:
+        if HL_IS_WP:
             self.Hl, self.new_Hl = self.Wp, self.new_wp  # носитель скрытой теплоты - сам растворенный парафин
+        else:
+            self.Hl, self.new_Hl = np.zeros((Nx, Ny), data_type), np.zeros((Nx, Ny), data_type)
+        self._init_composition()
         self.mu_p = self.mu_o.copy() if gelation else self.mu_o  # вязкость без геля (пластическая)
         results_path.mkdir(parents=True, exist_ok=True)
         data_path.mkdir(parents=True, exist_ok=True)
@@ -205,11 +209,12 @@ class Solver:
         # Состав втекающей нефти по ГУ Дирихле для парафина: если не задан явно (`add_inflow_composition`),
         # группы - в начальной пропорции с заданной суммой, асфальтены и смолы - как в пласте
         for bound in range(4):
-            if self.boundary_conditions[bound, 3, 0] == 1 and not self.bc_Wc[bound].any():
+            bc_wax, bc_t = self.boundary_conditions[bound, PARAFFIN], self.boundary_conditions[bound, TEMPERATURE]
+            if bc_wax['type'] == DIRICHLET and not self.bc_Wc[bound].any():
                 self.bc_Wc[bound] = initial_components()
-                self.bc_Wc[bound, :N_W] *= self.boundary_conditions[bound, 3, 1] / WAX_W0.sum()
+                self.bc_Wc[bound, :N_W] *= bc_wax['value'] / WAX_W0.sum()
                 if wax_kinetics:  # втекающая нефть - с равновесной взвесью при температуре границы
-                    t_bc = (self.boundary_conditions[bound, 2, 1] if self.boundary_conditions[bound, 2, 0] == 1
+                    t_bc = (bc_t['value'] if bc_t['type'] == DIRICHLET
                             else init_T)
                     sus = np.zeros(N_W, data_type)
                     sle_split(self.bc_Wc[bound, :N_W].copy(), float(t_bc), float(init_p), sus)
@@ -225,24 +230,24 @@ class Solver:
 
         Порода и нефть в пласте в контакте геологическое время, поэтому init_m и init_k относятся к породе уже с
         удержанным слоем: пористость не уменьшается, а повреждение проницаемости считается от начального объема
-        sigma_0 (`KX_SIG0`). Нужен параметр кинетики `solver.kin`, поэтому вызывается из `initialize`, а не из
+        sigma_0 (`kx['sig0']`). Нужен параметр кинетики `solver.kin`, поэтому вызывается из `initialize`, а не из
         конструктора. Тождество пористости тогда - от начального удержания: m0 - m = ... + (G - G_0)/ro_ad."""
         kin = self.kin
         k_l = langmuir_constant(kin[ADS_K], kin[ADS_DH], init_T + 273.15, kin[ADS_T_REF] + 273.15, R)
         g_max = kin[ADS_GMAX] * surf_0
-        for idx, comp, mult in ((KX_GA, IA_D, 1.0), (KX_GR, I_R, kin[ADS_RESIN])):
+        for field, comp, mult in (('ga', IA_D, 1.0), ('gr', I_R, kin[ADS_RESIN])):
             c = self.Wc[..., comp]
-            self.kx[..., idx] = g_max * mult * k_l * c / (1.0 + k_l * c)  # изотерма Ленгмюра (`langmuir_eq`)
-        self.kx[..., KX_GMAX] = g_max
-        self.kx[..., KX_SIG0] = (self.kx[..., KX_GA] + self.kx[..., KX_GR]) / ro_asph_dep
+            self.kx[field] = g_max * mult * k_l * c / (1.0 + k_l * c)  # изотерма Ленгмюра (`langmuir_eq`)
+        self.kx['gmax'] = g_max
+        self.kx['sig0'] = (self.kx['ga'] + self.kx['gr']) / ro_asph_dep
         self.new_kx[:] = self.kx
-        rel = float(kin[PERM_BETA] * self.kx[..., KX_SIG0].max() / (kin[PERM_SMAX] * init_m))
+        rel = float(kin[PERM_BETA] * self.kx['sig0'].max() / (kin[PERM_SMAX] * init_m))
         if rel >= 1.0:  # D(sigma_0) = 0: от полностью поврежденного начального состояния повреждение не отсчитать
             raise ValueError(f'Равновесное удержание при {init_T:g} C исчерпывает функцию повреждения '
                              f'(beta*sigma_0/(sigma_max*m0) = {rel:.2f} >= 1): параметры удержания не согласованы '
                              f'с пластовой температурой')
-        print(f'Начальное удержание в равновесии при {init_T:g} C: асфальтены {self.kx[0, 0, KX_GA]:.3g}, смолы '
-              f'{self.kx[0, 0, KX_GR]:.3g} кг/м^3 породы, {self.kx[0, 0, KX_SIG0] / init_m:.2e} порового объема')
+        print(f'Начальное удержание в равновесии при {init_T:g} C: асфальтены {self.kx["ga"][0, 0]:.3g}, смолы '
+              f'{self.kx["gr"][0, 0]:.3g} кг/м^3 породы, {self.kx["sig0"][0, 0] / init_m:.2e} порового объема')
 
 
     def add_bc(self, field: DataField, bound: Bound, type_bc: TypeBC, value: float) -> None:
@@ -251,9 +256,10 @@ class Solver:
 
 
     def add_inflow_composition(self, bound: Bound, wc) -> None:
-        """Состав втекающей через границу нефти по компонентам `Wc` (детальный состав, `wax_components`).
+        """Состав втекающей через границу нефти по компонентам `Wc`.
 
-        Ставит и ГУ Дирихле `DataField.Paraffin` на сумму групп парафина, чтобы старый путь расчета видел ту же долю.
+        Ставит и ГУ Дирихле `DataField.Paraffin` на сумму групп парафина: по нему `flows_in_cells` берет энтальпию
+        втекающей нефти, а `initialize` не перезаписывает заданный здесь состав.
         """
         wc = np.asarray(wc, data_type)
         if wc.shape != (NC,):
@@ -280,7 +286,7 @@ class Solver:
                       f'состоянии ({wc[IA_F] / sara_asphaltenes:.1%} флокулировано): P_onset_asph выше пластового давления')
         if wax_kinetics:  # в начале взвесь равновесна
             wc[IS0:IS0 + N_W] = sus
-            self.kx[..., KX_WEQ:KX_WEQ + N_W] = sus
+            self.kx['weq'] = sus
             self.new_kx[:] = self.kx
         if asph_aggregation and wc[IA_F] > 0.0:  # начальные флокулы - первичные частицы
             d0 = self.kin[AGG_D0]
@@ -291,7 +297,6 @@ class Solver:
         self.new_Ws[:] = sus
         self.Wp[:], self.new_wp[:] = w_dis, w_dis
         self.Wps[:], self.new_wps[:] = w_sus, w_sus
-        self.Wo[:] = 1.0 - w_dis - w_sus
         self.Hl[:], self.new_Hl[:] = hl, hl
         self.mu_o[:] = calc_mu_p(init_T, w_sus, init_p)
 
@@ -350,12 +355,47 @@ class Solver:
             print('eta:', round(self.wells[self._producer].eta, 5))
             if self._results_file is not None:
                 self._results_file.close()
-            if wax_components:
+            if N_W > 1 or asphaltenes:
                 # Полный детальный состав конца расчета: в слоях он хранится только компактно (`save_fields`)
                 np.savez_compressed(data_path / f'{case_name}_final_composition.npz', Wc=self.Wc, Ws=self.Ws,
                                     Dep=self.Dep, WAT=self.WAT, m=self.m, k=self.k, Phi=self.Phi, T=self.T, p=self.p)
             convert_pkl_files(self._i_img)
             rmtree(results_path)
+
+
+    @property
+    def Wo(self) -> np.ndarray:
+        """Массовая доля нефтяного компонента (все, кроме парафина), [-]: не хранится, w_o = 1 - w_p - w_ps."""
+        return 1.0 - self.Wp - self.Wps
+
+
+    def _swap_refs(self) -> None:
+        """Обмен слоев сменой ссылок: `new_X` становится текущим, освободившийся буфер - новым. Годится для полей,
+        которые ядра шага пишут присваиванием во всех ячейках; остальное копирует `_swap_time_steps`. Температура -
+        по кругу: прошлый слой `T_0` нужен методу Винсома-Вестервельда."""
+        self.S, self.new_s = self.new_s, self.S
+        self.T_0, self.T, self.new_t = self.T, self.new_t, self.T_0
+        self.mu_w, self.new_mu_w = self.new_mu_w, self.mu_w
+        if not (gelation or pressure_viscosity):
+            self.mu_o, self.new_mu_o = self.new_mu_o, self.mu_o
+            self.mu_p = self.mu_o  # без геля - тот же массив
+        if self._paraphin:
+            self.Wp, self.new_wp = self.new_wp, self.Wp
+            self.Wps, self.new_wps = self.new_wps, self.Wps
+            self.k, self.new_k = self.new_k, self.k
+            self.m, self.new_m = self.new_m, self.m
+            self.qp1, self.new_qp1 = self.new_qp1, self.qp1
+            self.qp2, self.new_qp2 = self.new_qp2, self.qp2
+            if HL_IS_WP:
+                self.Hl, self.new_Hl = self.Wp, self.new_wp
+            else:
+                self.Hl, self.new_Hl = self.new_Hl, self.Hl
+            self.Wc, self.new_Wc = self.new_Wc, self.Wc
+            if deposition_kinetics:  # ядро кинетики пишет fi и h во всех ячейках
+                self.fi, self.new_fi = self.new_fi, self.fi
+                self.h_sloy, self.new_h = self.new_h, self.h_sloy
+            if not LEAN:  # однокомпонентная модель взвесь по группам не пишет
+                self.Ws, self.new_Ws = self.new_Ws, self.Ws
 
 
     def upd_time_step(self, t: float) -> None:
@@ -366,11 +406,11 @@ class Solver:
         # Подвижности фаз - общие для сборки матрицы давления и для перетоков
         if wettability:  # ОФП - смесь водо- и нефтесмачиваемых по адсорбированным асфальтенам
             kin = self.kin
-            calc_mobility_w(self.k, self.S, self.m, self.Wo, self.Wp, self.Wps, self.mu_o, self.mu_w,
-                            self.lam_o, self.lam_w, self.lam_h, self.kx[..., KX_GA], self.kx[..., KX_GMAX],
+            calc_mobility_w(self.k, self.S, self.m, self.Wp, self.Wps, self.mu_o, self.mu_w,
+                            self.lam_o, self.lam_w, self.lam_h, self.kx['ga'], self.kx['gmax'],
                             kin[OW_S_MIN], kin[OW_S_MAX], kin[OW_N_O], kin[OW_N_W])
         else:
-            calc_mobility(self.k, self.S, self.m, self.Wo, self.Wp, self.Wps,
+            calc_mobility(self.k, self.S, self.m, self.Wp, self.Wps,
                           self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h)
         # Обновление давления. Проницаемость берется с текущего слоя: блок кольматации идет ниже,
         # в общем цикле по ячейкам, поэтому k отстает от m на полшага.
@@ -381,24 +421,23 @@ class Solver:
         self.KIN = _update_wells_data(self.n_wells, self.well_data, self.p, self.S, self.mu_o, self.mu_w, step_dt)
         # Источники скважин в тех же единицах, что и перетоки через грани
         _wells_loop(self.n_wells, self.well_data, self.T, self.C_o, self.C_w, self.C_p,
-                    self.Wo, self.Wp, self.Wps, self.Hl, self.src_S, self.src_Wp, self.src_T, self.src_Qo)
+                    self.Wp, self.Wps, self.Hl, self.src_S, self.src_T, self.src_Qo)
         # Решение уравнений по явной схеме
-        dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp1, self.qp2, self.new_qp1, self.new_qp2, self.k, self.new_k, self.m, self.new_m, self.S, self.new_s, self.Wo, self.Wp, self.new_wp, self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
-                                   self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_Wp_eq, self.cells_S_eq, self.cells_Q_out, self.src_S, self.src_Wp, self.src_T, self.mu_o, self.mu_w, self.lam_o, self.lam_w, self.lam_h, self.max_dfw, step_dt,
+        dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp1, self.qp2, self.new_qp1, self.new_qp2, self.k, self.new_k, self.m, self.new_m, self.S, self.new_s, self.Wp, self.new_wp, self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
+                                   self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_S_eq, self.cells_Q_out, self.src_S, self.src_T, self.mu_o, self.mu_w, self.new_mu_o, self.new_mu_w, self.lam_o, self.lam_w, self.lam_h, self.max_dfw, step_dt,
                                    self.bc_Wc, self.Wc, self.new_Wc, self.Ws, self.new_Ws, self.Hl, self.new_Hl, self.Dep, self.src_Qo, self.mu_p,
-                                   self.kin, self.kx, self.new_kx, self.rows)
+                                   self.kin, self.kx, self.new_kx, self.cells_Qo_out, self.cells_T_out, self.cells_W_eq, self.Fo, self.rows)
         # Шаг для следующей итерации из фактического условия устойчивости
         dt_next = _calc_dt(self.n_wells, self.well_data, self.m, self.cells_Q_out, self.max_dfw, step_dt, dt_cells)
 
         if not np.isfinite(self.p.sum()):
             raise FloatingPointError('В поле давления появились NaN/Inf')
 
-        _swap_time_steps(self._paraphin, self.qp1, self.new_qp1, self.qp2, self.new_qp2, self.k, self.new_k, self.m, self.new_m,
-                         self.S, self.new_s, self.Wo, self.Wp, self.new_wp,self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
-                         self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.mu_o, self.mu_w,
-                         self.p, self.grad_p, self.Wc, self.new_Wc, self.Ws, self.new_Ws, self.Hl, self.new_Hl,
-                         self.mu_p, self.Phi, self.Dep, self.kx, self.new_kx,
-                         step_dt)
+        _swap_time_steps(self._paraphin, self.Wps, self.fi, self.new_fi, self.Ur, self.new_Ur,
+                         self.Ub, self.new_Ub, self.kx, self.new_kx, self.new_t, self.new_wps, self.new_s, self.new_m,
+                         self.p, self.grad_p, self.Dep, self.Phi, self.mu_p, self.mu_o, step_dt)
+        self._swap_refs()
+        self.dt_last = step_dt  # шаг, которым посчитан этот слой (выгружается в слой - `save_fields`)
         self.dt = dt_next
 
         # Запись данных в файл
@@ -409,64 +448,52 @@ class Solver:
             self._i_img += 1
 
 
+@njit(cache=True)
+def _clogging(i, j, Wps, kx) -> bool:
+    """Идет ли в ячейке кольматация пучка: взвесь парафина выше порога или сужение капилляров флокулами."""
+    return Wps[i, j] > min_Wps_bound or (asphaltenes and kx[i, j].ua < 0.0)
+
+
 @njit(parallel=True, cache=True)
-def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, qp2, new_qp1, new_qp2, k, new_k, m, new_m, S, new_s, Wo, Wp, new_wp, Wps, new_wps, T, T_0, new_t,
-                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, src_S, src_Wp, src_T, mu_o, mu_w, lam_o, lam_w, lam_h, max_dfw, dt,
-                    bc_Wc, Wc, new_Wc, Ws, new_Ws, Hl, new_Hl, Dep, src_Qo, mu_p, kin, kx, new_kx, rows):
+def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, qp2, new_qp1, new_qp2, k, new_k, m, new_m, S, new_s, Wp, new_wp, Wps, new_wps, T, T_0, new_t,
+                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_S_eq, cells_Q_out, src_S, src_T, mu_o, mu_w, new_mu_o, new_mu_w, lam_o, lam_w, lam_h, max_dfw, dt,
+                    bc_Wc, Wc, new_Wc, Ws, new_Ws, Hl, new_Hl, Dep, src_Qo, mu_p, kin, kx, new_kx, cells_Qo_out, cells_T_out, cells_W_eq, Fo, rows):
     """Решение уравнений по явной схеме в цикле по ячейкам.
 
     Порядок повторяет порядок вычислений на шаге из постановки задачи: перетоки (по текущему слою, от
-    кольматации не зависят), кольматация (fi -> m, k, q_p1, q_p2), дебиты, насыщенность, перенос парафина,
-    температура. Перенос парафина делит на (m*S_o) нового слоя, а температуре нужен w_p нового слоя для
+    кольматации не зависят), кольматация (fi -> m, k, q_p1, q_p2), дебиты, насыщенность, перенос компонентов,
+    температура. Перенос компонентов делит на (m*S_o) нового слоя, а температуре нужен w_p нового слоя для
     скрытой теплоты, поэтому переставлять эти три вызова нельзя.
 
-    Ячейки независимы - каждая пишет только в свои [i, j], поэтому внешний цикл идет в prange.
-    Скретч `rows` нарезан по i (прогоночные коэффициенты, профили по радиусам, потоки граней - строки `layout.ROW_*`):
-    один общий буфер на все ячейки давал бы гонку потоков. Буфер групп парафина - сама ячейка `new_Ws[i, j]`.
-
-    Детальный состав (флаг `wax_components`) заменяет `wp_equation` на `components_equation`, а
-    `calc_qp_m_k_fi` - на `calc_qp_m_k_fi_2`: ограничитель подводом учитывает отток нефти, а асфальтены
-    (`asphaltenes`) добавляют сужение капилляров флокулами. Флаги - константы модуля, выключенные ветки
-    numba выбрасывает.
+    Ячейки независимы - каждая пишет только в свои [i, j], поэтому циклы идут в prange. Проходов три:
+      1. перетоки через грани (`flows_in_cells`): ограничителю осаждения нужен отток нефти из ячейки за шаг.
+         Ядро кинетики осаждения (`deposition_kinetics`) считает каждую ячейку - оно идет здесь же;
+      2. кольматация пучка - по списку ячеек, где она идет (`_clogging`). Все они у нагнетательной скважины, в первых
+         строках i, и в цикле по строкам их считали бы один-два потока. Ячейки списка раздаются кускам по кругу,
+         скретч - строка куска `rows[c]`;
+      3. насыщенность, перенос компонентов, температура, вязкости нового слоя и условия Куранта.
+    Перетоки - отдельным проходом: их вызов внутри большого цикла (два прохода, перетоки активных ячеек - вместе с их
+    кольматацией) раздувал тело цикла, и шаг 75x75 был на 40 % дольше.
+    Скретч `rows` нарезан по i (или по кускам списка): один общий буфер на все ячейки давал бы гонку потоков. Буфер
+    групп парафина - сама ячейка `new_Ws[i, j]`. Флаги - константы модуля, выключенные ветки numba выбрасывает.
     """
     dt_cells = dt_max
     net_g0 = 1.0
     if pore_network:  # проводимость исходной сети пор одна на все ячейки - раз за шаг, до параллельного цикла
-        net_g0 = network_g0(kin, rows[0, ROW_TMP], rows[0, ROW_UE])
-    # Кольматация без детального состава - отдельным циклом по списку ячеек выше порога. Все они у нагнетательной
-    # скважины, в первых строках i, и в общем цикле по строкам их считали один-два потока.
-    # Ячейки списка раздаются кускам по кругу, скретч - строка куска `rows[c]`. Перетоков эта
-    # кольматация не читает, поэтому идет до общего цикла; ячейки независимы, результат побитово прежний.
-    if _paraphin and not deposition_kinetics and not wax_components:
-        n_act = 0
-        act = np.empty(Nx * Ny, np.int64)
-        for ia in range(Nx):
-            for ja in range(Ny):
-                if Wps[ia, ja] > min_Wps_bound:
-                    act[n_act] = ia * Ny + ja
-                    n_act += 1
-        if n_act > 0:
-            n_ch = min(n_act, Nx)  # строк скретча - Nx
-            for c in prange(n_ch):
-                for ka in range(c, n_act, n_ch):
-                    ia = act[ka] // Ny
-                    ja = act[ka] % Ny
-                    calc_Um_r2(ia, ja, p, grad_p, _Um_r2, mu_o)
-                    calc_velocities_h(ia, ja, S, T, _Um_r2, Wps, mu_p, h_sloy, Ur, new_h, new_Ur, new_Ub, dt)
-                    calc_qp_m_k_fi(ia, ja, S, Wp, Wps, m, k, fi, Ur, Ub, integr_r2_fi0, integr_r4_fi0, rows[c, ROW_A],
-                                   rows[c, ROW_B], new_qp1, new_qp2, new_fi, new_k, new_m, dt)
+        net_g0 = network_g0(kin, rows[0].tmp, rows[0].ue)
+
+    # ---1. Перетоки через грани---
     for i in prange(Nx):
         for j in range(Ny):
-            calc_Um_r2(i, j, p, grad_p, _Um_r2, mu_o)  # Средняя скорость в капилляре * r^2
-
-            # ---перетоки через грани---
-            # Читают только текущий слой и от кольматации не зависят; считаются до нее, потому что ограничителю
-            # осаждения в детальном составе нужен отток нефти из ячейки за шаг.
-            qo_out, t_out = flows_in_cells(i, j, boundary_conditions, bc_Wc, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wo, Wp, Wps, Hl, C_o, C_w, C_p, cells_T_eq, cells_Wp_eq, cells_S_eq, cells_Q_out, rows[i, ROW_FO])
-
-            # ---решение задачи кольматации\суффозии---
-            if _paraphin:
-                if deposition_kinetics:
+            # Средняя скорость в капилляре без r^2 и модуль градиента давления (его читают еще гель и LTNE)
+            calc_Um_r2(i, j, p, grad_p, _Um_r2, mu_o)
+            qo_out, t_out = flows_in_cells(i, j, boundary_conditions, bc_Wc, p, S, T, k, mu_o, mu_w, lam_o, lam_w, lam_h, m, Wp, Wps, Hl, C_o, C_w, C_p, cells_T_eq, cells_S_eq, cells_Q_out, cells_W_eq, Fo)
+            cells_Qo_out[i, j] = qo_out
+            cells_T_out[i, j] = t_out
+            # Условия веток - сначала константы модуля: с переменной `_paraphin` в том же условии numba не выбрасывает
+            # выключенную ветку
+            if deposition_kinetics:
+                if _paraphin:
                     # Кинетика осаждения (`equations/Deposition.py`): скорости переноса к стенке - по текущему слою
                     out_o = qo_out + max(-src_Qo[i, j], 0.0)
                     if deposition_model == 'filtration':
@@ -476,56 +503,76 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
                         calc_deposition(i, j, S, T, p, m, k, fi, h_sloy, Wc, Ws, Wps, Dep, _Um_r2, grad_p, mu_p, kx, kin,
                                         integr_r2_fi0, integr_r4_fi0, rows[i], net_g0,
                                         new_qp1, new_qp2, new_fi, new_h, new_k, new_m, new_kx, out_o, dt)
-                elif not wax_components:
-                    # Выше порога кольматация посчитана циклом по списку активных ячеек до этого цикла. Ниже порога
-                    # `calc_velocities_h` и `calc_qp_m_k_fi` ничего не считают, а вызов с двумя десятками
-                    # массивов-аргументов стоит ~100 нс на ячейку (docs/PERFORMANCE_FINDINGS.md, «Раунд 6»), поэтому
-                    # здесь ровно то, что сделал бы `calc_qp_m_k_fi` ниже порога.
-                    if Wps[i, j] <= min_Wps_bound:
-                        new_qp1[i, j] = 0.0
-                        new_qp2[i, j] = 0.0
-                        new_m[i, j] = m[i, j]
-                        new_k[i, j] = k[i, j]
-                else:
-                    # Обновление толщины осадочного слоя, скорости изменения радиуса капилляра и коэффициента блокирования
-                    # Броуновская диффузия частиц - в жидкой основе: вязкость без геля `mu_p` (без флага `gelation` это mu_o)
-                    calc_velocities_h(i, j, S, T, _Um_r2, Wps, mu_p, h_sloy, Ur, new_h, new_Ur, new_Ub, dt)
-                    # Обновление функции пор по размерам, скоростей потери порового объема, пористости, проницаемости
-                    if asphaltenes:
-                        calc_velocity_asph(i, j, S, T, _Um_r2, Wc, mu_p, new_kx)
-                    # Взвесь и флокулы за шаг уходят и в осадок, и с оттоком нефти (грани и добывающая скважина):
-                    # без учета оттока ограничитель подводом пропускал отрицательные доли тяжелых групп и флокул.
-                    out_o = qo_out + max(-src_Qo[i, j], 0.0)
-                    calc_qp_m_k_fi_2(i, j, S, Wps, Wc, m, k, fi, Ur, Ub, kx, integr_r2_fi0, integr_r4_fi0, rows[i], new_qp1, new_qp2, new_fi, new_k, new_m, new_kx, out_o, dt)
+            elif asphaltenes:
+                if _paraphin:
+                    # Сужение капилляров флокулами на следующий шаг - по флокулам этого слоя, в каждой ячейке
+                    calc_velocity_asph(i, j, S, T, _Um_r2, Wc, mu_p, new_kx)
 
-            # ---гидродинамика и перенос---
+    # ---2. Кольматация пучка капилляров - только там, где она идет---
+    if not deposition_kinetics and _paraphin:
+        n_act = 0
+        act = np.empty(Nx * Ny, np.int64)
+        for ia in range(Nx):
+            for ja in range(Ny):
+                if _clogging(ia, ja, Wps, kx):
+                    act[n_act] = ia * Ny + ja
+                    n_act += 1
+        if n_act > 0:
+            n_ch = min(n_act, Nx)  # строк скретча - Nx
+            for c in prange(n_ch):
+                for ka in range(c, n_act, n_ch):
+                    ia = act[ka] // Ny
+                    ja = act[ka] % Ny
+                    # Скорость изменения радиуса капилляра и коэффициент блокирования кристаллами. Броуновская
+                    # диффузия частиц - в жидкой основе: вязкость без геля `mu_p` (без флага `gelation` это mu_o)
+                    calc_velocities_h(ia, ja, S, T, _Um_r2, Wps, mu_p, new_Ur, new_Ub)
+                    # Запас ограничителя подводом - то, что останется после оттока (грани и добывающая скважина)
+                    out_o = cells_Qo_out[ia, ja] + max(-src_Qo[ia, ja], 0.0)
+                    calc_qp_m_k_fi(ia, ja, S, Wps, Wc, m, k, fi, Ur, Ub, kx, integr_r2_fi0, integr_r4_fi0, rows[c],
+                                   new_qp1, new_qp2, new_fi, new_k, new_m, new_kx, out_o, dt)
+
+    # ---3. Гидродинамика и перенос---
+    for i in prange(Nx):
+        for j in range(Ny):
+            if not deposition_kinetics and _paraphin and not _clogging(i, j, Wps, kx):
+                # Ниже порога кольматации поля не меняются - ровно то, что сделал бы `calc_qp_m_k_fi`, без вызова с
+                # двумя десятками массивов-аргументов (~100 нс на ячейку, docs/PERFORMANCE_FINDINGS.md, «Раунд 6»)
+                new_qp1[i, j] = 0.0
+                new_qp2[i, j] = 0.0
+                new_m[i, j] = m[i, j]
+                new_k[i, j] = k[i, j]
+                if asphaltenes:
+                    new_kx[i, j].qpa = 0.0
+
             # Скважины входят в уравнения наравне с перетоками через грани, поэтому делятся на те же поля нового слоя.
             cells_S_eq[i, j] += src_S[i, j]
-            cells_Wp_eq[i, j] += src_Wp[i, j]
             cells_T_eq[i, j] += src_T[i, j]
 
             saturation_equation(i, j, S, m, cells_S_eq, new_m, new_s, dt)
-            # Стоки q_p1, q_p2 - нового слоя: именно они дают убыль пористости m - new_m на этом шаге. С qp1, qp2
-            # прошлого слоя парафин уходил из фазы на шаг позже, чем терялся поровый объем.
-            if wax_components:
-                components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, rows[i, ROW_FO], p, T, m, S, new_m, new_s, Wc, new_Wc, Ws,
-                                    new_Ws, src_Qo, new_qp1, new_qp2, new_wp, new_wps, new_Hl, Dep, kin, kx, new_kx, mu_p, dt)
-            else:
-                wp_equation(i, j, new_qp1, new_qp2, m, S, Wp, Wps, T, cells_Wp_eq, new_m, new_s, new_wp, new_wps, dt, _paraphin)
+            # Стоки q_p1, q_p2 - нового слоя: именно они дают убыль пористости m - new_m на этом шаге
+            components_equation(i, j, _paraphin, boundary_conditions, bc_Wc, cells_W_eq, Fo, p, T, m, S, new_m, new_s, Wc, new_Wc, Ws,
+                                new_Ws, src_Qo, new_qp1, new_qp2, new_wp, new_wps, new_Hl, Dep, kin, kx, new_kx, mu_p, dt)
             if thermal_nonequilibrium:
                 u_abs = (lam_o[i, j] + lam_w[i, j]) * grad_p[i, j]  # скорость фильтрации для теплообмена с породой
-                psi = temperature_equation_ltne(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, Hl, new_Hl,
+                psi = temperature_equation_ltne(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_wp, new_wps, Hl, new_Hl,
                                                 cells_T_eq, _t, E_ff, new_t, new_m, new_s, kx, new_kx, u_abs, mu_o, kin, dt)
             else:
-                psi = temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wo, Wp, Wps, new_wp, new_wps, Hl, new_Hl, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
+                psi = temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_wp, new_wps, Hl, new_Hl, cells_T_eq, _t, E_ff, new_t, new_m, new_s, dt)
+            # Вязкости нового слоя по новой температуре - здесь, пока ячейка в кеше, а не отдельным проходом при обмене
+            # слоев. С гелем или Барусом mu_o считает `_swap_time_steps`: ей нужны поля нового слоя
+            new_mu_w[i, j] = calc_mu_w(new_t[i, j])
+            if not (gelation or pressure_viscosity):
+                new_mu_o[i, j] = calc_mu_o(new_t[i, j], new_wps[i, j])
 
-            # Три ограничения на шаг по числу Куранта: по насыщенности, по переносу парафина и по температуре.
+            # Три ограничения на шаг по числу Куранта: по насыщенности, по переносу компонентов и по температуре.
             # Осаждение шаг не ограничивает: его сток зажат подводом взвеси в `calc_qp_m_k_fi`.
             q_out = cells_Q_out[i, j]
             if q_out > 1e-30: # Скважинная часть добирается в `_calc_dt`.
                 dt_cells = min(dt_cells, CFL_target * m[i, j] * volume / (max_dfw * q_out))
+            qo_out = cells_Qo_out[i, j]
             if _paraphin and qo_out > 1e-30:
                 dt_cells = min(dt_cells, CFL_target * m[i, j] * (1.0 - S[i, j]) * volume / qo_out)
+            t_out = cells_T_out[i, j]
             if t_out > 1e-30:
                 dt_cells = min(dt_cells, CFL_target * psi * volume / t_out)
 
@@ -544,7 +591,7 @@ def _calc_dt(n_wells, wells, m, cells_Q_out, max_dfw, dt_prev, dt_cells):
     dt_new = dt_cells
     for w in range(n_wells):
         i, j = wells[w].i, wells[w].j
-        q_out = cells_Q_out[i, j] + abs(wells[w].q[2])
+        q_out = cells_Q_out[i, j] + abs(wells[w].q_t)
         if q_out > 1e-30:
             dt_cell = CFL_target * m[i, j] * volume / (max_dfw * q_out)
             if dt_cell < dt_new:
@@ -554,7 +601,7 @@ def _calc_dt(n_wells, wells, m, cells_Q_out, max_dfw, dt_prev, dt_cells):
 
 
 @njit(cache=True)
-def _wells_loop(n_wells, wells, T, C_o, C_w, C_p, Wo, Wp, Wps, Hl, src_S, src_Wp, src_T, src_Qo):
+def _wells_loop(n_wells, wells, T, C_o, C_w, C_p, Wp, Wps, Hl, src_S, src_T, src_Qo):
     """Источники скважин в тех же единицах, что и перетоки через грани ячейки.
 
     Дебиты знаковые (q > 0 - закачка), поэтому источники складываются с перетоками как есть.
@@ -564,10 +611,9 @@ def _wells_loop(n_wells, wells, T, C_o, C_w, C_p, Wo, Wp, Wps, Hl, src_S, src_Wp
     for w in range(n_wells):
         wl = wells[w]
         i, j = wl.i, wl.j
-        src_S[i, j] = wl.q[1]
-        src_Wp[i, j] = (Wp[i, j] + Wps[i, j]) * wl.q[0]
-        src_T[i, j] = temperature_source(wells, w, T, C_o, C_w, C_p, Wo, Wp, Wps, Hl)
-        src_Qo[i, j] = wl.q[0]  # перенос компонентов детального состава: у каждого свой множитель w_c
+        src_S[i, j] = wl.q_w
+        src_T[i, j] = temperature_source(wells, w, T, C_o, C_w, C_p, Wp, Wps, Hl)
+        src_Qo[i, j] = wl.q_o  # перенос компонентов нефти: у каждого свой множитель w_c
 
 
 @njit(cache=True)
@@ -581,69 +627,42 @@ def _update_wells_data(n_wells, wells, p, S, mu_o, mu_w, dt):
     for w in range(n_wells):
         upd_q_and_eta(wells, w, p, S, mu_o, mu_w, dt)
         if not wells[w].is_injector:
-            Q_oil -= wells[w].Q[0]  # у добывающей q < 0, а добыча положительна
+            Q_oil -= wells[w].Q_o  # у добывающей q < 0, а добыча положительна
 
     # Вычисление КИН
     return Q_oil / geological_reserves
 
 
 @njit(parallel=True, cache=True)
-def _swap_time_steps(_paraphin, qp1, new_qp1, qp2, new_qp2, k, new_k, m, new_m, S, new_s,
-                     Wo, Wp, new_wp, Wps, new_wps, T, T_0, new_t,
-                     fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, mu_o, mu_w,
-                     p, grad_p, Wc, new_Wc, Ws, new_Ws, Hl, new_Hl, mu_p, Phi, Dep, kx, new_kx,
-                     dt):
-    """Обновление полей данных на новом временном слое.
+def _swap_time_steps(_paraphin, Wps, fi, new_fi, Ur, new_Ur, Ub, new_Ub, kx, new_kx,
+                     new_t, new_wps, new_s, new_m, p, grad_p, Dep, Phi, mu_p, mu_o, dt):
+    """Обмен слоев того, что нельзя обменять ссылками (`Solver._swap_refs`), - зовется до него.
 
-    С гелем (`gelation`) или зависимостью от давления вязкость нефти считает `Gel.oil_viscosity`: эффективная
-    mu_o = mu_p/Phi, Phi релаксирует к равновесному с временем `gel_time` (множитель за шаг - `relax`). Через mu_o
-    гель согласованно попадает в матрицу давления, продуктивность скважин и перетоки.
+    Поля по радиусам пор (`fi`, `Ur`, `Ub`) без кинетики осаждения ядра пишут только в ячейках с кольматацией, поэтому
+    они копируются, а не меняются ссылками (с кинетикой `fi` и `h_sloy` меняет `_swap_refs`); так же поля механизмов
+    `kx` - часть их пишется не во всех ячейках. С гелем (`gelation`) или зависимостью от
+    давления вязкость нефти считает `Gel.oil_viscosity`: эффективная mu_o = mu_p/Phi, Phi релаксирует к равновесному
+    с временем `gel_time` (множитель за шаг - `relax`); ей нужны поля нового слоя - `new_s`, `new_m`, `new_wps`.
     """
     relax = math.exp(-dt / gel_time)
     for i in prange(Nx):
         for j in range(Ny):
-            # Пересчет свойств флюидов из-за изменения температуры
-            if not (gelation or pressure_viscosity):
-                mu_o[i, j] = calc_mu_o(new_t[i, j], new_wps[i, j])
-            mu_w[i, j] = calc_mu_w(new_t[i, j])
-
-            S[i, j]   = new_s[i, j]
-            T_0[i, j] = T[i, j]
-            T[i, j]   = new_t[i, j]
-
             if _paraphin:
-                was_clogging = Wps[i, j] > min_Wps_bound
-                # Асфальтены меняли fi, если в этом шаге было сужение флокулами (`calc_qp_m_k_fi_2` читал Ua)
-                asph_clogging = kx[i, j, KX_UA] < 0.0 if asphaltenes else False
-                Wp[i, j]  = new_wp[i, j]
-                Wps[i, j] = new_wps[i, j]
-                Wo[i, j]  = 1.0 - new_wp[i, j] - new_wps[i, j]
-                k[i, j]   = new_k[i, j]
-                m[i, j]   = new_m[i, j]
-                qp1[i, j] = new_qp1[i, j]
-                qp2[i, j] = new_qp2[i, j]
-                if wax_components:
-                    Wc[i, j, :] = new_Wc[i, j, :]
-                    Ws[i, j, :] = new_Ws[i, j, :]
-                    Hl[i, j] = new_Hl[i, j]
                 if asphaltenes or deposition_kinetics:  # поля механизмов, в том числе Ua и qpa
-                    kx[i, j, :] = new_kx[i, j, :]
-
-                if deposition_kinetics:
-                    # Кинетическое ядро пишет fi и h каждой ячейки на каждом шаге
-                    fi[i, j, :] = new_fi[i, j, :]
-                    h_sloy[i, j, :] = new_h[i, j, :]
-                # Ниже порога кольматации поля по радиусам не пишутся, копия была бы тождественной
-                elif was_clogging:
+                    # Асфальтены меняли fi, если в этом шаге было сужение флокулами (`calc_qp_m_k_fi` читал Ua)
+                    if asphaltenes and not deposition_kinetics and Wps[i, j] <= min_Wps_bound and kx[i, j].ua < 0.0:
+                        fi[i, j, :] = new_fi[i, j, :]
+                    kx[i, j] = new_kx[i, j]
+                # Ядро кинетики пишет fi и h каждой ячейки на каждом шаге - их меняет ссылками `_swap_refs`. Без кинетики
+                # поля по радиусам пишутся только выше порога кольматации, ниже копия была бы тождественной
+                if not deposition_kinetics and Wps[i, j] > min_Wps_bound:
                     fi[i, j, :]     = new_fi[i, j, :]
-                    h_sloy[i, j, :] = new_h[i, j, :]
                     Ur[i, j, :]     = new_Ur[i, j, :]
                     Ub[i, j, :]     = new_Ub[i, j, :]
-                elif asph_clogging:
-                    fi[i, j, :] = new_fi[i, j, :]
 
-            if gelation or pressure_viscosity:  # после обмена: множителю геля нужны m, S и fi нового слоя
-                oil_viscosity(i, j, new_t[i, j], new_wps[i, j], p, S, m, fi, grad_p, Dep, Phi, mu_p, mu_o, relax)
+            if gelation or pressure_viscosity:  # множителю геля нужны m, S и fi нового слоя (с кинетикой - еще в new_fi)
+                oil_viscosity(i, j, new_t[i, j], new_wps[i, j], p, new_s, new_m, new_fi if deposition_kinetics else fi,
+                              grad_p, Dep, Phi, mu_p, mu_o, relax)
 
 
 def _calc_max_dfw(init_T, wells) -> float:
@@ -708,8 +727,8 @@ def _logging_solution(solver, t):
     for i in range(solver.n_wells):
         mode = 'задан дебит' if solver.wells[i].rate_control == 1 else 'задано P_заб'
         solver.logger.info(f"Скважина {solver._wells_buffer[i]['name']} ({mode}): "
-                           f"q_o={solver.wells[i].q[0] * day_to_sec} м^3/сут  "
-                           f"q_w={solver.wells[i].q[1] * day_to_sec} м^3/сут  "
+                           f"q_o={solver.wells[i].q_o * day_to_sec} м^3/сут  "
+                           f"q_w={solver.wells[i].q_w * day_to_sec} м^3/сут  "
                            f"P_заб={solver.wells[i].p / bar_to_pa} бар")
 
     if not solver._paraphin:

@@ -1,8 +1,9 @@
-"""Эталон регрессии «все новые флаги выключены»: полный прогон решателя и снимок всех полей.
+"""Эталон регрессии модели по умолчанию: полный прогон решателя и снимок всех полей.
 
-Эталон снят кодом ДО внедрения детального состава нефти (асфальтены, группы парафинов, гель,
-давление в WAT). Все новые механизмы включаются флагами-константами `constants.py`, и с выключенными
-флагами расчет обязан совпадать с прежним побитово - это проверяет `test_regression_flags_off.py`.
+Модель по умолчанию - один псевдокомпонент парафина (`wax_characterization = 'single'`), механизмы выключены.
+Эталон `regression_flags_off_<хеш>.npz` снят кодом единой модели; с ним расчет обязан совпадать побитово
+(`test_regression_flags_off.py`). Эталон `legacy_single_<хеш>.npz` - тот же прогон прежнего однокомпонентного кода
+(до объединения с моделью АСПО): с ним сравнение до 1e-8, это проверка, что частный случай общей модели - прежняя модель.
 
 Постановка повторяет `test_mass_balance._make_solver` (закачка при 5 C, чтобы парафин выпадал и блок
 кольматации реально работал), но заморожена здесь: правка тестов баланса не должна сдвигать эталон.
@@ -42,10 +43,19 @@ def metadata() -> dict:
             'python': platform.python_version()}
 
 
+def _env_hash(meta: dict = None) -> str:
+    meta = metadata() if meta is None else meta
+    return hashlib.sha256(repr(sorted(meta.items())).encode()).hexdigest()[:12]
+
+
 def baseline_path(meta: dict = None) -> Path:
     """Файл эталона окружения `meta` (по умолчанию - текущего)."""
-    meta = metadata() if meta is None else meta
-    return DATA / f'regression_flags_off_{hashlib.sha256(repr(sorted(meta.items())).encode()).hexdigest()[:12]}.npz'
+    return DATA / f'regression_flags_off_{_env_hash(meta)}.npz'
+
+
+def legacy_path(meta: dict = None) -> Path:
+    """Эталон прежнего однокомпонентного кода для окружения `meta`."""
+    return DATA / f'legacy_single_{_env_hash(meta)}.npz'
 
 
 def run() -> dict:
@@ -70,8 +80,8 @@ def run() -> dict:
 
     out = {name: np.array(getattr(solver, name), copy=True) for name in FIELDS}
     for w, well in enumerate(solver.wells):
-        out[f'well{w}_q'] = np.array(well.q, copy=True)
-        out[f'well{w}_Q'] = np.array(well.Q, copy=True)
+        out[f'well{w}_q'] = np.array([well.q_o, well.q_w, well.q_t])  # прежняя раскладка эталонов: (нефть, вода, сумма)
+        out[f'well{w}_Q'] = np.array([well.Q_o, well.Q_w, well.Q_t])
         out[f'well{w}_p'] = np.array(well.p)
         out[f'well{w}_eta'] = np.array(well.eta)
     out['KIN'] = np.array(solver.KIN)

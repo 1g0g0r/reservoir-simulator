@@ -13,7 +13,7 @@ from paraphin.constants import (Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init
                                 data_type, p_guess_m)
 from paraphin.layout import NP, PX
 from paraphin.equations import calc_pressure
-from paraphin.utils import new_well, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility
+from paraphin.utils import BC, new_well, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility
 from paraphin.utils.math_utils import MG_ROWS, MG_TOTAL, MG_COARSE, MG_COARSE_KD, P_STATE, solve_mg_system
 from paraphin.utils.math_utils.mg_solver import mg_pad, mg_unpad
 
@@ -45,7 +45,7 @@ def _solve_pressure():
     k, S = field(init_k), field(init_S)
     mu_o, mu_w = field(calc_mu_o(init_T, init_Wps)), field(calc_mu_w(init_T))
     lam_o, lam_w, lam_h = field(0.0), field(0.0), field(0.0)
-    calc_mobility(k, S, field(init_m), field(1.0 - init_Wp - init_Wps), field(init_Wp),
+    calc_mobility(k, S, field(init_m), field(init_Wp),
                   field(init_Wps), mu_o, mu_w, lam_o, lam_w, lam_h)
 
     mg_buf, mg_wc, state = _solver_buffers()
@@ -53,7 +53,7 @@ def _solve_pressure():
     p = np.zeros((Nx, Ny), data_type)
     x0 = np.full(NP, init_p, data_type)
     calc_pressure(k, S, mu_o, mu_w, lam_o, lam_w, wells, diag, ex, ey, rhs, mg_buf, mg_wc, state, x0,
-                  np.tile(x0, (p_guess_m, 1)), vec(), vec(), np.zeros((4, 4, 2), data_type), p)
+                  np.tile(x0, (p_guess_m, 1)), vec(), vec(), np.zeros((4, 4), BC), p)
 
     # матрица в раскладке подряд (idx = i + j*Nx) - для сравнения с SuperLU
     unpad = lambda v: v.reshape(Ny + 2, PX)[1:-1, 1:-1].ravel()

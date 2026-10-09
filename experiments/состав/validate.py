@@ -15,13 +15,11 @@ Sutton & Roberts (`constants.py`). Здесь к упрощенной модел
   4. Li et al. (2024), 45-90 C: может ли асфальтеновый блок объяснить повреждение выше WAT.
 
 Каждый вариант считается в копии пакета с поправленными константами (`tests/_patched_copy.py`),
-рабочий процесс - `core_worker.py` рядом. Тиксотропное время геля в опыте - 5 мин (`LAB_GEL_TIME`), а не
+рабочий процесс - общий `experiments/core_runner.py` (через `core_flood.run_runner`). Тиксотропное время геля в опыте - 5 мин (`LAB_GEL_TIME`), а не
 сутки, как в поле: опыт короче суток, а тиксотропия парафинистой нефти - минуты (Dimitriou & McKinley, 2014).
 """
 import json
 import math
-import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -42,11 +40,10 @@ from paraphin.constants import (D, Lk, R, v_asph, ro_asph, ro_o, sara_asphaltene
 OUT = HERE / 'validation.json'
 TABLES = HERE / 'validation_tables.md'
 FIG = HERE / 'figures'
-WORKER = HERE / 'core_worker.py'
 
 LAB_GEL_TIME = 300.0  # [с]
 GEL = {'gelation': 'True', 'wax_viscosity': '1', 'gel_time': repr(LAB_GEL_TIME)}
-COMP = {'wax_components': 'True', 'wax_viscosity': '1'}
+COMP = {'wax_characterization': "'scn'", 'wax_viscosity': '1'}
 MULTS = (1.0, 0.1, 0.03, 0.01, 0.003)
 # Множитель предела текучести для прогнозов: наибольший из MULTS, при котором гель не ухудшает калибровку
 # по опыту 1 Sutton & Roberts больше чем на RMS_TOL (СКО k/k0)
@@ -85,12 +82,7 @@ def run(name: str, exp: dict, flags: dict = None, mode: str = 'rate', extra: dic
     values = cf._case_constants(exp, D, Lk, cf.NY, dt)
     values.update(extra or {})
     values.update(flags or {})
-    root = make_copy(f'val_{name}', values)
-    case, out = root / 'case.json', root / 'result.json'
-    case.write_text(json.dumps(exp), encoding='utf-8')
-    env = dict(os.environ, PYTHONPATH=str(root))
-    subprocess.run([sys.executable, str(WORKER), str(case), str(out), mode], cwd=root, env=env, check=True)
-    res = json.loads(out.read_text(encoding='utf-8'))
+    res = cf.run_runner(make_copy(f'val_{name}', values), exp, mode)
     res['rms'] = cf.rms(res, exp['exp'])
     idx = np.unique(np.linspace(0, len(res['pv']) - 1, 400).astype(int))
     for key in ('pv', 'k', 'k_harm', 'phi_min', 'T_hist'):

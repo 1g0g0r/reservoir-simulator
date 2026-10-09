@@ -1,11 +1,11 @@
 """Скважины: структурный массив `wells[n_wells]` с dtype `WELL`.
 
-Структурный dtype кешируется и компилируется так же быстро, как 2D float64 со столбцами-индексами, при двух
-условиях (замер в docs/ПРЕДЛОЖЕНИЯ_ОПТИМИЗАЦИЯ.md):
-- в ядрах к полям-подмассивам (`q`, `Q`, `J`) обращаться поэлементно: векторное выражение над ними
-  (`wl.Q[:] += wl.q*dt`) стоит +2.4 с компиляции;
-- в ядра передавать обычный ndarray, а не `np.recarray`: подкласс numba типизирует медленным путем, +3 мкс на вызов.
-Python-коду (выгрузка, тесты, критерий останова) тот же буфер виден как `np.recarray`: `solver.wells[k].q`, `.p`.
+Структурный dtype кешируется и компилируется так же быстро, как 2D float64 со столбцами-индексами (замер в
+docs/PERFORMANCE_FINDINGS.md, «Скважины»). Дебиты, накопленные дебиты и продуктивность по фазам - скалярные поля
+(`q_o`, `q_w`, `q_t`, `Q_o` ..., `J_t`), а не подмассивы: векторное выражение над подмассивом записи стоило +2.4 с
+компиляции, а поэлементный доступ по номеру фазы был нечитаем. В ядра передавать обычный ndarray, а не `np.recarray`:
+подкласс numba типизирует медленным путем, +3 мкс на вызов. Python-коду (выгрузка, тесты, критерий останова) тот же
+буфер виден как `np.recarray`: `solver.wells[k].q_t`, `.p`.
 """
 import numpy as np
 from numba import njit
@@ -24,9 +24,10 @@ WELL = np.dtype([
     ('rate_control', np.bool_),        # задан дебит, забойное давление считается (иначе наоборот)
     ('prod_mult', np.float64),         # множитель Писмана 2*pi*h/ln(r_o/r_w)*mult, [м]
     ('eta', np.float64),               # обводненность, [-]
-    ('q', np.float64, 3),              # дебит (q_o, q_w, q_t), [м^3/с]; q > 0 - закачка, q < 0 - отбор
-    ('Q', np.float64, 3),              # накопленный дебит (Q_o, Q_w, Q_t), [м^3]
-    ('J', np.float64, 3),              # продуктивность (J_o, J_w, J_t), [м^3/(Па*с)] (не 'prod': метод записи numpy)
+    # дебит нефти, воды и суммарный, [м^3/с]; q > 0 - закачка, q < 0 - отбор
+    ('q_o', np.float64), ('q_w', np.float64), ('q_t', np.float64),
+    ('Q_o', np.float64), ('Q_w', np.float64), ('Q_t', np.float64),  # накопленный дебит, [м^3]
+    ('J_o', np.float64), ('J_w', np.float64), ('J_t', np.float64),  # продуктивность, [м^3/(Па*с)] (не 'prod': метод записи)
 ], align=True)
 
 
@@ -42,7 +43,7 @@ def new_well(i, j, p, q_set, rate_control, T, rw, is_injector, mult) -> np.ndarr
     well['i'], well['j'], well['rw'], well['p'], well['T_inj'] = i, j, rw, p, T
     well['is_injector'], well['rate_control'] = is_injector, rate_control
     well['prod_mult'] = _prod_mult(rw, mult)
-    well['q'][2] = q_set
+    well['q_t'] = q_set
     return well
 
 
@@ -65,17 +66,17 @@ def calc_well_prod(wells, w, S, k, mu_o, mu_w, lam_o, lam_w) -> None:
     mult = wl.prod_mult * k[i, j]
 
     if wl.is_injector:
-        wl.J[0] = 0.0
-        wl.J[1] = mult / mu_w[i, j]
+        wl.J_o = 0.0
+        wl.J_w = mult / mu_w[i, j]
     elif wettability:
         # ОФП со сменой смачиваемости уже в подвижностях ячейки (`calc_mobility_w`): lam = k*pf/mu
-        wl.J[0] = wl.prod_mult * lam_o[i, j]
-        wl.J[1] = wl.prod_mult * lam_w[i, j]
+        wl.J_o = wl.prod_mult * lam_o[i, j]
+        wl.J_w = wl.prod_mult * lam_w[i, j]
     else:
-        wl.J[0] = mult * pf_o(S[i, j]) / mu_o[i, j]
-        wl.J[1] = mult * pf_w(S[i, j]) / mu_w[i, j]
+        wl.J_o = mult * pf_o(S[i, j]) / mu_o[i, j]
+        wl.J_w = mult * pf_w(S[i, j]) / mu_w[i, j]
 
-    wl.J[2] = wl.J[0] + wl.J[1]
+    wl.J_t = wl.J_o + wl.J_w
 
 
 @njit(cache=True)
@@ -96,22 +97,25 @@ def upd_q_and_eta(wells, w, p, S, mu_o, mu_w, dt) -> None:
     i, j = wl.i, wl.j
     if wl.rate_control:
         # Нулевая суммарная подвижность. Матрица в такой ячейке вырождена и решатель сообщит об этом.
-        dp = wl.q[2] / wl.J[2] if wl.J[2] > 0.0 else 0.0
+        dp = wl.q_t / wl.J_t if wl.J_t > 0.0 else 0.0
         wl.p = p[i, j] + dp
     else:
         dp = wl.p - p[i, j]
 
-    wl.q[0] = wl.J[0] * dp
-    wl.q[1] = wl.J[1] * dp
-    wl.q[2] = wl.q[0] + wl.q[1]
+    wl.q_o = wl.J_o * dp
+    wl.q_w = wl.J_w * dp
+    wl.q_t = wl.q_o + wl.q_w
 
     if wl.is_injector:
         wl.eta = 1.0
     else:
         wl.eta = Buckley_Leverett(S[i, j], mu_w[i, j], mu_o[i, j])
 
-    for _idx in range(3):  # поэлементно: срез подмассива записи стоит +2.4 с компиляции
-        wl.Q[_idx] += wl.q[_idx] * dt
+    wl.Q_o += wl.q_o * dt
+
+    wl.Q_w += wl.q_w * dt
+
+    wl.Q_t += wl.q_t * dt
 
 
 def preprocess_wells(wells_buffer) -> np.ndarray:

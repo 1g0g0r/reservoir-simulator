@@ -2,7 +2,8 @@
 
     python experiments/core_runner.py case.json out.json
 
-Как `experiments/исходная_модель/core_flood.worker`, но:
+Единственный рабочий процесс керна: его зовут и сравнения `experiments/*.py` (`common.py`), и прежние отчеты
+(`исходная_модель/core_flood.run_case`, `состав/validate.py` - через `core_flood.run_runner`). Особенности:
   - пакет `paraphin` берется из PYTHONPATH - из копии с поправленными константами (`tests/_patched_copy.py`), а не
     из репозитория: флаги моделей - константы уровня модуля, править их на месте опасно;
   - числовые параметры кинетики (`solver.kin`, `paraphin/kinetics_params.py`) задаются в case.json и ставятся
@@ -11,14 +12,15 @@
     приводится к равновесию с перепадом при заданном расходе (нефть уже гелирована);
   - в результат пишутся профили вдоль керна и интегральные величины всех включенных механизмов.
 
-case.json: {"exp": {...свойства опыта...}, "mode": "rate" | "ramp" | "thermal" | "stages", "kin": {...}}
+case.json: {"exp": {...свойства опыта...}, "mode": "rate" | "dp" | "ramp" | "thermal" | "stages", "kin": {...}}
+Режим 'dp' - постоянный перепад dP_0 вместо постоянного расхода (скорость в капилляре падает вместе с k; k/k0 = q/q_0).
 - см. `experiments/common.py`, который его пишет. Режим 'stages' - ступенчатый протокол (Li et al. 2024): один керн
 охлаждается ступенями exp["stages"] = [[T, PV], ...]; на каждой ступени керн и втекающая нефть при T, проницаемость
 нормируется на начало ступени, отложения и адсорбция переходят на следующую ступень.
 exp["water"] = true - вместо нефти закачивается вода в керн с остаточной нефтью (init_S = S_max, Maloney &
 Oesthus 2004): перепад считается по вязкости воды, взвесь и отложения дает только неподвижная остаточная нефть.
 
-Постановка (Ring et al. 1994; `core_flood.worker`): керн вдоль j, слева прокачка нефти с постоянным расходом,
+Постановка (Ring et al. 1994): керн вдоль j, слева прокачка нефти с постоянным расходом,
 справа противодавление. Расход держится перепадом dP = q*sum(hy*mu_j/(A*k_j)); измеряемая величина та же, что в
 опыте, k/k0 = dP_0/dP при постоянном расходе.
 """
@@ -78,7 +80,7 @@ def _inflow_suspension(solver, t_c):
 def run(case: dict) -> dict:
     from paraphin.geometry import eta, r, fi_0, w2_cv
     from paraphin.constants import (Ny, hy, hx, h, init_Wp, init_Wps, _re, init_m, gelation,
-                                    gel_mobility_min, wax_components, deposition_kinetics, wax_kinetics)
+                                    gel_mobility_min, deposition_kinetics, wax_kinetics)
     from paraphin.kinetics_params import kin_index
     import paraphin.solver as solver_module
     from paraphin.solver import Solver, Bound, TypeBC, DataField
@@ -139,10 +141,13 @@ def run(case: dict) -> dict:
     if gelation and not water:
         _gel_equilibrium(solver, exp['q'] / area, gel_mobility_min)
     dp0 = pressure_drop()
-    solver.boundary_conditions[Bound.Left.value, DataField.Pressure.value, 1] = p_out + dp0
+    solver.boundary_conditions['value'][Bound.Left.value, DataField.Pressure.value] = p_out + dp0
 
     k0 = solver.k[0, 0]
     t, pv, k_app, k_harm, t_hist = 0.0, [0.0], [1.0], [1.0], [stages[0][0]]
+    phi_hist = [float(solver.Phi[0].min())]
+    qp1_sum, qp2_sum = np.zeros(Ny), np.zeros(Ny)  # осадок на стенках и пробки в горлах, доли объема ячейки
+    um_in = []
     stage_of = [0]
     plugged = None
     injected = 0.0
@@ -152,7 +157,7 @@ def run(case: dict) -> dict:
         if mode == 'stages':
             profile[:] = t_stage
             impose_temperature()
-            solver.boundary_conditions[Bound.Left.value, DataField.Temperature.value, 1] = t_stage
+            solver.boundary_conditions['value'][Bound.Left.value, DataField.Temperature.value] = t_stage
             if wax_kinetics:
                 _inflow_suspension(solver, t_stage)
             # Выдержка без прокачки: керн и нефть охлаждали до температуры ступени до закачки (Li et al., 2024,
@@ -161,7 +166,7 @@ def run(case: dict) -> dict:
             # Перепада нет - перенос и блокирование стоят, идут равновесие, гель и кристаллизация на стенках.
             hold = exp.get('stage_hold', 0.0) if n_stage > 0 else 0.0
             if hold > 0.0:
-                solver.boundary_conditions[Bound.Left.value, DataField.Pressure.value, 1] = p_out
+                solver.boundary_conditions['value'][Bound.Left.value, DataField.Pressure.value] = p_out
                 t_hold = 0.0
                 while t_hold < hold and plugged is None:
                     step = solver.dt
@@ -183,6 +188,7 @@ def run(case: dict) -> dict:
                 k_harm.append(k_harm[-1])
                 t_hist.append(t_stage)
                 stage_of.append(n_stage)
+                phi_hist.append(phi_hist[-1])
         while injected < pv_stage_end * pv0:
             if mode == 'thermal':
                 impose_temperature()
@@ -190,13 +196,19 @@ def run(case: dict) -> dict:
                 t_now = max(t_core - exp['cooling'] * t, exp['T_end'])
                 profile[:] = t_now
                 impose_temperature()
-                solver.boundary_conditions[Bound.Left.value, DataField.Temperature.value, 1] = t_now
-            dp = pressure_drop()
-            k_now = dp0 / dp
+                solver.boundary_conditions['value'][Bound.Left.value, DataField.Temperature.value] = t_now
+            if mode == 'dp':  # постоянный перепад: расход падает вместе с проницаемостью
+                dp = dp0
+                rate = exp['q'] * dp0 / pressure_drop()
+                k_now = rate / exp['q']
+            else:
+                dp = pressure_drop()
+                rate = exp['q']
+                k_now = dp0 / dp
             if k_now < plugged_k:
                 plugged = pv[-1]
                 break
-            solver.boundary_conditions[Bound.Left.value, DataField.Pressure.value, 1] = p_out + dp
+            solver.boundary_conditions['value'][Bound.Left.value, DataField.Pressure.value] = p_out + dp
             step = solver.dt
             try:
                 solver.upd_time_step(t + step)
@@ -204,7 +216,11 @@ def run(case: dict) -> dict:
                 plugged = pv[-1]
                 break
             t += step
-            injected += exp['q'] * step
+            injected += rate * step
+            qp1_sum += solver.qp1[0] * step
+            qp2_sum += solver.qp2[0] * step
+            um_in.append(float(solver._Um_r2[0, 0]))
+            phi_hist.append(float(solver.Phi[0].min()))
             pv.append(injected / pv0)
             k_app.append(k_now)
             k_harm.append(float(Ny / np.sum(k0 / solver.k[0])))
@@ -225,15 +241,22 @@ def run(case: dict) -> dict:
         'm_conductive_profile': m_cond.tolist(), 'phi_profile': solver.Phi[0].tolist(),
         'r': r.tolist(), 'fi0': fi_0.tolist(), 'fi_end': [solver.fi[0, j].tolist() for j in (0, Ny // 2, Ny - 1)],
         'kin': solver.kin.tolist(),
+        'phi_min': [phi_hist[i] for i in idx],
+        'wps_out': float(solver.Wps[0, -1]),
+        # Контроль: отток через правую границу на последнем шаге равен заданному расходу
+        'q_error': float((solver.lam_o[0, -1] + solver.lam_w[0, -1]) * area * (solver.p[0, -1] - p_out)
+                         / (0.5 * hy) / exp['q'] - 1.0) if mode != 'dp' else 0.0,
+        # Учет: q_p1 + q_p2 = -dm/dt, отнесено к объему ячейки; сумма обязана совпасть с m0 - m
+        'qp1_sum': qp1_sum.tolist(), 'qp2_sum': qp2_sum.tolist(), 'pore_loss': (init_m - solver.m[0]).tolist(),
+        'um_in': [um_in[0], um_in[len(um_in) // 2], um_in[-1]] if um_in else [],
     }
-    if wax_components:
-        from paraphin.layout import N_W, IA_F, I_R
-        result['dep_wax'] = float(solver.Dep[0, :, :N_W].sum())
-        result['dep_asph'] = float(solver.Dep[0, :, IA_F].sum() + solver.Dep[0, :, I_R].sum())
+    from paraphin.layout import N_W, IA_F, I_R
+    result['dep_wax'] = float(solver.Dep[0, :, :N_W].sum())
+    result['dep_groups'] = solver.Dep[0, :, :N_W].sum(axis=0).tolist()  # [кг/м^3 породы], сумма по ячейкам
+    result['dep_asph'] = float(solver.Dep[0, :, IA_F].sum() + solver.Dep[0, :, I_R].sum())
     if deposition_kinetics:
-        from paraphin.layout import KX_GA, KX_GR, KX_VGEL
-        result['adsorbed'] = float(solver.kx[0, :, KX_GA].sum() + solver.kx[0, :, KX_GR].sum())
-        result['gel_volume'] = (solver.kx[0, :, KX_VGEL] / init_m).tolist()
+        result['adsorbed'] = float(solver.kx['ga'][0, :].sum() + solver.kx['gr'][0, :].sum())
+        result['gel_volume'] = (solver.kx['vgel'][0, :] / init_m).tolist()
     return result
 
 

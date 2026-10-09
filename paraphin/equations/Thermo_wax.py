@@ -20,7 +20,7 @@ Firoozabadi & Prausnitz, AIChE J 1996, 42:239; Pan, Firoozabadi & Fotland, SPE P
 Для множества насыщенных групп S решение точное: n_L = (n_0 + sum_{k не в S} w_k/M_k)/(1 - sum_{k в S} x_k^sat).
 Насыщение группы только уменьшает n_L, поэтому S набирается жадно по убыванию порога
 t_k = w_k/(M_k*x_k^sat): не более N_w шагов, без итераций и без выделения памяти. При одной группе это в
-точности прежняя формула (6.1)-(6.2) `Wp_balance._wp_saturated`.
+точности однокомпонентная формула (6.1)-(6.2) `single_wp_saturated`.
 
 Растворенный газ добавляет моли в раствор и тем понижает WAT (эффект состава у Pan et al., 1997);
 газосодержание линейно по давлению до давления насыщения P_b. Свободный газ в течении не отслеживается.
@@ -33,7 +33,8 @@ import math
 
 from numba import njit, prange
 
-from paraphin.constants import M_o, Nx, Ny, P_ref_wax, P_bubble, wax_pressure, wax_pore_shift, wax_eos
+from paraphin.constants import (M_o, Nx, Ny, P_ref_wax, P_bubble, wax_pressure, wax_pore_shift, wax_eos, MW, Tm, Tm_K,
+                                alpha, R)
 from paraphin.layout import N_W
 from paraphin.oil_composition import WAX_M, WAX_TM_K, WAX_DH_R, WAX_DV_R, WAX_L_REL, N_GAS_B
 from paraphin.thermo.tables import LNXSAT, NG, T_LO, T_HI, eos_interp
@@ -128,12 +129,61 @@ def sle_split(wax, T, p, sus):
 
 
 @njit(cache=True)
-def sle_hl_boundary(wax, T, p):
-    """Носитель скрытой теплоты втекающей через границу нефти заданного состава `wax` (ГУ Дирихле).
+def single_split(w, T, p):
+    """`sle_split` при одной группе (N_W = 1) в замкнутой форме: растворенная и взвешенная доли.
 
-    Нужен только на гранях с ГУ `DataField.Paraffin`, поэтому буфер выделяется здесь, а не передается."""
-    sus = wax.copy()
-    return sle_split(wax, T, p, sus)[2]
+    Насыщение - если w > x*n0/(1 - x)*M, n0 = (1 - w)/M_o + n_g: тогда растворено x*n0/(1 - x)*M. Без давления и газа
+    это формула (6.2) однокомпонентной модели (`single_wp_saturated`). Ни буфера, ни цикла по группам - путь шага
+    однокомпонентного расчета (`components_equation`, `flows_in_cells`)."""
+    x = x_saturation(0, T, p)
+    if x >= 1.0:
+        return w, 0.0
+    dis = min(w, x * ((1.0 - w) / M_o + n_gas(T, p)) / (1.0 - x) * WAX_M[0])
+    return dis, w - dis
+
+
+@njit(cache=True)
+def sle_hl_boundary(bc_wc, bound, T, p):
+    """Носитель скрытой теплоты втекающей через границу `bound` нефти состава `bc_wc[bound]` (ГУ Дирихле) - тот же жадный
+    набор насыщенных групп, что `sle_split`, но без буфера: x_k^sat пересчитывается на месте.
+
+    Зовется в цикле по граням `flows_in_cells`, поэтому без буфера и без среза `bc_wc[bound, :]`: срез (вид на массив)
+    в этой ветке, даже невыполняемой, замедлял весь цикл по ячейкам (75x75: 630 -> 870 мкс). Путь редкий (только грани
+    с ГУ `DataField.Paraffin`), поэтому лишние экспоненты не стоят ничего."""
+    if N_W == 1:
+        return WAX_L_REL[0] * single_split(bc_wc[bound, 0], T, p)[0]
+    w_sum = 0.0
+    a = n_gas(T, p)
+    for k in range(N_W):
+        w_sum += bc_wc[bound, k]
+        a += bc_wc[bound, k] / WAX_M[k]
+    a += (1.0 - w_sum) / M_o
+    b = 1.0
+    mask = 0
+    for _ in range(N_W):
+        best = -1
+        t_best = -1.0
+        x_best = 0.0
+        for k in range(N_W):
+            x_k = x_saturation(k, T, p)
+            if (mask >> k) & 1 or bc_wc[bound, k] <= 0.0 or x_k >= 1.0:
+                continue
+            t_k = bc_wc[bound, k] / (WAX_M[k] * x_k) if x_k > 0.0 else math.inf
+            if t_k > t_best:
+                t_best = t_k
+                best = k
+                x_best = x_k
+        if best < 0 or t_best * b <= a:
+            break
+        mask |= 1 << best
+        a -= bc_wc[bound, best] / WAX_M[best]
+        b -= x_best
+    n_l = a / b
+    hl = 0.0
+    for k in range(N_W):
+        dis = x_saturation(k, T, p) * n_l * WAX_M[k] if (mask >> k) & 1 else bc_wc[bound, k]
+        hl += WAX_L_REL[k] * dis
+    return hl
 
 
 @njit(cache=True)
@@ -200,3 +250,23 @@ def calc_wat_field(Wc, p, WAT):
     for i in prange(Nx):
         for j in range(Ny):
             WAT[i, j] = wat_cell(Wc[i, j, :N_W], p[i, j])
+
+
+@njit(cache=True)
+def single_wp_saturated(w_sum, T):
+    """Растворенный парафин одного псевдокомпонента (MW, Tm, alpha), формула (6.1)-(6.2) - эталон редукции `sle_split`
+    к одной группе (`wax_characterization = 'single'`, `tests/test_thermo_wax.py`) и рисунков описания модели.
+
+    Предел растворимости идеального раствора (Шредер - ван Лаар) с эффективными alpha, Tm:
+        x_sat(T) = min(1, exp[-(alpha/R)*(1/T - 1/Tm)]),   T, Tm в К,
+    переводится в массовую долю через молярные массы; взвесь в раствор не входит, поэтому предел относится к
+    w_o + w_p = 1 - w_ps:
+        w_hat = x_sat*MW/(x_sat*MW + (1 - x_sat)*M_o),   w_p_sat = w_hat/(1 - w_hat)*(1 - w_sum).
+    """
+    if T >= Tm:
+        return w_sum  # выше температуры плавления парафин растворим полностью
+    x_sat = math.exp(-alpha / R * (1.0 / (T + 273.15) - 1.0 / Tm_K))
+    if x_sat >= 1.0:
+        return w_sum
+    w_hat = x_sat * MW / (x_sat * MW + (1.0 - x_sat) * M_o)
+    return min(w_sum, w_hat / (1.0 - w_hat) * (1.0 - w_sum))

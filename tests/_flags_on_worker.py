@@ -17,7 +17,7 @@ import numpy as np
 def _run(t_days: float, fields_path: str = None) -> dict:
     from paraphin.constants import (Nx, Ny, Pw, Po, rw, day_to_sec, ro_o, ro_p, ro_asph_dep, init_m, volume,
                                     dt_min, gel_mobility_min, asphaltenes, gelation)
-    from paraphin.layout import N_W, NCB, IA_D, IA_F, I_R, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA, KX_GR
+    from paraphin.layout import N_W, NCB, IA_D, IA_F, I_R
     from paraphin.solver import Solver
 
     solver = Solver()
@@ -32,8 +32,8 @@ def _run(t_days: float, fields_path: str = None) -> dict:
         # Адсорбированные асфальтены и смолы - отдельный резервуар (`kx`), они входят в баланс своих компонентов.
         oil = solver.m * (1.0 - solver.S) * ro_o * volume
         out = np.array([(oil * solver.Wc[..., c]).sum() + solver.Dep[..., c].sum() * volume for c in range(NCB)])
-        out[IA_D] += solver.kx[..., KX_GA].sum() * volume
-        out[I_R] += solver.kx[..., KX_GR].sum() * volume
+        out[IA_D] += solver.kx['ga'].sum() * volume
+        out[I_R] += solver.kx['gr'].sum() * volume
         return out
 
     solver.upd_time_step(0.0)  # прогрев JIT - полноценный шаг, поэтому начальные массы берутся после него
@@ -53,18 +53,18 @@ def _run(t_days: float, fields_path: str = None) -> dict:
         min_dt = min(min_dt, step_dt)
 
         # Отбор: дебит нефти этого шага (q < 0) с составом ячейки на начало шага - как в `components_equation`
-        produced += -prod.q[0] * ro_o * wc_prod * step_dt
+        produced += -prod.q_o * ro_o * wc_prod * step_dt
 
-        q_in, q_out = solver.wells[0].q[2], -solver.wells[1].q[2]
+        q_in, q_out = solver.wells[0].q_t, -solver.wells[1].q_t
         worst_q = max(worst_q, abs((q_out - q_in) / q_in))
         dm = m_before - solver.m
-        q_new = solver.kx[..., KX_QW] + solver.kx[..., KX_QG] + solver.kx[..., KX_QADA] + solver.kx[..., KX_QADR]
+        q_new = solver.kx['qw'] + solver.kx['qg'] + solver.kx['qada'] + solver.kx['qadr']
         res = np.abs((solver.qp1 + solver.qp2 + solver.qpa + q_new) * step_dt - dm).max()
         # Знаменатель не меньше 1e-6: m - m_new - разность чисел ~0.3, ее точность ограничена округлением (~5e-17),
         # и при изменении пористости за шаг ~1e-8 (одна адсорбция) относительная невязка мерила бы только его
         worst_pore = max(worst_pore, res / max(np.abs(dm).max(), 1e-6))
         dep_vol = (solver.Dep[..., :N_W].sum(axis=-1) / ro_p
-                   + (solver.Dep[..., IA_F] + solver.Dep[..., I_R] + solver.kx[..., KX_GA] + solver.kx[..., KX_GR]) / ro_asph_dep)
+                   + (solver.Dep[..., IA_F] + solver.Dep[..., I_R] + solver.kx['ga'] + solver.kx['gr']) / ro_asph_dep)
         loss = init_m - solver.m
         worst_dep = max(worst_dep, np.abs(dep_vol - loss).max() / max(np.abs(loss).max(), 1e-30))
         worst_closure = max(worst_closure, np.abs(solver.Wo + solver.Wp + solver.Wps - 1.0).max())

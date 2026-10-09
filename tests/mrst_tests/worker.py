@@ -67,9 +67,9 @@ def main(out: str, opts: dict) -> None:
             r['qo_prod'].append((1.0 - f_w) * q_out)
             r['bhp_inj'].append(0.0)
         else:
-            r['q_inj'].append(float(inj.q[2]))
-            r['qw_prod'].append(float(-prod.q[1]))
-            r['qo_prod'].append(float(-prod.q[0]))
+            r['q_inj'].append(float(inj.q_t))
+            r['qw_prod'].append(float(-prod.q_w))
+            r['qo_prod'].append(float(-prod.q_o))
             r['bhp_inj'].append(float(inj.p))
         r['T_prod'].append(float(solver.T[Nx - 1, Ny - 1]) + 273.15)
         while pending and t >= pending[0] * day_to_sec:

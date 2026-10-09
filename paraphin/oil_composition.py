@@ -1,8 +1,7 @@
 """Детальный состав нефти: характеризация по SARA и SCN, свойства групп парафинов, асфальтенов и смол.
 
 Считается один раз при импорте (как `eta` в `paraphin/geometry.py`), результат - константы уровня
-модуля (индексы компонентов в `Wc` - `paraphin/layout.py`): njit-функции уравнений читают их как литералы. Работает только при `wax_components = True`,
-но считается всегда: массивы маленькие, а импорт от флага не зависит.
+модуля (индексы компонентов в `Wc` - `paraphin/layout.py`): njit-функции уравнений читают их как литералы.
 
 Состав нефти (обзор `твт_статья_АСПО/материалы/full_review.pdf`, разд. 1.2-1.3):
     - насыщенные углеводороды: н-алканы C17-C60 (парафины и воски, кристаллизуются) и остальная
@@ -23,9 +22,9 @@ z_n ~ exp(-scn_slope*n) (Pedersen et al., Energy Fuels 1991, 5:924). Свойс�
             уравнение энергии (сверка с измерениями: Broadhurst, J. Res. NBS 1962, 66A:241);
     dv_k  - скачок мольного объема при плавлении wax_dv_frac*M/ro_wax_liq (поправка Пойнтинга), [м^3/моль].
 
-Режим 'single' - одна группа ровно с параметрами упрощенной модели (MW, Tm, alpha, latent_heat): тогда
-многокомпонентная машинерия воспроизводит прежнюю термодинамику и проверяет перенос, стоки и
-скрытую теплоту независимо от характеризации.
+Режим 'single' (по умолчанию) - одна группа ровно с параметрами однокомпонентной модели (MW, Tm, alpha,
+latent_heat): общая модель при N_w = 1 сводится к формуле (6.1)-(6.2) идеальной растворимости одного
+псевдокомпонента (`Thermo_wax.single_wp_saturated`), носитель скрытой теплоты - к самому растворенному парафину.
 
 Запуск `python -m paraphin.oil_composition` печатает таблицу групп.
 """
@@ -141,23 +140,30 @@ def wat_np(w, M, tm, dh, dv, dp=0.0, n_g=0.0, m_o=M_o):
     return float(t_k.max()) - 273.15
 
 
-if wax_characterization == 'single':
+# Детальная характеризация - группы по SCN ('scn' или 'gamma'; при 'single' - 'scn'). Считается всегда: ее читают
+# рисунки, сравнения с опытами и тесты термодинамики групп (GR_*), какая бы характеризация ни шла в расчет (WAX_*)
+SCN_N, SCN_M, SCN_W = scn_distribution(alpha=scn_gamma_alpha if wax_characterization == 'gamma' else None)
+_w, _M, _Tm, _L = lump_groups(SCN_N, SCN_M, SCN_W)
+GR_W0 = _w.astype(data_type)
+GR_M = _M.astype(data_type)
+GR_TM_K = _Tm.astype(data_type)
+GR_DH = np.full(_w.size, wax_alpha_eff, data_type)
+GR_L_REL = (_L / latent_heat).astype(data_type)  # удельная теплота группы в долях latent_heat
+GR_DV = (wax_dv_frac * GR_M * 1e-3 / ro_wax_liq).astype(data_type)  # dv = v_L - v_S, [м^3/моль]
+
+if wax_characterization == 'single':  # один псевдокомпонент - группа ровно с параметрами раздела 8 constants.py
     WAX_W0 = np.array([WAX_TOTAL], data_type)
     WAX_M = np.array([MW], data_type)
     WAX_TM_K = np.array([Tm_K], data_type)
     WAX_DH = np.array([alpha], data_type)
     WAX_L_REL = np.array([1.0], data_type)
-    SCN_N, SCN_M, SCN_W = np.array([0]), np.array([MW]), np.array([WAX_TOTAL])
 else:
-    SCN_N, SCN_M, SCN_W = scn_distribution(alpha=scn_gamma_alpha if wax_characterization == 'gamma' else None)
-    _w, _M, _Tm, _L = lump_groups(SCN_N, SCN_M, SCN_W)
-    WAX_W0 = _w.astype(data_type)
-    WAX_M = _M.astype(data_type)
-    WAX_TM_K = _Tm.astype(data_type)
-    WAX_DH = np.full(_w.size, wax_alpha_eff, data_type)
-    WAX_L_REL = (_L / latent_heat).astype(data_type)  # удельная теплота группы в долях прежней latent_heat
+    WAX_W0, WAX_M, WAX_TM_K, WAX_DH, WAX_L_REL = GR_W0, GR_M, GR_TM_K, GR_DH, GR_L_REL
 
 assert WAX_W0.size == N_W, 'число групп характеризации не совпало с раскладкой `layout.N_W`'
+# Носитель скрытой теплоты Hl = sum_k L_k/latent_heat*w_k^dis совпадает с растворенным парафином Wp: тогда Solver держит
+# под Hl тот же массив, что Wp (однокомпонентная модель - без лишнего поля и его копий)
+HL_IS_WP = bool(N_W == 1 and WAX_L_REL[0] == 1.0)
 WAX_DV = (wax_dv_frac * WAX_M * 1e-3 / ro_wax_liq).astype(data_type)  # dv = v_L - v_S, [м^3/моль]
 WAX_DH_R = (WAX_DH / R).astype(data_type)   # dH/R, [K]
 WAX_DV_R = (WAX_DV / R).astype(data_type)   # dv/R, [м^3*K/Дж]
@@ -267,9 +273,10 @@ if __name__ == '__main__':
     print(f"Характеризация '{wax_characterization}': {N_W} групп, парафина {WAX_TOTAL:.4f}, "
           f'SARA: насыщенные {SAT0:.4f} (из них остаток {REST0 * F_SAT_REST:.4f}), ароматика {sara_aromatics}, '
           f'смолы {sara_resins}, асфальтены {sara_asphaltenes}; CII = {CII0:.2f}')
+    print('Группы детального состава (GR_*; в расчет идут при wax_characterization = \'scn\' или \'gamma\'):')
     print('| группа | w, масс. | M, г/моль | Tm эфф., C | Tm Won, C | L, кДж/кг | dv, см^3/моль |')
-    for k in range(N_W):
-        print(f'| {k + 1} | {WAX_W0[k]:.4f} | {WAX_M[k]:.1f} | {WAX_TM_K[k] - 273.15:.1f} | '
-              f'{won_tm(WAX_M[k]) - 273.15:.1f} | {WAX_L_REL[k] * latent_heat / 1e3:.1f} | {WAX_DV[k] * 1e6:.2f} |')
+    for k in range(GR_W0.size):
+        print(f'| {k + 1} | {GR_W0[k]:.4f} | {GR_M[k]:.1f} | {GR_TM_K[k] - 273.15:.1f} | '
+              f'{won_tm(GR_M[k]) - 273.15:.1f} | {GR_L_REL[k] * latent_heat / 1e3:.1f} | {GR_DV[k] * 1e6:.2f} |')
     print(f'Газ при P_b: {N_GAS_B * 1e3:.3f} моль/кг; delta_a = {DELTA_ASPH:.2f} МПа^0.5, '
           f'v_a = {V_ASPH * 1e3:.3f} л/моль' + (' (по asph_curve)' if asph_curve is not None else ''))

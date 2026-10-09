@@ -1,6 +1,7 @@
 """Кинетика осаждения в пористой среде: ядро кольматации при флагах кинетики (`deposition_kinetics`).
 
-Механизмы (обзор `твт_статья_АСПО/материалы/full_review.pdf`, разд. 2-5; описание с формулами - `docs/модель_АСПО.md`, разд. 13):
+Механизмы (обзор `твт_статья_АСПО/материалы/full_review.pdf`, разд. 2-5; описание с формулами - `docs/кинетика_осаждения.md`,
+`docs/физическая_модель.md`, разд. 9-10):
 
   перенос частиц к стенке капилляра (2.2)   броуновская диффузия (как в упрощенной модели) + сдвиговая дисперсия
                                             + гравитационное оседание (`wall_transport`);
@@ -16,12 +17,12 @@
                                             C растет к C_max за счет растворенного парафина (`deposit_aging`).
 
 Все механизмы собираются в одну скорость изменения радиуса u(r) и коэффициент блокирования b(r), и функция
-пор fi переносится по оси радиусов той же неявной схемой, что в `Qp_m_k_fi._update_fi` (`Pore_bundle.update_fi_rows`). Скорости переноса
+пор fi переносится по оси радиусов той же неявной схемой, что в `Qp_m_k_fi.calc_qp_m_k_fi` (`Pore_bundle.update_fi_rows`). Скорости переноса
 считаются по текущему слою, а не берутся с прошлого шага, как `Ur`, `Ua` в прежних ядрах: запаздывание на
 шаг с ограничителем подводом давало колебания доли флокул.
 
-Выходной контракт тот же, что у `calc_qp_m_k_fi_2`: скорости потери порового объема по чистым материалам
-(`new_qp1` - осадок парафина на стенках, `new_qp2` - пробки парафина, `new_kx[KX_QPA]` - осадок асфальтенов и смол,
+Выходной контракт тот же, что у `calc_qp_m_k_fi`: скорости потери порового объема по чистым материалам
+(`new_qp1` - осадок парафина на стенках, `new_qp2` - пробки парафина, `new_kx.qpa` - осадок асфальтенов и смол,
 плюс новые каналы в `new_kx`: стеночная кристаллизация, старение, адсорбция асфальтенов и смол), и
 тождество  (q_p1 + q_p2 + q_pa + q_w + q_g + q_ada + q_adr)*dt = m - m^new  выполняется по построению.
 Отрицательная скорость - вынос: осадок возвращается в нефть (`components_equation`).
@@ -33,8 +34,8 @@ import math
 
 from numba import njit
 
-from paraphin.geometry import r1, r2, r4, w2_cv, plug_cv, dr_cv, eta, surf_0, fi_0
-from paraphin.constants import (Nr, init_m, init_k, min_Wps_bound, ro_o, ro_p, ro_asph, ro_asph_dep,
+from paraphin.geometry import r1, r2, r4, cbrt_r1, w2_cv, plug_cv, dr_cv, eta, surf_0, fi_0
+from paraphin.constants import (Lk, Nr, init_m, init_k, min_Wps_bound, ro_o, ro_p, ro_asph, ro_asph_dep,
                                 resin_in_deposit, volume, D, D_asph, betta, gamma, diff_mult, S_max, R,
                                 E_activation,
                                 asphaltenes, wax_kinetics, wall_transport, entrainment, asph_aggregation,
@@ -44,11 +45,10 @@ from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, DIF
                                       ADS_FILM, AGE_C0, AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR,
                                       PERM_N, PERM_BETA, PERM_SMAX, PERM_GAMMA, PERM_ALPHA, LTNE_DG, LTNE_DM, NET_Z,
                                       NET_GAMMA)
-from paraphin.layout import (N_W, IA_D, IA_F, I_R, IN_F, KX_WEQ, KX_WSH, KX_GSH, KX_QW, KX_QG, KX_QADA, KX_QADR, KX_GA,
-                             KX_GR, KX_VGEL, KX_TS, KX_GMAX, KX_SIG0, KX_QPA, ROW_U, ROW_UW, ROW_UA, ROW_BW, ROW_BA, ROW_UE,
-                             ROW_TMP, ROW_A, ROW_B)
+from paraphin.layout import N_W, IA_D, IA_F, I_R, IN_F
 from paraphin.utils import crystal_volume_fraction
 from .Thermo_wax import sle_split
+from .Gel import yield_stress
 from .Pore_bundle import moments, int_r_u_fi, weighted, update_fi_rows
 from .Kinetics_math import (brownian_diffusivity, shear_diffusivity, stokes_velocity, leveque_velocity, floc_size,
                             wall_fraction, langmuir_constant, langmuir_ldf_step, langmuir_film_step, perm_kozeny_carman,
@@ -81,16 +81,23 @@ def _particle_rows(u, b, so_eff, w, d_p, rho_p, um_r2, T_K, mu, kin, snow, phi_v
     d_b = diff_mult * kin[DIFF_MULT] * brownian_diffusivity(T_K, mu, d_p)
     ug = kin[GRAV_EFF] * stokes_velocity(a, rho_p - ro_o, mu) if wall_transport else 0.0
     b_coef = so_eff * w * 6.0 * betta / (d_p * d_p * d_p) * um_r2 * snow
+    # Левек при um = um_r2*r^2: (2*um*D^2/(r*Lk))^(1/3) = cbrt(2*um_r2*D^2/Lk)*cbrt(r) - один корень на ячейку, как в
+    # `Velocity_h.calc_velocities_h`, а не Nr. Со сдвиговой дисперсией D зависит от r, и корень - в каждом узле
+    u_coef = -so_eff * w * snow
+    lev = (2.0 * um_r2 * d_b * d_b / Lk) ** (1.0 / 3.0)
     for ij in range(Nr):
         if r1[ij] < r_pass and ij < n_block_max:
             b[ij] = b_coef * r4[ij]
             u[ij] = 0.0
         else:
             b[ij] = 0.0
-            d_tot = d_b
-            if wall_transport:  # скорость сдвига у стенки 4*um/r = 4*um_r2*r
-                d_tot += shear_diffusivity(kin[SHEAR_DISP], phi_vol, 4.0 * um_r2 * r1[ij], a)
-            u[ij] = -so_eff * w * (leveque_velocity(um_r2 * r2[ij], r1[ij], d_tot) + ug) * snow if ij > 0 else 0.0
+            if ij == 0:
+                u[ij] = 0.0
+            elif wall_transport:  # скорость сдвига у стенки 4*um/r = 4*um_r2*r
+                d_tot = d_b + shear_diffusivity(kin[SHEAR_DISP], phi_vol, 4.0 * um_r2 * r1[ij], a)
+                u[ij] = u_coef * (leveque_velocity(um_r2 * r2[ij], r1[ij], d_tot) + ug)
+            else:
+                u[ij] = u_coef * (lev * cbrt_r1[ij] + ug)
 
 
 @njit(cache=True)
@@ -104,6 +111,30 @@ def floc_diameter(w_af, n_f, kin):
     return floc_size(w_af / n_f, kin[AGG_D0], kin[AGG_DF], ro_asph)
 
 
+@njit(cache=True)
+def entrainment_threshold(i, j, Dep, kx, kin):
+    """Критическое напряжение сдвига отложения, [Па]: порог выноса по прочности геля парафин-нефть.
+
+    Отложение - гель с долей парафина C (Singh et al., 2000), и поток срывает его, когда напряжение на стенке выше
+    прочности геля. Прочность растет с долей твердого так же, как предел текучести геля в объеме (`Gel.yield_stress`,
+    (8.6) описания), поэтому tau_cr = ENT_TAU*tau_y(C)/tau_y(C0): ENT_TAU - порог свежего отложения (доля AGE_C0),
+    подбирается по опытам, а старение (`deposit_aging`: C растет к AGE_CMAX) упрочняет отложение. Без старения C = C0,
+    и порог - ровно ENT_TAU."""
+    if not deposit_aging:
+        return kin[ENT_TAU]
+    c0 = kin[AGE_C0]
+    c = c0
+    if kx[i, j].vgel > 0.0:
+        dep_wax = 0.0
+        for kk in range(N_W):
+            dep_wax += Dep[i, j, kk]
+        c = min(dep_wax / ro_p / kx[i, j].vgel, 1.0)
+    tau_0 = yield_stress(c0)
+    if tau_0 <= 0.0:  # свежее отложение рыхлее точки гелеобразования - упрочнение не определено
+        return kin[ENT_TAU]
+    return kin[ENT_TAU] * max(yield_stress(c), tau_0) / tau_0
+
+
 # --- Ядро: пучок капилляров -------------------------------------------------------------------------------------
 
 @njit(cache=True)
@@ -112,14 +143,14 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
                     new_qp1, new_qp2, new_fi, new_h, new_k, new_m, new_kx, out_o, dt) -> None:
     """Кольматация ячейки (i, j) всеми включенными механизмами в модели пучка капилляров.
 
-    rows: numpy.ndarray(NROWS, Nr) - строки скретча `Solver.rows[i]` (свои на каждый i, иначе гонка в prange).
+    rows: запись dtype `layout.ROWS` - строки скретча `Solver.rows[i]` (свои на каждый i, иначе гонка в prange).
     kx, new_kx - поля кинетических моделей (`kinetics_params`), kin - вектор параметров `solver.kin`.
     out_o - отток нефти из ячейки за шаг через грани и добывающую скважину, [м^3/с]: запас на осаждение -
-    то, что останется после оттока (как в `calc_qp_m_k_fi_2`). net_g0 - проводимость исходной сети пор
+    то, что останется после оттока (как в `calc_qp_m_k_fi`). net_g0 - проводимость исходной сети пор
     (`network_g0`, при `pore_network`): одна на все ячейки, поэтому считается раз за шаг до цикла по ячейкам.
     """
-    u, uw, ua, bw, ba, ue = rows[ROW_U], rows[ROW_UW], rows[ROW_UA], rows[ROW_BW], rows[ROW_BA], rows[ROW_UE]
-    tmp = rows[ROW_TMP]
+    u, uw, ua, bw, ba, ue = rows.u, rows.uw, rows.ua, rows.bw, rows.ba, rows.ue
+    tmp = rows.tmp
     to_m = init_m / integr_r2_fi0
     so = 1.0 - S[i, j]
     so_eff = max(0.0, so - _SO_MAX)
@@ -182,10 +213,11 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     # --- вынос осадка потоком
     if entrainment:
         tau_coef = grad_p[i, j] * 0.5 / eta  # tau_w = r*|grad p|/(2*eta)
+        tau_cr = entrainment_threshold(i, j, Dep, kx, kin)
         for ij in range(Nr):
             tw = r1[ij] * tau_coef
-            if tw > kin[ENT_TAU] and h[i, j, ij] > 0.0:
-                ue[ij] = kin[ENT_RATE] * (tw / kin[ENT_TAU] - 1.0) * h[i, j, ij]
+            if tw > tau_cr and h[i, j, ij] > 0.0:
+                ue[ij] = kin[ENT_RATE] * (tw / tau_cr - 1.0) * h[i, j, ij]
 
     # Однородная по r скорость - стеночная кристаллизация (через удельную поверхность). Удержанные асфальтены и
     # смолы в сужение каналов не входят: они сидят в горлах, и их вклад в проводимость - функция повреждения ниже
@@ -200,12 +232,12 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
             new_h[i, j, ij] = h[i, j, ij]
         new_qp1[i, j] = 0.0
         new_qp2[i, j] = 0.0
-        new_kx[i, j, KX_QPA] = 0.0
-        new_kx[i, j, KX_QW] = 0.0
-        new_kx[i, j, KX_QG] = 0.0
-        new_kx[i, j, KX_QADA] = 0.0
-        new_kx[i, j, KX_QADR] = 0.0
-        new_kx[i, j, KX_VGEL] = kx[i, j, KX_VGEL]
+        new_kx[i, j].qpa = 0.0
+        new_kx[i, j].qw = 0.0
+        new_kx[i, j].qg = 0.0
+        new_kx[i, j].qada = 0.0
+        new_kx[i, j].qadr = 0.0
+        new_kx[i, j].vgel = kx[i, j].vgel
         new_m[i, j] = m[i, j]
         new_k[i, j] = k[i, j]
         return
@@ -214,16 +246,24 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     for ij in range(Nr):
         u[ij] = lim_w * uw[ij] / c0 + lim_a * ua[ij] + u_uni + ue[ij]
         tmp[ij] = lim_w * bw[ij] + lim_a * ba[ij]
-    update_fi_rows(new_fi, fi, i, j, u, tmp, rows[ROW_A], rows[ROW_B], dt)
+    update_fi_rows(new_fi, fi, i, j, u, tmp, rows.a, rows.b, dt)
     for ij in range(Nr):
         new_h[i, j, ij] = max(h[i, j, ij] - u[ij] * dt, 0.0)
     rfi_n, r2fi_n, r4fi_n = moments(new_fi, i, j)
 
     # Разбор фактической убыли проводящих каналов по механизмам
-    blocked = to_m * (lim_w * weighted(new_fi, i, j, bw, w2_cv, 1.0)
-                      + lim_a * weighted(new_fi, i, j, ba, w2_cv, 1.0))       # каналы -> тупиковые, [1/с]
-    qp2 = lim_w * to_m * weighted(new_fi, i, j, bw, plug_cv, plug_w)         # пробки парафина
-    qpa_plug = lim_a * to_m * weighted(new_fi, i, j, ba, plug_cv, plug_scale)  # пробки флокул
+    # Каналы, ушедшие в тупиковые, и пробки парафина и флокул - один проход по r (как `Pore_bundle.weighted`)
+    bl_w, bl_a, pl_w, pl_a = 0.0, 0.0, 0.0, 0.0
+    for ij in range(Nr):
+        f = new_fi[i, j, ij]
+        bwf, baf = bw[ij] * f, ba[ij] * f
+        bl_w += w2_cv[ij] * bwf
+        bl_a += w2_cv[ij] * baf
+        pl_w += min(plug_cv[ij] * plug_w, w2_cv[ij]) * bwf
+        pl_a += min(plug_cv[ij] * plug_scale, w2_cv[ij]) * baf
+    blocked = to_m * (lim_w * bl_w + lim_a * bl_a)  # каналы -> тупиковые, [1/с]
+    qp2 = lim_w * to_m * pl_w                       # пробки парафина
+    qpa_plug = lim_a * to_m * pl_a                  # пробки флокул
     narrow = to_m * (r2fi - r2fi_n) / dt - blocked                            # сужение + вынос, [1/с]
     e_w = lim_w * i_w / c0          # оценки до прогонки: объем геля парафина, флокул, стеночный
     e_a = lim_a * i_a
@@ -245,8 +285,8 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
         dep_wax_v = dep_wax / ro_p
         dep_asph_v = (Dep[i, j, IA_F] + Dep[i, j, I_R]) / ro_asph_dep
         c_dep = c0
-        if deposit_aging and kx[i, j, KX_VGEL] > 0.0:
-            c_dep = min(dep_wax_v / kx[i, j, KX_VGEL], 1.0)
+        if deposit_aging and kx[i, j].vgel > 0.0:
+            c_dep = min(dep_wax_v / kx[i, j].vgel, 1.0)
         tot = dep_wax_v / c_dep + dep_asph_v if c_dep > 0.0 else dep_asph_v
         if tot > 0.0:
             ent_gel = e_ent * dep_wax_v / c_dep / tot if c_dep > 0.0 else 0.0
@@ -259,21 +299,21 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
 
     new_qp1[i, j] = qp1
     new_qp2[i, j] = qp2
-    new_kx[i, j, KX_QPA] = qpa
-    new_kx[i, j, KX_QW] = q_w
-    new_kx[i, j, KX_QG] = q_age
-    new_kx[i, j, KX_QADA] = q_ada
-    new_kx[i, j, KX_QADR] = q_adr
-    gel = kx[i, j, KX_VGEL] + (e_w + e_wall) * scale * dt
+    new_kx[i, j].qpa = qpa
+    new_kx[i, j].qw = q_w
+    new_kx[i, j].qg = q_age
+    new_kx[i, j].qada = q_ada
+    new_kx[i, j].qadr = q_adr
+    gel = kx[i, j].vgel + (e_w + e_wall) * scale * dt
     if entrainment and ent_wax > 0.0:
         c_dep = c0
-        if kx[i, j, KX_VGEL] > 0.0:
+        if kx[i, j].vgel > 0.0:
             dw = 0.0
             for kk in range(N_W):
                 dw += Dep[i, j, kk]
-            c_dep = max(min(dw / ro_p / kx[i, j, KX_VGEL], 1.0), 1e-12)
+            c_dep = max(min(dw / ro_p / kx[i, j].vgel, 1.0), 1e-12)
         gel -= ent_wax / c_dep * dt
-    new_kx[i, j, KX_VGEL] = max(gel, 0.0)
+    new_kx[i, j].vgel = max(gel, 0.0)
 
     new_m[i, j] = m[i, j] - (qp1 + qp2 + qpa + q_w + q_age + q_ada + q_adr) * dt
     if pore_network:
@@ -283,9 +323,9 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     if adsorption:
         # Удержание в горлах: малый объем - большая потеря проводимости (обзор 4.1, структурный эффект), функция
         # повреждения Civan (2015) по объему удержанного, sigma = (G_a + G_r)/ro_ad
-        sigma_v = (kx[i, j, KX_GA] + kx[i, j, KX_GR]) / ro_asph_dep + (q_ada + q_adr) * dt
+        sigma_v = (kx[i, j].ga + kx[i, j].gr) / ro_asph_dep + (q_ada + q_adr) * dt
         # повреждение - от начального удержания (`ads_init_equilibrium`; у чистого керна sigma_0 = 0, D = 1)
-        d_0 = perm_damage(kx[i, j, KX_SIG0] / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA])
+        d_0 = perm_damage(kx[i, j].sig0 / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA])
         new_k[i, j] *= perm_damage(sigma_v / (kin[PERM_SMAX] * init_m), kin[PERM_BETA], kin[PERM_GAMMA]) / d_0
     # Остаточная проницаемость: функция повреждения при sigma >= sigma_max и сеть ниже порога протекания дают
     # ноль, а нулевая подвижность делает матрицу давления вырожденной
@@ -361,7 +401,7 @@ def _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, ne
     `thermal_nonequilibrium`: порода холоднее нефти (T_s < T), у стенки нефть пересыщена относительно равновесия
     при T_s, и растворенный парафин диффундирует к стенке по Фику (обзор 2.2.1) с коэффициентом массоотдачи
     Sh*D_m/d_g на удельной поверхности зерен 6*(1 - m)/d_g (Sh = 2 при малых числах Рейнольдса).
-    Возвращает объем кристаллов за единицу времени, [1/с]; доли групп - в new_kx[KX_WSH:].
+    Возвращает объем кристаллов за единицу времени, [1/с]; доли групп - в new_kx.wsh.
     """
     total = 0.0
     for kk in range(N_W):
@@ -370,11 +410,11 @@ def _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, ne
     if wax_kinetics:
         frac = wall_fraction(kin[K_WALL], kin[K_CRYST], dt)
         for kk in range(N_W):
-            delta = kx[i, j, KX_WEQ + kk] - Ws[i, j, kk]
+            delta = kx[i, j].weq[kk] - Ws[i, j, kk]
             if delta > 0.0:
                 tmp[kk] += frac * delta
     if thermal_nonequilibrium:
-        t_s = kx[i, j, KX_TS]
+        t_s = kx[i, j].ts
         if t_s < T[i, j]:
             # Равновесие при температуре породы: сколько растворенного лишнее у стенки
             eq_s = tmp[N_W:2 * N_W]
@@ -392,10 +432,10 @@ def _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, ne
         total += tmp[kk]
     if total <= 0.0:
         for kk in range(N_W):
-            new_kx[i, j, KX_WSH + kk] = 0.0
+            new_kx[i, j].wsh[kk] = 0.0
         return 0.0
     for kk in range(N_W):
-        new_kx[i, j, KX_WSH + kk] = tmp[kk] / total
+        new_kx[i, j].wsh[kk] = tmp[kk] / total
     # За шаг - не больше пересыщения с учетом оттока; в объем кристаллов
     return min(total * mso / dt, total * mso_dt) * ro_o / ro_p
 
@@ -422,9 +462,9 @@ def _adsorption(i, j, T_K, Wc, kx, kin, mso, mso_dt, dt, new_kx):
     film = kin[ADS_FILM] > 0.5
     frac = k_ads * mso * ro_o * dt if film else 1.0 - math.exp(-k_ads * dt)
     g_max = kin[ADS_GMAX] * surf_0
-    new_kx[i, j, KX_GMAX] = g_max
-    q_a = _langmuir_step(Wc[i, j, IA_D], kx[i, j, KX_GA], g_max, k_l, frac, film, mso_dt, dt)
-    q_r = _langmuir_step(Wc[i, j, I_R], kx[i, j, KX_GR], g_max * kin[ADS_RESIN], k_l, frac, film, mso_dt, dt)
+    new_kx[i, j].gmax = g_max
+    q_a = _langmuir_step(Wc[i, j, IA_D], kx[i, j].ga, g_max, k_l, frac, film, mso_dt, dt)
+    q_r = _langmuir_step(Wc[i, j, I_R], kx[i, j].gr, g_max * kin[ADS_RESIN], k_l, frac, film, mso_dt, dt)
     return q_a, q_r
 
 
@@ -450,10 +490,10 @@ def _aging(i, j, Wc, Ws, Dep, kx, kin, mso_dt, tmp, new_kx):
     Доля парафина в геле C = M_парафин/(ro_p*V_геля) растет к C_max: dC/dt = age_rate*(C_max - C), объем геля
     постоянен - парафин вытесняет из него захваченную нефть. Парафин приходит из растворенного в нефти групп,
     насыщенных при местной температуре (тяжелее критического углеродного числа: у них есть кристаллы).
-    Возвращает объем кристаллов за единицу времени, [1/с]; доли групп - в new_kx[KX_GSH:]."""
-    v_gel = kx[i, j, KX_VGEL]
+    Возвращает объем кристаллов за единицу времени, [1/с]; доли групп - в new_kx.gsh."""
+    v_gel = kx[i, j].vgel
     for kk in range(N_W):
-        new_kx[i, j, KX_GSH + kk] = 0.0
+        new_kx[i, j].gsh[kk] = 0.0
     if v_gel <= 0.0:
         return 0.0
     m_wax = 0.0
@@ -465,13 +505,13 @@ def _aging(i, j, Wc, Ws, Dep, kx, kin, mso_dt, tmp, new_kx):
         return 0.0
     dis_sat = 0.0
     for kk in range(N_W):
-        eq_sus = kx[i, j, KX_WEQ + kk] if wax_kinetics else Ws[i, j, kk]
+        eq_sus = kx[i, j].weq[kk] if wax_kinetics else Ws[i, j, kk]
         tmp[kk] = Wc[i, j, kk] - Ws[i, j, kk] if eq_sus > 0.0 else 0.0
         dis_sat += tmp[kk]
     if dis_sat <= 0.0:
         return 0.0
     for kk in range(N_W):
-        new_kx[i, j, KX_GSH + kk] = tmp[kk] / dis_sat
+        new_kx[i, j].gsh[kk] = tmp[kk] / dis_sat
     return min(rate, mso_dt * dis_sat * ro_o / ro_p)
 
 
@@ -501,7 +541,7 @@ def calc_filtration(i, j, S, T, p, m, k, fi, Wc, Ws, Wps, Dep, grad_p, lam_o, kx
     |u_o| - скорость фильтрации нефти. Пористость - за вычетом объема отложений (и слоя адсорбции, стеночной
     кристаллизации, старения), проницаемость - корреляция k(phi, sigma) `perm_model`. Функция пор fi здесь
     не меняется (гель считается по начальному распределению). Выходной контракт - как у `calc_deposition`."""
-    tmp = rows[ROW_TMP]
+    tmp = rows.tmp
     so = 1.0 - S[i, j]
     mso = m[i, j] * so
     mso_dt = max(mso / dt - out_o / volume, 0.0)
@@ -533,12 +573,12 @@ def calc_filtration(i, j, S, T, p, m, k, fi, Wc, Ws, Wps, Dep, grad_p, lam_o, kx
 
     new_qp1[i, j] = qp1
     new_qp2[i, j] = 0.0
-    new_kx[i, j, KX_QPA] = qpa
-    new_kx[i, j, KX_QW] = q_wall
-    new_kx[i, j, KX_QG] = q_age
-    new_kx[i, j, KX_QADA] = q_ada
-    new_kx[i, j, KX_QADR] = q_adr
-    new_kx[i, j, KX_VGEL] = kx[i, j, KX_VGEL]
+    new_kx[i, j].qpa = qpa
+    new_kx[i, j].qw = q_wall
+    new_kx[i, j].qg = q_age
+    new_kx[i, j].qada = q_ada
+    new_kx[i, j].qadr = q_adr
+    new_kx[i, j].vgel = kx[i, j].vgel
     new_m[i, j] = m[i, j] - (qp1 + qpa + q_wall + q_age + q_ada + q_adr) * dt
     sigma_v = init_m - new_m[i, j]
     new_k[i, j] = init_k * _perm(new_m[i, j], sigma_v, kin)

@@ -3,7 +3,7 @@ from numba import njit, prange
 
 from paraphin.constants import Nx, Ny
 from paraphin.layout import P0, PX
-from paraphin.utils import apply_bc, get_bound, calc_well_prod, mid, mobility_o, mobility_w, DI, DJ, HIJ, AREA
+from paraphin.utils import PRESSURE, DIRICHLET, apply_bc, get_bound, calc_well_prod, mid, mobility_o, mobility_w, DI, DJ, HIJ, AREA
 from paraphin.utils.math_utils import solve_mg_system, project_guess
 
 
@@ -112,11 +112,12 @@ def _fill_matrix_and_rhs(k, S, mu_o, mu_w, lam_o, lam_w,
                     S_ij = apply_bc(boundary_conditions, bound, 1, S, i, j, hij)
                     lam_gh = mobility_o(k[i, j], S_ij, mu_o[i, j]) + mobility_w(k[i, j], S_ij, mu_w[i, j])
                     val = mid(lam_ij, lam_gh) * areaij / hij
-                    if boundary_conditions[bound, 0, 0] == 1:  # Дирихле: поток val*(P_гр - P_ячейки)
-                        acc += boundary_conditions[bound, 0, 1] * val
+                    bc = boundary_conditions[bound, PRESSURE]
+                    if bc.type == DIRICHLET:  # Дирихле: поток val*(P_гр - P_ячейки)
+                        acc += bc.value * val
                         dg += val
                     else:  # Нейман: фиктивная ячейка P + g*h (`apply_bc`), поток g*h*val от P не зависит
-                        acc += boundary_conditions[bound, 0, 1] * hij * val
+                        acc += bc.value * hij * val
 
             # Правая грань последнего столбца и верхняя грань последней строки связей не дают
             if i == Nx - 1:
@@ -148,7 +149,7 @@ def _adding_wells(wells, S, k, mu_o, mu_w, lam_o, lam_w, diag, rhs):
         idx = wl.idx_rhs
 
         if wl.rate_control:
-            rhs[idx] += wl.q[2]
+            rhs[idx] += wl.q_t
         else:
-            diag[idx] += wl.J[2]
-            rhs[idx] += wl.J[2] * wl.p
+            diag[idx] += wl.J_t
+            rhs[idx] += wl.J_t * wl.p

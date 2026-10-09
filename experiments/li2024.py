@@ -63,7 +63,7 @@ def constants(flags: dict) -> dict:
     return c
 
 
-SCN = {'wax_components': 'True', 'wax_viscosity': '1', 'gelation': 'True', 'gel_time': '300.0',
+SCN = {'wax_characterization': "'scn'", 'wax_viscosity': '1', 'gelation': 'True', 'gel_time': '300.0',
        'asphaltenes': 'True'}
 # Удержание смол и асфальтенов в горлах (адсорбция + функция повреждения), парафин - пучок капилляров с d_p, L_k
 # по Sutton & Roberts, гель с объемным пределом текучести

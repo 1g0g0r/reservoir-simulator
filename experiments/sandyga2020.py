@@ -36,7 +36,7 @@ from common import (load, core_constants, run_many, mode_from_argv, load_params,
 
 DATA = load('sandyga2020')
 SOL, CORE = DATA['solution'], DATA['core']
-SINGLE = {'wax_components': 'True', 'wax_characterization': "'single'"}
+SINGLE = {'wax_characterization': "'single'"}
 GEL2 = dict(SINGLE, gelation='True', wax_viscosity='1', gel_time='300.0', gel_phi='0.02')
 KINETICS = dict(GEL2, wax_kinetics='True', deposit_aging='True')
 GRID = list(itertools.product((1e-3, 1e-2), (0.1, 0.3, 1.0), (1e-3,)))  # k_wall, C0, k_cryst

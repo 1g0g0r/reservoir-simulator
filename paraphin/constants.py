@@ -110,8 +110,6 @@ Lk    = 3e-4   # Средняя длина капилляра, [м]; калиб�
 r_m     = 12e-6  # Медианный радиус капилляров в модели Косуги (Kosugi, 1996), [м]
 sigma_r = 0.4    # Стандартное отклонение ln r в модели Косуги, [-]
 r_max   = 40e-6  # Наибольший радиус сетки радиусов, [м]; r_max/r_m = 3.3, см. `paraphin/geometry.py`
-Cf    = 3e-2   # Коэффициент сопротивления частицы в нефти (суффозия), [-]
-Delta = 0.005  # Кинетическая константа суффозии, [1/м]
 diff_mult = 1.0  # Множитель к диффузии частиц по Стоксу-Эйнштейну (ручка калибровки), [-]
 min_Wps_bound = 1e-6  # Концентрация частиц, начиная с которой считается кольматация и суффозия
 
@@ -126,13 +124,13 @@ latent_heat = 0.1426 * (374.5 + 0.02617 * MW - 2.0172e4 / MW) * kal_to_J * 1e3  
 latent_heat_mult = 1.0   # Множитель скрытой теплоты в уравнении энергии (0 - анализ ее вклада), [-]
 
 # --- 9. Флаги механизмов ---------------------------------------------------------------------------------------------
-# Константы уровня модуля: numba вшивает их в машинный код и выбрасывает выключенные ветки, поэтому с выключенными
-# флагами расчет побитово совпадает с прежним (`tests/test_regression_flags_off.py`).
+# Константы уровня модуля: numba вшивает их в машинный код и выбрасывает выключенные ветки. Модель одна: по умолчанию
+# парафин - один псевдокомпонент, механизмы выключены (регрессия - `tests/test_regression_flags_off.py`); описание
+# всех моделей и допущений - `docs/физическая_модель.md`.
 heat_losses: int = 2          # перетоки тепла в кровлю и подошву: 0 - нет, 1 - Ловерье, 2 - Винсом-Вестервельд
-suffusion = False             # суффозия (вынос осевших частиц потоком)
-wax_components = False        # N_w групп парафина по SCN (multi-solid) + асфальтены + смолы вместо одного псевдокомпонента
-wax_characterization = 'scn'  # 'scn' - группы по SCN-распределению; 'gamma' - SCN по гамма-распределению (Whitson);
-                              # 'single' - одна группа ровно с MW, Tm, alpha (проверка переноса)
+wax_characterization = 'single'  # парафин нефти: 'single' - один псевдокомпонент с MW, Tm, alpha, latent_heat (раздел 8);
+                                 # 'scn' - N_w групп по SCN-распределению (multi-solid); 'gamma' - SCN по гамма-распределению
+                                 # (Whitson). Модель одна: 'single' - ее частный случай с одной группой
 wax_pressure = False          # давление в равновесии: поправка Пойнтинга (Клапейрон-Клаузиус) и растворенный газ
 asphaltenes = False           # выпадение (Hirschberg), флокуляция и осаждение асфальтенов в порах, соосаждение смол
 wax_eos = False               # равновесие групп парафина - multi-solid на уравнении состояния Пенга-Робинсона (вместо
@@ -250,7 +248,7 @@ elif heat_losses == 1:
     _heat_tag = '_lauwerier'
 else:
     _heat_tag = ''
-_comp_tag = '_comp' if wax_components else ''
+_comp_tag = '' if wax_characterization == 'single' else '_comp'
 case_name = f'Wp={init_Wp}{_heat_tag}{_comp_tag}'
 results_path = outputs_path / f'results_{case_name}'
 layers_file = results_path / 'layers.pkl'  # промежуточные слои расчета, один файл на весь расчет
@@ -262,10 +260,6 @@ js_path = root_folder / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_s
 deposition_kinetics = (wax_kinetics or wall_transport or entrainment or asph_aggregation or snowball or adsorption
                        or wettability or deposit_aging or thermal_nonequilibrium or pore_network
                        or deposition_model != 'bundle')
-if (wax_pressure or asphaltenes) and not wax_components:
-    raise ValueError('wax_pressure и asphaltenes работают только вместе с wax_components = True')
-if deposition_kinetics and not wax_components:
-    raise ValueError('модели кинетики осаждения работают только вместе с wax_components = True')
 if (asph_aggregation or adsorption) and not asphaltenes:
     raise ValueError('asph_aggregation и adsorption требуют asphaltenes = True')
 if wettability and not adsorption:
@@ -280,15 +274,11 @@ if asphaltenes and P_onset_asph <= P_bubble:
     raise ValueError('P_onset_asph должно быть выше P_bubble: максимум выпадения асфальтенов - у давления насыщения')
 if wax_characterization not in ('scn', 'gamma', 'single'):
     raise ValueError(f"wax_characterization = '{wax_characterization}': ожидается 'scn', 'gamma' или 'single'")
-if wax_eos and not wax_components:
-    raise ValueError('wax_eos - равновесие групп парафина: нужен wax_components = True')
 if asph_nghiem and not asphaltenes:
     raise ValueError('asph_nghiem - растворимость асфальтенов: нужен asphaltenes = True')
 if eos_T_grid[2] < 2 or eos_P_grid[2] < 2:
     raise ValueError('в таблицах уравнения состояния нужно не меньше двух узлов по T и по P')
 if eos_melting not in ('won', 'coutinho'):
     raise ValueError(f"eos_melting = '{eos_melting}': ожидается 'won' или 'coutinho'")
-if Nr < 4:
-    raise ValueError('Nr < 4: строка скретча `layout.ROW_FO` длины Nr хранит потоки через четыре грани')
 if asph_curve is not None and (not asphaltenes or len(asph_curve) < 2):
     raise ValueError('asph_curve - кривая выпавших асфальтенов: нужны asphaltenes = True и не меньше двух точек')

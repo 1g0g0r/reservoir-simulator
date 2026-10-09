@@ -35,7 +35,7 @@ from paraphin.constants import (data_type, wax_eos, asph_nghiem, wax_pressure, w
                                 v_asph, ro_asph, sara_asphaltenes, latent_heat, wax_Tm_shift, eos_gas_M, eos_gas_Tc,
                                 eos_gas_Pc, eos_gas_omega, eos_asph_Tc, eos_asph_Pc, eos_asph_omega, eos_kij_asph_gas)
 from paraphin.layout import N_W
-from paraphin.oil_composition import WAX_W0, WAX_M, WAX_TM_K, WAX_L_REL, N_GAS_B, won_tm
+from paraphin.oil_composition import WAX_W0, WAX_M, WAX_TM_K, WAX_L_REL, GR_W0, GR_M, GR_TM_K, GR_L_REL, N_GAS_B, won_tm
 
 T_LO, T_HI, NT = eos_T_grid
 T_STEP = (T_HI - T_LO) / (NT - 1)
@@ -50,6 +50,9 @@ P_GRID = np.linspace(P_LO, P_HI, NP)
 # Плавление групп для уравнения состояния - калориметрическое по Won, без эффективного сдвига wax_Tm_shift
 WAX_TM_WON = won_tm(WAX_M) if wax_characterization == 'single' else WAX_TM_K - wax_Tm_shift  # [K]
 WAX_DH_WON = WAX_L_REL * latent_heat * WAX_M * 1e-3  # [Дж/моль]
+# То же для групп детального состава (`oil_composition.GR_*`) - сравнения с опытами и тесты термодинамики групп
+GR_TM_WON = GR_TM_K - wax_Tm_shift  # [K]: Won, осредненная по массе группы
+GR_DH_WON = GR_L_REL * latent_heat * GR_M * 1e-3  # [Дж/моль]
 
 
 def wax_melting(m_wax=WAX_M, how=eos_melting):
@@ -65,6 +68,7 @@ def wax_melting(m_wax=WAX_M, how=eos_melting):
 # Скачок объема при кристаллизации - физический, по плотностям расплава и кристаллов: (v_L - v_S)/v_L = 0.13.
 # У эффективной модели свой wax_dv_frac (0.028): он подобран вместе с заниженной эффективной теплотой
 WAX_DV_EOS = WAX_M * 1e-3 * (1.0 / ro_wax_liq - 1.0 / ro_p)  # [м^3/моль]
+GR_DV_EOS = GR_M * 1e-3 * (1.0 / ro_wax_liq - 1.0 / ro_p)    # [м^3/моль]
 M_ASPH = v_asph * ro_asph * 1e3  # [г/моль]
 
 
@@ -104,8 +108,9 @@ def oil_fluid(kij_gas=0.0, with_asph=False, gas=wax_pressure, w_wax=WAX_W0, kij_
     return PengRobinson(tc, pc, om, kij), n, mw, ig, iw, ia
 
 
-def calibrate_kij_gas(k_lo=-0.3, k_hi=0.3):
-    """kij газ-тяжелые, при котором давление насыщения нефти при init_T равно P_bubble."""
+def calibrate_kij_gas(k_lo=-0.3, k_hi=0.3, w_wax=WAX_W0, m_wax=WAX_M):
+    """kij газ-тяжелые, при котором давление насыщения нефти при init_T равно P_bubble (группы парафина - как в
+    `oil_fluid`)."""
     from scipy.optimize import brentq
 
     from .eos import bubble_pressure
@@ -113,7 +118,7 @@ def calibrate_kij_gas(k_lo=-0.3, k_hi=0.3):
     t = init_T + 273.15
 
     def f(k):
-        eos, n = oil_fluid(k, gas=True)[:2]
+        eos, n = oil_fluid(k, gas=True, w_wax=w_wax, m_wax=m_wax)[:2]
         return np.log(bubble_pressure(eos, t, n / n.sum()) / P_bubble)
 
     f_lo, f_hi = f(k_lo), f(k_hi)

@@ -23,10 +23,10 @@ sys.path.insert(0, str(ROOT))
 from tests._patched_copy import make_copy  # noqa: E402
 
 COMMON = {'Nx, Ny': '50, 50', 'Time_end': 'day_to_sec * 365 * 5.0', 'Pw': '170 * bar_to_pa', 'Po': '70 * bar_to_pa'}
-FULL = {'wax_components': 'True', 'wax_pressure': 'True', 'asphaltenes': 'True', 'gelation': 'True',
+FULL = {'wax_characterization': "'scn'", 'wax_pressure': 'True', 'asphaltenes': 'True', 'gelation': 'True',
         'wax_viscosity': '1', 'pressure_viscosity': 'True'}
 # Варианты добавляют механизмы по одному - разложение разницы в КИН между прежней и полной моделью
-WAX = {'wax_components': 'True', 'wax_pressure': 'True', 'wax_viscosity': '1'}
+WAX = {'wax_characterization': "'scn'", 'wax_pressure': 'True', 'wax_viscosity': '1'}
 VARIANTS = {
     'legacy': dict(COMMON),
     'wax': dict(COMMON, **WAX),                                    # группы парафина, давление в WAT, вязкость P-R
