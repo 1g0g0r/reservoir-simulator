@@ -1,0 +1,725 @@
+id,status,path,pages,sha1,note
+10.1002/2015gl063986,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/2015gl063986
+10.1002/aic.10243,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.12517,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/aic.12517
+10.1002/aic.15173,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.15223,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.16191,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690341202,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690390815,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690420120,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Lira-Galeana 1996 - Thermodynamics of wax precipitation in petroleum mixtures.pdf,50,58a39c9b84b9a5ed5c735e81f7481c59ec679cae,https://escholarship.org/content/qt9cb4w8ss/qt9cb4w8ss.pdf?t=p0jvex | открытая копия перенесена в библиотеку books 10.10.2026
+10.1002/aic.690420626,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690440516,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Wu 1998 - Molecular‐thermodynamic framework for asphaltene‐oil equilibria.pdf,42,c01bd3b0b132422a2c0a872703af325db57a0f42,https://escholarship.org/content/qt5nw4t2jn/qt5nw4t2jn.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1002/aic.690460120,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690460517,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/aic.690460517
+10.1002/aic.690470103,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/aic.690470103
+10.1002/aic.690470206,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/cjce.5450650306,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/mrc.70096,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/mrc.70096
+10.1002/zamm.200510293,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/0-387-68903-6_12,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/978-1-4757-0337-5_34,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s10973-014-3660-3,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-010-9626-4,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-011-9839-1,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-011-9887-6,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-015-0600-z,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s12145-023-01075-8,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s12182-015-0071-4,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Jafaribehbahani 2016 - Experimental study and a proposed new approach for thermodynamic modeling of wax precipitation in crude oil using a PC-SAFT.pdf,12,e376aacedabfaada355b269ceba352095a8f9ced,
+10.1007/s12182-019-00377-1,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Shoukry 2020 - Enhancing asphaltene precipitation modeling by cubic-PR solid model using thermodynamic correlations and averaging.pdf,10,8d2c2e5cc5beb46a9d41b7e431263be34d1df9ec,curl_cffi: https://link.springer.com/content/pdf/10.1007/s12182-019-00377-1.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s12650-016-0346-x,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s13202-012-0043-9,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Реология и гель\Dong 2013 - Non-Newtonian flow characterization of heavy crude oil in porous media.pdf,11,9ede32ef3a5494b25f9d576e6fcf53bfcb941ff7,curl_cffi: https://link.springer.com/content/pdf/10.1007/s13202-012-0043-9.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s13202-015-0221-7,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\kargarpour2016_marrat_asphaltene.pdf,12,d4adab6b6ba6b3dd290b26f529bbc24628bfcdb9,curl_cffi: https://link.springer.com/content/pdf/10.1007/s13202-015-0221-7.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s13202-016-0269-z,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\kor2017_asphaltene_models_well.pdf,14,0d1033de162e416cc98fa58bca32617082086803,curl_cffi: https://link.springer.com/content/pdf/10.1007/s13202-016-0269-z.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s13202-016-0276-0,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Стручков 2017 - Wax precipitation in multicomponent hydrocarbon system.pdf,11,db386aaff8a669ae6e011de7a8fa297f4923d725,
+10.1007/s13202-018-0480-1,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Mansourpoor 2019 - Study of wax disappearance temperature using multi-solid thermodynamic model.pdf,12,c627b0a65e0a1e55c0842700a71379d936a72104,curl_cffi: https://link.springer.com/content/pdf/10.1007/s13202-018-0480-1.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s13202-018-0539-z,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Стручков 2019 - Laboratory investigation of asphaltene-induced formation damage.pdf,13,a3e2a30403170e79a114aa1216880d84d541192a,
+10.1007/s13202-020-00924-2,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\sandyga2020_formation_damage_wax_core.pdf,18,a03ecaaf3445d5ffed99499890dadda4fff7aadf,
+10.1007/s13369-019-04290-y,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s13369-025-10758-x,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s43153-022-00296-6,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0016-2361(94)00006-d,failed,,,,HTTP 500 text/html;charset=utf-8; https://hdl.handle.net/11511/49045
+10.1016/0016-2361(95)98363-j,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0378-3812(82)85001-2,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0378-3812(82)85002-4,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0378-3812(86)80061-9,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0378-3812(89)80308-5,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0378-3812(95)02956-7,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0920-4105(88)90013-7,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.ces.2005.02.045,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.ces.2018.05.062,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.egypro.2013.06.624,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.egypro.2013.06.624
+10.1016/j.fluid.2003.05.011,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fluid.2005.03.029,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\akbarzadeh2005_regular_solution_asphaltene.pdf,12,cd49c8d91d83da0738005a5c4dd0daf1d0f121db,
+10.1016/j.fluid.2005.12.043,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fluid.2006.06.002,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fluid.2015.11.003,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fluid.2020.112655,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fluid.2021.113340,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fluid.2022.113549,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2007.12.009,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2019.03.016,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2019.116250,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2020.118617,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2020.118871,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Lin 2021 - Pore-scale imaging of asphaltene-induced pore clogging in carbonate rocks.pdf,9,9c184a2c7aea14b0200e5b96c71aebd7fac5ee7c,
+10.1016/j.fuel.2021.122420,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2022.123202,failed,,,,HTTP 403 text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S0016236122000734/pdf
+10.1016/j.fuel.2023.129671,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2024.131825,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2025.136365,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.geoen.2024.213554,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.geoen.2024.213554
+10.1016/j.geoen.2025.213713,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.heliyon.2023.e22292,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\pmc10724555_review_porous_media_models.xml,,,
+10.1016/j.ijheatmasstransfer.2007.11.012,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jnnfm.2012.12.005,failed,,,,HTTP 200 text/html; charset=utf-8; https://enpc.hal.science/hal-00946083
+10.1016/j.petrol.2003.12.008,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2006.10.007,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Papadimitriou 2007 - Experimental investigation of asphaltene deposition mechanism during oil flow in core samples.pdf,13,c0be1886ea098b8247c3bfa63f07e4439e3bb8d6,
+10.1016/j.petrol.2017.06.064,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Dasilva 2017 - Parafﬁn solubility and calorimetric data calculation using Peng-Robinson EoS and modiﬁed UNIQUAC models.pdf,13,924e184f993b8d37565f198caebe857d4f34a56e,
+10.1016/j.petrol.2017.12.031,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2018.01.017,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2018.02.011,failed,,,,HTTP 200 text/html; http://hdl.handle.net/11250/2563250
+10.1016/j.petrol.2018.11.056,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2019.04.027,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2019.106186,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2020.107553,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2021.108594,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Заводнение парафинистых пластов\Wang 2021 - Cold water-flooding in a heterogeneous high-pour-point oil reservoir using computerized tomography scanning Characteristics of flow.pdf,18,5333fbb6670fb3d163d21acddcfb214ba448a263,
+10.1016/j.petrol.2021.109176,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.petrol.2021.109176
+10.1016/j.petsci.2022.08.008,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Свойства и состав парафинистых нефтей\review2022_crude_oil_wax_petroleum_science.pdf,15,bb178a8428760c5d0921773b8817d93df911a302,
+10.1016/j.petsci.2022.08.026,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Xiong 2023 - The deposition of asphaltenes under high-temperature and high-pressure (HTHP) conditions.pdf,8,5106e81c4514cbe5c770b74636219d55bddbb8b6,
+10.1016/j.petsci.2023.10.019,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.petsci.2023.10.019
+10.1016/j.ptlrs.2025.11.001,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.ptlrs.2025.11.001
+10.1016/s0009-2509(01)00407-9,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0376-7361(09)70257-2,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.0c02981,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.0c03003,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acs.energyfuels.0c03003
+10.1021/acs.energyfuels.2c01413,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.2c01540,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acs.energyfuels.2c01540
+10.1021/acs.energyfuels.2c03309,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acs.energyfuels.2c03309
+10.1021/acs.energyfuels.2c03319,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.2c03359,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.3c04687,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.4c00252,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.5b00693,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.6b00757,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.6b01289,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.7b00253,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.7b01389,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.7b03805,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.8b03239,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.9b03296,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.jced.1c00330,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acs.jced.1c00330
+10.1021/acs.langmuir.6b02376,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Lin 2016 - Examining Asphaltene Solubility on Deposition in Model Porous Media.pdf,17,b02db4bf370439cb09b3b8dad1cbb503398201c7,http://eprints.hud.ac.uk/id/eprint/29340/1/Microsoft%20Word%20-%20PaperRevision2.docx.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1021/acsomega.2c05480,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Zhang 2022 - Quantification of Methane-Induced Asphaltene Precipitation in a Multiple Contact Process.pdf,10,23c6a15c50e805d3c8c21aafed9421034a5220a5,
+10.1021/acsomega.2c07247,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Wang 2023 - Full-Scale Experimental Study on the Effect of CO2 Flooding on Storage-Seepage Capacity of Tight Sandstone Reservoirs.pdf,11,7e25e7089f85c40faa06dc98a3f352c08a74c02f,
+10.1021/acsomega.4c10044,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acsomega.4c10044
+10.1021/acsomega.5c00439,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acsomega.5c00439
+10.1021/ef00030a021,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef00030a022,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef010012l,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef010072r,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef101195a,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef300185p,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef300647f,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef300692e,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef300714p,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef301338q,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef3017392,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef500281s,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef500282p,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef5020764,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef700670f,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Boek 2008 - Deposition of Colloidal Asphaltene in Capillary Flow Experiments and Mesoscopic Simulation.pdf,32,86c98fb746e48113954b90f2ed3e26e5177d881d,
+10.1021/ef800628g,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef9002236,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef900224r,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef9006142,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef990104z,paywalled,,,,OpenAlex: открытой копии нет (прежняя привязка к файлу Hammami 1999 о парафине была ошибочной)
+10.1021/ef9901185,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/i160057a011,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie0003887,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie00064a023,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie950447u,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie980340h,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie990781g,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/je60008a036,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/la035339o,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/la050705k,paywalled,,,,OpenAlex: открытой копии нет
+10.1038/s41598-020-71065-z,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\he2020_changchunling_cold_damage.pdf,14,5dca98ba72fbd9f23732b19da0000995cc4282af,https://www.nature.com/articles/s41598-020-71065-z.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1038/s41598-022-23596-w,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\scirep2022_flory_huggins_inhibitors.pdf,12,bb90d08be1cd83738bd7eee67dd505e37dc6d813,https://www.nature.com/articles/s41598-022-23596-w.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1038/s41598-024-54395-0,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Jalili 2024 - Experimental study of asphaltene deposition during CO2 and flue gas injection EOR methods employing a long core.pdf,11,3c4da5a11f5b5a46de3ba5d4bd125db624fc3939,
+10.1039/c4sm00578c,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.rsc.org/en/content/articlepdf/2014/sm/c4sm00578c
+10.1051/e3sconf/202235201075,failed,,,,HTTP 403 text/html;charset=utf-8; https://www.e3s-conferences.org/10.1051/e3sconf/202235201075/pdf
+10.1063/1.4927221,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0251349,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0276315,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0332781,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916466.2011.588642,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Yang 2013 - Wax Deposition in Pores and the Permeability Change for High-wax Crude in a Sandstone Reservoir.pdf,9,bd960ab2ff4b1d7ecc159900a232210f4d8dd19c,
+10.1080/10916466.2015.1107846,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916466.2018.1536713,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916466.2018.1539755,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916469808949783,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/12269328.2014.959623,paywalled,,,,OpenAlex: открытой копии нет
+10.1103/physreva.42.4772,paywalled,,,,OpenAlex: открытой копии нет
+10.1103/physreve.95.013110,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\Jäger 2017 - Channelization in porous media driven by erosion and deposition.pdf,12,0fb09b780cb703fe7f85daf69d8e691f9eafb252,
+10.1103/physrevfluids.9.024301,paywalled,,,,OpenAlex: открытой копии нет
+10.1103/physrevlett.122.245502,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\liu2019_darcy_yield_stress_prl_arxiv.pdf,7,eb82f9baa9cb27c2608cc6650f8312d3d37552cc,
+10.1115/1.1924465,paywalled,,,,OpenAlex: открытой копии нет
+10.1115/1.1924466,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\!!!!_Model-Assisted Analysis of Simultaneous Paraffin and Asphaltene Deposition in Laboratory Core Tests.pdf,5,b0c07b9cfdba8f1569cb72991351f803efd20f0f,
+10.1126/sciadv.abc2530,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\Bizmark 2020 - Multiscale dynamics of colloidal deposition and erosion in porous media.pdf,53,9f78fa791af47b99983889b70666ea41ac75d248,
+10.1134/s199508022208025x,paywalled,,,,OpenAlex: открытой копии нет
+10.1155/2021/6626114,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1155/2021/6626114
+10.1155/2022/2845221,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1155/2022/2845221
+10.1155/2023/1173505,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1155/2023/1173505
+10.1177/00368504261428354,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Заводнение парафинистых пластов\pmc12949295_high_pour_point_co2_hot_water.xml,,,
+10.1177/01445987251343732,failed,,,,HTTP 403 text/html; charset=UTF-8; https://journals.sagepub.com/doi/pdf/10.1177/01445987251343732
+10.17122/ntj-oil-2024-4-74-95,failed,,,,HTTP 200 text/html; charset=utf-8; https://doi.org/10.17122/ntj-oil-2024-4-74-95
+10.18799/24131830/2023/4/3940,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\mehanizmy-obrazovaniya-asfaltosmoloparafinovyh-otlozheniy-i-faktory-intensivnosti-ih-formirovaniya.pdf,14,242b3258432e0716848131ef48aa07db30049fca,http://izvestiya-tpu.ru/archive/article/download/3940/2936 | открытая копия перенесена в библиотеку books 10.10.2026
+10.2118/10691-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/11202-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/121414-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/12233-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/1340-pa,local_books,C:\Users\Игорь\books\neft\Физика пласта и PVT\PVT и свойства флюидов\Anthony L. Lee - The Viscosity of Natural Gases.pdf,4,58828339f17a15664ecad68607c09efc22f76484,
+10.2118/15654-pa,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\!!!_Methods for Predicting Wax Precipitation and Deposition.pdf,6,5ab057d1aa54bf7899e64319dc69836cb3f58d09,
+10.2118/16258-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/163587-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/163664-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/165148-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/169121-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/169401-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/18273-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/185370-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/193932-ms,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onepetro.org/spersc/proceedings-pdf/19RSC/1-19RSC/D011S003R004/1165481/spe-193932-ms.pdf
+10.2118/20051-pa,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\wu_pruess1992_bingham_porous_media.pdf,28,2885ee076754fce776ee85b9abec2f74e57b0f36,https://www.osti.gov/servlets/purl/7081417 | открытая копия перенесена в библиотеку books 10.10.2026
+10.2118/2008-087,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/214805-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/24069-pa,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\!!!!_Simulation of Paraffin Deposition in Reservoirs.pdf,7,b19a2bde6348e2536889426c625b44f16abbfa35,
+10.2118/26548-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/26642-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/27629-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/29111-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/36740-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/37250-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/50746-ms,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\!!!_Simulation of Paraffin and Asphaltene Deposition in Porous Media.pdf,10,303b94f22f6f3747e71f3c21e7d81a36cfd4eb24,
+10.2118/50963-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/64991-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/65376-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/6721-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/74686-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/80266-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/82230-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/8430-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/85673-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/8788-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/89437-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/952327-g,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onepetro.org/JPT/article-pdf/4/10/19/2239008/spe-952327-g.pdf
+10.2118/95515-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2139/ssrn.5335415,failed,,,,HTTP 403 text/html; charset=UTF-8; https://doi.org/10.2139/ssrn.5335415
+10.2516/ogst/2018039,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Tabzar 2018 - Multiphase ﬂow modeling of asphaltene precipitation and deposition.pdf,17,ee9604f08b5b4e6e5e910e2b47064e280960eb10,
+10.2516/ogst/2018084,failed,,,,HTTP 403 text/html;charset=utf-8; https://ogst.ifpenergiesnouvelles.fr/articles/ogst/pdf/10.2516/ogst/2018084
+10.2516/ogst/2020041,failed,,,,HTTP 403 text/html;charset=utf-8; https://ogst.ifpenergiesnouvelles.fr/articles/ogst/pdf/10.2516/ogst/2020041
+10.2516/ogst:2007083,failed,,,,HTTP 403 text/html;charset=utf-8; https://ogst.ifpenergiesnouvelles.fr/articles/ogst/pdf/10.2516/ogst:2007083
+10.29047/01225383.251,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\Piñerez 2020 - The role of polar organic components in dynamic crude oil adsorption on sandstones and carbonates.pdf,12,a7508b0969f6d7159d3936d1e0821f8c74d385b7,
+10.31084/2619-0087/2026-1-9,failed,,,,HTTP 200 text/html; charset=UTF-8; https://doi.org/10.31084/2619-0087/2026-1-9
+10.32604/fdmp.2023.041825,failed,,,,HTTP 200 text/html; charset=UTF-8; https://www.techscience.com/fdmp/online/detail/19528/pdf
+10.3390/app16178546,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Bekibayev 2026 - Thermochemical Removal of Near-Wellbore Paraffin Deposits Using the Activated Aluminum–Water Reaction A Coupled M.pdf,30,bdccfc99e0bbc4ca00a313c0f0a8dc2fe8292391,
+10.3390/en17102415,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Lu 2024 - Nanofluidic Study of Multiscale Phase Transitions and Wax Precipitation in Shale Oil Reservoirs.pdf,13,8ed7c749117742cae3e12f13d4859dabd576acd8,
+10.3390/en19071777,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Wang 2026 - Enhancing Oil Recovery and CO2 Sequestration Efficiency in Ultra-Deep Heterogeneous Waxy Reservoirs A Comparative Expe.pdf,26,5b6c181677b4f9df4c971ce85e5e4a13f4acfd0c,
+10.3390/eng7040184,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\togasheva2026_uzen_cooling_WAT.pdf,18,c42584651965d646793f8f24d9bc11ddfdaf3189,
+10.3390/fluids6100341,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Echavarría-Montaña 2021 - Semi-Implicit Finite Volume Procedure for Compositional Subsurface Flow Simulation in Highly Anisotropic.pdf,29,5018b8c64851fa0aeec00ae5f9de4cf89e5180e9,https://www.mdpi.com/2311-5521/6/10/341/pdf?version=1634285305 | открытая копия перенесена в библиотеку books 10.10.2026
+10.3390/math10244674,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Неизотермическая фильтрация и теплоперенос\Бородин 2022 - Mathematical Modeling of a Non-Isothermal Flow in a Porous Medium Considering Gas Hydrate Decomposition A Review.pdf,17,0ca384b9423735e37170cf23093253f227c3c14c,https://www.mdpi.com/2227-7390/10/24/4674/pdf?version=1671594309 | открытая копия перенесена в библиотеку books 10.10.2026
+10.3390/pr12020421,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\li2024_zhetybai_cooling_damage.pdf,18,0d3d4e75c17ff73e952dc7a29a31bcdfe6c9096a,https://www.mdpi.com/2227-9717/12/2/421/pdf?version=1708413911 | открытая копия перенесена в библиотеку books 10.10.2026
+10.3390/su15129616,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Ilushin 2023 - Development of a New Model for the Formation of Wax Deposits through the Passage of Crude Oil within the Well.pdf,14,46f1bc4f5dae59398d92735634867494f4889180,https://www.mdpi.com/2071-1050/15/12/9616/pdf?version=1687230146 | открытая копия перенесена в библиотеку books 10.10.2026
+10.3997/2214-4609.201701511,paywalled,,,,OpenAlex: открытой копии нет
+10.3997/2214-4609.201802189,paywalled,,,,OpenAlex: открытой копии нет
+10.3997/2214-4609.202011432,paywalled,,,,OpenAlex: открытой копии нет
+10.3997/2214-4609.202032021,paywalled,,,,OpenAlex: открытой копии нет
+10.6028/jres.066a.024,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\broadhurst1962_nalkanes_melting_nbs.pdf,9,69a7f9214cb8fed742a496851286ee8f67147a37,
+10.1007/bf03184614,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/80-03-04,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/942107-g,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onepetro.org/TRANS/article-pdf/146/01/107/2177908/spe-942107-g.pdf
+10.2118/1266-g,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0016-0032(29)91186-8,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/978-3-319-49562-0,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/978-1-4612-4254-3,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/6724-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/8394-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/182685-pa,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onepetro.org/SJ/article-pdf/23/02/522/2114971/spe-182685-pa.pdf
+10.1016/j.jcp.2017.02.041,failed,,,,HTTP 200 text/html; charset=utf-8; http://resolver.tudelft.nl/uuid:ca24ce33-643b-4220-a716-368b89253b0c
+10.1021/i200024a027,paywalled,,,,OpenAlex: открытой копии нет
+10.1201/9781420018257,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0378-3812(84)80013-8,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/26604-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/78324-ms,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Coutinho 2002 - Reliable wax predictions for flow assurance (SPE 78324).pdf,11,cdcf06464ca186d079bb4dfdced80cef0ce03cfb,
+10.1021/ef00030a019,paywalled,,,,OpenAlex: открытой копии нет
+10.1081/lft-120018544,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef049782y,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef9009857,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef900975e,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0920-4105(98)00057-6,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/01932691.2015.1065418,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Subramanian 2015 - Asphaltene Precipitation Models A Review.pdf,93,5823e498aeed1437e7f611c625fd56b6bfb41806,
+10.1021/ef200785v,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef8006678,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2010.11.017,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Ali R. Solaimany-Nazar 2011 - Modeling of asphaltene deposition in oil reservoirs during primary oil recovery.pdf,9,af7b81da860e92f779b0a64868c6e689362f8e3f,
+10.2118/170092-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0378-3812(82)80002-2,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0009-2509(72)80096-4,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/117752-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/1.1750380,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/54021-pa,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Hammami 1999 - Parafﬁn Deposition From Crude Oils Comparison of Laboratory Results With Field Data.pdf,10,3825a149ec838fd628555bd351da818663f6fa4f,
+10.1016/0016-2361(96)00046-4,failed,,,,HTTP 500 text/html;charset=utf-8; https://hdl.handle.net/11511/41175
+10.1081/lft-200035541,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie50725a003,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690250502,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/es60058a005,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/es60058a005
+10.1021/es034049r,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690220316,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-008-9228-6,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/28489-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/978-94-015-9074-7,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/c2014-0-01087-8,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690331007,paywalled,,,,OpenAlex: открытой копии нет
+10.1017/s0022112087002155,paywalled,,,,OpenAlex: открытой копии нет
+10.1017/s0022112077000111,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690010222,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/cjce.5450600213,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/andp.19053220806,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/andp.19053220806
+10.2118/18462-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ja02242a004,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0263-8762(97)80003-2,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/574-g,paywalled,,,,OpenAlex: открытой копии нет
+10.1103/revmodphys.45.574,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s1359-0294(01)00084-x,paywalled,,,,OpenAlex: открытой копии нет
+10.1017/9781316145098,paywalled,,,,OpenAlex: открытой копии нет
+10.1029/2003wr002627,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1029/2003WR002627
+10.2118/949039-g,paywalled,,,,OpenAlex: открытой копии нет
+10.1029/96wr01776,paywalled,,,,OpenAlex: открытой копии нет
+10.1103/physrevlett.66.1169,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\Sahimi 1991 - Hydrodynamics of Particulate Motion in Porous Media.pdf,4,1321893df55e7cfd36a76db4d1f7207cc19fc612,
+10.1002/aic.690341102,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/aic.690341102
+10.1016/j.jconhyd.2016.07.002,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\Xiong 2016 - Review of pore network modelling of porous media Experimental characterisations, network constructions and applicatio.pdf",60,bc829cc6fcb13ff528859c5f238d838c8f77d665,https://pure.manchester.ac.uk/ws/files/37188690/CONHYD_3228_accepted.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s11242-018-1086-2,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\Hommel 2018 - Porosity–Permeability Relations for Evolving Pore Space A Review with a Focus on (Bio-)geochemically Altered Porous.pdf,41,b7302c75c1e8496b1ef445dae72b92db10c82aa1,curl_cffi: https://link.springer.com/content/pdf/10.1007/s11242-018-1086-2.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1029/jb093ib02p01159,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1029/JB093iB02p01159
+10.2475/ajs.s3-45.266.87,failed,,,,HTTP 200 text/html; charset=utf-8; http://nbn-resolving.de/urn/resolver.pl?urn:nbn:de:hebis:30-1098188
+10.1122/1.548848,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie970588r,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0016-2361(02)00222-3,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s00397-013-0699-1,paywalled,,,,OpenAlex: открытой копии нет
+10.1140/epje/i2013-13139-3,failed,,,,HTTP 503 text/html;charset=utf-8; http://www.springerlink.com/content/fulltext.pdf?id=doi:10.1140/epje/i2013-13139-3
+10.1016/j.polymer.2010.07.047,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.polymer.2010.07.047
+10.2118/39446-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.1201/b18482,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Wax deposition  experimental characterizations, theoretical modeling, and field practices by Fogler, H. Scott Huang, Zhenyu Zheng, Sheng (z-lib.org).pdf",184,5b8ad31f7fb4d20df372072a2057f15ae1a0c3df,
+10.2118/4411-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/38776-ms,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Hammami 1997 - Paraffin Deposition From Crude Oils Comparison of Laboratory Results to Field Data.pdf,15,841e74c25bb93cb40a0eff5704ada6f0e575b7eb,
+10.2118/10528-pa,local_books,C:\Users\Игорь\books\neft\Численное моделирование\Модели скважин и околоскважинные течения\Модель Писмана\[Peaceman] Interpretation of Well-Block Pressures in Numerical Reservoir Simulation With Nonsquare Grid Blocks and Anisotropic Permeability.pdf,13,ca2625265dbedc362bca74555ec4a440636e556d,
+10.2118/6893-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/978-g,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/1518-g,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/65092-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/84924-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1137/1.9780898718942,paywalled,,,,OpenAlex: открытой копии нет
+10.1017/9781108591416,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Lie 2019 - An Introduction to Reservoir Simulation Using MATLAB GNU Octave.pdf,678,a0ff889a8c66c47648c4150352e1122054a59d59,https://www.cambridge.org/core/services/aop-cambridge-core/content/view/F48C3D8C88A3F67E4D97D4E16970F894/9781108492430AR.pdf/An_Introduction_to_Reservoir_Simulation_Using_MATLAB_GNU_Octave.pdf?event-type=FTLA | открытая копия перенесена в библиотеку books 10.10.2026
+10.1017/9781009019781,failed,,,,HTTP 403 text/html; charset=utf-8; https://directory.doabooks.org/handle/20.500.12854/90871
+10.1016/j.camwa.2020.05.014,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Rasmussen 2021 - The Open Porous Media Flow reservoir simulator.pdf,43,7832dbff8870da3ca6661fb7f8ec1b6597577b3a,https://arxiv.org/pdf/1910.06059 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.camwa.2020.02.012,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Koch 2021 - DuMux 3 – an open-source simulator for solving flow and transport problems in porous media with a focus on model coupl.pdf,35,ef14cd75813029ec6c2f864ce000cf3c5c9e48bd,https://arxiv.org/pdf/1909.05052 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s10596-020-10002-5,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Keilegavlen 2021 - PorePy an open-source software for simulation of multiphysics processes in fractured porous media.pdf,23,3d04b67775cac8a86992efaed70c38d4eabc4965,curl_cffi: https://link.springer.com/content/pdf/10.1007/s10596-020-10002-5.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.21105/joss.06973,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Settgast 2024 - GEOS A performance portable multi-physics simulation framework for subsurface applications.pdf,5,95c5ff2ea40d2f11f510567a1b0eabc74bd61d3e,https://joss.theoj.org/papers/10.21105/joss.06973.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1145/2833157.2833162,paywalled,,,,OpenAlex: открытой копии нет
+10.1038/s41586-020-2649-2,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Harris 2020 - Array programming with NumPy.pdf,6,bf96145a90e23589de7a084708ec54c5e5d77a0a,https://www.nature.com/articles/s41586-020-2649-2.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1038/s41592-019-0686-2,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Virtanen 2020 - SciPy 1.0 fundamental algorithms for scientific computing in Python.pdf,22,91a2931740d38d7cc75793f1c123ce16297636f3,https://arxiv.org/pdf/1907.10121 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1137/1.9780898718003,paywalled,,,,OpenAlex: открытой копии нет
+10.6028/jres.049.044,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Hestenes 1952 - Methods of conjugate gradients for solving linear systems.pdf,28,2adbf903d5821f167bd2a08e481daf6a99cb9f51,https://doi.org/10.6028/jres.049.044 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1090/s0025-5718-1977-0431719-x,failed,,,,HTTP 200 text/html; charset=utf-8; https://www.ams.org/mcom/1977-31-138/S0025-5718-1977-0431719-X/S0025-5718-1977-0431719-X.pdf
+10.1137/1.9781611971057.ch4,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0377-0427(00)00516-1,failed,,,,HTTP 403 text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S0377042700005161/pdf
+10.1007/bf02238488,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/bf02238511,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/12265-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/13536-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/96809-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/163608-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0045-7825(98)00012-7,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/72469-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/9723-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0021-9991(03)00075-5,paywalled,,,,OpenAlex: открытой копии нет
+10.1017/cbo9780511791253,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/bf01448839,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s1570-8659(00)07005-8,failed,,,,HTTP 200 text/html; charset=utf-8; https://hal.science/hal-02100732v2/file/bookevol.pdf
+10.1023/a:1021291114475,paywalled,,,,OpenAlex: открытой копии нет
+10.1017/cbo9780511760396,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jcp.2018.10.045,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Машинное обучение\Raissi 2019 - Physics-informed neural networks A deep learning framework for solving forward and inverse problems involving nonlin.pdf,22,fa352e8e4d9ec2f4b66965dd9cea75167950152a,https://www.osti.gov/servlets/purl/1595805 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1615/jmachlearnmodelcomput.2020033905,failed,,,,HTTP 200 text/html; charset=utf-8; http://www.dl.begellhouse.com/download/article/415f83b5707fde65/(2)JMLMC-33905.pdf
+10.1016/j.advwatres.2022.104180,failed,,,,HTTP 200 text/html; charset=utf-8; https://authors.library.caltech.edu/114256/
+10.1038/s42256-021-00302-5,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Машинное обучение\Lu 2021 - Learning nonlinear operators via DeepONet based on the universal approximation theorem of operators.pdf,22,03547cf81db895a448c3d0283bdfa20695ed26ab,https://arxiv.org/pdf/1910.03193 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.jcp.2020.109456,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Машинное обучение\Tang 2020 - A deep-learning-based surrogate model for data assimilation in dynamic subsurface flow problems.pdf,47,c295968a1f935092ecd3036455bcf1a79e368bfd,https://arxiv.org/pdf/1908.05823 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.petrol.2020.107273,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie050325u,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2013.09.038,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\kord2014.pdf,10,b8261bc1d0b64c9706404fcc22ff3213cccb1d16,
+10.1016/0009-2509(91)80158-u,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.690370610,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petlm.2021.07.005,failed,,,,HTTP 403 text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S2405656121000560/pdf
+10.1016/j.fuel.2024.133146,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.fuel.2024.133146
+10.1016/j.rineng.2024.103483,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.rineng.2024.103483
+10.1016/j.ces.2025.122296,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.ces.2019.115212,failed,,,,HTTP 200 text/html; charset=UTF-8; http://hdl.handle.net/10454/17283
+10.32604/ee.2023.045270,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Машинное обучение\Chen 2024 - Prediction Model of Wax Deposition Rate in Waxy Crude Oil Pipelines by Elman Neural Network Based on Improved Reptile.pdf,20,c3a062979019e8d94c9e4f5cac2b04650b611e46,https://file.techscience.com/files/energy/2024/TSP_EE-121-4/TSP_EE_45270/TSP_EE_45270.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1002/jccs.201700329,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/221598-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916466.2011.565295,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Заводнение парафинистых пластов\Orodu 2013 - The Performance of a High Paraffin Reservoir Under Non-isothermal Waterflooding.pdf,13,5f6a80ae3e0fe3bfc28e82f3731ec9424a81eed3,
+10.1016/j.compchemeng.2013.12.008,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Zaydullin 2014 - Fully compositional thermal reservoir simulation.pdf,15,bb3fbb0ae911ca4b8bec840d1085ded496259af5,
+10.2118/205028-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916466.2011.585366,paywalled,,,,OpenAlex: открытой копии нет
+10.2516/ogst/2013128,failed,,,,HTTP 403 text/html;charset=utf-8; https://ogst.ifpenergiesnouvelles.fr/articles/ogst/pdf/10.2516/ogst/2013128
+10.1021/acs.jpcc.8b11012,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\Bonnet 2018 - Thermally Activated Condensation and Evaporation in Cylindrical Pores.pdf,43,fb5426ab5eed96a4371db7b9b687128f036ce823,
+10.1039/c7lc01377a,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\Liefferink 2018 - Single layer porous media with entrapped minerals for microscale studies of multiphase flow.pdf,11,c141026a61b01744284754de247da6c8c35de206,
+10.1021/es5013438,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\molins2014.pdf,8,bfe004d2d3577a8e79ca968b4d26853a91ab58ea,
+10.1007/s10706-013-9704-9,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\Dippenaar 2013 - Porosity Reviewed Quantitative Multi-Disciplinary Understanding, Recent Advances and Applications in Vadose Zone Hydrology.pdf",19,b9c51e3165a6d573e1dc6ba38c5465a3ceb55bd7,
+10.1016/j.petrol.2019.04.059,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\Кинетика кристаллизации\Gan 2019 - Molecular dynamics simulation of the microscopic mechanisms of the dissolution, diﬀusion and aggregation processes for waxy crystals in.pdf",14,14fcd7fe99b69193c87c591841b742dc05a049fe,
+10.1088/1742-6596/1276/1/012058,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Alnaimat 2019 - Thermal Testing of Wax Layer Thickness in Crude Oil Pipeline.pdf,10,c6d4245f36fad3f78f1be74a055d96bc338bbb57,
+10.1021/acs.energyfuels.8b04286,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Bian 2019 - Prediction of Wax Disappearance Temperature by Intelligent Models.pdf,16,8cb67fb1448c8ea11237bf6b0b552be044e25e78,
+10.1021/acs.energyfuels.9b04030,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/en19051309,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Bayamirova 2026 - Comparative Analysis of Methods for Determining the Wax Crystallization Onset Temperature of High-Paraffin Crude.pdf,15,858d763c583c730a7ff2cf92e8690c5cdf571604,https://www.mdpi.com/1996-1073/19/5/1309/pdf?version=1772711930 | открытая копия перенесена в библиотеку books 10.10.2026
+10.3390/en12224325,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Wang 2019 - Role of Shearing Dispersion and Stripping in Wax Deposition in Crude Oil Pipelines.pdf,19,c9ebb6f11931f30fff9e3ea703ae81a32b4351dd,https://www.mdpi.com/1996-1073/12/22/4325/pdf?version=1573639560 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.petlm.2019.09.004,failed,,,,HTTP 403 text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S2405656118302013/pdf
+10.2516/ogst/2019037,failed,,,,HTTP 403 text/html;charset=utf-8; https://ogst.ifpenergiesnouvelles.fr/articles/ogst/pdf/10.2516/ogst/2019037
+10.1134/s1995080224602303,paywalled,,,,OpenAlex: открытой копии нет
+10.23877/ms.ts.26.007,failed,,,,сеть: CertificateVerifyError; https://chiffa.org/JournalEngine/engine/index.php/msj/article/view/572/573
+10.2118/187053-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2018.10.058,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2019.106512,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/cjce.23238,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.energy.2023.129210,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/205510-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.geoen.2024.213507,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.geoen.2024.213507
+10.1016/s1876-3804(22)60338-0,failed,,,,HTTP 403 text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S1876380422603380/pdf
+10.1016/j.fuel.2018.07.079,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fluid.2015.03.045,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\fallahnejad2015.pdf,39,1aee804a1ed9d1a9486802d6bdfb1226f66899cb,
+10.1016/j.ijheatmasstransfer.2021.121889,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.iecr.9b02740,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2021.121776,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/156555-pa,failed,,,,"HTTP 200, text/html; charset=utf-8; http://research.library.mun.ca/9504/1/Trina_Sameena.pdf"
+10.1016/j.petrol.2021.108972,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2020.107213,paywalled,,,,OpenAlex: открытой копии нет
+10.18799/24056537/2020/1/249,failed,,,,сеть: ConnectionError; https://reffit.tech/index.php/res-eff/article/download/249/232
+10.1016/j.petlm.2023.04.001,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.petlm.2023.04.001
+10.1021/acsomega.1c03198,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acsomega.1c03198
+10.1080/10916466.2018.1482335,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2019.02.057,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2017.11.021,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/apj.2080,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/212310-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/en15114018,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Wang 2022 - Characterization of Wax Precipitation and Deposition Behavior of Condensate Oil in Wellbore A Comprehensive Review of.pdf,26,12e6209597611db2785aa556829afb9277570aa7,https://www.mdpi.com/1996-1073/15/11/4018/pdf?version=1653980395 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s12517-022-10295-z,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.7b01347,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petsci.2026.08.009,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.petsci.2026.08.009
+10.1016/j.fuel.2024.133001,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0201385,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/pr14020230,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Yu 2026 - Study of Wax-Solid Deposition and Release-Blockage Effects on SC-CO2 Displacement Dynamics of High-Pour-Point Oil Throug.pdf,13,13ff89356023bee5235eb3d5193edf26799a7a32,https://www.mdpi.com/2227-9717/14/2/230/pdf?version=1767953486 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s13202-025-02056-x,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Yu 2025 - Exploration of blockage and release blockage mechanism of porous media under the influence of SC-CO2-high pour point oil.pdf,11,9dc7c0cfd2675589a082cd8f5c2a73bb2203888b,curl_cffi: https://link.springer.com/content/pdf/10.1007/s13202-025-02056-x.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.15593/2712-8008/2021.2.6,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Sandyga 2021 - Research of Temperature Conditions of Organic Sediments Formation in the Productive Formation at Paraffinic Oil Wel.pdf,10,14f625ae9d84b9164a57a5d29b940e4f6f8374a4,https://doi.org/10.15593/2712-8008/2021.2.6 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/s1876-3804(14)60059-8,failed,,,,HTTP 403 text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S1876380414600598/pdf
+10.2118/107857-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/b978-0-12-801898-9.00017-5,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/b978-0-12-813782-6.00006-3,paywalled,,,,OpenAlex: открытой копии нет
+10.2516/ogst:2006037a,failed,,,,HTTP 403 text/html;charset=utf-8; https://ogst.ifpenergiesnouvelles.fr/articles/ogst/pdf/10.2516/ogst:2006037a
+10.1021/acs.energyfuels.7b01170,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acs.energyfuels.7b01170
+10.1007/s13202-019-00811-5,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Fakher 2020 - Critical review of asphaltene properties and factors impacting its stability in crude oil.pdf,18,a2ab1a156520d3cdde268817aefcbb108fc12390,curl_cffi: https://link.springer.com/content/pdf/10.1007/s13202-019-00811-5.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.26153/tsw/13507,failed,,,,HTTP 202 text/html; charset=UTF-8; https://doi.org/10.26153/tsw/13507
+10.11575/prism/26067,failed,,,,HTTP 200 text/html; charset=utf-8; http://hdl.handle.net/11023/2180
+10.25560/45663,failed,,,,HTTP 200 text/html; charset=utf-8; http://hdl.handle.net/10044/1/45663
+10.1007/s12182-016-0111-8,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Свойства и состав парафинистых нефтей\Ganeeva 2016 - Waxes in asphaltenes of crude oils and wax deposits.pdf,9,9c7203d21b6f90c443854f2ae5f4e22ba2ecd025,curl_cffi: https://link.springer.com/content/pdf/10.1007/s12182-016-0111-8.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s13202-019-00779-2,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Реология и гель\Стручков 2020 - Investigations of temperature and dilution effect on rheological properties of waxy crude oil.pdf,13,56bccb9170acd22f614ed5a7edabb7f4ecff8a3c,curl_cffi: https://link.springer.com/content/pdf/10.1007/s13202-019-00779-2.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.petsci.2022.08.028,failed,,,,HTTP 403 text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S1995822622002060/pdf
+10.1021/acsomega.9b03460,failed,,,,HTTP 403 text/html; charset=UTF-8; https://pubs.acs.org/doi/pdf/10.1021/acsomega.9b03460
+10.1007/s13202-019-0609-x,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Sousa 2019 - Preventing and removing wax deposition inside vertical wells a review.pdf,17,a297b9e856ba1e8d829a3389e2854490c726f662,curl_cffi: https://link.springer.com/content/pdf/10.1007/s13202-019-0609-x.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.ceja.2021.100104,failed,,,,HTTP 403 text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S266682112100020X/pdf
+10.3390/en16186727,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Машинное обучение\Samnioti 2023 - Applications of Machine Learning in Subsurface Reservoir Simulation—A Review—Part II.pdf,53,1971f488e6a8df526d154a27d80d3610a59c741f,https://www.mdpi.com/1996-1073/16/18/6727/pdf?version=1695219026 | открытая копия перенесена в библиотеку books 10.10.2026
+10.2118/39083-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.22616/erdev.2024.23.tf219,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Заводнение парафинистых пластов\Bayamirova 2024 - Displacement of high-parafin oil from formations by injected cold water.pdf,7,ed2cd26088817ef0fa35dd01ce3797bf1b102298,http://dx.doi.org/10.22616/erdev.2024.23.tf219 | открытая копия перенесена в библиотеку books 10.10.2026
+10.21779/2542-0321-2019-34-1-32-39,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Akhmedov 2019 - Mathematical modeling of the problems of displacement of the paraffin oil with water, taking into account the wate.pdf",8,f88087ad623a60fffe77a06e551ee0373accab3b,https://doi.org/10.21779/2542-0321-2019-34-1-32-39 | открытая копия перенесена в библиотеку books 10.10.2026
+10.3390/eng7030116,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Korobov 2026 - Mechanisms of Asphaltene–Resin–Paraffin Deposit Formation and Prevention in Oil Production From Physicochemical Pro.pdf,28,88dd5b7736a29fedbd8610627338a54116a33322,https://www.mdpi.com/2673-4117/7/3/116/pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.2298/tsci21s2315a,failed,,,,сеть: CertificateVerifyError; http://www.doiserbia.nb.rs/ft.aspx?id=0354-983621315A
+10.17804/2410-9908.2025.3.031-042,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Неизотермическая фильтрация и теплоперенос\Leonov 2025 - Numerical simulation of coupled heat exchange in a producing reservoir.pdf,12,a53ded49d297f94a708fd336f372ed4364370528,http://dream-journal.org/DREAM_Issue_3_2025_Leonov_Yu.K._et_al._031_042.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1002/nla.542,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/nla.542
+10.21105/joss.04142,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Bell 2022 - PyAMG Algebraic Multigrid Solvers in Python.pdf,4,3ba18e899c75288d7a8a558f0dfe1bfb04ddfa18,https://joss.theoj.org/papers/10.21105/joss.04142.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/978-94-015-7899-8,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie030573v,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef060385s,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef034013k,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef0100303,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0017-9310(94)90219-4,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0017-9310(78)90080-7,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/732-g,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/203-g,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s13202-020-00941-1,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Машинное обучение\Ahmadi 2020 - Machine learning-based models for predicting permeability impairment due to scale deposition.pdf,12,8d6fb8bd98083ce09c1996a8217b9a5454c4852d,https://ucalgary.scholaris.ca/bitstreams/92b93cf5-d2ee-459a-aea2-f049a4916a6c/download | открытая копия перенесена в библиотеку books 10.10.2026
+10.1038/s41598-023-45685-0,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Машинное обучение\Sharifzadegan 2023 - Artificial intelligence-based framework for precise prediction of asphaltene particle aggregation kinetics in.pdf,15,b5dca9e2edd9e3e2a9b866e3730e86ac4540fedf,https://www.nature.com/articles/s41598-023-45685-0.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.rineng.2026.110481,failed,,,,HTTP 200 text/html;charset=UTF-8; https://doi.org/10.1016/j.rineng.2026.110481
+10.1155/ijce/2664958,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1155/ijce/2664958
+10.1515/zpch-1918-9209,failed,,,,HTTP 200 text/html;charset=utf-8; https://jbc.bj.uj.edu.pl/dlibra/publication/edition/513757/content
+10.2118/218015-pa,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onepetro.org/SJ/article-pdf/doi/10.2118/218015-PA/3341981/spe-218015-pa.pdf
+10.1002/gdj3.21,failed,,,,HTTP 403 text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/gdj3.21
+10.1007/s10596-020-10003-4,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Fonseca 2020 - Introduction to the special issue Overview of OLYMPUS Optimization Benchmark Challenge.pdf,9,e3abcc359c1e99b9c60f9ca6984491e3db083830,curl_cffi: https://link.springer.com/content/pdf/10.1007/s10596-020-10003-4.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.2172/751729,failed,,,,HTTP 200 text/html;charset=UTF-8; https://www.osti.gov/biblio/751729
+10.3997/2214-4609.202437086,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s10596-025-10366-6,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Численные методы и ПО\Møyner 2025 - JutulDarcy.jl - a fully differentiable high-performance reservoir simulator based on automatic differentiation.pdf,40,63640bf77afe207c658cdb440f624d57bbf2512f,curl_cffi: https://link.springer.com/content/pdf/10.1007/s10596-025-10366-6.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1021/ef049819e,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Кинетика кристаллизации\Kriz 2005 - Effect of Asphaltenes on Crude Oil Wax Crystallization.pdf,6,2c6102a11e37bd910a5f2747e2157a675a6d0efc,
+10.1021/acs.cgd.6b00499,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Кинетика кристаллизации\pechook2016.pdf,8,8c4c0ba55f8f1dccc909d95db71022f1b645547d,
+10.1016/j.advwatres.2020.103524,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\ghanbarian2020.pdf,14,bcdc592c0dfc211ba5f3e42c87e7e0d86c55695b,
+10.1016/j.apm.2020.06.037,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\lisitsa2020.pdf,41,7144c62fdf959f5e234841ee9e9c55b770e6ecd4,
+10.15372/pmtf20210608,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Техногенное изменение проницаемости пласта при неизотермической фильтрации системы нефть — газ — парафин в условиях фазовых переходов л. а. гайдуков.pdf,10,92cf0ed5b184ff49f757312b08a9d45c74e16a8e,
+10.15372/khur2023462,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Свойства и состав парафинистых нефтей\Физико-химические и реологические свойства вязких парафинистых нефтей.pdf,12,6f9d432097bb1aab0ceb62f8aa9afed5906bb690,
+10.37878/2708-0080/2022-4.09,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\4_nomer_itog-128-141.pdf,14,3b1b61e19a67d2a07c3a34cb7c4f964ec1468e33,
+10.1016/0378-3812(94)02600-6,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\coutinho1995.pdf,17,e9b18c8338562d629117c044221a7204110c269b,
+10.1016/s0378-3812(98)00366-5,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Pauly 1998 - Liquid–solid equilibria in a decaneqmulti-paraffins system.pdf,17,f2a9c644ae73a7385dadc9efd1fde6f403f27dcb,
+10.1016/s0376-7361(08)x7008-6,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\Свойства и состав парафинистых нефтей\Paraffin Products Properties, Technologies, Applications by M. Freund, R. CsikГіs, S. Keszthelyi and GY. MГіzes (Eds.) (z-lib.org).pdf",337,0cab436eb74d538d57384b88dae28ab9a4a19828,
+10.1016/s0017-9310(02)00014-5,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0378-3812(99)00155-7,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie960512f,paywalled,,,,OpenAlex: открытой копии нет
+10.1023/a:1018832120659,paywalled,,,,OpenAlex: открытой копии нет
+10.7242/1999-6691/2023.16.2.14,paywalled,,,,OpenAlex: открытой копии нет
+10.7242/1999-6691/2025.18.3.18,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/cjce.20577,paywalled,,,,OpenAlex: открытой копии нет
+10.37878/2708-0080/2026-3.09,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.ptlrs.2026.07.003,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/0323-0093-jpt,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916466.2023.2239284,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.uncres.2025.100243,paywalled,,,,OpenAlex: открытой копии нет
+10.30632/pjv64n1-2023a8,paywalled,,,,OpenAlex: открытой копии нет
+10.52716/jprs.v16i1.1023,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916466.2022.2091597,paywalled,,,,OpenAlex: открытой копии нет
+10.48072/2525-7579.rog.2022.452,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fluid.2022.113590,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s43153-023-00335-w,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/app16136437,paywalled,,,,OpenAlex: открытой копии нет
+10.31699/ijcpe.2024.4.1,paywalled,,,,OpenAlex: открытой копии нет
+10.31026/j.eng.2025.01.03,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acsomega.2c03192,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/214698-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/pr13061838,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petlm.2026.06.006,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/su16104303,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/210592-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.cis.2025.103488,paywalled,,,,OpenAlex: открытой копии нет
+10.1134/s0965544125601024,paywalled,,,,OpenAlex: открытой копии нет
+10.29222/ipng.2078-5712.2024-15-4.art2,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11696-024-03784-w,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2025.136285,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.csite.2022.102298,paywalled,,,,OpenAlex: открытой копии нет
+10.1038/s41598-024-69503-3,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.ejpe.2022.07.003,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jfueco.2023.100096,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.geoen.2023.212225,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.cep.2026.110724,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.powtec.2023.119272,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.ces.2022.118217,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.watres.2022.118172,paywalled,,,,OpenAlex: открытой копии нет
+10.1029/2022wr033537,paywalled,,,,OpenAlex: открытой копии нет
+10.1103/physrevfluids.9.114301,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-026-02318-0,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.cis.2025.103745,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/geotechnics5010002,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.compgeo.2025.107759,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.compgeo.2026.108292,paywalled,,,,OpenAlex: открытой копии нет
+10.46690/ager.2025.11.02,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-024-02072-1,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jhydrol.2026.135602,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jnnfm.2023.105104,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0333161,paywalled,,,,OpenAlex: открытой копии нет
+10.1615/jpormedia.2025056714,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.sctalk.2022.100042,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jnnfm.2023.105155,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petsci.2026.01.035,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.rineng.2026.111610,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jnnfm.2022.104793,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jcp.2023.112442,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/208610-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s10596-024-10292-z,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/12269328.2025.2462903,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.advengsoft.2026.104215,paywalled,,,,OpenAlex: открытой копии нет
+10.46690/ager.2025.05.04,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jcp.2024.113558,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/geosciences15050169,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/aic.18374,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/cjce.25772,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2022.110929,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.apenergy.2022.120197,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.powtec.2024.120284,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.egyr.2025.04.001,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2022.111277,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2023.129111,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/en15176200,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.4c00502,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.2c01064,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.heliyon.2024.e38436,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.2c01340,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2022.123589,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petsci.2026.09.012,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/en19184481,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.energy.2022.126296,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2024.132703,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0253146,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0311306,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0272866,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.advwatres.2024.104731,paywalled,,,,OpenAlex: открытой копии нет
+10.69631/ipj.v2i3nr67,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.cageo.2024.105725,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/223947-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1134/s1995080226618424,paywalled,,,,OpenAlex: открытой копии нет
+10.21684/2411-7978-2023-9-1-6-21,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\Неизотермическая фильтрация и теплоперенос\Suleimanova 2023 - Investigation of the temperature distribution in a heterogeneous reservoir during fluid filtration, taking into.pdf",16,124b017b964322d94b59e988847bb48ce7065e4b,https://vestnik.utmn.ru/upload/iblock/ae6/fizmat_2023_1_6_21.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.18799/24131830/2026/6/5157,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Неизотермическая фильтрация и теплоперенос\Islamov 2026 - Modeling thermal field in two-phase oil-water filtration in a heterogeneous reservoir considering thermodynamic eff.pdf,12,b49df2bcfb9072cdb70ac30454e4db78f0baff91,https://izvestiya.tpu.ru/archive/article/download/5157/3714 | открытая копия перенесена в библиотеку books 10.10.2026
+10.32737/0005-2531-2021-2-13-23,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Manafov 2021 - ANALYSIS OF THE CURRENT STATE OF RESEARCHES OF THE DEPOSITION OF ASPHALT-RESINOUS SUBSTANCES, PARAFFIN, AND MODELIN.pdf",11,6b3ef5c5cab48ab64bb6e793b14ac1aef8ba2d6c,https://doi.org/10.32737/0005-2531-2021-2-13-23 | открытая копия перенесена в библиотеку books 10.10.2026
+10.3390/app132111821,failed,,,,"HTTP 200, text/html; https://www.mdpi.com/2076-3417/13/21/11821/pdf?version=1698646536"
+10.1002/dug2.70020,failed,,,,"HTTP 403, text/html; charset=UTF-8; https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/dug2.70020"
+10.1016/j.ptlrs.2026.03.004,failed,,,,"HTTP 200, text/html;charset=UTF-8; https://doi.org/10.1016/j.ptlrs.2026.03.004"
+10.3390/en12060967,failed,,,,"HTTP 200, text/html; https://www.mdpi.com/1996-1073/12/6/967/pdf?version=1552464083"
+10.1016/j.ptlrs.2020.04.002,failed,,,,"HTTP 403, text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S2096249520300168/pdf"
+10.1038/s41598-026-55015-9,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Sahebalzamani 2026 - White-box modeling of asphaltene precipitation during natural depletion of oil reservoirs.pdf,69,aad7ea0803ec1616b6abc975c17a8ed0c7863a8e,https://www.nature.com/articles/s41598-026-55015-9_reference.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s13202-018-0533-5,failed,,,,"HTTP 200, text/html; charset=utf-8; https://link.springer.com/content/pdf/10.1007/s13202-018-0533-5.pdf"
+10.37394/232013.2023.18.20,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\Fayziev 2023 - Numerical Investigation of the Two-Component Suspension Filtration in a Porous Medium Taking into Account Changes i.pdf,7,6796274985697be3875df7094ac8c9e5ed12e00c,https://doi.org/10.37394/232013.2023.18.20 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1134/s1990478920030102,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/sym12050696,failed,,,,"HTTP 200, text/html; http://psasir.upm.edu.my/id/eprint/78157/1/78157.pdf"
+10.3390/app10082793,failed,,,,"HTTP 200, text/html; http://psasir.upm.edu.my/id/eprint/38390/1/38390.pdf"
+10.37878/2708-0080/2026-1.11,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\SULEIMENOVA 2026 - Numerical analysis of particle transport in a porous medium under colmation processes.pdf,12,e9ff79c15d575273fc2e8e6289b1a8ee8e14dbd9,https://doi.org/10.37878/2708-0080/2026-1.11 | открытая копия перенесена в библиотеку books 10.10.2026
+10.3390/computation10120205,failed,,,,"HTTP 200, text/html; https://www.mdpi.com/2079-3197/10/12/205/pdf?version=1669264635"
+10.1016/j.fuel.2026.140668,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/234703-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/232223-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2026.139686,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.advwatres.2026.105335,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.applthermaleng.2026.130935,paywalled,,,,OpenAlex: открытой копии нет
+10.1063/5.0294684,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.5c00840,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.jiec.2025.10.032,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/ese3.2027,failed,,,,"HTTP 403, text/html; charset=UTF-8; https://doi.org/10.1002/ese3.2027"
+10.2118/223951-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.geoen.2024.213050,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.applthermaleng.2024.123217,paywalled,,,,OpenAlex: открытой копии нет
+10.3389/fenrg.2024.1399477,failed,,,,"HTTP 200, text/html;charset=utf-8; https://doi.org/10.3389/fenrg.2024.1399477"
+10.1029/2023wr035456,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Модели пористой среды\Tang 2024 - Colloid Transport and Retention in Constricted Tube Pore Spaces With Diverse Geometries and Orientations.pdf,21,4b104407a2f648a2fe5cf1ddaba777baa86a0676,https://edepot.wur.nl/646914 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.jhydrol.2024.132483,failed,,,,"HTTP 403, text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/am/pii/S0022169424018791?via%3Dihub"
+10.1016/j.cej.2023.145436,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/en16083523,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\Loi 2023 - Treatment of Oil Production Data under Fines Migration and Productivity Decline.pdf,29,dc73de98073877507e1f1bb15b792fb3a5766fe9,https://www.mdpi.com/1996-1073/16/8/3523/pdf?version=1681877924 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.jhydrol.2023.130066,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/10916466.2023.2210164,paywalled,,,,OpenAlex: открытой копии нет
+10.2523/iptc-22974-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2023.128835,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.colsurfa.2023.132467,paywalled,,,,OpenAlex: открытой копии нет
+10.3103/s0027133023060018,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2022.124057,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2022.110241,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Wang 2022 - Oil production enhancement, asphaltene precipitation and permeability damage during CO2-SAG flooding of multi-layer sa.pdf",44,31bbb7c80fdbd7724b8466fc7495d2dd111749da,https://eprints.whiterose.ac.uk/183433/1/New%20Qian%206%20AAM.pdf | открытая копия перенесена в библиотеку books 10.10.2026
+10.1007/s42860-022-00178-5,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2022.110134,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.molliq.2022.119312,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.2c00884,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acsomega.2c03249,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Yerkenov 2022 - Asphaltene Precipitation Prediction during Bitumen Recovery Experimental Approach versus Population Balance and Co.pdf,15,12fbeb45b9f7d761f4299b04f42b14a683caf54d,https://nur.nu.edu.kz/bitstreams/d112e5ed-3c51-4912-a8ce-54626eb803ed/download | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.fuel.2022.126578,paywalled,,,,OpenAlex: открытой копии нет
+10.3390/en15082845,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\Kozhevnikov 2022 - Colloid Migration as a Reason for Porous Sandstone Permeability Degradation during Coreflooding.pdf,17,c3639a6cb0372fed05648305edebb3543064ae7c,https://www.mdpi.com/1996-1073/15/8/2845/pdf?version=1649852261 | открытая копия перенесена в библиотеку books 10.10.2026
+10.1016/j.fuel.2022.124887,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.1c01837,failed,,,,"HTTP 200, text/html; charset=utf-8; https://hal.science/hal-03440180"
+10.1002/cjce.24059,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/cjce.24247,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acsomega.1c03759,failed,,,,"HTTP 403, text/html; charset=UTF-8; https://doi.org/10.1021/acsomega.1c03759"
+10.1016/j.petrol.2021.108486,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/acs.energyfuels.1c02550,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2021.120584,failed,,,,"HTTP 200, image/jpeg; https://ars.els-cdn.com/content/image/1-s2.0-S0016236121004609-ga1_lrg.jpg"
+10.1134/s0965544121110219,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s13202-021-01233-y,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Ali 2021 - Asphaltene precipitation modeling in dead crude oils using scaling equations and non-scaling models comparative study.pdf,16,d128c04934a5cafa35698aceb4bad1190bac92ae,https://ucalgary.scholaris.ca/bitstreams/6b89817e-c781-4818-b300-d73578cb4093/download | открытая копия перенесена в библиотеку books 10.10.2026
+10.2118/205368-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.advwatres.2021.103888,failed,,,,"HTTP 403, text/html; charset=UTF-8; https://www.sciencedirect.com/science/article/pii/S0309170821000439"
+10.1016/j.energy.2021.122507,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2021.109500,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/225-g,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/es025899u,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ie50571a039,paywalled,,,,OpenAlex: открытой копии нет
+10.13182/nse70-a18874,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0009-2509(75)80065-0,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/30672-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.ijheatmasstransfer.2009.01.049,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/j.1551-8833.1937.tb14014.x,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2009.06.016,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/c2013-0-04548-3,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/24987-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0920-4105(96)00059-9,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/23810-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef2012744,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/17376-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2011.09.028,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef980201c,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/s0022-1694(98)00169-3,paywalled,,,,OpenAlex: открытой копии нет
+10.1002/9781118086810,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/36106-pa,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef00030a020,paywalled,,,,OpenAlex: открытой копии нет
+10.1115/1.1924398,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-010-9557-0,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.petrol.2016.09.041,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2023.129676,paywalled,,,,OpenAlex: открытой копии нет
+10.1080/08843759608947560,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuproc.2016.02.005,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/j.fuel.2021.120358,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/31101-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/13796-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/s11242-005-5175-7,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/134670-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.1007/978-3-540-71339-5,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/48996-ms,paywalled,,,,OpenAlex: открытой копии нет
+10.2516/ogst:1998027,failed,,,,сеть: ProxyError; https://ogst.ifpenergiesnouvelles.fr/articles/ogst/pdf/1998/03/minssieux_v53n3.pdf
+10.1016/j.petrol.2005.11.010,paywalled,,,,OpenAlex: открытой копии нет
+10.1023/b:mecc.0000046444.98941.3c,paywalled,,,,OpenAlex: открытой копии нет
+10.1146/annurev-anchem-061010-113849,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/j150398a001,paywalled,,,,OpenAlex: открытой копии нет
+10.1016/0016-2361(73)90040-9,paywalled,,,,OpenAlex: открытой копии нет
+10.1021/ef2009474,paywalled,,,,OpenAlex: открытой копии нет
+10.2118/384-g,paywalled,,,,OpenAlex: открытой копии нет
+m:rogachev2019,unverified,,,,"[НЕ ПРОВЕРЕНО] сайт отвечает HTTP 468 автоматическому клиенту, в поисковой выдаче статьи нет; разобрана по копии проекта (обзор_источников.md); журнальная версия тех же опытов - Sandyga et al. 2021, 10.15593/2712-8008/2021.2.6"
+m:nikiforov1998,no_pdf,,,,Math-Net.ru (поисковая выдача 09.10.2026)
+m:nikiforov2013,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Перенос частиц и кольматация\CCMv6n1a6.pdf,7,d4cf09a595ce0c95729542103d86d3b0b2079c0f,
+m:chekalyuk1965,no_pdf,,,,по спискам литературы цитирующих статей (Springer 2017; Jalalov et al. 2015); каталожной карточки не найдено
+m:rubinshtein1972,no_pdf,,,,по спискам литературы цитирующих статей (Springer); каталожной карточки не найдено
+m:barenblatt1984,local_books,C:\Users\Игорь\books\neft\Подземная гидромеханика и фильтрация\Теория фильтрации\Баренблатт - Движение жидкостей и газов в природных пластах\Баренблатт Движение жидкостей и газов в природных пластах.pdf,208,cfaffbe1253efe39a32d807c09f32954dde415eb,
+m:sandyga2022diss,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\sandyga2022_dissertation_spmi.pdf,118,986bab0e3e1f3b4183e14914a3ed0c056cf05d7f,
+m:khaibullina2019,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\khaibullina2019_dissertation_spmi.pdf,98,e237546d05fc9a09abddfa61943871c1eef2aa17,
+m:aleksandrov2022,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\aleksandrov2022_dissertation_ESP_ASPO.pdf,179,4db609a6bd17c515a1a7d0140388f19150b03832,
+m:sobin2015,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\sobina_dissertation_ugtu.pdf,137,bc268c03fa51da45e9d224db33916fa68f21d994,
+m:abileva2025,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\abileva2025_phd_satbayev.pdf,118,8f7c6f3caf2887e360510669a688357b7f6127c4,
+m:yushchenko2016,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\kandidatskaya-dissertatsiya_yushchenko-t.s..pdf,130,f9af7c2da7cf3525a3ad19646f85290a5fc0dbca,
+m:efimov2023,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\Ефимов - Физико-химическое описание равновесий (дисс.).pdf,153,a36d58ea96b439751677ac7939a3f3024c90926b,
+m:ochieng2024,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\ochieng2024_phd_wax_deposition_jkuat.pdf,188,2c9020a9d2556cf9988f9f16634e0a14eec3faed,
+m:do2021,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\Do 2021 - Effect of temperature on asphaltene deposition mechanisms in horizontal flow.pdf,139,66f612d1dbc314ea211670238d225b124975d67b,
+m:maloney2004,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Заводнение парафинистых пластов\Maloney 2004 - Effects of paraffin wax precipitation during cold water injection in a fractured carbonate reservoir.pdf,12,e4ce63c596e909bb2ba778507bdba348689b53af,
+m:mahmoudi2022,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Асфальтены\Mahmoudi 2022 - Asphaltene deposition in porous media micromodels experimental studies and comprehensive permeability-reducing mec.pdf,16,6978999ccae41e58c9d7104e13722bf33d2bdc7c,
+m:wang2023syxb,unverified,,,,[НЕ ПРОВЕРЕНО] DOI не найден в Crossref и OpenAlex; запись взята из README проекта
+m:avdonin1967,no_pdf,,,,реферат OSTI ETDEWEB (страница открыта 09.10.2026)
+m:kovalev1968,no_pdf,,,,реферат OSTI ETDEWEB (страница открыта 09.10.2026)
+m:notay2010,no_pdf,,,,OpenAlex W2167512083 (без DOI); сайт ETNA недоступен по TLS 09.10.2026
+m:aziz1979,no_pdf,,,,страница авторов (Stanford) в поисковой выдаче
+m:peaceman1977,no_pdf,,,,сайт издательства (ISBN 978-0-444-41578-3)
+m:trottenberg2001,no_pdf,,,,сайт издательства (ISBN 978-0-12-701070-0)
+m:michelsen2007,no_pdf,,,,OpenAlex W2613860550
+m:wakao1982,no_pdf,,,,OpenAlex W616326739
+m:whitson2000,unverified,,,,[НЕ ПРОВЕРЕНО] запись издательства в поиске не найдена
+m:kozeny1927,unverified,,,,[НЕ ПРОВЕРЕНО] первоисточник в сети не найден; цитируется по Carman (1937/1997)
+m:buckingham1921,unverified,,,,[НЕ ПРОВЕРЕНО] первоисточник в сети не найден; формула приводится по Wu et al. (1992) и Chevalier et al. (2013)
+m:corey1954,unverified,,,,[НЕ ПРОВЕРЕНО] первоисточник в сети не найден
+m:kesler1976,unverified,,,,[НЕ ПРОВЕРЕНО] первоисточник в сети не найден
+m:tronov1970,unverified,,,,[НЕ ПРОВЕРЕНО] не найдено ни каталожной записи ни цитирования в выдаче
+m:persiyantsev2000,unverified,,,,[НЕ ПРОВЕРЕНО] не найдено в поисковой выдаче
+m:devlikamov1975,unverified,,,,[НЕ ПРОВЕРЕНО] не найдено в поисковой выдаче
+m:sw_mrst,no_pdf,,,,GitHub API 09.10.2026 (лицензия и тег релиза)
+m:sw_opm,no_pdf,,,,GitHub API 09.10.2026
+m:sw_dumux,no_pdf,,,,GitLab университета Штутгарта (страница открыта 09.10.2026); зеркало GitHub dumux/dumux
+m:sw_darts,no_pdf,,,,GitLab API и PyPI 09.10.2026
+m:sw_jutul,no_pdf,,,,GitHub API 09.10.2026
+m:sw_porepy,no_pdf,,,,GitHub API 09.10.2026
+m:sw_geos,no_pdf,,,,GitHub API 09.10.2026
+m:sw_moose,no_pdf,,,,GitHub API 09.10.2026
+m:sw_pyamg,no_pdf,,,,GitHub API 09.10.2026
+m:sw_numba,no_pdf,,,,GitHub API 09.10.2026
+m:montero2020,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Wax deposition analysis for oil and gas multiphase flow in pipelines.pdf,82,27fb967cf51f1c2a3133de585f3a09e3a07d1e01,
+m:dementev2020,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\dementev_dissertaciya.pdf,100,20f5968b4ec3acb2646c35edf5d93f81d75430ea,
+m:kislitsyn2015,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\Кислицын 2015 - Экспериментальное и теоретическое исследование микрокристаллизации парафинов в нефти experimental and theoretical study of paraffin.pdf,10,8df22d3c082d462b7056238e00bb87d7e4dccad7,
+m:musakaev2001,local_books,"C:\Users\Игорь\books\neft\Парафинистые нефти\АСПО в скважинах и трубопроводах\О математических схемах, описывающих процесс кристаллизации парафина в газонефтяных скважинах const.pdf",5,7ed7b386ee447aee632f6468beab7ea9f404a282,
+m:markin2011,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Кинетика кристаллизации\issledovanie-kinetiki-vydeleniya-parafinov-iz-nefti.pdf,6,fbd07a2fad82f7c750c33a84a65e7f56931e04c6,
+m:adeyanju2011,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Отложения в пласте и моделирование\Adeyanju-P.pdf,18,bc5f62ee330f3ccd7a7cfcf257209e1505082c43,
+m:mousavi2008,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Термодинамика и фазовое равновесие\Solid Phase Equation of State Application for Wax Formation Prediction in Petroleum Mixtures.pdf,12,430ae5ce0f25fb896fe19d2dfbae13475b221652,
+m:kazbaev2023,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Свойства и состав парафинистых нефтей\Исследование нефтяных парафинов и смол методом ЯМР релаксации.pdf,5,d1fb91d5fdabb0f6494316c832d244bc63b2a611,
+m:ilyin2007,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Свойства и состав парафинистых нефтей\Iliin_1.pdf,15,b31387985c9dd55c9d6a3b8d1148ffb447894c5c,
+m:lobanov2023,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\TPU1471860.pdf,113,4d2136d41864736d831d1df7f397800d10952428,
+m:ryskeldi2021,local_books,C:\Users\Игорь\books\neft\Парафинистые нефти\Диссертации и ВКР\супер казах.pdf,42,9d677c8ba49ac91c36652ca11ac959f278a91d96,
+m:pustogov2011,no_pdf,,,,PDF журнала (WebFetch 10.10.2026): выходные данные и аннотация на укр. и рус.

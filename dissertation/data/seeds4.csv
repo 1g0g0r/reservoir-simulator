@@ -1,0 +1,89 @@
+doi,subtopic,expect
+10.7242/1999-6691/2023.16.2.14,T07,Arkhipova 2023 colmatation water with particles (web search)
+10.7242/1999-6691/2025.18.3.18,T08,Kadet Vasiliev 2025 percolation model polymer nanoaggregates (web search)
+10.1002/cjce.20577,T07,Kariznovi 2012 asphaltene deposition adsorption porous media (web search)
+10.37878/2708-0080/2026-3.09,T11,Paraffin formation in reservoir oil of Uzen 2026
+10.1016/j.ptlrs.2026.07.003,T10,Formation damage by CO2 injection EOR 2026
+10.2118/0323-0093-jpt,T10,Wax formation damage shale production decline 2023
+10.1080/10916466.2023.2239284,T10,Wax asphaltene deposition wellbore regions gas condensate 2023
+10.1016/j.uncres.2025.100243,T10,CO2-EOR parameters high pour-point oil reservoirs 2025
+10.30632/pjv64n1-2023a8,T01,Optimize water injection temperature high pour point oil 2023
+10.52716/jprs.v16i1.1023,T03,Thermodynamic modeling wax phase behavior reservoir fluid Iraq 2026
+10.1080/10916466.2022.2091597,T03,Temperature pressure wax precipitation oil-gas condensate 2022
+10.48072/2525-7579.rog.2022.452,T03,Wax precipitation CO2-rich pre-salt live oils 2022
+10.1016/j.fluid.2022.113590,T04,Hard-core effect PC-SAFT asphaltene 2023
+10.1007/s43153-023-00335-w,T04,PC-SAFT Flory-Huggins polydisperse asphaltene 2023
+10.3390/app16136437,T04,Improved PC-SAFT asphaltene prediction 2026
+10.31699/ijcpe.2024.4.1,T04,Asphaltene precipitation envelope comparative study part I 2024
+10.31026/j.eng.2025.01.03,T04,Asphaltene precipitation curve comparative study part II 2025
+10.1021/acsomega.2c03192,T15,PC-SAFT vs machine learning asphaltene 2022
+10.2118/214698-pa,T04,Decreasing asphaltene precipitation immiscible gas injection 2023
+10.3390/pr13061838,T10,CO2 injection heavy oil asphaltene precipitation simulation 2025
+10.1016/j.petlm.2026.06.006,T10,Asphaltene precipitation rich gas injection experiment simulation 2026
+10.3390/su16104303,T11,Asphaltene deposition ultra-low permeability CO2 2024
+10.2118/210592-pa,T11,Asphaltene deposition miscible immiscible CO2 2022
+10.1016/j.cis.2025.103488,T06,Review asphaltene precipitation deposition kinetics CO2 2025
+10.1134/s0965544125601024,T06,Onset points kinetics asphaltene aggregation model systems 2025
+10.29222/ipng.2078-5712.2024-15-4.art2,T04,Onset asphaltene precipitation ultrasound model system 2024
+10.1007/s11696-024-03784-w,T04,Live oil composition asphaltene precipitation temperature 2024
+10.1016/j.fuel.2025.136285,T06,MD asphaltene aggregation wax crystallization waxy crude 2026
+10.1016/j.csite.2022.102298,T06,MD wax aggregational crystallization cooling 2022
+10.1038/s41598-024-69503-3,T06,Aggregation kinetics thermophoretic asphaltene deposition 2024
+10.1016/j.ejpe.2022.07.003,T06,Population balance solution asphaltene aggregation 2022
+10.1016/j.jfueco.2023.100096,T07,Permeability impairment asphaltene natural depletion 2023
+10.1016/j.geoen.2023.212225,T07,Estimating permeability impairment asphaltene depletion 2023
+10.1016/j.cep.2026.110724,T07,Geometry-driven asphaltene deposition micromodels 2026
+10.1016/j.powtec.2023.119272,T07,Permeability impairment dynamics machine learning 2024
+10.1016/j.ces.2022.118217,T07,Clusters in fines migration 2023
+10.1016/j.watres.2022.118172,T07,Review fines migration factors 2022
+10.1029/2022wr033537,T07,Seepage velocity pore clogging permeability reduction 2023
+10.1103/physrevfluids.9.114301,T07,Deposition erosion porous media branching channels 2024
+10.1007/s11242-026-02318-0,T07,Particle deposition oscillatory flow microfluidics 2026
+10.1016/j.cis.2025.103745,T08,Mineral precipitation porous media evolution review 2026
+10.3390/geotechnics5010002,T08,Permeability tortuosity porosity model clogging 2025
+10.1016/j.compgeo.2025.107759,T08,Filtration clogging pore network definition 2026
+10.1016/j.compgeo.2026.108292,T08,Porosity permeability relations biogeochemical clogging 2026
+10.46690/ager.2025.11.02,T08,Pore-scale permeability evolution mineral precipitation 2025
+10.1007/s11242-024-02072-1,T08,Pore clogging CFD-DEM colloid transport 2024
+10.1016/j.jhydrol.2026.135602,T08,Differentiable GNN pore network permeability 2026
+10.1016/j.jnnfm.2023.105104,T09,Homogenization yield stress fluids porous media 2023
+10.1063/5.0333161,T09,Network modeling yield-stress fluid disordered porous media 2026
+10.1615/jpormedia.2025056714,T09,Intra-REV pore distribution yield-stress porous media 2025
+10.1016/j.sctalk.2022.100042,T09,Generalized Darcy yield stress fluid porous media 2022
+10.1016/j.jnnfm.2023.105155,T09,Network model gas invasion yield-stress fluid porous media 2024
+10.1016/j.petsci.2026.01.035,T09,Shear breakdown static recovery waxy gel 2026
+10.1016/j.rineng.2026.111610,T09,Pressure-induced structuring yield stress waxy crude 2026
+10.1016/j.jnnfm.2022.104793,T09,Non-isothermal cooling stage startup waxy crude 2022
+10.1016/j.jcp.2023.112442,T12,Convergent sequential fully implicit method 2023
+10.2118/208610-pa,T12,Compositional reservoir simulation review 2022
+10.1007/s10596-024-10292-z,T12,CPTR preconditioner thermal CO2 2024
+10.1080/12269328.2025.2462903,T12,AMG tight oil nonlinear seepage 2025
+10.1016/j.advengsoft.2026.104215,T12,CPRW preconditioner robustness 2026
+10.46690/ager.2025.05.04,T13,Reactive transport solver MRST fully implicit 2025
+10.1016/j.jcp.2024.113558,T12,Compositional simulation compact stencil adaptive implicit 2025
+10.3390/geosciences15050169,T13,Solvers preconditioners SPE CO2 benchmark 2025
+10.1002/aic.18374,T14,Multicomponent wax deposition aging cold surfaces 2024
+10.1002/cjce.25772,T14,Wax deposition high-wax crude cold regions 2025
+10.1016/j.petrol.2022.110929,T14,Wax deposition pipeline laminar numerical 2022
+10.1016/j.apenergy.2022.120197,T10,Semi-compositional asphaltene precipitation deposition solvent bitumen recovery 2022
+10.1016/j.powtec.2024.120284,T14,Asphaltene deposition vertical wellbores particle shape 2024
+10.1016/j.egyr.2025.04.001,T14,Asphaltene deposition vertical oil wells simulation 2025
+10.1016/j.petrol.2022.111277,T14,Modeling asphaltene deposition vertical oil wells 2023
+10.1016/j.fuel.2023.129111,T14,Wellbore clogging asphaltene interaction energies 2023
+10.3390/en15176200,T14,Wax deposition Dabei deep condensate gas wells 2022
+10.1021/acs.energyfuels.4c00502,T11,Asphaltene deposition dynamics microfluidic CFD 2024
+10.1021/acs.energyfuels.2c01064,T04,Asphaltene polydispersity precipitation deposition tendency 2022
+10.1016/j.heliyon.2024.e38436,T11,Asphaltene deposition wettability 2024
+10.1021/acs.energyfuels.2c01340,T11,Asphaltene emulsions microfluidic porous media 2022
+10.1016/j.fuel.2022.123589,T11,Core flooding NMR imaging numerical simulation 2022
+10.1016/j.petsci.2026.09.012,T08,Pore-scale LBM CO2-oil asphaltene deposition 2026
+10.3390/en19184481,T11,Asphaltene deposition formation damage heavy oil CO2 2026
+10.1016/j.energy.2022.126296,T15,Data-driven wax deposition prediction 2023
+10.1016/j.fuel.2024.132703,T15,WDT white-box machine learning 2024
+10.1063/5.0253146,T15,Data-physical dual-driven surrogate reservoir 2025
+10.1063/5.0311306,T15,Koopman surrogate reservoir model 2026
+10.1063/5.0272866,T15,Deep neural operator seepage porous media 2025
+10.1016/j.advwatres.2024.104731,T15,PINN two-phase heterogeneous fractured 2024
+10.69631/ipj.v2i3nr67,T15,Anchored PINN two-phase heterogeneous 2025
+10.1016/j.cageo.2024.105725,T05,Phase-state identification bypass compositional simulation 2024
+10.2118/223947-pa,T05,Multiphase-state identification acceleration SPE J 2024

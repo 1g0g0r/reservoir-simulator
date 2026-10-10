@@ -1,0 +1,330 @@
+{
+"10.7242/1999-6691/2023.16.2.14": {
+"abs": "",
+"tldr": ""
+},
+"10.7242/1999-6691/2025.18.3.18": {
+"abs": "A percolation-hydrodynamic model of the process of oil displacement by polymer solutions with nanoaggregates of various structures has been formulated and numerically implemented. The model allows taking into account the features of the pore space structure and the nature of the interaction of nanoaggregates with its surface during the filtration of the polymer solution. The possibility of achieving a higher oil recovery factor in the case of using polymers with hyperbranched nanomaterials compared to the classical polymer effect is shown. A cycle of laboratory studies was implemented to verify the results of theoretical calculations obtained using the model and compare them with the experimental data. The oil displacement process was modeled in terms of the composite model of a reservoir element assembled from 10 standard core samples taken from one oil-bearing reservoir. Theoretical estimates are in qualitative agreement with the results of the laboratory experiments also conducted with a composite reservoir model, and their quantitative difference is due to the use of the rheological law for Newtonian fluids in the mathematical model. The experimental results showed that the studied polymers are characterized by a pseudoplastic flow regime, therefore the effective viscosity of the polymer solution is higher than that assumed in the calculations. Based on the theoretical and experimental studies, it can be concluded that the application of polymer systems containing hyperbranched nanoaggregates leads to a significant increase in the residual resistance factor, where the formation of a stable polymer structure significantly decreases a porous medium’s permeability in flooded channels. The percolation-hydrodynamic model presented in this paper allows for a more adequate consideration of the physicochemical processes that occur during polymer flooding of oil-saturated reservoirs.",
+"tldr": ""
+},
+"10.1002/cjce.20577": {
+"abs": "",
+"tldr": ""
+},
+"10.37878/2708-0080/2026-3.09": {
+"abs": "The paper presents the results of a study of the conditions of formation of asphalt-resin-paraffin\ndeposits (AFS) in the reservoir oil of the Uzen deposit using the example of the Yu-13 horizon. The\nstudies were performed using PVT analysis with an acoustic resonance system (ARS), as well as\nthe \"cold rod\" method.\nThe temperature ranges of the onset of crystallization of paraffins, the formation of zones of\nmass crystallization and complete solidification of oil have been established. It is shown that the\ntemperature of the beginning of crystallization of paraffins is comparable to the current reservoir\ntemperature, which causes a high probability of precipitation of the solid phase in the reservoir and\nthe bottomhole zone. It is revealed that the determining factor of paraffin formation is the temperature\nregime, while the influence of dissolved gas is of secondary importance.\n The results obtained can be used to substantiate technological solutions to prevent and reduce\nthe intensity of AFS at the Uzen field.",
+"tldr": ""
+},
+"10.1016/j.ptlrs.2026.07.003": {
+"abs": "",
+"tldr": ""
+},
+"10.2118/0323-0093-jpt": {
+"abs": "\n \n This article, written by JPT Technology Editor Chris Carpenter, contains highlights of paper SPE 210414, “First Evidence for Shale Production Decline as a Result of Formation Damage Caused by C60+ Paraffin Wax Deposition: A Permian Case Study,” by Amir Mahmoudkhani, SPE, Locus Fermentation Solutions, and Jonathan Rogers and Martin Shumway, SPE, Locus Bio-Energy Solutions, et al. The paper has not been peer reviewed.\n \n \n \n Analysis of production decline curves revealed that three candidate wells in West Texas depleted faster than indicated by a type decline curve, indicating a potentially abnormal permeability-reduction mechanism. A biosurfactant-based squeeze program was recommended and applied in three horizontal wells. The biosurfactant treatment offers an alternative and economical method for remediation of formation damage caused by high‑molecular‑weight paraffin wax deposition in porous media that does not require costly intervention techniques to apply.\n \n \n \n The Bone Springs horizontal oil play in the Delaware Basin spans from southeast New Mexico into West Texas. Stacked, multipay reservoirs, each with diverse rock properties, possess upside but also complexity. The initial targets in the play were conventional sandstones. Wells then tapped into carbonate lenses and, ultimately, low-permeability sandstones. As a result of horizontal drilling technology combined with hydraulic fracturing, very thin sands and other facies are now being produced. Generally, reservoir quality of this unconventional hydrocarbon system is controlled by carbonate content, where increased carbonate content typically is associated with lower productivity.\n \n \n \n All crude oils exhibited precipitation of organics at ambient laboratory temperatures. Even after storing crudes at the bottomhole temperature of 140°F, a small amount of wax remained insoluble in bulk liquid.\n Samples of formation drill cuttings were received for various depth intervals between 8,500 and 12,000 ft. X‑ray diffraction analyses of solids revealed quartz as the major mineral phase, with clays and carbonates account for remaining phases. Combined fractions with 160-micron size were used for microcolumn oil-recovery screening tests. Carbon distributions of oils and waxes were performed by high-temperature gas chromatography (HTGC).\n The Du Noüy ring method was used to measure static surface tensions of biosurfactant solutions at different concentrations and was applied to calculate critical micelle concentrations at ambient temperature. Interfacial tension (IFT) measurements were performed using a drop-shaped tensiometer using the pendant-drop method. Finally, the IFTs of oil in synthetic formation water and in biosurfactant solutions prepared in city tap water were determined. Contact-angle measurements also were performed.\n The wax-appearance temperature (WAT) of crude and wax samples was determined by the differential scanning calorimetry method. Spontaneous imbibition experiments were performed using the Amott-cell method at reservoir temperature. Berea sandstone core plugs (25×50 mm) with a permeability of 385 md and porosity of 18.4% were used. Core plugs were saturated with homogenized crude oil samples at 140°F for 7 days.\n",
+"tldr": ""
+},
+"10.1080/10916466.2023.2239284": {
+"abs": "Abstract Wax/asphaltene deposition has been an important problem in the gas condensate reservoirs development. The cold plate device is designed to reveal the effect of operating conditions on the wax/asphaltene deposition behavior. The characteristic of wax/asphaltene deposition with well conditions is determined. The results show that when the temperature difference was considered, the growth rate of wax deposition thickness in the operation period was that stabilizing first, rising again, and then slowing down. However, the temperature and hydrogen bonding interaction significantly affects the asphaltene deposition process. The asphaltene deposition rate was stable at the beginning period of operation, then increased significantly, and decreased gradually after reaching the peak value of 21.61 g/cm2·h. An identification diagram of the wellbore deposition location is established. Increased deposition surface area of the cold plate structural design ensures qualitative and quantitative characterization of wax/asphaltene deposition traits. The real well fluids components were employed in the experiments to obtain critical conditions for wax/asphaltene deposition which approximated actual production conditions. This diagram facilitates the reliable identification of wax/asphaltene removal areas in the wellbore during production. This study provides a comprehensive understanding of the wax/asphaltene deposition behavior, which helps the gas condensate well operation safety and efficiency.",
+"tldr": ""
+},
+"10.30632/pjv64n1-2023a8": {
+"abs": "With the advancement of conventional water displacement technology, cold damage may affect the vicinity of high pour point oil wells to a certain extent. Thus, the optimization of thermal recovery parameters of high pour point oil is of great significance to the oil field. In this study, a comprehensive model of the temperature distribution of the wellbore fluid was constructed, and the function of f(tD) was introduced to participate in the calculation of the thermal resistance of the formation. The temperature distribution along the wellbore was calculated and simulated under different conditions. The results show that the surface water injection temperature of 60.8℃ could ensure the desired water temperature reaching the target layer, and the injection temperature of 60.4°C could meet the needs of efficient development after considering the design of the 750-m insulated tubing. The final thermal recovery parameter optimization system could provide a theoretical reference for the thermal recovery design of the same type of reservoir.",
+"tldr": ""
+},
+"10.52716/jprs.v16i1.1023": {
+"abs": "Most reservoir fluids contain heavy paraffinic compounds that may precipitate as a solid or solid-like material called wax if the fluid is cooled down. Wax precipitation may cause operational problems when unprocessed well streams are transported in undersea pipelines, in which the temperature may fall to that of the surrounding seawater. Wax may deposit as a solid layer inside the pipeline. With continued transport, this layer will build up and eventually plug the pipeline if not mechanically removed. The need to proactively predict the temperature at which wax will precipitate leads to the development and application of thermodynamic models for such prediction. This study aims to develop a thermodynamic model to predict the wax deposition envelope (WDE), which gives a good idea of the temperature at which wax precipitation occurs. Using a live oil sample from southern Iraqi oilfield, this study used the Soave-Redlich-Kwong (SRK-EOS) model that can predict the specific conditions at which wax precipitation occurs as well as respond to the reservoir fluid. The SRK-EOS results in the Multiflash program were matched with the fluid and wax experimental data. The results pointed out that wax precipitation would happen in tandem with the same production scenario after the temperature dropped.",
+"tldr": ""
+},
+"10.1080/10916466.2022.2091597": {
+"abs": "Abstract The BZ and DB blocks in Tarim Oilfield (China) are condensate gas reservoirs operating under high pressure and high temperature. To mitigate and control the problem of wax deposition, in this study, the wax appearance temperature (WAT) at different cooling rates and wax melting temperature (WMT) at different heating rates of the condensate oil were tested using differential scanning calorimetry. In addition, the crystalline behaviors of wax during precipitation and melting were observed from a micro perspective. By considering the components of the condensate gas and the production data, the carbon number distribution of the well fluids under stratigraphic conditions was simulated. Based on the results, the phase envelope of the well fluids was also simulated, and the relationships between the phase and the temperature and pressure of the oil-gas condensate were analyzed. The temperature and pressure at different depths of the wells were simulated. It was found that the WAT decreased with increasing cooling rate and the WMT increased with increasing heating rate. Furthermore, the wax content of the oil-gas condensate in DB was higher than that in BZ. Finally, it was predicted that wax precipitation occurred above the depth of 500 m in the BZ well.",
+"tldr": ""
+},
+"10.48072/2525-7579.rog.2022.452": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.fluid.2022.113590": {
+"abs": "",
+"tldr": ""
+},
+"10.1007/s43153-023-00335-w": {
+"abs": "",
+"tldr": ""
+},
+"10.3390/app16136437": {
+"abs": "This study, based on phase equilibrium theory, uses reservoir crude oil systems as the research object and adopts the Perturbed Chain-Statistical Associating Fluid Theory (PC-SAFT) equation of state. By combining the Panuganti characterization method with the three-phase Rachford–Rice algorithm, an integrated RRPC-SAFT engineering workflow is established, which effectively addresses the drawbacks of traditional PC-SAFT models, including low computational efficiency and poor convergence under extreme working conditions. On this basis, systematic performance comparisons are conducted between the RRPC-SAFT workflow and classical cubic equations of state (PR and SRK). Furthermore, the asphaltene phase behavior under gas injection development conditions is simulated, and the quantitative effects of the four SARA fractions on the critical precipitation conditions and precipitation intensity of asphaltenes are determined, clarifying the evolution rules and main controlling factors of asphaltene phase instability under various development scenarios. The research results reveal that the average relative errors of bubble point pressure and asphaltene onset precipitation pressure (AOP) for the three crude oil samples are all less than or equal to 5%. Compared with the PR and SRK models, the average prediction errors are reduced by 1.27% and 2.01%, respectively. Gas injection simulation results demonstrate that nitrogen poses the highest risk of triggering asphaltene precipitation under equimolar injection, with the asphaltene onset precipitation pressure increasing up to 114.94%. Single-factor analysis of SARA fractions verifies that saturates and asphaltenes aggravate precipitation, while aromatics and resins suppress asphaltene destabilization. In terms of computational efficiency, the computational speed of the RRPC-SAFT algorithm is four times higher than that of the traditional Gibbs free energy minimization algorithm. This model can be applied to calculate the thermodynamic critical equilibrium conditions of asphaltene precipitation, providing a thermodynamic basis for early screening of asphaltene deposition risks, optimization of gas injection schemes, and design of deposition prevention and control technologies.",
+"tldr": ""
+},
+"10.31699/ijcpe.2024.4.1": {
+"abs": "   The solubility of asphaltenes in crude oils is predominantly influenced by variations in temperature, pressure, and oil composition. These alterations can precipitate asphaltene deposition, resulting in diminished permeability, obstruction of wells and auxiliary surface facilities, and ultimately, a reduction or cessation of production. Therefore, it is imperative for upstream and downstream processing engineers to comprehend and predict asphaltene phase behavior to implement effective preventative and remedial strategies and minimize costs. Asphaltene precipitation can be predicted through the application of solubility and colloidal theories. In this study, cubic equations of state and cubic-plus-association equations of state are utilized as solubility theory-based methodologies. The advanced versions of the Peng-Robinson (APR78) and Soave-Redlich-Kwong (ASRK) cubic equations of state are compared with cubic-plus-association (CPA) equations of state using Multiflash software to predict fluid and asphaltene phase behavior. The simulation results demonstrate a strong correlation between the ASRK model and the CPA model, with a minor deviation from the results of the APR78 model. This observation suggests that these models can effectively predict asphaltene behavior and yield acceptable results when compared to experimental data for fluid and asphaltene. Considering the likelihood of asphaltene deposition within wells, hence, it is recommended to develop a model to determine the locations and quantities of deposition.",
+"tldr": ""
+},
+"10.31026/j.eng.2025.01.03": {
+"abs": "Asphaltenes' solubility in crude oils is frequently affected by temperature, pressure, and oil composition changes. This could lead to the precipitation and deposition of asphaltene in various parts of the total production system, which would cause a significant economic impact. Predicting the conditions of asphaltene precipitation will be very useful in two cases. In the first case, without the problem, it will be useful in specifying the optimum operating conditions of oil production operations. In the second case, with the problem occurring, the prediction model will be useful in knowing the deposition areas and their sizes. This study is an extension of the first part, in which the advanced versions of Peng-Robinson (APR78 EOS) and Soave-Redlich-Kwong (ASRK EOS) cubic equations of state and cubic-plus-association equations of state (CPA EOS) were compared in predicting asphaltene precipitation conditions by using Multiflash software. The prediction was made for live crude oil (API gravity = 24˚ API) from an Iraqi oil field at different temperatures. The required data for modeling are fluid compositional analysis, PVT experiment data, and flow assurance data, which were collected from a fluid analysis report. It was noticed that the agreement in prediction was very high between the ASRK EOS and the CPA EOS for all temperature values and diverged from the APR78 EOS model at low temperatures (T = 50 and 40 ˚C). This study demonstrates the impact of selecting the appropriate model on predicting asphaltene precipitation and its influence on future predictions of the asphaltene deposition problem.",
+"tldr": ""
+},
+"10.1021/acsomega.2c03192": {
+"abs": "Predicting asphaltene onset pressure (AOP) and bubble point pressure (Pb) is essential for optimization of gas injection for enhanced oil recovery. Pressure-Volume-Temperature or PVT studies along with equations of state (EoSs) are widely used to predict AOP and Pb. However, PVT experiments are costly and time-consuming. The perturbed-chain statistical associating fluid theory or PC-SAFT is a sophisticated EoS used for prediction of the AOP and Pb. However, this method is computationally complex and has high data requirements. Hence, developing precise and reliable smart models for prediction of the AOP and Pb is inevitable. In this paper, we used machine learning (ML) methods to develop predictive tools for the estimation of the AOP and Pb using experimental data (AOP data set: 170 samples; Pb data set: 146 samples). Extra trees (ET), support vector machine (SVM), decision tree, and k-nearest neighbors ML methods were used. Reservoir temperature, reservoir pressure, SARA fraction, API gravity, gas–oil ratio, fluid molecular weight, monophasic composition, and composition of gas injection are considered as input data. The ET (R2: 0.793, RMSE: 7.5) and the SVM models (R2: 0.988, RMSE: 0.76) attained more reliable results for estimation of the AOP and Pb, respectively. Generally, the accuracy of the PC-SAFT model is higher than that of the AI/ML models. However, our results confirm that the AI/ML approach is an acceptable alternative for the PC-SAFT model when we face lack of data and/or complex mathematical equations. The developed smart models are accurate and fast and produce reliable results with lower data requirements.",
+"tldr": "The results confirm that the AI/ML approach is an acceptable alternative for the PC-SAFT model when the authors face lack of data and/or complex mathematical equations."
+},
+"10.2118/214698-pa": {
+"abs": "\n In this study, the ability of dilute concentrations of toluene to act as a CO2-soluble asphaltene stabilization agent capable of inhibiting asphaltene precipitation during immiscible CO2 injection was assessed. Phase behavior results indicated that 1,000 to 20,000 ppm toluene could readily dissolve in CO2 at cloudpoint pressures that are well below the formation pressure and typical CO2 minimum miscibility pressure (MMP) values during gas-based enhanced oil recovery (EOR). Single-phase solutions of the modified gas (CO2/toluene) were then combined with asphaltenic oils in oil swelling phase behavior tests to demonstrate that the presence of toluene increased the amount of CO2 that dissolved into reservoir crude oil at a specified temperature and pressure. However, asphaltene precipitation diminished, apparently because the effect of the increased asphaltene solvent strength of toluene was more significant than the increased amount of CO2 (an asphaltene antisolvent) that entered the oil-rich phase. During the injection of CO2/toluene solution into cores initially saturated with crude oil and brine, compared to the injection of pure CO2, asphaltene deposition declined during the injection of CO2/toluene mixtures for asphaltenic volatile and intermediate oils from 3.7 wt% to 0.7 wt% and 5.9 wt% to 1.7 wt%, respectively. Based on the asphaltene particle-size analysis, the CO2/toluene mixtures can stabilize oil particles and simultaneously reduce asphaltene aggregation more effectively than pure CO2.",
+"tldr": ""
+},
+"10.3390/pr13061838": {
+"abs": "The results of core flooding experiments can guide the formulation of development plans for similar oil reservoirs. However, for cores from heavy oil reservoirs, asphaltene deposition often occurs during flooding due to changes in pressure, temperature, and petroleum composition, affecting the determination of injection parameters. Taking core samples from the Xia 018 well block as the research object, this study determined that the crude oil sample exhibits normal CO2 sensitivity based on PVT experiments and core flooding results. A corresponding asphaltene precipitation model was established and coupled with core-scale numerical simulation, forming an integrated core-scale numerical simulation method considering asphaltene precipitation. Through orthogonal experimental design, the optimized fracturing production parameters for Well Y were determined as follows: fracturing stage length of 1000 m, CO2 injection volume of 100 m3 per stage, fluid volume per stage of 1000 m3, proppant volume of 1000 m3, and injection rate of 14 m3/min. Finally, the optimized parameters were applied to simulate a case well, where the asphaltene deposition model combined with pressure nephograms during production provided effective guidance on unplugging timing. Compared with results without using the asphaltene deposition model, cumulative production decreased by 1300 m3 when the model was applied. These findings can provide a reference for the development of similar reservoirs.",
+"tldr": ""
+},
+"10.1016/j.petlm.2026.06.006": {
+"abs": "",
+"tldr": ""
+},
+"10.3390/su16104303": {
+"abs": "CO2 flooding is an economically feasible and preferred carbon capture, storage, and utilization technology. Asphaltene deposition is a common problem in the process of CO2 injection because it may cause reservoir damage. The mechanism of asphaltene precipitation damage to the formation remains elusive. Experiments were conducted to reveal the pore-scale formation damage mechanism in ultra-low permeability reservoirs caused by asphaltene precipitation during CO2 flooding. Initially, the precipitation onset point for asphaltene within the crude oil-CO2 system was determined using a high-pressure tank equipped with visual capabilities. Subsequently, CO2 flooding experiments were conducted on ultra-low permeability cores under miscible and immiscible conditions, with the support of nuclear magnetic resonance (NMR) to quantitatively evaluate the impact of asphaltene precipitation on ultra-low permeability reservoirs. The results indicate that within the pressure range from the asphaltene precipitation onset point to the minimum miscibility pressure (MMP). The level of asphaltene precipitation rises as CO2 injection pressure increases. In the miscible flooding stage, asphaltene precipitation can still occur, but to a lesser extent. Notably, asphaltene deposition predominantly occurs in larger pores; above the MMP, the permeability decreases significantly as asphalt particles agglomerate, resulting in notable pore-throat blockages. While asphaltene deposition has a minimal impact on porosity, the bridging effect of asphaltene particles reduces permeability.",
+"tldr": ""
+},
+"10.1016/j.cis.2025.103488": {
+"abs": "The precipitation and deposition of asphaltenes during enhanced oil recovery (EOR) and flow assurance operations, creates a huge problem that impacts operational efficiency during crude oil production. The changing of operating parameters such as composition of the oil system, including the impact of kinetics during production can lead to asphaltene related challenges such as reduced reservoir permeability, increased oil viscosity, and plugged pipelines. Understanding the complexities of asphaltene precipitation and deposition in the presence of CO2 and the complex kinetic behavior is key to mitigating the related problems of asphaltenes. In this review, an effort was made to examine all relevant articles concerning asphaltene precipitation during CO2 interactions with oil and their kinetics, aiming to enhance our understanding of asphaltene behavior in crude or model oil systems. Additionally, the review discusses current remediation strategies used to address asphaltene-related issues, including several field cases. The insights obtained highlight the critical role of kinetics in monitoring asphaltene behavior including predicting asphaltene formation within production systems that involves the use of CO2 to boost oil recovery. Consequently, short-term evaluations and model systems are not representative enough for accurately predicting asphaltene precipitation although common in open literature. With the increase in CO2 EOR, accurate prediction of asphaltene precipitation is crucial for designing carbon dioxide flooding plans. This review brings together various viewpoints, providing industry stakeholders with a detailed understanding of the challenges linked to asphaltenes, especially in the context of promoting CO2 utilization for EOR. This insight underscores the necessity for precise research to develop effective prevention and treatment methods.",
+"tldr": ""
+},
+"10.1134/s0965544125601024": {
+"abs": "",
+"tldr": ""
+},
+"10.29222/ipng.2078-5712.2024-15-4.art2": {
+"abs": "Determining the stability threshold of oils and oil systems is an important task in the oil industry. It is important to be able to detect the precipitation of solid phase from oils at the earliest stages. For the first time, the ultramicroscopy method was used to study the precipitation of asphaltenes from a toluene solution during titration with heptane. The study allowed for the visualization of asphaltene aggregates in the toluene–asphaltene–heptane mixture at the earliest stages of aggregation. The relationship between the numerical concentration of asphaltene aggregates and the heptane concentration was measured. Analysis of this dependence led to the determination of the threshold concentration of heptane, above which asphaltene precipitation and aggregation (referred to as the “Onset point”) occurred. A comparison was made between the capabilities of ultramicroscopy and those of dynamic and static light scattering methods for determining the “Onset point”. It was shown that the ultramicroscopy method has greater sensitivity and can detect the onset of aggregation at lower concentrations of the precipitant.",
+"tldr": ""
+},
+"10.1007/s11696-024-03784-w": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.csite.2022.102298": {
+"abs": "",
+"tldr": ""
+},
+"10.1038/s41598-024-69503-3": {
+"abs": "Asphaltene deposition may pose serious challenges to flow assurance of crude oil in well columns. Different aggregation kinetics would partly be responsible for asphaltene particle growth ending in deposition on the surface of well columns. This work primarily investigates the thermophoretic deposition velocity caused by temperature gradients inside well columns for various asphaltene aggregation kinetics, including crossover behaviour, sedimentation, reaction-limited aggregation (RLA), and diffusion-limited aggregation (DLA). To do so, the experimental observations of size distribution for a live crude oil was performed at 80 °C and pressure range of 4500–5500 psia. Moreover, various patterns of different size distributions were gathered from the literature for the sake of comparison. Next, a well column in southern Iran was selected to study the kinetic behaviour of thermophoretic velocity of deposition, with a difference between geothermal and static temperatures of around 5 to 50 °C. The non-isothermal deposition velocity was shown to decrease from the top to the bottom of the well column, according to the findings of the study. The results also revealed that the thermophoretic velocity decreases as particle size increases and vice versa. This was confirmed by examining a comparably large range of asphaltene particle sizes, ranging from approximately 100 nm to roughly 9 µm. Practical implications of these findings were also discussed which would provide guidance for mitigation of asphaltene deposition in well columns.",
+"tldr": ""
+},
+"10.1016/j.ejpe.2022.07.003": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.jfueco.2023.100096": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.geoen.2023.212225": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.cep.2026.110724": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.powtec.2023.119272": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.ces.2022.118217": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.watres.2022.118172": {
+"abs": "Permeability reduction and formation damage in porous media caused by fines (defined as unconfined solid particles present in the pore spaces) migration is one of the major reasons for productivity decline. It is well accepted that particle detachment occurs under imbalanced torques arising from hydrodynamic and adhesive forces exerted on attached particles. This paper reviewed current understanding on primary factors influencing fines migration as well as mathematical formulations for quantification. We also introduced salinity-related experimental observations that contradict theoretical predictions based on torque balance criteria, such as delayed particle release and attachment-detachment hysteresis. The delay of particle release during low-salinity water injection was successfully explained and formulated by the Nernst-Planck diffusion of ions in a narrow contact area. In addition to the widely recognized explanation by surface heterogeneity and the presence of low-velocity regions, we proposed a hypothesis that accounts for the shifting of equilibrium positions, providing new insight into the interpretation of elusive attachment-detachment hysteresis both physically and mathematically. The review was finalized by discussing the quantification of anomalous salinity effect on adhesion force at low- and high-salinity conditions.",
+"tldr": ""
+},
+"10.1029/2022wr033537": {
+"abs": "Fines migration driven by fluid flows often causes pore clogging in porous media and thus reduces the permeability of the porous media. The clogging can pose serious problems in various practices, such as formation damage in hydrocarbon reservoirs, degradation of fluid withdrawal or injection efficiency, particle‐induced fouling in filtration membranes, or even a risk of sediment failure with geostructures. However, the effect of seepage flow velocity on the spatial growth pattern of fines‐induced pore clogging remains poorly identified. This study explores the pore clogging growth behaviors caused by flow‐driven fines migration and accumulation in porous media and the associated permeability reductions through a series of column experiments and concurrent X‐ray computed tomography imaging. Particularly, the X‐ray image analysis captures the spatial distributions of fines, and thus the homogeneous or heterogeneous (localized) clogging growth pattern under various seepage velocities. Our results reveal that an increase in the seepage flow velocity increases the likelihood of localized clogging growth, attributable to the direct interception of fines by the sand grains. The localized clogging growth causes a faster reduction in permeability than the homogeneous clogging growth. The presented study provides well‐controlled experiment data on fines distribution and associated permeability change, which gives insights into fines‐induced clogging behavior in porous media.",
+"tldr": ""
+},
+"10.1103/physrevfluids.9.114301": {
+"abs": "",
+"tldr": ""
+},
+"10.1007/s11242-026-02318-0": {
+"abs": "Particle deposition and clogging in porous media control the performance of many natural and engineered applications, including groundwater filtration, geothermal injection, and subsurface fluid management. Once deposits form, permeability progressively declines and flow pathways become blocked, making mitigation strategies essential for maintaining long-term operation. Oscillatory injection has been proposed as a potential strategy to delay clogging, yet how its effectiveness depends on physicochemical conditions and complex pore geometries remains poorly understood. Here, we use microfluidic experiments with colloidal suspensions to investigate how oscillatory flow modulates particle transport and clogging in tortuous porous domains. Controlled oscillatory forcing is applied over a range of frequencies while monitoring permeability evolution and deposition dynamics. Under saline conditions, oscillatory flow delays clogging and increases the injected volume before hydraulic failure with increasing frequency, consistent with electrostatic screening that promotes particle aggregation and allows cyclic pressure fluctuations to destabilize growing deposits intermittently. However, the frequency response changes with physicochemical conditions and can even reverse. As ionic strength decreases and electrostatic interactions become stronger, aggregation is suppressed, and clogging becomes increasingly governed by particle crowding and pore bridging, where higher-frequency oscillations can instead accelerate blockage. These findings demonstrate that oscillatory injection does not have a universal effect on clogging, but instead depends on the balance between hydrodynamic forcing and particle interactions. This regime-dependent behavior provides a basis for designing more effective injection strategies in porous media.",
+"tldr": ""
+},
+"10.1016/j.cis.2025.103745": {
+"abs": "Mineral precipitation in porous media is an important process that controls the evolution of physical-chemical properties of many natural and engineered systems. This review aims to provide an overview of the status quo understandings of this process and a perspective on future research needs. We reviewed the fundamentals of the thermodynamic and kinetic theories of nucleation and crystal growth, and the key factors (e.g., substrate properties and pore sizes) that control mineral precipitation in porous media. In particular, we focused on how local reactive transport conditions dictate the extent and spatial distribution of mineral precipitates in flowing supersaturated solutions, mixing dominated systems, and coupled mineral dissolution and precipitation systems. Moreover, the review summarizes constitutive relations that have been used to model precipitation-driven alteration in bulk properties such as permeability, diffusivity and mineral reactivity, as well as their applicability and limitations. While there have been exciting developments in experimental and modeling efforts in improved understanding, some outstanding research questions require dedicated future investigations. They include more rigorous descriptions of emerging precipitation phenomena such as oscillatory zoning during the precipitation of solid solutions, considerations of the coupling between geochemical and geomechanical processes with precipitation induced cracking being a worthy example, and the upscaling of fine scale process and properties (e.g., confinement, multiphase flow dynamics) in to macroscopic predictive models. Overall, this review highlights the importance, advances and challenges of improved understanding of mineral precipitation in fractured porous media.",
+"tldr": ""
+},
+"10.3390/geotechnics5010002": {
+"abs": "Hydrogeochemical processes contribute to long-term alterations in key physical properties of a porous medium, including porosity, tortuosity, and permeability, making it essential to understand their evolution and address clogging-dominated problems in hydrogeological systems such as acid rock drainage treatment and aquifer storage and recovery. However, accurately simulating extreme cases of evolving pore space presents challenges due to the inherent heterogeneity and nonlinear reactions in a porous medium. In response, this study introduces a comprehensive model that integrates the effects of tortuosity on permeability and surface area on reactivity during oxidative precipitation of Fe(II) in a porous medium. Benchmark simulations include an innovative permeability–tortuosity–porosity model accounting for Fe precipitation, as well as the occurrence of complete clogging from localized precipitation, which leads to a reduction of permeability and outflow. The outcomes demonstrate complete pore clogging when Fe(II) concentration reaches 10 mmol/L and a significant decrease in outflow at a Fe(II) concentration of 100 mmol/L. The model’s predictions provide detailed insights into the evolution of the pore matrix during hydrogeochemical reactions and support the development of regional engineering-scale models for applications in mining, agriculture, and environmental management.",
+"tldr": ""
+},
+"10.1016/j.compgeo.2025.107759": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.compgeo.2026.108292": {
+"abs": "",
+"tldr": ""
+},
+"10.46690/ager.2025.11.02": {
+"abs": "",
+"tldr": ""
+},
+"10.1007/s11242-024-02072-1": {
+"abs": "Colloidal transport and clogging in porous media is a phenomenon of critical importance in many branches of applied sciences and engineering. It involves multiple types of interactions that span from the sub-colloid scale (electrochemical interactions) up to the pore-scale (bridging), thus challenging the development of representative modelling. So far published simulation results of colloidal or particulate transport are based on either reduced set of forces or spatial dimensions. Here we present an approach enabling to overcome both computational and physical limitations posed by a problem of 3D colloidal transport in porous media. An adaptive octree mesh is introduced to a coupled CFD and DEM method while enabling tracking of individual colloids. Flow fields are calculated at a coarser scale throughout the domain, and at fine-scale around colloids. The approach accounts for all major interactions in such a system: elastic, electrostatic, and hydrodynamic forces acting between colloids, as well as colloids and the collector surface. The method is demonstrated for a single throat model made of four spherical segments, and the impact of clogging is reported in terms of the evolution of the critical path diameter for percolation and permeability. We identified four stages of clogging development depending on position and time of individual colloid entrapment, which in turn correlates to a cluster evolution and local transport.",
+"tldr": ""
+},
+"10.1016/j.jhydrol.2026.135602": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.jnnfm.2023.105104": {
+"abs": "",
+"tldr": ""
+},
+"10.1063/5.0333161": {
+"abs": "Yield-stress fluid flow through porous media is governed by a strong coupling between rheology and pore-scale geometry, leading to nonlinear, non-Darcy transport and pronounced channelization near yielding. We develop a pore-network model for Herschel–Bulkley flow in two-dimensional disordered porous media, including optional wall slip. The network is closed by a physics-based pressure–flow relation for a converging–diverging throat, so that yielding and post-yield transport emerge directly from the pore-scale fluid mechanics without fitted resistance parameters. Benchmarking against direct numerical simulations shows that the model captures both the bulk pressure drop and the evolution of the flow topology from spatially distributed transport to strongly channelized flow. The framework also captures the leading effect of wall slip, which lowers the pressure gradient required for transport and reactivates pathways that remain blocked in the no-slip case. Using the model across different porous geometries, we show that near-yield pressure losses are governed by constriction statistics rather than by an obstacle-scale length. In particular, rescaling with the domain-averaged minimum throat width collapses the plastic-dominated response across porosities, identifying the dissipation-relevant geometric scale for viscoplastic transport in this regime.",
+"tldr": ""
+},
+"10.1615/jpormedia.2025056714": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.sctalk.2022.100042": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.jnnfm.2023.105155": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.petsci.2026.01.035": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.rineng.2026.111610": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.jnnfm.2022.104793": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.jcp.2023.112442": {
+"abs": "",
+"tldr": ""
+},
+"10.2118/208610-pa": {
+"abs": "\n Compositional reservoir models have many uses, including petroleum reservoir simulation, the simulation of flow and remediation of nonaqueous petroleum liquids, and the study of various carbon-capture technologies. The present work describes these models in a general way but concentrates on isothermal compositional models based on an equation of state (EOS). These models are used to study petroleum reservoirs containing gas condensate or volatile oil fluids and various gas injection processes like CO2 injection. The technology is documented from the earliest rudimentary models which first appeared more than 50 years ago to more recent work. The system of differential-algebraic equations is described along with the physical nature of the parameters. Model formulations are compared with respect to choices of variables and other computational features. Descriptions of efficient and reliable computational procedures are given. In addition to basic algorithms, we detail important side issues of (1) testing for phase appearance, (2) temporal stability, (3) material balance, and (4) other efforts to speed up the calculations and/or reduce the calculation requirements. Information in the literature is supplemented with some work which has not been presented previously. Correct rendering of the physics and chemistry is emphasized which is often intertwined with the numerics. Although many improvements have been made, the work is not finished. We conclude with a discussion of areas needing additional work.",
+"tldr": ""
+},
+"10.1007/s10596-024-10292-z": {
+"abs": "This work studies the performance of a novel preconditioner, designed for thermal reservoir simulation cases and recently introduced in Roy et al. (SIAM J. Sci. Comput. 42, 2020) and Cremon et al. (J. Comput. Phys. 418C, 2020), on large-scale thermal CO2\\documentclass[12pt]{minimal} \\usepackage{amsmath} \\usepackage{wasysym} \\usepackage{amsfonts} \\usepackage{amssymb} \\usepackage{amsbsy} \\usepackage{mathrsfs} \\usepackage{upgreek} \\setlength{\\oddsidemargin}{-69pt} \\begin{document}$$_2$$\\end{document} injection cases. For Carbon Capture and Sequestration (CCS) projects, injecting CO2\\documentclass[12pt]{minimal} \\usepackage{amsmath} \\usepackage{wasysym} \\usepackage{amsfonts} \\usepackage{amssymb} \\usepackage{amsbsy} \\usepackage{mathrsfs} \\usepackage{upgreek} \\setlength{\\oddsidemargin}{-69pt} \\begin{document}$$_2$$\\end{document} under supercritical conditions is typically tens of degrees colder than the reservoir temperature. Thermal effects can have a significant impact on the simulation results, but they also add many challenges for the solvers. More specifically, the usual combination of an iterative linear solver (such as GMRES) and the Constrained Pressure Residual (CPR) physics-based block-preconditioner is known to perform rather poorly or fail to converge when thermal effects play a significant role. The Constrained Pressure-Temperature Residual (CPTR) preconditioner retains the 2×2\\documentclass[12pt]{minimal} \\usepackage{amsmath} \\usepackage{wasysym} \\usepackage{amsfonts} \\usepackage{amssymb} \\usepackage{amsbsy} \\usepackage{mathrsfs} \\usepackage{upgreek} \\setlength{\\oddsidemargin}{-69pt} \\begin{document}$$2\\times 2$$\\end{document} block structure (elliptic/hyperbolic) of CPR but includes the temperature in the elliptic subsystem. Doing so allows the solver to appropriately handle the long-range, elliptic part of the parabolic energy equation. The elliptic subsystem is now formed by two equations, and is dealt with by the system-solver of BoomerAMG (from the HYPRE library). Then a global smoother, ILU(0), is applied to the full system to handle the local, hyperbolic temperature fronts. We implemented CPTR in the multi-physics solver GEOS and present results on various large-scale thermal CCS simulation cases, including both Cartesian and fully unstructured meshes, up to tens of millions of degrees of freedom. The CPTR preconditioner severely reduces the number of GMRES iterations and the runtime, with cases timing out in 24h with CPR now requiring a few hours with CPTR. We present strong scaling results using hundreds of CPU cores for multiple cases, and show close to linear scaling. CPTR is also virtually insensitive to the thermal Péclet number (which compares advection and diffusion effects) and is suitable to any thermal regime.",
+"tldr": "This work studies the performance of a novel preconditioner, designed for thermal reservoir simulation cases and recently introduced in Roy et al. (2020), on large-scale thermal CO2 injection cases, and implemented CPTR in the multi-physics solver GEOS, which is virtually insensitive to the thermal Peclet number and suitable to any thermal regime."
+},
+"10.1080/12269328.2025.2462903": {
+"abs": "ABSTRACT The efficiency of numerical simulation is of great importance for the development of tight oil reservoirs. In this paper, a nonlinear seepage model of tight oil reservoirs was presented, and the physical model of multi-fractured horizontal well is meshed by unstructured triangular grids, and the mathematical model is discretized by finite element method. Then, a fully implicit iterative solution scheme was derived. A novel algebraic multigrid method (AMG-CG) was proposed to solve the large sparse linear equation system during the iteration process. In order to demonstrate the computational efficiency of the novel algebraic multigrid method, a comparison was made between the novel method and others. The results reveal that the AMG-CG method has a faster calculation speed in solving linear equation systems. The calculation time of the AMG-CG method is 1029 s, the calculation time of the AMG method is 2029 s, the calculation time of the generalized minimum residual method (GMRES) method is 3709 s, the calculation time of the Gauss–Seidel (GS) method is 8115 s. The calculation speed of the novel method is almost 7.88 times faster than the Gauss–Seidel method, the novel method is more effective in the numerical simulation of tight oil.",
+"tldr": ""
+},
+"10.1016/j.advengsoft.2026.104215": {
+"abs": "",
+"tldr": ""
+},
+"10.46690/ager.2025.05.04": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.jcp.2024.113558": {
+"abs": "",
+"tldr": ""
+},
+"10.3390/geosciences15050169": {
+"abs": "This study analyzes and evaluates the performance of various solvers and preconditioners for reservoir simulations of CO2 injection and long-term storage using the model 11B of SPE CSP (Society of Petroleum Engineers, 11th Comparative Solution Project) and the MATLAB Reservoir Simulation Toolbox (MRST). The SPE CSP 11 model serves as a benchmark for testing numerical methods for solving partial differential equations (PDEs) in reservoir simulations. The research focuses on the Biconjugate Gradient Stabilized (BiCGSTAB) and Loose Generalized Minimum Residual (LGMRES) solver methods, as well as multiple preconditioning techniques designed to improve convergence rates and reduce computational effort for CO2 storage. Extensive simulations were performed to compare the performance of different solver-preconditioner combinations under varying reservoir conditions, leveraging MRST’s flexible simulation capabilities. Key performance metrics, including iteration counts and computational time, were analyzed for the project. The results reveal trade-offs between computational efficiency and solution accuracy, providing valuable insights into the effectiveness of each approach. This study offers practical guidance for reservoir engineers and researchers seeking to analyze and optimize simulation workflows within MRST by identifying the strengths and limitations of specific solver-preconditioner combinations for complex linear systems.",
+"tldr": ""
+},
+"10.1002/aic.18374": {
+"abs": "A multicomponent model is developed for wax deposition onto a cold finger from a stirred wax‐containing oil. It utilizes Coutinho's thermodynamic equations for wax component concentrations and energy and mass transport equations within the deposit and from the oil and is the first cold‐finger model to predict both deposit thickness growth and aging by selective precipitation of heavier wax components. While it captures well deposit thickness growth, it requires preventing re‐dissolution of deposited wax to avoid shrinkage not observed in experiments. The model predicts deposit aging reasonably well but with quantitative deviations for the heavier wax of up to a factor of two. Possible explanations include the inadequacy of Hayduk‐Minhas and Cussler's hindered‐diffusion models to the soluble multicomponent wax diffusivities. Using pseudo two‐ and one‐component representation can reasonably predict the deposit thickness and aging of multi‐component deposits. This work shows an improved approach to modeling wax deposition and aging.",
+"tldr": ""
+},
+"10.1002/cjce.25772": {
+"abs": "The safe and efficient transportation of high‐wax crude oil presents a persistent challenge, primarily due to wax deposition within pipelines. This problem is particularly severe in extremely cold environments, where elucidating the characteristics of wax deposition and developing robust predictive models are critical for devising effective transportation strategies and ensuring flow assurance. This study conducts a series of flow‐loop experiments to systematically investigate the effects of key parameters, including oil temperature, pipe wall temperature, temperature difference, flow rate, and deposition time, on wax accumulation. The results help clarify the underlying mechanisms of wax deposition. Leveraging the experimental data, a predictive model for wax deposition rate was constructed by integrating a backpropagation (BP) neural network optimized with the sparrow search algorithm (SSA). The SSA‐BP model exhibits a high degree of correlation with experimental results, demonstrating superior predictive accuracy and reliability. These findings substantially advance pipeline flow assurance technologies and offer an innovative, data‐driven approach to addressing the challenges of transporting high‐wax crude oil in extremely cold regions.",
+"tldr": ""
+},
+"10.1016/j.petrol.2022.110929": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.apenergy.2022.120197": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.powtec.2024.120284": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.egyr.2025.04.001": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.fuel.2023.129111": {
+"abs": "",
+"tldr": ""
+},
+"10.3390/en15176200": {
+"abs": "The Dabei deep high-pressure condensate gas field occupies the paramount position in the Tarim Oilfield in China, the exploration and developments of which have been progressing. Since the initial development, the wax deposition and plugging in the wellbore and gathering pipeline have been the most bothering issues, resulting in the reduction or even shutdown of condensate gas well production. Therefore, the wax appearance temperature of Dabei condensate oil was studied using the capillary viscometer, differential scanning calorimetry (DSC), and polarizing microscope observation. The wax content was tested by using the DSC and crystallization separation test method. Finally, the wax appearance temperatures of degassed condensate oil and equilibrium condensate oil under different pressures were tested. Experimental results show that the wax appearance temperature measured by polarizing microscope observation was higher than that measured by the DSC and capillary viscometer, the lag of which can be recorded as the cloud point. The wax appearance temperature measured by polarizing microscope observation is of high accuracy. Secondly, the DSC method is not sufficient for measuring wax precipitation at low temperatures, showing a lower wax content than the crystallization separation test method. Thus, the wax content of Dabei condensate oil can be better measured by using the crystallization separation test method. Additionally, the wax precipitation law of equilibrium condensate oil is opposite to that of degassed condensate oil. The wax appearance temperature of equilibrium condensate oil increases as the pressure decreases. The results of wax appearance temperature of equilibrium condensate oil provide a useful and quick index to judge the potential risk of wax precipitation in the Tarim Oilfield, which can provide an efficient strategy for the development of waxy condensate gas reservoirs and the optimization of wax prevention and treatment technology.",
+"tldr": ""
+},
+"10.1021/acs.energyfuels.4c00502": {
+"abs": "",
+"tldr": ""
+},
+"10.1021/acs.energyfuels.2c01064": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.heliyon.2024.e38436": {
+"abs": "Asphaltene deposition, a widespread challenge in the petroleum industry, detrimentally affects oil production, transport, and processing. Our study investigates asphaltene's impact on sandstone and carbonate reservoir rock wettability using ASTM-D6560 extraction and heptol solutions. A significant part of our focus was to examine wettability change due to asphaltene damage and the use of nanoparticles to improve this situation. Qualitatively, advanced techniques reveal altered rock composition, and contact angle measurements, along with zeta potential assessments, highlight significant wettability changes. Quantitatively, asphaltene-infused solutions induce a quantifiable increase in contact angles. Specifically, with gamma alumina nanoparticle addition, contact angles rise from 68° to 87° for sandstone and 110°–142° for carbonate rocks. Temperature variations within our experimental range also induce notable wettability changes. These findings establish a clear link between asphaltene deposition and quantifiable wettability modifications, providing crucial insights for optimizing oil recovery processes and enhancing well performance in the petroleum industry. The study's results suggest that nano-gamma alumina can be an effective solution for improving wettability and mitigating asphaltene deposition issues in carbonate rocks, offering promising prospects for the oil and gas industry.",
+"tldr": ""
+},
+"10.1021/acs.energyfuels.2c01340": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.fuel.2022.123589": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.petsci.2026.09.012": {
+"abs": "",
+"tldr": ""
+},
+"10.3390/en19184481": {
+"abs": "Asphaltene deposition is a key issue constraining the field application of CO2 flooding, yet the deposition characteristics and formation damage mechanisms under different CO2 dissolution concentrations remain unclear. In this study, the asphaltene deposition behavior of heavy oil under different CO2 dissolution concentrations was systematically investigated under realistic reservoir conditions. Static deposition experiments and core flood tests were performed to quantitatively characterize the deposition amount, particle size distribution, and the extent of permeability impairment. The results show that the asphaltene deposition amount increases monotonically with CO2 dissolution concentration, reaching 2.12 wt.% at 50 m3/m3. The particle size increases significantly with increasing CO2 dissolution concentration, with the mean diameter increasing from 0.70 μm to 6.72 μm at 50 m3/m3. Based on a pore-scale evaluation model correlating deposition thickness with permeability impairment, the deposition effect was quantitatively assessed. According to the model, permeability loss reaches 59% when the deposition thickness attains 20% of the pore radius. Low-permeability cores exhibit significantly higher sensitivity to asphaltene deposition, with permeability reduction reaching 52.3% at 50 m3/m3 CO2, compared to only 20.8% in high-permeability cores. This disparity is attributed to the smaller pore throat radii, higher specific surface area, and more complex pore structures of low-permeability formations. This study provides a quantitative theoretical framework for predicting asphaltene-induced formation damage and optimizing CO2 injection strategies in heavy oil reservoirs.",
+"tldr": ""
+},
+"10.1016/j.energy.2022.126296": {
+"abs": "",
+"tldr": ""
+},
+"10.1016/j.fuel.2024.132703": {
+"abs": "",
+"tldr": ""
+},
+"10.1063/5.0253146": {
+"abs": "The construction of seepage surrogate models is the frontier of simulation technology research for oil and gas reservoirs. However, the currently widely used pure data-driven seepage surrogate models have no theoretical support and require high data volume and data quality, which greatly limits the development of seepage surrogate models. Therefore, a dual-driven seepage proxy model integrating data-driven and physical-driven is proposed. Based on the pure data-driven seepage surrogate model, it integrates the seepage theory to simulate and predict the oil and gas seepage process. The results show that, compared with the pure data-driven model, even if the training data are extremely sparse, the dual-driven seepage surrogate model can still maintain high prediction accuracy. Second, the robustness of the dual-driven model is explored by adding different levels of noise interference to the training data, and it is verified that it is better than the pure data-driven seepage surrogate model. Finally, through transfer learning, the trained dual-driven seepage surrogate model is applied to the new seepage field, and the model can achieve rapid convergence and save computing resources.",
+"tldr": ""
+},
+"10.1063/5.0311306": {
+"abs": "Surrogate reservoir models have emerged as efficient alternatives to approximate full-physics reservoir simulation while reducing computational costs. Even though existing studies have used synthetic models to test the feasibility of surrogate models, the application to actual reservoirs is limited. To employ the surrogate model in real-life history matching and field development optimization, key geological properties and frequent development operations need to be jointly considered. This study develops a full-scale surrogate reservoir model based on the Koopman neural operator (KNO) for actual three-dimensional (3D) oil reservoirs under waterflood operations. The model integrates static reservoir properties (permeability, net-to-gross ratio, and relative permeability) and dynamic development parameters (well placement and controls) as model inputs. A scientific sampling method that considers geological principles and monthly production operations ensures feasible and diverse training samples. The proposed 3D KNO architecture incorporates a learned grid layer to handle corner-point grids and leverages Fourier transforms to linearize nonlinear dynamics in high-dimensional space. After validating on a real oil field in China, the method demonstrates great capability in predicting pressure and saturation changes and oil production rates. By comparing the prediction performance with a baseline physics informed neural network model, the KNO model greatly outperforms the convolution neural network-based discrete mapping model. The prediction results by the KNO model align well with numerical simulations, which offers a robust and efficient tool for history matching and field development optimization.",
+"tldr": ""
+},
+"10.1063/5.0272866": {
+"abs": "The porous media seepage problem is a key area of reservoir fluid simulation, which aims to solve multifield partial differential equations. With the increasing adoption of machine learning to solve partial differential equations, the solver for this problem is becoming ever more intelligent. However, current intelligent partial differential equation solvers for solving this problem commonly lack the ability to generalize across multiple parameters and conditions. In the context of porous media seepage, existing solvers face challenges in capturing the local effects of geological parameters on fluid flow. This limitation necessitates repeated targeted calculations under varying geological conditions, leading to high spatiotemporal costs and reducing the model's capability to draw generalizations among distinct scenarios. To overcome this barrier, a deep operator neural network based on the feature attention mechanism is proposed. The auxiliary fitting network of deep operators is used to encode information about the complex geological conditions affecting flow in porous media. Then, the feature attention mechanism is used to identify and select the crucial local features from the encoded auxiliary and spatiotemporal information. Finally, the model aggregates these features to fit the pressure and saturation fields under the spatiotemporal variations of the fundamental flow problem in porous media. The model's capacity to address two-phase porous seepage problems was substantiated under three distinct heterogeneous geological conditions. The experimental outcomes substantiate the model's superiority in terms of robustness and generalization, and the feature attention mechanism notably enhances the model's prediction accuracy.",
+"tldr": ""
+},
+"10.1016/j.advwatres.2024.104731": {
+"abs": "",
+"tldr": ""
+},
+"10.69631/ipj.v2i3nr67": {
+"abs": "In this study, we propose a tensorization-anchoring strategy based on adaptive architectures to accelerate the computation of Enriched Physics-Informed Neural Networks (EPINN) for two-phase flow simulations. Specifically, we design an adaptive tensorization mechanism for the adjacency matrix embedding, the activation function, and the skip-gated connection in EPINN, which collectively expand the neural network's (NN) parameter space for learning more generalized patterns. Moreover, we developed an anchoring strategy by establishing Anchors-EPINN (An-EPINN). By detaching tensorization parameters from the computational graph and anchoring weighted nodes to fixed positions, the NN can benefit from tensorized fusion effects while reducing high-dimensional matrix calculations during forward and backward propagation, thereby enhancing simulation efficiency. This approach reduces execution time by 31.47% in homogeneous cases and 27.91% in heterogeneous cases, while maintaining higher computational accuracy.",
+"tldr": "By detaching tensorization parameters from the computational graph and anchoring weighted nodes to fixed positions, the NN can benefit from tensorized fusion effects while reducing high-dimensional matrix calculations during forward and backward propagation, thereby enhancing simulation efficiency."
+}
+}

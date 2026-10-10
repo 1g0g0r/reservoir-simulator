@@ -1,0 +1,112 @@
+doi,subtopic,expect
+10.1021/ie050325u,T09,Paso 2005 polydispersity gelation
+10.1016/j.fuel.2013.09.038,T10,Kord 2014 asphaltene deposition modified analytical model
+10.1016/0009-2509(91)80158-u,T08,Imdakm Sahimi 1991
+10.1002/aic.690370610,T09,Wardhaugh Boger 1991
+10.1016/j.petlm.2021.07.005,T15,Nait Amar 2021 ML wax deposition
+10.1016/j.fuel.2024.133146,T15,Mahmoudi Kouhi 2024 WAT intelligent
+10.1016/j.rineng.2024.103483,T15,Khalighi 2024 AOP ensemble
+10.1016/j.ces.2025.122296,T15,Yadav 2025 WAT ensemble
+10.1016/j.ces.2019.115212,T09,Fakroun Benkreira 2019 restart rheology
+10.32604/ee.2023.045270,T15,Chen 2024 Elman reptile wax rate
+10.1002/jccs.201700329,T15,Gholami 2018 committee machine
+10.2118/221598-ms,T15,Sulaimon 2024 asphaltene stability ANN
+10.1080/10916466.2011.565295,T10,Orodu 2013 non-isothermal waterflooding
+10.1016/j.compchemeng.2013.12.008,T13,Zaydullin Voskov 2014 compositional thermal
+10.2118/205028-pa,T10,Su 2021 aggregation deposition permeability
+10.1080/10916466.2011.585366,T08,Nikooey 2015 pore scale asphaltene
+10.2516/ogst/2013128,T11,Jafari Behbahani 2013 core asphaltene mechanism
+10.1021/acs.jpcc.8b11012,T08,Bonnet 2018 condensation in pores
+10.1039/c7lc01377a,T08,Liefferink 2018 single layer porous media
+10.1021/es5013438,T08,Molins 2014 pore-scale calcite dissolution
+10.1007/s10706-013-9704-9,T08,Dippenaar 2013 porosity reviewed
+10.1016/j.petrol.2019.04.059,T06,Gan 2019 MD wax crystals
+10.1088/1742-6596/1276/1/012058,T14,Alnaimat 2019 wax layer thickness
+10.1021/acs.energyfuels.8b04286,T15,Bian 2019 WDT intelligent
+10.3997/2214-4609.201802189,T10,Gaydukov Novikov 2018 wax low-temperature reservoir
+10.1021/acs.energyfuels.9b04030,T04,Abutaqiya 2020 AOP gas injection PR
+10.3390/en19051309,T11,Bayamirova 2026 WAT methods high-wax oil
+10.3390/en12224325,T14,Wang 2019 shear dispersion stripping
+10.1016/j.petlm.2019.09.004,T14,Sousa 2019 wax mechanisms emulsions CO2
+10.2516/ogst/2019037,T04,Mahmoudvand 2019 asphaltene gas injection near wellbore
+10.1134/s1995080224602303,T10,Nikiforov 2024 asphaltene deposition model
+10.23877/ms.ts.26.007,T01,Filippov 2017 temperature fields wax oil filtration
+10.2118/187053-pa,T11,Mohammadzadeh 2018 SPEJ pressure depletion damage
+10.1016/j.petrol.2018.10.058,T10,Ghadimi 2019 near wellbore composite
+10.1016/j.petrol.2019.106512,T08,Ghadimi 2020 pore blocking model
+10.1002/cjce.23238,T11,Kordestany 2018 solvent-induced asphaltene permeability
+10.1016/j.energy.2023.129210,T08,Mahdavifar 2023 microfluidic pore-scale asphaltene
+10.2118/205510-pa,T10,Carvalho 2021 Monte Carlo asphaltene damage
+10.1016/j.geoen.2024.213507,T10,Akter 2025 asphaltene in reservoir simulation
+10.1016/s1876-3804(22)60338-0,T10,Tananykhin 2022 asphaltene reservoir simulation
+10.1016/j.fuel.2018.07.079,T08,Davudov 2019 permeability impairment model
+10.1016/j.fluid.2015.03.045,T10,Fallahnejad 2015 fully implicit asphaltene
+10.1016/j.ijheatmasstransfer.2021.121889,T10,Sadeghi Yamchi 2021 asphaltene porous solvent CFD
+10.1021/acs.iecr.9b02740,T05,Li R 2019 three-phase VLAsphE
+10.1016/j.fuel.2021.121776,T12,Zidane 2022 higher-order CPA asphaltene
+10.2118/156555-pa,T10,Trina 2015 horizontal vertical flow wax
+10.1016/j.petrol.2021.108972,T10,Alhosani 2021 multiphase asphaltene field
+10.1016/j.petrol.2020.107213,T10,Ghasemi 2020 reservoir wellbore asphaltene
+10.18799/24056537/2020/1/249,T10,Olkhovskaya 2020 production profiles asphaltene
+10.1016/j.petlm.2023.04.001,T04,Fakher 2024 AOP review
+10.1021/acsomega.1c03198,T11,Mohammed 2021 asphaltene wettability permeability
+10.1080/10916466.2018.1482335,T11,Hosseini 2019 asphaltene relative permeability
+10.1016/j.fuel.2019.02.057,T07,Taheri-Shakib 2019 adsorption fractionation porous
+10.1016/j.petrol.2017.11.021,T11,Wang C 2018 blockage degree pores
+10.1002/apj.2080,T11,Shen 2017 permeability pore size asphaltene
+10.2118/212310-pa,T04,Ahmed 2022 asphaltene integrated review
+10.3390/en15114018,T14,Wang Y 2022 condensate wax wellbore review
+10.1007/s12517-022-10295-z,T03,Khalighi 2022 WAT filtration dissolved gas
+10.1021/acs.energyfuels.7b01347,T11,Telmadarreie 2017 fractured porous media asphaltene
+10.1016/j.petsci.2026.08.009,T10,Zhao 2026 near-wellbore cold damage CO2 waxy
+10.1016/j.fuel.2024.133001,T09,Tang 2024 high-pour-point non-Darcy
+10.1063/5.0201385,T09,Tang 2024 rheology high-pour-point oil
+10.3390/pr14020230,T11,Peng Yu 2026 wax-solid deposition SC-CO2
+10.1007/s13202-025-02056-x,T11,Peng Yu 2025 blockage release SC-CO2
+10.15593/2712-8008/2021.2.6,T11,Sandyga 2021 temperature conditions organic sediments
+10.1016/s1876-3804(14)60059-8,T03,Jiang 2014 WAT reservoir ultrasonic
+10.2118/107857-ms,T07,Civan 2007 formation damage mechanisms overview
+10.1016/b978-0-12-801898-9.00017-5,T10,Civan 2015 formation damage organic deposition chapter
+10.1016/b978-0-12-813782-6.00006-3,T10,Ghanbarnezhad 2018 organic deposition chapter
+10.2516/ogst:2006037a,T04,Pina 2006 asphaltene flocculation state of the art
+10.1021/acs.energyfuels.7b01170,T06,Li X 2017 kinetics asphaltene aggregation microcapillary
+10.1007/s13202-019-00811-5,T04,Fakher 2019 critical review asphaltene stability
+10.26153/tsw/13507,T13,Abouie 2019 thesis wellbore-reservoir flow assurance
+10.11575/prism/26067,T07,Hematfar 2015 thesis asphaltene adsorption porous
+10.25560/45663,T11,Seifried 2016 thesis asphaltene CO2
+10.1007/s12182-016-0111-8,T02,Ganeeva 2016 waxes in asphaltenes
+10.1007/s13202-019-00779-2,T09,Aleksandrov 2019 rheology waxy crude
+10.1016/j.petsci.2022.08.028,T03,Lei 2022 asphaltenes-wax interaction
+10.1021/acsomega.9b03460,T04,Joonaki 2020 waxes asphaltene aggregation
+10.1007/s13202-019-0609-x,T14,Sousa 2019 wax vertical wells review
+10.1016/j.ceja.2021.100104,T14,Olajire 2021 subsea wax review
+10.3390/en16186727,T15,Samnioti 2023 ML reservoir simulation review II
+10.2118/39083-ms,T10,Bedrikovetsky 1997 waterflooding highly paraffinic
+10.22616/erdev.2024.23.tf219,T01,Bayamirova 2024 cold water high-paraffin
+10.21779/2542-0321-2019-34-1-32-39,T10,Abduragimov 2019 paraffin oil displacement
+10.3390/eng7030116,T16,Korobov 2026 ARPD mechanisms review
+10.2298/tsci21s2315a,T01,Alishaev 2021 injected water heating
+10.17804/2410-9908.2025.3.031-042,T01,Leonov 2025 coupled heat exchange reservoir
+10.1002/nla.542,T12,Notay Vassilevski 2008 K-cycle
+10.21105/joss.04142,T13,PyAMG 2023
+10.1007/978-94-015-7899-8,T01,Barenblatt Entov Ryzhik 1990
+10.7242/1999-6691/2013.6.1.6,T07,Nikiforov Sadovnikov Nikiforov 2013 particles two-phase
+10.1021/ie030573v,T14,Bidmus Mehrotra 2004 heat-transfer analogy wax
+10.1021/ef060385s,T06,Merino-Garcia 2007 kinetics waxy gel
+10.1021/ef034013k,T04,Venkatesan 2003 asphaltenes gelation waxy oils
+10.1021/ef0100303,T04,Garcia Carbognani 2001 asphaltene paraffin interactions
+10.1016/0017-9310(94)90219-4,T01,Amiri Vafai 1994 non-thermal equilibrium
+10.1016/0017-9310(78)90080-7,T01,Gunn 1978 heat transfer particles fixed beds
+10.2118/732-g,T12,Hawkins 1956 skin effect
+10.2118/203-g,T12,van Everdingen 1953 skin effect
+10.1007/s13202-020-00941-1,T15,Ahmadi 2020 ML permeability impairment scale
+10.1038/s41598-023-45685-0,T15,Sharifzadegan 2023 AI asphaltene aggregation kinetics
+10.1016/j.rineng.2026.110481,T15,Eghtedari 2026 AI asphaltene damage carbonate
+10.1155/ijce/2664958,T15,Akbari 2025 asphaltene stability ML SARA
+10.1515/zpch-1918-9209,T06,Smoluchowski 1918 coagulation
+10.2118/218015-pa,T13,SPE11 problem definition
+10.1002/gdj3.21,T13,Egg model
+10.1007/s10596-020-10003-4,T13,OLYMPUS challenge
+10.2172/751729,T01,TOUGH2 users guide
+10.3997/2214-4609.202437086,T13,DARTS open-source framework
+10.1007/s10596-025-10366-6,T13,JutulDarcy differentiable

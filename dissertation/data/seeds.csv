@@ -1,0 +1,125 @@
+doi,subtopic,expect
+10.1007/bf03184614,T01,Lauwerier 1955 transport of heat in an oil layer
+10.2118/80-03-04,T01,Vinsome Westerveld 1980 cap and base rock heat losses
+10.2118/942107-g,T01,Buckley Leverett 1942 mechanism of fluid displacement
+10.2118/1266-g,T01,Marx Langenheim 1959 reservoir heating by hot fluid injection
+10.1016/s0016-0032(29)91186-8,T01,Schumann 1929 heat transfer liquid through porous prism
+10.1007/978-3-319-49562-0,T01,Nield Bejan Convection in porous media
+10.1007/978-1-4612-4254-3,T01,Kaviany principles of heat transfer in porous media
+10.2118/6724-pa,T01,Crookston Culham Chen 1979 thermal recovery simulation model
+10.2118/8394-pa,T01,Coats in-situ combustion model
+10.2118/182685-pa,T13,Khait Voskov adaptive parameterization thermal compositional
+10.1016/j.jcp.2017.02.041,T12,Voskov operator-based linearization
+10.1021/i200024a027,T02,Pedersen Thomassen Fredenslund heavy hydrocarbons
+10.1201/9781420018257,T02,Pedersen Christensen phase behavior of petroleum reservoir fluids
+10.1016/0378-3812(84)80013-8,T02,Twu 1984 critical properties correlation
+10.2118/26604-ms,T03,Erickson Niesen Brown 1993 thermodynamic measurement prediction paraffin
+10.2118/78324-ms,T03,Coutinho 2002 reliable wax predictions flow assurance
+10.1016/j.fuel.2006.11.003,T03,Dalirsefat Feyzi 2007 thermodynamic model wax
+10.1021/ef00030a019,T03,Ronningsen 1991 wax precipitation North Sea 1
+10.1021/ie050041k,T09,Paso 2005 paraffin polydispersity gelation
+10.1081/lft-120018544,T04,Ting Hirasaki Chapman 2003 SAFT asphaltene
+10.1021/ef049782y,T04,Gonzalez Ting Hirasaki Chapman 2005 PC-SAFT gas injection
+10.1021/ef9009857,T04,Li Firoozabadi 2010 CPA asphaltene n-alkanes
+10.1021/ef900975e,T04,Mullins 2010 modified Yen model
+10.1016/s0920-4105(98)00057-6,T04,Andersen Speight 1999 thermodynamic models asphaltene solubility
+10.1080/01932691.2015.1065418,T04,Subramanian 2016 asphaltene precipitation models review
+10.1021/ef200785v,T14,Kurup 2011 ADEPT development
+10.1021/ef8006678,T04,Vargas 2009 general method asphaltene stability
+10.1016/j.petrol.2010.11.017,T10,Solaimany-Nazar Zonnouri 2011 asphaltene deposition primary recovery
+10.1016/j.fuel.2013.09.050,T10,Kord 2014 asphaltene deposition analytical model
+10.2118/170092-pa,T05,Zhu Okuno robust isenthalpic flash
+10.1016/0378-3812(82)80002-2,T05,Peneloux volume translation
+10.1016/0009-2509(72)80096-4,T05,Soave 1972 equilibrium constants modified RK
+10.2118/117752-pa,T05,Okuno Johns Sepehrnoori Rachford-Rice multiphase
+10.1063/1.1750380,T06,Avrami 1939 kinetics of phase change I
+10.2118/54021-pa,T11,Hammami Raines 1999 paraffin deposition laboratory vs field
+10.1016/0016-2361(96)00046-4,T06,Kok 1996 WAT by DSC thermomicroscopy viscometry
+10.1081/lft-200035541,T06,Coutinho Daridon 2005 cloud point measurement limitations
+10.1021/ie50725a003,T07,Herzig Leclerc Le Goff 1970 deep filtration
+10.1002/aic.690250502,T07,Tien Payatakes 1979 deep bed filtration
+10.1021/es60058a005,T07,Yao Habibian OMelia 1971 water filtration
+10.1021/es034049r,T07,Tufenkji Elimelech 2004 correlation single collector efficiency
+10.1002/aic.690220316,T07,Rajagopalan Tien 1976 trajectory analysis
+10.1007/s11242-008-9228-6,T07,Bedrikovetsky 2008 upscaling stochastic micro model suspension
+10.2118/28489-pa,T07,Pang Sharma 1997 injectivity decline
+10.1007/978-94-015-9074-7,T07,Khilar Fogler 1998 migrations of fines
+10.1016/c2014-0-01087-8,T07,Civan reservoir formation damage 3rd ed
+10.1002/aic.690331007,T07,Sharma Yortsos 1987 transport of particulate suspensions
+10.1017/s0022112087002155,T07,Leighton Acrivos 1987 shear-induced migration
+10.1017/s0022112077000111,T07,Eckstein Bailey Shapiro 1977 self-diffusion in shear
+10.1002/aic.690010222,T07,Wilke Chang 1955 diffusion coefficients
+10.1002/cjce.5450600213,T07,Hayduk Minhas 1982 molecular diffusivities
+10.1002/andp.19053220806,T07,Einstein 1905 Brownian motion
+10.2118/18462-pa,T07,Dubey Waxman 1991 asphaltene adsorption desorption
+10.1021/ja02242a004,T07,Langmuir 1918 adsorption of gases on plane surfaces
+10.1016/s0263-8762(97)80003-2,T08,Carman 1937 reprint fluid flow through granular beds
+10.2118/574-g,T08,Fatt 1956 network model of porous media
+10.1103/revmodphys.45.574,T08,Kirkpatrick 1973 percolation and conduction
+10.1016/s1359-0294(01)00084-x,T08,Blunt 2001 pore-network models
+10.1017/9781316145098,T08,Blunt 2017 multiphase flow in permeable media
+10.1029/2003wr002627,T08,Valvatne Blunt 2004 predictive pore-scale modeling
+10.2118/949039-g,T08,Purcell 1949 capillary pressures calculation of permeability
+10.1029/96wr01776,T08,Kosugi 1996 lognormal distribution model
+10.1103/physrevlett.66.1169,T08,Sahimi Imdakm 1991 hydrodynamics of particulate motion
+10.1016/0009-2509(91)80158-t,T08,Imdakm Sahimi 1991 computer simulation particle transport
+10.1002/aic.690341102,T08,Rege Fogler 1988 network model deep bed filtration
+10.1016/j.jconhyd.2016.07.002,T08,Xiong Baychev Jivkov 2016 review pore network modelling
+10.1007/s11242-018-1086-2,T08,Hommel Coltman Class 2018 porosity-permeability relations review
+10.1029/jb093ib02p01159,T08,Verma Pruess 1988 thermohydrological silica redistribution
+10.2475/ajs.s3-45.266.87,T09,Barus 1893 isothermals isopiestics viscosity
+10.1122/1.548848,T09,Krieger Dougherty 1959 non-Newtonian flow suspensions
+10.1002/aic.690370609,T09,Wardhaugh Boger 1991 flow characteristics waxy crude oils
+10.1021/ie970588r,T09,Chang Boger Nguyen 1998 yielding of waxy crude oils
+10.1016/s0016-2361(02)00222-3,T09,Kane Djabourov 2003 morphology paraffin crystals
+10.1007/s00397-013-0699-1,T09,de Souza Mendes Thompson 2013 unified approach thixotropic
+10.1140/epje/i2013-13139-3,T09,Talon Bauer 2013 generalized Darcy yield-stress LBM
+10.1016/j.polymer.2010.07.047,T09,Sochi 2010 non-Newtonian flow in porous media
+10.2118/39446-ms,T10,Leontaritis 1998 asphaltene near-wellbore formation damage modeling
+10.1201/b18482,T14,Huang Zheng Fogler 2015 wax deposition book
+10.2118/4411-pa,T11,Sutton Roberts 1974 paraffin precipitation during fracture stimulation
+10.2118/38776-ms,T11,Hammami 1997 paraffin deposition laboratory vs field
+10.2118/10528-pa,T12,Peaceman 1983 well-block pressures nonsquare anisotropic
+10.2118/6893-pa,T12,Peaceman 1978 interpretation of well-block pressures
+10.2118/978-g,T12,Sheldon Zondek Cardwell 1959 one-dimensional two-phase
+10.2118/1518-g,T12,Stone Garder 1961 gas-cap dissolved-gas drive
+10.2118/65092-pa,T12,Coats 2000 note on IMPES
+10.2118/84924-pa,T12,Coats 2003 IMPES stability timesteps
+10.1137/1.9780898718942,T12,Chen Huan Ma 2006 computational methods multiphase
+10.1017/9781108591416,T13,Lie 2019 MRST introduction
+10.1017/9781009019781,T13,Lie Moyner 2021 advanced modelling MRST
+10.1016/j.camwa.2020.05.014,T13,Rasmussen 2021 OPM Flow
+10.1016/j.camwa.2020.02.012,T13,Koch 2021 DuMuX 3
+10.1007/s10596-020-10002-5,T13,Keilegavlen 2021 PorePy
+10.21105/joss.06973,T13,GEOS 2024 JOSS
+10.1145/2833157.2833162,T13,Lam Pitrou Seibert 2015 Numba
+10.1038/s41586-020-2649-2,T13,Harris 2020 NumPy
+10.1038/s41592-019-0686-2,T13,Virtanen 2020 SciPy
+10.1137/1.9780898718003,T12,Saad 2003 iterative methods sparse
+10.6028/jres.049.044,T12,Hestenes Stiefel 1952 conjugate gradients
+10.1090/s0025-5718-1977-0431719-x,T12,Brandt 1977 multi-level adaptive solutions
+10.1137/1.9781611971057.ch4,T12,Ruge Stuben 1987 algebraic multigrid
+10.1016/s0377-0427(00)00516-1,T12,Stuben 2001 review AMG
+10.1007/bf02238488,T12,Braess 1995 towards algebraic multigrid
+10.1007/bf02238511,T12,Vanek Mandel Brezina 1996 smoothed aggregation
+10.2118/12265-ms,T12,Wallis 1983 incomplete Gaussian elimination preconditioning
+10.2118/13536-ms,T12,Wallis Kendall Little 1985 constrained residual acceleration
+10.2118/96809-ms,T12,Cao Tchelepi Wallis 2005 CPR linear solver
+10.2118/163608-pa,T12,Gries Stuben 2014 preconditioning AMG fully implicit
+10.1016/s0045-7825(98)00012-7,T12,Fischer 1998 projection successive right-hand sides
+10.2118/72469-pa,T13,Christie Blunt 2001 SPE10
+10.2118/9723-pa,T13,Odeh 1981 SPE1 comparison
+10.1016/s0021-9991(03)00075-5,T12,Jenny Lee Tchelepi 2003 MsFV
+10.1017/cbo9780511791253,T12,LeVeque 2002 finite volume hyperbolic
+10.1007/bf01448839,T12,Courant Friedrichs Lewy 1928
+10.1016/s1570-8659(00)07005-8,T12,Eymard Gallouet Herbin 2000 finite volume methods
+10.1023/a:1021291114475,T12,Aavatsmark 2002 introduction MPFA
+10.1017/cbo9780511760396,T13,Oberkampf Roy 2010 verification validation
+10.1016/j.jcp.2018.10.045,T15,Raissi 2019 PINN
+10.1615/jmachlearnmodelcomput.2020033905,T15,Fuks Tchelepi 2020 limitations PINN two-phase
+10.1016/j.advwatres.2022.104180,T15,Wen 2022 U-FNO
+10.1038/s42256-021-00302-5,T15,Lu 2021 DeepONet
+10.1016/j.jcp.2020.109456,T15,Tang Liu Durlofsky 2020 surrogate data assimilation
+10.1016/j.petrol.2020.107273,T15,Jin Liu Durlofsky 2020 E2C surrogate well controls
+10.2118/18273-pa,T04,Burke 1990 asphaltene measurement modeling
+10.1103/physrevlett.122.245502,T09,Liu Talon 2019 Darcy law yield stress fluids

@@ -1,0 +1,251 @@
+doi,n_files,files
+10.1002/2015gl063986,1,experiments/new/README.md
+10.1002/aic.10243,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.1002/aic.12517,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.1002/aic.15173,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | archive:refs_track3.bib
+10.1002/aic.15223,1,resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md
+10.1002/aic.16191,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1002/aic.690341202,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/состав_нефти/README.md
+10.1002/aic.690390815,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1002/aic.690420120,5,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | archive:refs_track2.bib | resources/литература/состав_нефти/README.md
+10.1002/aic.690420626,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1002/aic.690440516,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.1002/aic.690460120,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.1002/aic.690460517,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/реология_гель/README.md
+10.1002/aic.690470103,5,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1002/aic.690470206,2,resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1002/cjce.5450650306,1,experiments/new/README.md
+10.1002/mrc.70096,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section7_validation.md
+10.1002/zamm.200510293,2,resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1007/0-387-68903-6_12,1,resources/claude_reserch/compositional_models_thermobaric_deposition.md
+10.1007/978-1-4757-0337-5_34,1,experiments/new/README.md
+10.1007/s10973-014-3660-3,1,resources/литература/реология_гель/README.md
+10.1007/s11242-010-9626-4,1,experiments/new/README.md
+10.1007/s11242-011-9839-1,1,experiments/new/README.md
+10.1007/s11242-011-9887-6,1,experiments/new/README.md
+10.1007/s11242-015-0600-z,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.1007/s12145-023-01075-8,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section8_trends.md
+10.1007/s12182-015-0071-4,2,resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1007/s12182-019-00377-1,1,resources/claude_reserch/compositional_models_thermobaric_deposition.md
+10.1007/s12650-016-0346-x,1,experiments/new/README.md
+10.1007/s13202-012-0043-9,1,resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md
+10.1007/s13202-015-0221-7,5,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section7_validation.md | resources/литература/асфальтены/README.md
+10.1007/s13202-016-0269-z,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | resources/литература/асфальтены/README.md
+10.1007/s13202-016-0276-0,1,experiments/new/README.md
+10.1007/s13202-018-0480-1,1,resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1007/s13202-018-0539-z,2,archive:literature_map.md | experiments/new/README.md
+10.1007/s13202-020-00924-2,2,docs/WAX_PRECIPITATION_FINDINGS.md | experiments/исходная_модель/VALIDATION.md
+10.1007/s13369-019-04290-y,1,resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1007/s13369-025-10758-x,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section8_trends.md
+10.1007/s43153-022-00296-6,1,resources/claude_reserch/compositional_models_thermobaric_deposition.md
+10.1016/0016-2361(94)00006-d,1,resources/литература/реология_гель/README.md
+10.1016/0016-2361(95)98363-j,1,experiments/new/README.md
+10.1016/0378-3812(82)85001-2,1,resources/литература/уравнение_состояния/README.md
+10.1016/0378-3812(82)85002-4,1,resources/литература/уравнение_состояния/README.md
+10.1016/0378-3812(86)80061-9,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/состав_нефти/README.md
+10.1016/0378-3812(89)80308-5,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.1016/0378-3812(95)02956-7,1,resources/литература/уравнение_состояния/README.md
+10.1016/0920-4105(88)90013-7,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.1016/j.ces.2005.02.045,1,resources/литература/реология_гель/README.md
+10.1016/j.ces.2018.05.062,1,experiments/new/README.md
+10.1016/j.ces.2019.115270,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1016/j.egypro.2013.06.624,1,experiments/new/README.md
+10.1016/j.fluid.2003.05.011,1,resources/литература/уравнение_состояния/README.md
+10.1016/j.fluid.2005.03.029,1,resources/литература/асфальтены/README.md
+10.1016/j.fluid.2005.12.043,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1016/j.fluid.2006.06.002,1,resources/литература/уравнение_состояния/README.md
+10.1016/j.fluid.2015.11.003,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1016/j.fluid.2020.112655,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1016/j.fluid.2021.113340,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1016/j.fluid.2022.113549,1,experiments/new/README.md
+10.1016/j.fuel.2007.12.009,1,experiments/new/README.md
+10.1016/j.fuel.2019.03.016,4,archive:full_review.md | archive:references.bib | archive:refs_track2.bib | archive:refs_track3.bib
+10.1016/j.fuel.2019.116250,1,experiments/new/README.md
+10.1016/j.fuel.2020.118617,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1016/j.fuel.2020.118871,1,experiments/new/README.md
+10.1016/j.fuel.2021.122420,1,experiments/new/README.md
+10.1016/j.fuel.2022.123202,1,experiments/new/README.md
+10.1016/j.fuel.2023.129671,1,experiments/new/README.md
+10.1016/j.fuel.2024.131825,1,experiments/new/README.md
+10.1016/j.fuel.2024.133423,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1016/j.fuel.2025.136365,1,experiments/new/README.md
+10.1016/j.geoen.2024.212857,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1016/j.geoen.2024.213554,1,archive:recent_niche_papers.csv
+10.1016/j.geoen.2025.213713,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section8_trends.md
+10.1016/j.heliyon.2023.e22292,1,resources/литература/парафиновое/README.md
+10.1016/j.ijheatmasstransfer.2007.11.012,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.1016/j.jnnfm.2012.12.005,1,resources/литература/реология_гель/README.md
+10.1016/j.molliq.2025.128500,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1016/j.petrol.2003.12.008,1,experiments/new/README.md
+10.1016/j.petrol.2006.10.007,1,experiments/new/README.md
+10.1016/j.petrol.2017.06.064,1,resources/литература/уравнение_состояния/README.md
+10.1016/j.petrol.2017.12.031,1,experiments/new/README.md
+10.1016/j.petrol.2018.01.017,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.1016/j.petrol.2018.02.011,1,experiments/new/README.md
+10.1016/j.petrol.2018.11.056,1,experiments/new/README.md
+10.1016/j.petrol.2019.04.027,1,experiments/new/README.md
+10.1016/j.petrol.2019.106186,1,experiments/new/README.md
+10.1016/j.petrol.2020.107553,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1016/j.petrol.2021.108594,1,experiments/new/README.md
+10.1016/j.petrol.2021.109176,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1016/j.petrol.2024.212763,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1016/j.petsci.2022.08.008,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1016/j.petsci.2022.08.026,1,experiments/new/README.md
+10.1016/j.petsci.2023.10.019,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1016/j.ptlrs.2025.11.001,1,archive:recent_niche_papers.csv
+10.1016/j.sajce.2021.02.003,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1016/s0009-2509(01)00407-9,4,archive:full_review.md | archive:references.bib | archive:refs_track2.bib | archive:refs_track3.bib
+10.1016/s0376-7361(09)70257-2,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/acs.cgd.5c00684,1,resources/claude_reserch/compositional_models_thermobaric_deposition.md
+10.1021/acs.energyfuels.0c02981,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.1021/acs.energyfuels.0c03003,1,experiments/new/README.md
+10.1021/acs.energyfuels.2c01413,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/acs.energyfuels.2c01540,1,experiments/new/README.md
+10.1021/acs.energyfuels.2c03309,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section7_validation.md
+10.1021/acs.energyfuels.2c03319,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section8_trends.md
+10.1021/acs.energyfuels.2c03359,1,experiments/new/README.md
+10.1021/acs.energyfuels.3c04687,5,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section7_validation.md | resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md
+10.1021/acs.energyfuels.4c00252,2,archive:recent_niche_papers.csv | experiments/new/README.md
+10.1021/acs.energyfuels.4c02749,1,archive:recent_niche_papers.csv
+10.1021/acs.energyfuels.5b00693,1,experiments/new/README.md
+10.1021/acs.energyfuels.5c03230,1,archive:recent_niche_papers.csv
+10.1021/acs.energyfuels.6b00757,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/acs.energyfuels.6b01289,1,experiments/new/обзор_источников.md
+10.1021/acs.energyfuels.7b00253,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1021/acs.energyfuels.7b01389,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.1021/acs.energyfuels.7b03805,1,experiments/new/README.md
+10.1021/acs.energyfuels.8b03239,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/acs.energyfuels.9b03296,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section8_trends.md
+10.1021/acs.jced.1c00330,1,resources/claude_reserch/compositional_models_thermobaric_deposition.md
+10.1021/acs.langmuir.6b02376,1,experiments/new/README.md
+10.1021/acsomega.2c05480,1,experiments/new/README.md
+10.1021/acsomega.2c07247,1,experiments/new/README.md
+10.1021/acsomega.4c10044,1,resources/claude_reserch/compositional_models_thermobaric_deposition.md
+10.1021/acsomega.5c00439,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section7_validation.md
+10.1021/ef00030a021,1,resources/литература/состав_нефти/README.md
+10.1021/ef00030a022,1,resources/литература/уравнение_состояния/README.md
+10.1021/ef010012l,1,resources/литература/асфальтены/README.md
+10.1021/ef010072r,1,resources/литература/уравнение_состояния/README.md
+10.1021/ef101195a,5,archive:full_review.md | archive:references.bib | archive:refs_track2.bib | archive:refs_track4.bib | resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md
+10.1021/ef300185p,4,archive:full_review.md | archive:references.bib | archive:refs_track3.bib | resources/литература/асфальтены/README.md
+10.1021/ef300647f,1,experiments/new/README.md
+10.1021/ef300692e,1,experiments/new/README.md
+10.1021/ef300714p,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/ef301338q,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.1021/ef3017392,1,experiments/new/README.md
+10.1021/ef500281s,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/ef500282p,1,experiments/new/README.md
+10.1021/ef5020764,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/ef700670f,1,experiments/new/README.md
+10.1021/ef800628g,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1021/ef9002236,1,resources/литература/асфальтены/README.md
+10.1021/ef900224r,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1021/ef9006142,1,experiments/new/README.md
+10.1021/ef990104z,1,experiments/new/README.md
+10.1021/ef9901185,1,resources/литература/реология_гель/README.md
+10.1021/i160057a011,1,resources/литература/уравнение_состояния/README.md
+10.1021/ie0003887,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.1021/ie00064a023,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/состав_нефти/README.md
+10.1021/ie950447u,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/состав_нефти/README.md
+10.1021/ie980340h,3,resources/claude_reserch/compositional_models_thermobaric_deposition.md | resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1021/ie990781g,6,archive:full_review.md | archive:references.bib | archive:refs_track3.bib | resources/claude_reserch/compositional_models_thermobaric_deposition.md | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md | resources/литература/уравнение_состояния/README.md
+10.1021/je60008a036,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/la035339o,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1021/la050705k,1,resources/литература/реология_гель/README.md
+10.1038/s41598-020-71065-z,2,docs/WAX_PRECIPITATION_FINDINGS.md | experiments/исходная_модель/VALIDATION.md
+10.1038/s41598-022-23596-w,1,resources/литература/асфальтены/README.md
+10.1038/s41598-024-54395-0,1,experiments/new/README.md
+10.1039/c4sm00578c,1,resources/литература/реология_гель/README.md
+10.1051/e3sconf/202235201075,1,experiments/new/README.md
+10.1063/1.4927221,1,experiments/new/README.md
+10.1063/5.0251349,2,archive:literature_map.md | archive:recent_niche_papers.csv
+10.1063/5.0276315,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section8_trends.md
+10.1063/5.0332781,1,archive:recent_niche_papers.csv
+10.1080/10916466.2011.588642,1,experiments/new/README.md
+10.1080/10916466.2015.1107846,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.1080/10916466.2018.1536713,3,archive:full_review.md | archive:references.bib | archive:refs_track4.bib
+10.1080/10916466.2018.1539755,1,experiments/new/README.md
+10.1080/10916469808949783,1,resources/литература/асфальтены/README.md
+10.1080/12269328.2014.959623,6,archive:full_review.md | archive:references.bib | archive:refs_track3.bib | resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md | resources/литература/парафиновое/README.md
+10.1103/physreva.42.4772,1,resources/литература/реология_гель/README.md
+10.1103/physreve.95.013110,1,experiments/new/README.md
+10.1103/physrevfluids.9.024301,1,experiments/new/README.md
+10.1103/physrevlett.122.245502,1,resources/литература/реология_гель/README.md
+10.1115/1.1924465,1,experiments/new/README.md
+10.1115/1.1924466,1,resources/литература/асфальтены/README.md
+10.1126/sciadv.abc2530,1,experiments/new/README.md
+10.1134/s199508022208025x,4,archive:full_review.md | archive:references.bib | archive:refs_track2.bib | resources/литература/парафиновое/README.md
+10.1155/2021/6626114,2,experiments/new/README.md | resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.1155/2022/2845221,5,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section7_validation.md | archive:section8_trends.md
+10.1155/2023/1173505,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section8_trends.md
+10.1177/00368504261428354,2,experiments/new/README.md | resources/литература/парафиновое/README.md
+10.1177/01445987251343732,1,resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md
+10.17122/ntj-oil-2024-4-74-95,1,archive:recent_niche_papers.csv
+10.18799/24131830/2023/4/3940,1,твт_статья_АСПО/old_article.md
+10.2118/10691-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/11202-pa,1,resources/литература/асфальтены/README.md
+10.2118/121414-ms,1,experiments/new/README.md
+10.2118/12233-pa,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/состав_нефти/README.md
+10.2118/1340-pa,1,resources/литература/уравнение_состояния/README.md
+10.2118/15654-pa,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.2118/16258-ms,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/асфальтены/README.md
+10.2118/163587-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/163664-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/165148-pa,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.2118/169121-ms,4,archive:full_review.md | archive:references.bib | archive:refs_track3.bib | resources/литература/асфальтены/README.md
+10.2118/169401-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/18273-pa,1,resources/литература/уравнение_состояния/README.md
+10.2118/185370-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/187053-ms,1,experiments/new/README.md
+10.2118/193932-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/20051-pa,1,resources/литература/реология_гель/README.md
+10.2118/2008-087,1,experiments/new/README.md
+10.2118/214805-pa,1,archive:recent_niche_papers.csv
+10.2118/24069-pa,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.2118/26548-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.2118/26642-ms,1,resources/литература/уравнение_состояния/README.md
+10.2118/27629-pa,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/состав_нефти/README.md
+10.2118/29111-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/36740-pa,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/давление_WAT/README.md
+10.2118/37250-ms,1,experiments/new/README.md
+10.2118/50746-ms,1,experiments/new/README.md
+10.2118/50963-pa,1,experiments/new/README.md
+10.2118/64991-ms,1,resources/литература/асфальтены/README.md
+10.2118/65376-ms,1,resources/литература/асфальтены/README.md
+10.2118/6721-pa,4,archive:full_review.md | archive:references.bib | archive:refs_track1.bib | resources/литература/состав_нефти/README.md
+10.2118/74686-pa,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.2118/80266-ms,1,experiments/new/README.md
+10.2118/82230-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/8430-pa,4,archive:full_review.md | archive:references.bib | archive:refs_track2.bib | experiments/new/README.md
+10.2118/85673-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/8788-pa,3,archive:full_review.md | archive:references.bib | archive:refs_track1.bib
+10.2118/89437-ms,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2118/952327-g,1,resources/литература/уравнение_состояния/README.md
+10.2118/95515-ms,1,experiments/new/README.md
+10.2118/pw0043,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.2139/ssrn.5335415,1,experiments/new/README.md
+10.22050/ijogst.2022.327070.1626,1,experiments/new/README.md
+10.2298/tsci230729069y,1,archive:recent_niche_papers.csv
+10.2516/ogst/2018039,2,resources/литература/асфальтены/README.md | resources/литература/уравнение_состояния/README.md
+10.2516/ogst/2018084,1,experiments/new/README.md
+10.2516/ogst/2020041,1,experiments/new/README.md
+10.2516/ogst:2007083,1,resources/литература/асфальтены/README.md
+10.29047/01225383.251,1,experiments/new/README.md
+10.31084/2619-0087/2026-1-9,2,archive:literature_map.md | archive:recent_niche_papers.csv
+10.32604/fdmp.2023.041825,2,archive:literature_map.md | archive:recent_niche_papers.csv
+10.3390/app16178546,1,experiments/new/README.md
+10.3390/en17092080,2,archive:literature_map.md | archive:recent_niche_papers.csv
+10.3390/en17102415,1,experiments/new/README.md
+10.3390/en19071777,1,experiments/new/README.md
+10.3390/eng7040184,3,archive:literature_map.md | archive:recent_niche_papers.csv | docs/WAX_PRECIPITATION_FINDINGS.md
+10.3390/fluids6100341,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.3390/math10244674,3,archive:full_review.md | archive:references.bib | archive:refs_track2.bib
+10.3390/pr12020421,3,experiments/исходная_модель/VALIDATION.md | resources/литература/парафиновое/README.md | твт_статья_АСПО/old_article.md
+10.3390/su15129616,4,archive:full_review.md | archive:references.bib | archive:refs_track4.bib | archive:section7_validation.md
+10.3997/2214-4609.201701511,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.3997/2214-4609.201802189,1,resources/claude_reserch/lit_review_paraffin_nonisothermal_filtration.md
+10.3997/2214-4609.202011432,3,archive:full_review.md | archive:references.bib | archive:refs_track3.bib
+10.3997/2214-4609.202032021,1,resources/claude_reserch/systematic_review_paraffin_asphaltene_nonisothermal.md
+10.4028/p-zjxnt3,2,archive:literature_map.md | archive:recent_niche_papers.csv
+10.6028/jres.066a.024,1,resources/литература/состав_нефти/README.md
+10.7623/syxb202307009,1,experiments/new/README.md
