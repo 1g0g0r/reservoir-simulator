@@ -46,6 +46,7 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_Wp
     latent = LATENT * (m[i, j] * (1.0 - S[i, j]) * Hl[i, j]
                        - new_m[i, j] * (1.0 - new_S[i, j]) * new_Hl[i, j]) * volume / dt
 
+    # Потери тепла через кровлю и подошву
     T_losses = heat_loss_rate(i, j, t, T, T_0, E_ff, dt)
 
     new_T[i, j] = T[i, j] + dt / psi_next / volume * (cells_T_eq[i, j] - derivative_add - T_losses * volume + latent)
