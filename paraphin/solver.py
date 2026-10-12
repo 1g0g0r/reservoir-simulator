@@ -14,7 +14,7 @@ from paraphin.geometry import r1, r3, r4, r5, r6, fi_0, surf_0
 from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs_path, init_T, init_k, init_S, init_m,
                         init_p, init_Wp, init_Wps, bar_to_pa, dt, day_to_sec,
                         max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, geological_reserves,
-                        volume, S_min, S_max, CFL_target, dt_growth, dt_max, dt_min,
+                        volume, S_min, S_max, CFL_target, dt_growth, dt_max, dt_min, dfw_bins,
                         min_Wps_bound, asphaltenes, gelation, pressure_viscosity,
                         gel_time, gel_mobility_min, alpha_p_visc, P_ref_wax, sara_asphaltenes, case_name,
                         ro_asph_dep, ro_asph, deposition_kinetics, deposition_model, wax_kinetics,
@@ -33,9 +33,9 @@ from .layout import LEAN, N_W, NC, NC_T, IA_D, IA_F, I_R, IS0, IN_F, KX, ROWS, N
 from .equations.Kinetics_math import langmuir_constant
 from .equations.Thermal_ltne import temperature_equation_ltne
 from .oil_composition import WAX_W0, F_SAT_REST, HL_IS_WP, initial_components
-from .utils import (BC, PARAFFIN, TEMPERATURE, DIRICHLET, calc_mu_o, calc_mu_p, calc_mu_w, preprocess_wells, convert_pkl_files,
-                    save_fields, Bound, TypeBC, DataField, add_bc, new_well, upd_q_and_eta, Buckley_Leverett,
-                    calc_mobility, calc_mobility_w)
+from .utils import (BC, PARAFFIN, SATURATION, TEMPERATURE, DIRICHLET, Bound, TypeBC, DataField, add_bc, apply_bc,
+                    get_bound, DI, DJ, HIJ, calc_mu_o, calc_mu_p, calc_mu_w, preprocess_wells, convert_pkl_files,
+                    save_fields, new_well, upd_q_and_eta, Buckley_Leverett, calc_mobility, calc_mobility_w)
 
 
 class Solver:
@@ -116,7 +116,7 @@ class Solver:
         self._results_file = None  # общий файл слоев, открывается при первом сохранении
         self.dt = dt               # Текущий шаг по времени, подбирается по CFL каждую итерацию, [с]
         self.dt_last = 0.0         # Шаг, которым посчитан текущий слой, [с]
-        self.max_dfw = 1.0         # max|df_w/dS|, задается в initialize()
+        self.dfw = np.ones(3 + dfw_bins)  # таблица max|df_w/dS| по отрезкам насыщенности, задается в initialize()
         self._producer = -1        # Индекс добывающей скважины, ищется в initialize() по is_injector
         self._paraphin = not np.isclose(init_Wp + init_Wps, 0.0)  # Флаг: включен ли блок кольматации
         # Скретч: рабочие профили ячейки (прогонка fi, профили по радиусам) - свои строки на каждый i (или кусок
@@ -223,7 +223,7 @@ class Solver:
         self._wells_names = [item['name'] for item in self._wells_buffer]
         self.well_data = preprocess_wells(self._wells_buffer)
         self.wells = self.well_data.view(np.recarray)  # в ядра - только well_data: recarray numba типизирует медленно
-        self.max_dfw = _calc_max_dfw(init_T, self.wells)
+        self.dfw = _calc_dfw_table(init_T, self.wells)
 
 
     def _init_retention(self) -> None:
@@ -430,11 +430,12 @@ class Solver:
                     self.Wp, self.Wps, self.Hl, self.src_S, self.src_T, self.src_Qo, self.p)
         # Решение уравнений по явной схеме
         dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp1, self.qp2, self.new_qp1, self.new_qp2, self.k, self.new_k, self.m, self.new_m, self.S, self.new_s, self.Wp, self.new_wp, self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
-                                   self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_S_eq, self.cells_Q_out, self.src_S, self.src_T, self.mu_o, self.mu_w, self.new_mu_o, self.new_mu_w, self.lam_o, self.lam_w, self.lam_h, self.max_dfw, step_dt,
+                                   self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_S_eq, self.cells_Q_out, self.src_S, self.src_T, self.mu_o, self.mu_w, self.new_mu_o, self.new_mu_w, self.lam_o, self.lam_w, self.lam_h, self.dfw, step_dt,
                                    self.bc_Wc, self.Wc, self.new_Wc, self.Ws, self.new_Ws, self.Hl, self.new_Hl, self.Dep, self.src_Qo, self.mu_p,
                                    self.kin, self.kx, self.new_kx, self.cells_Qo_out, self.cells_T_out, self.cells_W_eq, self.Fo, self.rows)
         # Шаг для следующей итерации из фактического условия устойчивости
-        dt_next = _calc_dt(self.n_wells, self.well_data, self.m, self.cells_Q_out, self.max_dfw, step_dt, dt_cells)
+        dt_next = _calc_dt(self.n_wells, self.well_data, self.m, self.S, self.boundary_conditions, self.cells_Q_out,
+                           self.dfw, step_dt, dt_cells)
 
         if not np.isfinite(self.p.sum()):
             raise FloatingPointError('В поле давления появились NaN/Inf')
@@ -462,7 +463,7 @@ def _clogging(i, j, Wps, kx) -> bool:
 
 @njit(parallel=True, cache=True)
 def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, qp2, new_qp1, new_qp2, k, new_k, m, new_m, S, new_s, Wp, new_wp, Wps, new_wps, T, T_0, new_t,
-                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_S_eq, cells_Q_out, src_S, src_T, mu_o, mu_w, new_mu_o, new_mu_w, lam_o, lam_w, lam_h, max_dfw, dt,
+                    fi, new_fi, h_sloy, new_h, Ur, new_Ur, Ub, new_Ub, integr_r2_fi0, integr_r4_fi0, C_o, C_w, C_p, C_f, E_ff, cells_T_eq, cells_S_eq, cells_Q_out, src_S, src_T, mu_o, mu_w, new_mu_o, new_mu_w, lam_o, lam_w, lam_h, dfw, dt,
                     bc_Wc, Wc, new_Wc, Ws, new_Ws, Hl, new_Hl, Dep, src_Qo, mu_p, kin, kx, new_kx, cells_Qo_out, cells_T_out, cells_W_eq, Fo, rows):
     """Решение уравнений по явной схеме в цикле по ячейкам.
 
@@ -575,8 +576,11 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
             # Три ограничения на шаг по числу Куранта: по насыщенности, по переносу компонентов и по температуре.
             # Осаждение шаг не ограничивает: его сток зажат подводом взвеси в `calc_qp_m_k_fi`.
             q_out = cells_Q_out[i, j]
-            if q_out > 1e-30: # Скважинная часть добирается в `_calc_dt`.
-                dt_cells = min(dt_cells, CFL_target * m[i, j] * volume / (max_dfw * q_out))
+            # Локальная производная - только там, где оценка по глобальной уже ниже набранного минимума
+            if q_out > 1e-30 and CFL_target * m[i, j] * volume < dt_cells * dfw[2] * q_out:  # Скважины - в `_calc_dt`
+                dfw_ij = _cell_dfw(i, j, S, boundary_conditions, dfw, S[i, j])
+                if dfw_ij > 0.0:
+                    dt_cells = min(dt_cells, CFL_target * m[i, j] * volume / (dfw_ij * q_out))
             qo_out = cells_Qo_out[i, j]
             if _paraphin and qo_out > 1e-30:
                 dt_cells = min(dt_cells, CFL_target * m[i, j] * (1.0 - S[i, j]) * volume / qo_out)
@@ -588,20 +592,24 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
 
 
 @njit(cache=True)
-def _calc_dt(n_wells, wells, m, cells_Q_out, max_dfw, dt_prev, dt_cells):
+def _calc_dt(n_wells, wells, m, S, boundary_conditions, cells_Q_out, dfw, dt_prev, dt_cells):
     """Шаг по времени из условия устойчивости явной схемы по насыщенности.
 
-    Ограничение на ячейку: dt <= CFL * m*V / (max|df_w/dS| * Q_отток). По самим ячейкам минимум
+    Ограничение на ячейку: dt <= CFL * m*V / (max|df_w/dS| * Q_отток), максимум производной - на отрезке
+    насыщенностей, которые втекают в ячейку (`_cell_dfw`). По самим ячейкам минимум
     уже посчитан в `_equations_loop` и приходит сюда как `dt_cells`. Здесь остаются только скважины: их отбор идет мимо граней,
     поэтому для ячеек скважин он добавляется к оттоку отдельно. Считается каждый шаг, потому что
     расход растет вместе с суммарной подвижностью по мере обводнения - в разы к концу расчета.
     """
     dt_new = dt_cells
+    s_inj = dfw[0] + (dfw.shape[0] - 3) / dfw[1]  # верх диапазона таблицы: там f_w = 1
     for w in range(n_wells):
         i, j = wells[w].i, wells[w].j
         q_out = cells_Q_out[i, j] + abs(wells[w].q_t)
-        if q_out > 1e-30:
-            dt_cell = CFL_target * m[i, j] * volume / (max_dfw * q_out)
+        # В нагнетательную идет вода, f_w = 1: ее состояние - верх диапазона насыщенности
+        dfw_ij = _cell_dfw(i, j, S, boundary_conditions, dfw, s_inj if wells[w].is_injector else S[i, j])
+        if q_out > 1e-30 and dfw_ij > 0.0:
+            dt_cell = CFL_target * m[i, j] * volume / (dfw_ij * q_out)
             if dt_cell < dt_new:
                 dt_new = dt_cell
 
@@ -673,23 +681,37 @@ def _swap_time_steps(_paraphin, Wps, fi, new_fi, Ur, new_Ur, Ub, new_Ub, kx, new
                               grad_p, Dep, Phi, mu_p, mu_o, relax)
 
 
-def _calc_max_dfw(init_T, wells) -> float:
-    """Максимум производной функции Баклея-Леверетта на рабочем диапазоне насыщенности.
+def _calc_dfw_table(init_T, wells) -> np.ndarray:
+    """Огибающая производной функции Баклея-Леверетта |df_w/dS| по отрезкам насыщенности.
 
-    Именно эта величина задает предел устойчивости явной схемы по насыщенности: занизишь ее -
-    `_calc_dt` разрешит слишком большой шаг. Функция зависит от отношения вязкостей, а оно - от
-    температуры, и пласт по мере закачки остывает от init_T до температуры нагнетаемой воды.
+    Огибающая - максимум по всем состояниям, в которых окажется нефть: функция зависит от отношения вязкостей,
+    а оно - от температуры (пласт остывает от init_T до температуры нагнетаемой воды), от доли выпавшего
+    парафина, геля и давления. Занизишь ее - `_calc_dt` разрешит слишком большой шаг.
+    Таблица: [0] - левый край диапазона насыщенности, [1] - число отрезков на единицу насыщенности, [2] - глобальный
+    максимум, дальше dfw_bins максимумов на отрезках (каждый с обоими концами - по ним оценка не ниже производной
+    между узлами). Глобальным максимумом шаг оценивался прежде: он стоит у фронта, а в ячейке у нагнетательной
+    скважины (S ~ S_max, f_w' ~ 0) занижал допустимый шаг в 30-40 раз.
     """
     # Диапазон температур расчета: от начальной пластовой до самой холодной закачиваемой воды
     temps = [init_T] + [well.T_inj - T_inj_amplitude for well in wells if well.is_injector]
+    if wettability:
+        from .utils.math_utils import pf_o_mix, pf_w_mix
+        from .kinetics_params import DEFAULTS
+        ow_S_min, ow_S_max, ow_n_o, ow_n_w = (DEFAULTS[k] for k in ('OW_S_MIN', 'OW_S_MAX', 'OW_N_O', 'OW_N_W'))
+        s_lo, s_hi = min(S_min, ow_S_min), max(S_max, ow_S_max)
+    else:
+        s_lo, s_hi = S_min, S_max
+    sub = 10  # узлов огибающей на отрезок таблицы
+    s = np.linspace(s_lo, s_hi, dfw_bins * sub + 1)
+    env = np.zeros_like(s)
 
-    s = np.linspace(S_min, S_max, 2001)
-    max_dfw = 0.0
+    def add(f_w):
+        np.maximum(env, np.abs(np.gradient(f_w, s)), out=env)
+
     for t in np.linspace(min(temps), max(temps), 11):
         # Вязкость нефти зависит еще и от доли выпавшего парафина
         for w_ps in (0.0, init_Wp):
-            f_w = np.array([Buckley_Leverett(x, calc_mu_w(t), calc_mu_o(t, w_ps)) for x in s])
-            max_dfw = max(max_dfw, float(np.abs(np.gradient(f_w, s)).max()))
+            add(np.array([Buckley_Leverett(x, calc_mu_w(t), calc_mu_o(t, w_ps)) for x in s]))
 
     # Гель и давление поднимают вязкость нефти выше calc_mu_o: гель - до mu/gel_mobility_min, давление -
     # множителем Баруса по диапазону забойных давлений. Без этих флагов цикл не выполняется.
@@ -702,24 +724,50 @@ def _calc_max_dfw(init_T, wells) -> float:
     for t in np.linspace(min(temps), max(temps), 11) if mults else ():
         for w_ps in (0.0, init_Wp):
             for mult in mults:
-                f_w = np.array([Buckley_Leverett(x, calc_mu_w(t), calc_mu_o(t, w_ps) * mult) for x in s])
-                max_dfw = max(max_dfw, float(np.abs(np.gradient(f_w, s)).max()))
+                add(np.array([Buckley_Leverett(x, calc_mu_w(t), calc_mu_o(t, w_ps) * mult) for x in s]))
 
     if wettability:
         # Смена смачиваемости меняет и форму функции Баклея-Леверетта: скан по доле нефтесмачиваемой поверхности
-        from .utils.math_utils import pf_o_mix, pf_w_mix
-        from .kinetics_params import DEFAULTS
-        ow_S_min, ow_S_max, ow_n_o, ow_n_w = (DEFAULTS[k] for k in ('OW_S_MIN', 'OW_S_MAX', 'OW_N_O', 'OW_N_W'))
-        s_scan = np.linspace(min(S_min, ow_S_min), max(S_max, ow_S_max), 2001)
         for t in np.linspace(min(temps), max(temps), 11):
             mu_w_t, mu_o_t = calc_mu_w(t), calc_mu_o(t, 0.0)
             for omega in (0.25, 0.5, 0.75, 1.0):
-                lw = np.array([pf_w_mix(x, omega, ow_S_min, ow_S_max, ow_n_w) for x in s_scan]) / mu_w_t
-                lo = np.array([pf_o_mix(x, omega, ow_S_min, ow_S_max, ow_n_o) for x in s_scan]) / mu_o_t
-                f_w = lw / np.maximum(lw + lo, 1e-300)
-                max_dfw = max(max_dfw, float(np.abs(np.gradient(f_w, s_scan)).max()))
+                lw = np.array([pf_w_mix(x, omega, ow_S_min, ow_S_max, ow_n_w) for x in s]) / mu_w_t
+                lo = np.array([pf_o_mix(x, omega, ow_S_min, ow_S_max, ow_n_o) for x in s]) / mu_o_t
+                add(lw / np.maximum(lw + lo, 1e-300))
 
-    return max_dfw
+    dfw = np.empty(3 + dfw_bins)
+    dfw[0], dfw[1], dfw[2] = s_lo, dfw_bins / (s_hi - s_lo), env.max()
+    for b in range(dfw_bins):
+        dfw[3 + b] = env[b * sub:(b + 1) * sub + 1].max()
+    return dfw
+
+
+@njit(cache=True)
+def _cell_dfw(i, j, S, boundary_conditions, dfw, s_src):
+    """max|df_w/dS| на отрезке между насыщенностью ячейки, ее соседей (за границей - по ГУ) и `s_src`.
+
+    Явная схема против потока монотонна, если dt*Q_отток*max(секущая f_w между ячейкой и втекающими состояниями)
+    <= m*V, а секущая не больше производной на отрезке между ними. Соседи берутся все, не только втекающие, -
+    оценка сверху. `s_src` - состояние, втекающее из скважины (S_max у нагнетательной), иначе S ячейки.
+    """
+    s_a = min(S[i, j], s_src)
+    s_b = max(S[i, j], s_src)
+    for idx in range(4):
+        i1 = i + DI[idx]
+        j1 = j + DJ[idx]
+        if (0 <= i1 < Nx) and (0 <= j1 < Ny):
+            v = S[i1, j1]
+        else:
+            v = apply_bc(boundary_conditions, get_bound(i1, j1), SATURATION, S, i, j, 0.5 * HIJ[idx])
+        s_a = min(s_a, v)
+        s_b = max(s_b, v)
+    nb = dfw.shape[0] - 3
+    b0 = min(max(int((s_a - dfw[0]) * dfw[1]), 0), nb - 1)
+    b1 = min(max(int((s_b - dfw[0]) * dfw[1]), 0), nb - 1)
+    r = 0.0
+    for b in range(b0, b1 + 1):
+        r = max(r, dfw[3 + b])
+    return r
 
 
 def _logging_solution(solver, t):
