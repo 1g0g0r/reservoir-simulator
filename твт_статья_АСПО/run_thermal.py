@@ -64,7 +64,41 @@ VARIANTS = {
     'equil': {'wax_kinetics': 'False'},             # равновесная кристаллизация
     'nopress': {'wax_pressure': 'False'},           # равновесие без давления и газа: WAT и растворимость асфальтенов
     'ltne': {'thermal_nonequilibrium': 'True'},     # отдельная температура породы
+    'base_g25': {'Nx, Ny': '25, 25'},               # сеточная сходимость базового варианта
+    'base_g75': {'Nx, Ny': '75, 75'},
+    # факторный план теплообмен x парафин и изотермическая закачка на сетке 75 x 75: не зависят ли разности от сетки
+    'hl0_g75': {'Nx, Ny': '75, 75', 'heat_losses': '0'},
+    'nowax_g75': {'Nx, Ny': '75, 75', 'init_Wp': NO_WAX},
+    'hl0_nowax_g75': {'Nx, Ny': '75, 75', 'heat_losses': '0', 'init_Wp': NO_WAX},
+    'tiso_g75': {'Nx, Ny': '75, 75', 'Twater': repr(T0)},
+    'base_g100': {'Nx, Ny': '100, 100'},
+    'nowax_g100': {'Nx, Ny': '100, 100', 'init_Wp': NO_WAX},
+    # толщина пласта: параметр теплообмена с вмещающими породами ~ 1/h
+    'h5': {'h': '5.0'}, 'h5_hl0': {'h': '5.0', 'heat_losses': '0'},
+    'h20': {'h': '20.0'}, 'h20_hl0': {'h': '20.0', 'heat_losses': '0'},
+    # теплопроводность вмещающих пород (без теплообмена от нее ничего не зависит)
+    'kff15': {'K_ff': '1.5'}, 'kff30': {'K_ff': '3.0'},
+    'jt': {'joule_thomson': 'True'},                 # нагрев при дросселировании (Джоуль-Томсон)
+    # сезонная температура закачки 20 -+ 8 C: без растворения осадка и с ним
+    'season': {'T_inj_amplitude': '8.0'},
+    'season_diss': {'T_inj_amplitude': '8.0', 'deposit_dissolution': 'True'},
 }
+
+
+def _uniquac() -> dict:
+    """Твердый раствор UNIQUAC (`wax_solid_solution`) с составом н-алканов, подобранным по кривой ДСК нефти Жетыбая
+    (`experiments/уравнение_состояния/compare.zhetybai_physical`: группы модели пласта, равновесие); без подбора - {}."""
+    try:
+        w = json.loads((ROOT / 'experiments' / 'уравнение_состояния' / 'results.json').read_text(encoding='utf-8'))[
+            'zhetybai_physical']['groups']['0.0']['w']
+    except (OSError, KeyError):
+        return {}
+    return {'wax_solid_solution': 'True', 'init_Wp': repr(float(sum(w))),
+            'scn_weights': repr(tuple(round(v, 8) for v in w))}
+
+
+if _uniquac():  # flash в ячейке дорог: сетка 25 x 25, сравнивать с base_g25
+    VARIANTS['uniquac_g25'] = {'Nx, Ny': '25, 25', **_uniquac()}
 LABELS = {
     'base': 'базовый: 20°C, Винсом—Вестервельд',
     'tiso': f'изотермическая закачка {T0:g}°C',
@@ -80,6 +114,21 @@ LABELS = {
     'equil': 'равновесная кристаллизация',
     'nopress': 'равновесие без давления и растворенного газа',
     'ltne': 'тепловое неравновесие (LTNE)',
+    'base_g25': 'базовый, сетка 25 x 25',
+    'base_g75': 'базовый, сетка 75 x 75',
+    'hl0_g75': 'без теплообмена, сетка 75 x 75',
+    'nowax_g75': 'нефть без парафина, сетка 75 x 75',
+    'hl0_nowax_g75': 'без парафина и без теплообмена, сетка 75 x 75',
+    'tiso_g75': f'изотермическая закачка {T0:g}°C, сетка 75 x 75',
+    'base_g100': 'базовый, сетка 100 x 100',
+    'nowax_g100': 'нефть без парафина, сетка 100 x 100',
+    'h5': 'толщина пласта 5 м', 'h5_hl0': 'толщина 5 м, без теплообмена',
+    'h20': 'толщина пласта 20 м', 'h20_hl0': 'толщина 20 м, без теплообмена',
+    'kff15': 'теплопроводность вмещающих пород 1.5 Вт/(м·°C)', 'kff30': 'теплопроводность вмещающих пород 3.0 Вт/(м·°C)',
+    'jt': 'с эффектом Джоуля—Томсона',
+    'season': 'сезонная температура закачки 20 ± 8°C',
+    'season_diss': 'сезонная закачка и растворение осадка',
+    'uniquac_g25': 'твердый раствор UNIQUAC, состав по ДСК, сетка 25 x 25',
 }
 
 RUNNER = '''import json, sys
@@ -90,7 +139,9 @@ start.solve(kin=json.loads(sys.argv[2]))
 
 
 def field_kin() -> dict:
-    """Параметры кинетики из подборов по керну Li et al. (2024): удержание выше WAT и кристаллизация при 25 C."""
+    """Параметры кинетики из подборов по керну Li et al. (2024) с той же нефтью Жетыбая: удержание выше WAT и
+    кристаллизация при 25 C. Общий набор на все керны (`experiments/unified.py`) описывает ступень 25 C этой нефти
+    хуже (статья о кристаллизации и осаждении), поэтому для пласта с ней берется подбор по ее керну."""
     import li2024
     params = json.loads((ROOT / 'experiments' / 'params.json').read_text(encoding='utf-8'))
     ret = params['li2024'][params['li2024']['best']]['kin']
@@ -152,13 +203,17 @@ def _drop(q):
 
 def metrics(name: str, d) -> dict:
     """Показатели варианта: КИН, обводненность, скин, приемистость, отложения, гель, фронты, во времени и на конец."""
-    from paraphin.constants import geological_reserves, P_bubble
-    from paraphin.layout import N_W
+    from paraphin.constants import geological_reserves, P_bubble, h
+    # запасы - по толщине варианта: константы этого процесса относятся к репозиторию (h = 10 м)
+    reserves = geological_reserves * float(VARIANTS.get(name, {}).get('h', h)) / h
     t_inj = float(VARIANTS.get(name, {}).get('Twater', T_INJ))
     time = d['Time'] / 86400.0 / 365.0
     tot = d['Totals']
     wells, acc = d['Wells'], d['Wells_accumulated']
     comp = d['Composition']
+    # число групп парафина - по итогам самого расчета: N_W из paraphin.layout этого процесса относится к константам
+    # репозитория (одна группа), а поле считается с четырьмя
+    N_W = sum(1 for key in tot if key.startswith('wax ') and key.endswith(' deposited'))
     wax_dep = sum(np.asarray(tot[f'wax {k + 1} deposited']) for k in range(N_W))
     asph_dep = np.asarray(tot['asph flocs deposited']) + np.asarray(tot['resins deposited'])
     ads = np.asarray(tot.get('asph adsorbed', 0.0 * time)) + np.asarray(tot.get('resins adsorbed', 0.0 * time))
@@ -170,7 +225,7 @@ def metrics(name: str, d) -> dict:
     pick = np.unique(np.linspace(0, last, min(200, last + 1)).astype(int))
     series = {
         'years': time[pick],
-        'rf': np.abs(acc['Producer_Q_oil'])[pick] / geological_reserves,
+        'rf': np.abs(acc['Producer_Q_oil'])[pick] / reserves,
         'water_cut': np.asarray(wells['Producer_eta'])[pick],
         'skin_inj': np.asarray(wells['Injector_skin'])[pick],
         'skin_prod': np.asarray(wells['Producer_skin'])[pick],
@@ -204,6 +259,7 @@ def metrics(name: str, d) -> dict:
         'front_cold_1y': front_t,
         'front_width_1y': width,
         'T_mean': float(temp.mean()),
+        'T_prod': float(temp[-1, -1]),
         'p_mean': float(d['Pressure'][last].mean() / 1e6),
         'wat0': [float(comp['WAT'][0].min()), float(comp['WAT'][0].max())],
         'years_below_pb': _first_time(time, [(d['Pressure'][n] < P_bubble).mean() > 0.5 for n in range(last + 1)]),

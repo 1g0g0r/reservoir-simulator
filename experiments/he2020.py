@@ -1,4 +1,6 @@
-"""Связь потери пористости и проницаемости при отложении парафина (He et al., 2020): проверка без подбора.
+"""Связь потери пористости и проницаемости при отложении парафина (Xie et al., 2020): проверка без подбора.
+
+До 10.10.2026 опыт ошибочно приписывался He et al.; имя модуля и ключи результатов оставлены прежними.
 
     python experiments/he2020.py          # секунды: аналитика по пучку fi_0 -> results/he2020.json + рисунок
                                           # (C0 гель-отложения берется из results/sandyga2020.json)
@@ -18,7 +20,7 @@
   - пучок капилляров с гель-отложением (`deposit_aging`): сужение идет по объему геля, а пористость теряет только
     кристаллы, m/m0 = 1 - C0*(1 - m_c/m0). Порозиметр видит полную пористость: нефть, захваченную гелем, при
     подготовке образца вымывают. C0 - та же доля парафина в свежем геле, что подобрана по опыту Sandyga et al.
-    (`results/sandyga2020.json`), здесь - прогноз; для сравнения показан и подбор C0 по точкам He.
+    (`results/sandyga2020.json`), здесь - прогноз; для сравнения показан и подбор C0 по точкам Xie.
 """
 import json
 import sys
@@ -131,7 +133,7 @@ def run(mode: str = 'full') -> dict:
     n_fit = float(np.sum(lm * lk) / np.sum(lm * lm))  # lg(k/k0) = n*lg(m/m0), МНК через начало координат
     m_grid = np.linspace(0.3, 1.0, 141)
     c0, c0_source = c0_from_sandyga()
-    # C0 по точкам He - только среди тех, при которых кривая доходит до всех точек (C0 > 1 - min m/m0)
+    # C0 по точкам Xie - только среди тех, при которых кривая доходит до всех точек (C0 > 1 - min m/m0)
     c0_min = 1.0 - min(m for m, _ in pts) + 1e-3
     fit = minimize_scalar(lambda c: log_error(narrowing(c), pts)[0], bounds=(c0_min, 1.0), method='bounded')
     # z и gamma вдоль оврага взаимозаменяемы (при z -> inf сеть вырождается в пучок с узкими горлами), поэтому
@@ -154,7 +156,7 @@ def run(mode: str = 'full') -> dict:
         f'(m/m0)^n, n = {n_fit:.1f} (подбор)': np.column_stack([m_grid, m_grid ** n_fit]),
         'пучок: сужение слоем кристаллов (C0 = 1)': narrowing(1.0),
         f'пучок: гель-отложение, C0 = {c0:.2f} ({c0_source})': narrowing(c0),
-        f'пучок: гель-отложение, C0 = {fit.x:.2f} (подбор по He)': narrowing(fit.x),
+        f'пучок: гель-отложение, C0 = {fit.x:.2f} (подбор по Xie)': narrowing(fit.x),
         f'сеть пор и горл: z = {NET_PRIOR[0]:g}, горло {NET_PRIOR[1]:g} (априори)': network(*NET_PRIOR),
         f'сеть пор и горл: z = {z_fit:g}, горло {gam_fit:.2f} (подбор по k/k0)': network(z_fit, gam_fit),
         f'сеть пор и горл: z = {z_lg:g}, горло {gam_lg:.2f} (подбор по lg)': network(z_lg, gam_lg),
@@ -190,7 +192,7 @@ def plot(out):
     fig, ax = plt.subplots(figsize=(5.4, 3.8))
     for (well, rows), marker in zip(out['pairs'].items(), ('^', 'D', 's', 'v')):
         p = np.array(rows)
-        ax.semilogy(p[:, 0], p[:, 1], marker, color='k', mfc='white', ms=4.5, label=f'He et al., {well}')
+        ax.semilogy(p[:, 0], p[:, 1], marker, color='k', mfc='white', ms=4.5, label=f'Xie et al., {well}')
     styles = ('-.', ':', '--', '-', (0, (5, 1, 1, 1)), (0, (3, 1)), (0, (1, 1)), (0, (6, 2)))
     for (name, curve), style in zip(out['curves'].items(), styles):
         c = np.array(curve)

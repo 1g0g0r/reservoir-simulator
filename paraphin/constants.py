@@ -66,6 +66,8 @@ rw = 0.1              # Радиус скважин, [м]
 Pw = 150 * bar_to_pa  # Давление на нагнетательной скважине, [Па]
 Po = 50 * bar_to_pa   # Давление на добывающей скважине, [Па]
 Twater = 20.0         # Температура нагнетаемой воды, [С]
+T_inj_amplitude = 0.0  # амплитуда сезонных колебаний температуры закачки, [C]: T_inj - A*cos(2*pi*t/период)
+T_inj_period = 365.0 * day_to_sec  # период колебаний температуры закачки, [с]
 S_min = 0.18          # Связанная водонасыщенность
 S_max = 0.70          # Водонасыщенность при остаточной нефти
 n_power = 2           # Показатель степени ОФП
@@ -127,7 +129,10 @@ latent_heat_mult = 1.0   # Множитель скрытой теплоты в �
 # Константы уровня модуля: numba вшивает их в машинный код и выбрасывает выключенные ветки. Модель одна: по умолчанию
 # парафин - один псевдокомпонент, механизмы выключены (регрессия - `tests/test_regression_flags_off.py`); описание
 # всех моделей и допущений - `docs/физическая_модель.md`.
-heat_losses: int = 2          # перетоки тепла в кровлю и подошву: 0 - нет, 1 - Ловерье, 2 - Винсом-Вестервельд
+heat_losses: int = 2          # перетоки тепла в кровлю и подошву: 0 - нет, 1 - Ловерье, 2 - Винсом-Вестервельд,
+                              # 3 - теплообмен с термостатом по Ньютону (керн в кернодержателе, hv_bath)
+hv_bath = 0.0                 # объемный коэффициент теплообмена с термостатом при init_T, [Вт/(м^3*C)]:
+                              # U*P/A, U - теплопередача через манжету и кернодержатель (`experiments/sr_thermal.py`)
 wax_characterization = 'single'  # парафин нефти: 'single' - один псевдокомпонент с MW, Tm, alpha, latent_heat (раздел 8);
                                  # 'scn' - N_w групп по SCN-распределению (multi-solid); 'gamma' - SCN по гамма-распределению
                                  # (Whitson). Модель одна: 'single' - ее частный случай с одной группой
@@ -135,6 +140,9 @@ wax_pressure = False          # давление в равновесии: поп
 asphaltenes = False           # выпадение (Hirschberg), флокуляция и осаждение асфальтенов в порах, соосаждение смол
 wax_eos = False               # равновесие групп парафина - multi-solid на уравнении состояния Пенга-Робинсона (вместо
                               # идеального раствора с эффективными параметрами), газ - из flash (`paraphin/thermo`)
+wax_solid_solution = False    # группы парафина выпадают в один твердый раствор: UNIQUAC Coutinho, плавление по Coutinho
+                              # с твердо-твердым переходом (вместо multi-solid с эффективными dH, Tm); flash в ядре
+                              # (`Thermo_wax.ss_split`): насыщение группы зависит от состава твердого, таблицы не годятся
 asph_nghiem = False           # растворимость асфальтенов - модель твердой фазы Nghiem на том же уравнении состояния
 gelation = False              # предел текучести геля и течение Букингема-Райнера в пучке капилляров
 wax_viscosity: int = 0        # 0 - Кригер-Догерти (упрощенная модель); 1 - Pedersen & Ronningsen (2000), D-член
@@ -148,6 +156,12 @@ snowball = False               # «снежный ком»: захват рас�
 adsorption = False             # адсорбция асфальтенов и смол на породе (кинетический Ленгмюр)
 wettability = False            # смена смачиваемости адсорбированными асфальтенами (Qin et al., 2000)
 deposit_aging = False          # отложение - гель с захваченной нефтью, старение встречной диффузией (Singh et al., 2000)
+deposit_dissolution = False    # растворение отложений парафина недонасыщенной нефтью (при нагреве) с той же
+                               # константой массообмена k_wall, что кристаллизация на стенках (нужен wax_kinetics)
+joule_thomson = False          # эффект Джоуля-Томсона: нагрев фаз при дросселировании (1 - beta*T)*q*dP в уравнении
+                               # энергии - на гранях и в ячейках скважин (Чекалюк; верификация - MRST geothermal)
+gel_hindered_diffusion = False  # броуновская диффузия частиц в гелированной нефти - по кажущейся вязкости
+                                # mu_o = mu_p/Phi (обобщенное соотношение Стокса-Эйнштейна, Mason & Weitz 1995)
 thermal_nonequilibrium = False  # отдельная температура породы и молекулярная диффузия к стенке (LTNE + Фик)
 pore_network = False           # проводимость по сети пор и горл (эффективная среда), а не по пучку каналов
 deposition_model = 'bundle'    # 'bundle' - пучок капилляров fi(r); 'filtration' - глубинная фильтрация (Civan)
@@ -163,6 +177,8 @@ scn_first  = 17            # первый н-алкан C17
 scn_last   = 60            # последний н-алкан C60
 scn_bounds = (22, 30, 40)  # верхние границы групп по числу атомов углерода, включительно
 scn_slope      = 0.07     # z_n ~ exp(-scn_slope*n), [1/атом C]; калибровка: experiments/calibrate.py
+scn_weights = None         # профиль массовых долей н-алканов C_scn_first..C_scn_last (кортеж; None - экспонента
+                           # scn_slope), нормируется на init_Wp + init_Wps: состав по хроматограмме
 wax_alpha_eff  = 41.86e3  # эффективная теплота растворимости групп, [Дж/моль]; калибровка: experiments/calibrate.py
 wax_Tm_shift   = 52.4     # общий сдвиг Tm Вона, [K]; калибровка: experiments/calibrate.py
 scn_gamma_alpha = 1.0     # форма гамма-распределения при wax_characterization = 'gamma' (1 - экспонента scn_slope)
@@ -189,6 +205,7 @@ delta_aro  = 20.3         # то же ароматики
 delta_res  = 19.3         # то же смол
 c_oil_comp = 1.5e-9       # сжимаемость нефти выше P_b (плотностный множитель delta_m), [1/Па]
 beta_oil   = 7.0e-4       # коэффициент теплового расширения нефти, [1/K]
+beta_water = 4.0e-4       # коэффициент теплового расширения воды, [1/K]: 2.1e-4 при 20 C, 5.9e-4 при 70 C - среднее
 k_floc     = 1.0e-4       # скорость флокуляции, [1/с] (Maqbool et al., 2009)
 k_redis    = 1.0e-5       # скорость обратного растворения флокул, [1/с]
 D_asph     = 1.0e-6       # диаметр флокулы, [м]
@@ -274,6 +291,8 @@ if asphaltenes and P_onset_asph <= P_bubble:
     raise ValueError('P_onset_asph должно быть выше P_bubble: максимум выпадения асфальтенов - у давления насыщения')
 if wax_characterization not in ('scn', 'gamma', 'single'):
     raise ValueError(f"wax_characterization = '{wax_characterization}': ожидается 'scn', 'gamma' или 'single'")
+if wax_solid_solution and (wax_eos or wax_characterization == 'single'):
+    raise ValueError('wax_solid_solution - твердый раствор групп: нужны группы (scn или gamma) и wax_eos = False')
 if asph_nghiem and not asphaltenes:
     raise ValueError('asph_nghiem - растворимость асфальтенов: нужен asphaltenes = True')
 if eos_T_grid[2] < 2 or eos_P_grid[2] < 2:

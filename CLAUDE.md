@@ -20,8 +20,8 @@ python bench.py [шагов] [прогрев_сут]  # замер стадий 
 python -m paraphin.oil_composition     # таблица групп парафина детального состава
 python -m paraphin.thermo.tables       # уравнение состояния: псевдокомпоненты, kij газ-нефть, время сборки таблиц
 python -m paraphin.thermo.pvt          # PVT нефти модели по PR: R_s, B_o, B_g, плотность и вязкость газа, V_g/V_L
-python experiments/уравнение_состояния/compare.py [--plot]  # термодинамика против опытов (~10 мин) -> сравнение_EOS.md
-python experiments/уравнение_состояния/compare.py [--plot]  # EOS-модели против опытов -> сравнение_EOS.md
+python experiments/уравнение_состояния/compare.py [--plot] [раздел ...]  # термодинамика против опытов (~10 мин +
+                                       # zhetybai_physical ~30 мин) -> сравнение_EOS.md; с разделами - только они
 python demo_composition.py [варианты]  # демо: механизмы по одному (legacy, wax, asph, nogel, full) -> outputs/data/demo_*
 python docs/make_model_figures.py      # рисунки описания модели и текст демо -> docs/figures, docs/demo_results.md
 python docs/make_kinetics_figures.py   # аналитические проверки кинетики -> docs/figures/kin*.png
@@ -32,6 +32,12 @@ python docs/build_docx.py [имя]        # md -> docx (pandoc из pypandoc_bin
 python твт_статья_АСПО/run_thermal.py [вариант ...|--metrics]  # полевые варианты термических процессов и парафина
                                        # (~20 мин на вариант, THERMAL_WORKERS параллельно) -> твт_статья_АСПО/results/thermal.json
 python твт_статья_АСПО/make_article.py # рисунки (TIF 600 dpi, серые) и числа статьи -> results/numbers.json, metrics.md
+python твт_статья_АСПО/verify_heat.py  # верификация тепловой части: решение Ловерье, сетка, MRST -> results/verify_heat.json
+python твт_статья_АСПО/romashkino.py   # обращение решения Ловерье по контрольным скважинам Ромашкино -> results/romashkino.json
+python experiments/unified.py          # общий набор параметров на все керны + перекрестная проверка -> results/unified.json
+python experiments/grid_check.py       # сеточная сходимость керновых прогонов -> results/grid_check.json
+python experiments/sr_thermal.py       # тепловая постановка опытов Sutton & Roberts (термостат, heat_losses = 3)
+python docs/build_docx.py статья_тепло статья_кристаллизация  # две статьи вместо одной (см. твт_статья_АСПО/CHANGES.md)
 
 python experiments/run_all.py [--quick|--plot] [опыт ...]  # сравнение с опытами (керны в копиях пакета, кэш)
 python experiments/calibrate.py        # калибровка детального состава -> experiments/results/calibration.json
@@ -498,13 +504,20 @@ PVT по тому же PR (`thermo/pvt.py`): R_s, B_o, B_g, плотность �
 уравнения фильтрации их не читают. При `wax_eos` и `wax_pressure` в выгрузку идет поле `Composition['Free gas']` -
 объем газа, который выделился бы, на объем нефти (таблица `tables.GASV`).
 
+Твердый раствор в расчете пласта - флаг `wax_solid_solution` (группы SCN, без `wax_eos`): UNIQUAC Coutinho с
+идеальной жидкостью, плавление по Coutinho с переходом, flash в ячейке (`Thermo_wax.ss_split`, ~10 мкс на вызов);
+таблиц нет - насыщение группы зависит от состава твердого. Старт состава твердого всегда идеальный: решений flash с
+одной твердой фазой бывает несколько, и старт со взвеси прошлого слоя давал бы ответ, зависящий от истории.
+Эталон - `UniquacSolidWax(liquid='ideal')`, `tests/test_solid_solution.py` (2e-12). Состав н-алканов под него
+подбирает `compare.zhetybai_physical` (наклон и доля н-алканов в парафине ДСК, кривая ДСК - по теплоте / 210 Дж/г).
+
 Проверки: `tests/test_thermo_eos.py` (якоря сняты кодом research - порт совпадает до 1e-8; в узле сетки
 `sle_split_np(x=...)` с таблицей воспроизводит multi-solid на EOS), сценарий `EOS_ON` в
 `test_composition_flags_on.py`. Сравнение с опытами - `experiments/уравнение_состояния/сравнение_EOS.md`:
 на нефти Жетыбая WAT +22 C, на синтетических смесях da Silva 2017 WDT -9.6 C (у Won нет твердо-твердого перехода),
 поэтому по умолчанию остаются эффективные параметры; пути улучшения - разд. 12 описания, пп. 9-12.
 
-## Кинетика осаждения (флаги `wax_kinetics`, `wall_transport`, `entrainment`, `asph_aggregation`, `snowball`, `adsorption`, `wettability`, `deposit_aging`, `thermal_nonequilibrium`, `pore_network`, `deposition_model`, `perm_model`)
+## Кинетика осаждения (флаги `wax_kinetics`, `wall_transport`, `entrainment`, `deposit_dissolution`, `asph_aggregation`, `snowball`, `adsorption`, `wettability`, `deposit_aging`, `thermal_nonequilibrium`, `pore_network`, `deposition_model`, `perm_model`)
 
 Постановка с формулами и источниками - `docs/кинетика_осаждения.md`, сравнение с опытами - `experiments/`
 (`сравнение_с_опытами.md`). Все флаги выключены по умолчанию и работают при любой характеризации парафина; адсорбция и агрегация -
@@ -556,6 +569,12 @@ LTNE (`equations/Thermal_ltne.py`) - температура породы в `kx[
 закрытые и блокированные горла сеть обходит до порога протекания 2/z. Пористость и тождество пористости сеть не
 меняет. Скратчи - строки `rows[i]` (`tmp`, `ue`: к концу ядра они отработали). Проводимость исходной сети `network_g0` одна на все ячейки - считается раз за шаг до prange. Эффективная среда сверена с
 прямым расчетом случайной решетки (`experiments/pore_models.py`, 0.008 по k/k0).
+
+Растворение осадка недосыщенной нефтью - `deposit_dissolution` (`_wall_crystallization` дает отрицательный сток по
+составу осадка). В `calc_deposition` оно идет как вынос: расширяются только каналы с осадком и не больше его толщины
+за шаг, возвращенный объем - по фактическому профилю и не больше осадка парафина. Однородная скорость по поверхности
+расширяла бы и чистые каналы и уводила бы их за r_max (fi = 0 на краю): k падал до нуля при неизменных m и осадке,
+потому что масштаб `scale` обнулял q_w, - баланс массы этого не видит, видно только по k у нагнетательной скважины.
 
 Формулы с аналитическими решениями - в `equations/Kinetics_math.py` (njit-функции без состояния), их проверяет
 `tests/test_kinetics_math.py` (Смолуховский, Ленгмюр, Шуман, пределы корреляций), интеграционные балансы -
@@ -636,6 +655,12 @@ paraphin/
 перегрева, обновляется на месте внутри `prange`). Оба варианта закреплены в
 `tests/test_heat_losses.py`, там же аналитическое решение Ловерье как эталон.
 
+Другие тепловые источники выключены по умолчанию: `joule_thomson` - работа сил давления за вычетом теплового
+расширения, -sum (1 - beta_i T) U_i grad P (перетоки - `Flows_in_cells.py`, скважины - `Temperature.temperature_source`;
+с ним расчет совпадает с MRST geothermal до 0.24 K вместо 1.37 K, `твт_статья_АСПО/verify_heat.py`); `heat_losses = 3` -
+теплообмен керна с термостатом по Ньютону (`hv_bath`); сезонная температура закачки `T_inj_amplitude`, `T_inj_period`
+(`Solver.start` меняет `well_data['T_inj']` нагнетательных скважин каждый шаг).
+
 Вынос отложений потоком — только `entrainment` (ядро кинетики, `Deposition.py`): порог — напряжение сдвига на стенке,
 равное прочности гель-отложения, `tau_cr = ENT_TAU*tau_y(C)/tau_y(C0)` (`Deposition.entrainment_threshold`, предел
 текучести геля `Gel.yield_stress` по доле парафина в отложении; без `deposit_aging` порог - ровно `ENT_TAU`).
@@ -673,7 +698,7 @@ paraphin/
   принимает сторонний опыт словарем (`exp=`: геометрия, T, вязкость) и режимы `rate`, `dp`, `thermal`, `ramp`
   (равномерное охлаждение); рабочий процесс получает опыт json-файлом.
 - `experiments/исходная_модель/validation_*.py` + `VALIDATION.md` — сравнение с опытами не старше 15 лет: Li et al. 2024
-  (вязкость, керн при 25-90 C), Sandyga et al. 2020 (поры по томографии, WAT, охлаждение керна), He et al. 2020
+  (вязкость, керн при 25-90 C), Sandyga et al. 2020 (поры по томографии, WAT, охлаждение керна), Xie et al. 2020
   (связь потери пористости и проницаемости). Прогоны идут через `core_flood.run_case`, то есть в копиях пакета.
 - `docs/PERFORMANCE_FINDINGS.md` — замеры производительности, сравнение решателей СЛАУ, что и почему подключено.
 - `resources/` и `outputs/` содержат статьи, обзоры и результаты расчетов, а не код.

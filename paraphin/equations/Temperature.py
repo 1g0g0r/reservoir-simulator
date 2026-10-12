@@ -3,7 +3,8 @@ import numpy as np
 from numba import njit
 
 from paraphin.constants import (volume, h, ro_w, ro_f, ro_ff, ro_o, ro_p, init_T, init_m, K_ff,
-                                c_ff, heat_losses, latent_heat, latent_heat_mult)
+                                c_ff, heat_losses, latent_heat, latent_heat_mult, hv_bath, joule_thomson,
+                                beta_oil, beta_water)
 
 # Свойства окружающих пород. Константы уровня модуля: numba вшивает их в машинный код литералами,
 # а не считает корень и деление на каждой ячейке каждый шаг.
@@ -53,7 +54,7 @@ def temperature_equation(i, j, T, T_0, m, S, C_o, C_w, C_f, C_p, Wp, Wps, new_Wp
 
 
 @njit(cache=True)
-def temperature_source(wells, w, T, C_o, C_w, C_p, Wp, Wps, Hl) -> float:
+def temperature_source(wells, w, T, C_o, C_w, C_p, Wp, Wps, Hl, p) -> float:
     """Приток энергии со скважиной w (запись массива скважин `utils/well.py`), [Вт].
 
     У нагнетательной берется температура закачиваемой воды, у добывающей - температура ячейки.
@@ -66,9 +67,15 @@ def temperature_source(wells, w, T, C_o, C_w, C_p, Wp, Wps, Hl) -> float:
     i, j = wl.i, wl.j
     Twell = wl.T_inj if wl.is_injector else T[i, j]
 
-    return (ro_w * C_w[i, j] * wl.q_w * Twell
-            + h_oil(c_oil(1.0 - Wp[i, j] - Wps[i, j], Wp[i, j] + Wps[i, j], C_o[i, j], C_p[i, j]), T[i, j], Hl[i, j])
-            * wl.q_o)
+    src = (ro_w * C_w[i, j] * wl.q_w * Twell
+           + h_oil(c_oil(1.0 - Wp[i, j] - Wps[i, j], Wp[i, j] + Wps[i, j], C_o[i, j], C_p[i, j]), T[i, j], Hl[i, j])
+           * wl.q_o)
+    if joule_thomson:
+        # Дросселирование в призабойной зоне: перепад P_заб - P_ячейки на дебите выделяет (1 - beta*T)*q*dP, [Вт];
+        # q и перепад одного знака у обеих скважин, поэтому нагрев всегда положителен
+        t_k = T[i, j] + 273.15
+        src += (wl.p - p[i, j]) * ((1.0 - beta_water * t_k) * wl.q_w + (1.0 - beta_oil * t_k) * wl.q_o)
+    return src
 
 
 @njit(cache=True)
@@ -124,11 +131,13 @@ def psi_cell(i, j, m, S, Wo_ij, Wp_ij, Wps_ij, C_w, C_o, C_p, C_f):
 @njit(cache=True)
 def heat_loss_rate(i, j, t, T, T_0, E_ff, dt):
     """Потери тепла через кровлю и подошву, [Вт/м^3], по флагу `heat_losses`: 0 - нет, 1 - Ловерье,
-    иначе - Винсом-Вестервельд. Общая для обоих уравнений энергии (`temperature_equation`, LTNE)."""
+    3 - термостат по Ньютону, иначе - Винсом-Вестервельд. Общая для обоих уравнений энергии (`temperature_equation`, LTNE)."""
     if heat_losses == 0:
         return 0.0
     elif heat_losses == 1:
         return _heat_losses_lauwerier(i, j, t, T)
+    elif heat_losses == 3:  # керн в термостате при init_T: теплопередача через манжету по Ньютону
+        return hv_bath * (T[i, j] - init_T)
     return _heat_losses_vw(i, j, t, T, T_0, E_ff, dt)
 
 

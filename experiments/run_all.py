@@ -20,7 +20,7 @@ import time
 from common import RESULTS, mode_from_argv
 
 ORDER = ('sutton_roberts', 'li2024', 'sandyga2020', 'maloney2004', 'he2020', 'pore_models')
-TARGET = 0.03  # СКО k/k0 (решение автора); где шумовой порог опыта выше, цель - порог
+
 
 
 def _f(x, digits=3):
@@ -141,7 +141,7 @@ def summary_table(results: dict) -> str:
         net = [r for name, r in o.items() if name.startswith('4. сеть') and 'подбор' in r['note']]
         bundle = [r for name, r in o.items() if name.startswith('1.')]
         power = [r for name, r in o.items() if name.startswith('6.')]
-        rows.append(('He et al., k(m)', '—', _f(bundle[0]['lin']) if bundle else '—', _f(net[0]['lin']) if net else '—',
+        rows.append(('Xie et al., k(m)', '—', _f(bundle[0]['lin']) if bundle else '—', _f(net[0]['lin']) if net else '—',
                      '—', _f(power[0]['lin']) if power else '—'))
     return _table(['Опыт', 'шумовой порог', 'упрощенная модель', 'лучшая модель (калибровка)',
                    'общая кинетика, своя вязкость', 'другие авторы / замыкание'], rows)

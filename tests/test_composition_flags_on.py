@@ -19,7 +19,8 @@ ALL_ON = {'Nx, Ny': '20, 20', 'wax_characterization': "'scn'", 'wax_pressure': '
 # Все модели кинетики осаждения поверх ALL_ON (`equations/Deposition.py`): кристаллизация, перенос к стенке, вынос,
 # агрегация, снежный ком, адсорбция, старение гель-отложения
 KIN_ALL = dict(ALL_ON, wax_kinetics='True', wall_transport='True', entrainment='True', asph_aggregation='True',
-               snowball='True', adsorption='True', deposit_aging='True', pore_network='True')
+               snowball='True', adsorption='True', deposit_aging='True', pore_network='True',
+               deposit_dissolution='True', joule_thomson='True')
 
 
 @pytest.fixture(scope='module')

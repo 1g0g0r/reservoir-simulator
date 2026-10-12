@@ -55,6 +55,16 @@ def _patch_sets() -> dict:
     from tests.mrst_tests.test_boundary_conditions import PATCH as MRST_BC, PATCH_THERMAL as MRST_BC_THERMAL
     sets['mrst_bc'] = MRST_BC
     sets['mrst_bc_thermal'] = MRST_BC_THERMAL
+    # общий набор по кернам (`experiments/unified.py`), тепловая постановка Sutton & Roberts (`sr_thermal.py`),
+    # проверка гипотезы о диффузии в геле
+    uni = _module(EXPERIMENTS / 'unified.py')
+    sets.update({f'unified_{n}': consts for n, (_, consts, _) in zip(uni.EXPS, uni.jobs_of(uni.X0))})
+    sets['sr_thermal'] = dict(core, **sr.ENTRAINMENT, heat_losses='3', hv_bath='1000.0')
+    sets['li_gel_hindered'] = li.constants(dict(li.RETENTION, wax_kinetics='True', gel_hindered_diffusion='True'))
+    sets['verify_heat'] = {'Nx, Ny': '1, 100', **mrst.PATCH_TWO_PHASE, 'S_max': '1.0', 'init_S': 'S_max',
+                           'geological_reserves': '1.0', 'heat_losses': '2'}
+    from tests.test_solid_solution import PATCH as SOLID_SOLUTION
+    sets['solid_solution'] = SOLID_SOLUTION
     return sets
 
 

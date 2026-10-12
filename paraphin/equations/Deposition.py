@@ -39,7 +39,8 @@ from paraphin.constants import (Lk, Nr, init_m, init_k, min_Wps_bound, ro_o, ro_
                                 resin_in_deposit, volume, D, D_asph, betta, gamma, diff_mult, S_max, R,
                                 E_activation,
                                 asphaltenes, wax_kinetics, wall_transport, entrainment, asph_aggregation,
-                                snowball, adsorption, deposit_aging, thermal_nonequilibrium, perm_model, pore_network)
+                                snowball, adsorption, deposit_aging, thermal_nonequilibrium, perm_model, pore_network,
+                                deposit_dissolution)
 from paraphin.kinetics_params import (K_CRYST, K_WALL, SHEAR_DISP, GRAV_EFF, DIFF_MULT, D_CRYST, ENT_RATE, ENT_TAU, AGG_D0,
                                       AGG_DF, SNOW_A, ADS_GMAX, ADS_K, ADS_DH, ADS_T_REF, ADS_RATE, ADS_RESIN,
                                       ADS_FILM, AGE_C0, AGE_CMAX, AGE_RATE, FILT_KD, FILT_KPL, FILT_KE, FILT_UCR,
@@ -219,12 +220,37 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
             if tw > tau_cr and h[i, j, ij] > 0.0:
                 ue[ij] = kin[ENT_RATE] * (tw / tau_cr - 1.0) * h[i, j, ij]
 
+    # Растворение осадка недосыщенной нефтью (`deposit_dissolution`, q_wall < 0) - как вынос: расширяются только
+    # каналы с осадком и не больше его толщины за шаг, возвращенный объем - по фактическому профилю (не больше осадка
+    # парафина). Однородная скорость по поверхности расширяла бы и чистые каналы и уводила бы их за r_max, где fi = 0:
+    # проводимость пропадала, а пористость и осадок не менялись (q_w обнулялся масштабом ниже)
+    e_dis = 0.0
+    if deposit_dissolution:
+        for ij in range(Nr):
+            u[ij] = 0.0
+        if q_wall < 0.0 and surf > 0.0:
+            u_dis = -(q_wall / c0) / surf
+            for ij in range(Nr):
+                if h[i, j, ij] > 0.0:
+                    u[ij] = min(u_dis, h[i, j, ij] / dt)
+            e_dis = 2.0 * to_m * int_r_u_fi(fi, i, j, u)  # объем геля, освобожденный каналами, [1/с]
+            dep_wax_v = 0.0
+            for kk in range(N_W):
+                dep_wax_v += Dep[i, j, kk]
+            dep_wax_v /= ro_p
+            if e_dis > 0.0 and e_dis * c0 * dt > dep_wax_v:
+                f = dep_wax_v / (e_dis * c0 * dt)
+                for ij in range(Nr):
+                    u[ij] *= f
+                e_dis *= f
+            q_wall = 0.0
+
     # Однородная по r скорость - стеночная кристаллизация (через удельную поверхность). Удержанные асфальтены и
     # смолы в сужение каналов не входят: они сидят в горлах, и их вклад в проводимость - функция повреждения ниже
     u_uni = 0.0
     if surf > 0.0:
         u_uni = -(q_wall / c0) / surf
-    active = lim_w > 0.0 or lim_a > 0.0 or u_uni != 0.0 or entrainment or adsorption
+    active = lim_w > 0.0 or lim_a > 0.0 or u_uni != 0.0 or e_dis > 0.0 or entrainment or adsorption
 
     if not active and q_age == 0.0:
         for ij in range(Nr):
@@ -244,7 +270,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
 
     # Суммарный профиль: осадок парафина - гель, его толщина по объему геля (/c0)
     for ij in range(Nr):
-        u[ij] = lim_w * uw[ij] / c0 + lim_a * ua[ij] + u_uni + ue[ij]
+        u[ij] = lim_w * uw[ij] / c0 + lim_a * ua[ij] + u_uni + ue[ij] + (u[ij] if deposit_dissolution else 0.0)
         tmp[ij] = lim_w * bw[ij] + lim_a * ba[ij]
     update_fi_rows(new_fi, fi, i, j, u, tmp, rows.a, rows.b, dt)
     for ij in range(Nr):
@@ -272,7 +298,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     if entrainment:
         e_ent = 2.0 * to_m * int_r_u_fi(fi, i, j, ue)  # объем, освобожденный выносом, [1/с]
     pos = e_w + e_a + e_wall
-    scale = (narrow + e_ent) / pos if pos > 1e-300 else 0.0
+    scale = (narrow + e_ent + e_dis) / pos if pos > 1e-300 else 0.0
     if scale < 0.0:
         scale = 0.0
 
@@ -294,7 +320,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
             ent_asph = min(e_ent * dep_asph_v / tot, dep_asph_v / dt)
 
     qp1 = c0 * e_w * scale - ent_wax
-    q_w = c0 * e_wall * scale
+    q_w = c0 * e_wall * scale - c0 * e_dis  # растворение - отрицательный сток
     qpa = e_a * scale + qpa_plug - ent_asph
 
     new_qp1[i, j] = qp1
@@ -304,7 +330,7 @@ def calc_deposition(i, j, S, T, p, m, k, fi, h, Wc, Ws, Wps, Dep, um_r2, grad_p,
     new_kx[i, j].qg = q_age
     new_kx[i, j].qada = q_ada
     new_kx[i, j].qadr = q_adr
-    gel = kx[i, j].vgel + (e_w + e_wall) * scale * dt
+    gel = kx[i, j].vgel + (e_w + e_wall) * scale * dt - e_dis * dt
     if entrainment and ent_wax > 0.0:
         c_dep = c0
         if kx[i, j].vgel > 0.0:
@@ -340,7 +366,7 @@ def _wall_sinks(i, j, T, p, m, S, Wc, Ws, Dep, kx, kin, mso, mso_dt, dt, tmp, ne
     (`deposit_aging`: парафин входит в гель при постоянном его объеме). tmp - строка скретча длины Nr."""
     q_wall = 0.0
     if wax_kinetics or thermal_nonequilibrium:
-        q_wall = _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, new_kx)
+        q_wall = _wall_crystallization(i, j, T, p, Wc, Ws, Dep, kx, kin, m, S, mso_dt, dt, tmp, new_kx)
     q_ada, q_adr = 0.0, 0.0
     if adsorption:
         q_ada, q_adr = _adsorption(i, j, T[i, j] + 273.15, Wc, kx, kin, mso, mso_dt, dt, new_kx)
@@ -391,7 +417,7 @@ def _network_ratio(fi, h, i, j, kin, gm0, g, w):
 
 
 @njit(cache=True)
-def _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, new_kx):
+def _wall_crystallization(i, j, T, p, Wc, Ws, Dep, kx, kin, m, S, mso_dt, dt, tmp, new_kx):
     """Кристаллизация пересыщенного растворенного парафина прямо на стенках пор (Huang et al., 2011; обзор 2.3).
 
     `wax_kinetics`: взвесь в нефти неравновесна, пересыщение группы k - разность равновесной и фактической
@@ -430,6 +456,29 @@ def _wall_crystallization(i, j, T, p, Wc, Ws, kx, kin, m, S, mso_dt, dt, tmp, ne
                     tmp[kk] += frac_f * excess
     for kk in range(N_W):
         total += tmp[kk]
+    if deposit_dissolution and wax_kinetics and total <= 0.0 and mso > 1e-12:
+        # Нефть не пересыщена: осадок растворяется до равновесия. Равновесие считается для нефти вместе с осадком
+        # ячейки (доли - на массу нефти): твердого при T остается eq_k, осадок сверх него - движущая сила; взвесь
+        # растворяется раньше осадка (k_diss >> k_wall), поэтому растворимо max(0, D_k - eq_k). Скорость - k_wall.
+        hyp = tmp[2 * N_W:3 * N_W]
+        eq_s = tmp[N_W:2 * N_W]
+        dep_any = 0.0
+        for kk in range(N_W):
+            d_k = Dep[i, j, kk] / (ro_o * mso)
+            hyp[kk] = Wc[i, j, kk] + d_k
+            dep_any += d_k
+        if dep_any > 0.0:
+            sle_split(hyp, T[i, j], p[i, j], eq_s)
+            frac_d = 1.0 - math.exp(-kin[K_WALL] * dt)
+            total = 0.0
+            for kk in range(N_W):
+                d_k = hyp[kk] - Wc[i, j, kk]
+                tmp[kk] = -frac_d * max(d_k - eq_s[kk], 0.0)  # отрицательный - растворение
+                total += tmp[kk]
+            if total < 0.0:
+                for kk in range(N_W):
+                    new_kx[i, j].wsh[kk] = tmp[kk] / total
+                return total * mso / dt * ro_o / ro_p
     if total <= 0.0:
         for kk in range(N_W):
             new_kx[i, j].wsh[kk] = 0.0

@@ -259,3 +259,32 @@ def k_residuals(res, points):
     pts = np.array([p for p in points if p[0] > 0.0])
     model = np.where(pts[:, 0] <= pv[-1] + 1e-12, np.interp(pts[:, 0], pv, k), 0.0 if res['plugged'] else k[-1])
     return model - pts[:, 1]
+
+
+def fit_metrics(model, exp) -> dict:
+    """Метрики согласия модели с опытом по одним и тем же точкам: СКО (RMSE), средний модуль (MAE), наибольший
+    модуль отклонения, коэффициент детерминации R^2 = 1 - SS_res/SS_tot и средняя относительная ошибка MAPE.
+
+    MAPE берется только по точкам, где опытная величина не меньше 0.05 по модулю: у k/k0 вблизи закупорки и у доли
+    выпавшего вблизи WAT относительная ошибка теряет смысл. R^2 отрицателен, если модель хуже среднего по опыту."""
+    model, exp = np.asarray(model, float), np.asarray(exp, float)
+    d = model - exp
+    ss_tot = float(np.sum((exp - exp.mean()) ** 2))
+    big = np.abs(exp) >= 0.05
+    return dict(rmse=float(np.sqrt(np.mean(d * d))), mae=float(np.mean(np.abs(d))), max=float(np.max(np.abs(d))),
+                r2=float(1.0 - np.sum(d * d) / ss_tot) if ss_tot > 0.0 else float('nan'),
+                mape=float(100.0 * np.mean(np.abs(d[big] / exp[big]))) if big.any() else float('nan'), n=int(d.size))
+
+
+def k_model_at(res: dict, points):
+    """Модельные k/k0 в опытных точках (PV > 0) и сами опытные значения - пара для `fit_metrics`."""
+    pts = np.array([p for p in points if p[0] > 0.0])
+    return pts[:, 1] + k_residuals(res, points), pts[:, 1]
+
+
+if __name__ == '__main__':
+    m = fit_metrics([1.0, 0.5, 0.2], [1.0, 0.5, 0.2])
+    assert m['rmse'] == 0.0 and m['r2'] == 1.0 and m['mape'] == 0.0
+    m = fit_metrics([0.9, 0.6, 0.3], [1.0, 0.5, 0.2])
+    assert abs(m['rmse'] - 0.1) < 1e-12 and abs(m['mae'] - 0.1) < 1e-12 and m['r2'] < 1.0
+    print('fit_metrics: ok')

@@ -19,7 +19,8 @@ from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs
                         gel_time, gel_mobility_min, alpha_p_visc, P_ref_wax, sara_asphaltenes, case_name,
                         ro_asph_dep, ro_asph, deposition_kinetics, deposition_model, wax_kinetics,
                         asph_aggregation, wettability, thermal_nonequilibrium, adsorption,
-                        ads_init_equilibrium, R, pore_network, p_guess_m)
+                        ads_init_equilibrium, R, pore_network, p_guess_m, gel_hindered_diffusion,
+                        T_inj_amplitude, T_inj_period)
 from .utils.math_utils import MG_ROWS, MG_TOTAL, MG_COARSE, MG_COARSE_KD, P_STATE
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, temperature_source,
                         temperature_equation, calc_velocities_h, flows_in_cells,
@@ -339,9 +340,14 @@ class Solver:
             _t = 0.0
             with tqdm(total=Time_end, ncols=90, desc='Решение задачи', file=stdout, smoothing=0.05,
                       bar_format="{l_bar}{bar}[{elapsed}/{remaining}]{postfix}   ") as pbar:  # {n_fmt}/{total_fmt}
+                t_inj0 = self.well_data['T_inj'].copy()
+                inj = self.well_data['is_injector'].astype(bool)
                 while _t < Time_end:
                     _t += self.dt
                     pbar.update(self.dt)
+                    if T_inj_amplitude:  # сезонная температура закачки: в начале расчета - зимний минимум
+                        self.well_data['T_inj'][inj] = (t_inj0[inj] - T_inj_amplitude
+                                                        * math.cos(2.0 * math.pi * _t / T_inj_period))
                     self.upd_time_step(_t)
                     # Без refresh=False tqdm перерисовывал строку каждый шаг: 79 мкс, ~14 % шага 75x75. Строка и так
                     # обновляется раз в mininterval (0.1 с) и подхватит последний postfix
@@ -421,7 +427,7 @@ class Solver:
         self.KIN = _update_wells_data(self.n_wells, self.well_data, self.p, self.S, self.mu_o, self.mu_w, step_dt)
         # Источники скважин в тех же единицах, что и перетоки через грани
         _wells_loop(self.n_wells, self.well_data, self.T, self.C_o, self.C_w, self.C_p,
-                    self.Wp, self.Wps, self.Hl, self.src_S, self.src_T, self.src_Qo)
+                    self.Wp, self.Wps, self.Hl, self.src_S, self.src_T, self.src_Qo, self.p)
         # Решение уравнений по явной схеме
         dt_cells = _equations_loop(self._t, self._paraphin, self.boundary_conditions, self.p, self.grad_p, self._Um_r2, self.qp1, self.qp2, self.new_qp1, self.new_qp2, self.k, self.new_k, self.m, self.new_m, self.S, self.new_s, self.Wp, self.new_wp, self.Wps, self.new_wps, self.T, self.T_0, self.new_t,
                                    self.fi, self.new_fi, self.h_sloy, self.new_h, self.Ur, self.new_Ur, self.Ub, self.new_Ub, self.integr_r2_fi0, self.integr_r4_fi0, self.C_o, self.C_w, self.C_p, self.C_f, self.E_ff, self.cells_T_eq, self.cells_S_eq, self.cells_Q_out, self.src_S, self.src_T, self.mu_o, self.mu_w, self.new_mu_o, self.new_mu_w, self.lam_o, self.lam_w, self.lam_h, self.max_dfw, step_dt,
@@ -478,6 +484,8 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
     групп парафина - сама ячейка `new_Ws[i, j]`. Флаги - константы модуля, выключенные ветки numba выбрасывает.
     """
     dt_cells = dt_max
+    # Вязкость броуновской диффузии частиц: жидкая основа mu_p или, в гелированной нефти, кажущаяся mu_o = mu_p/Phi
+    mu_d = mu_o if gel_hindered_diffusion else mu_p
     net_g0 = 1.0
     if pore_network:  # проводимость исходной сети пор одна на все ячейки - раз за шаг, до параллельного цикла
         net_g0 = network_g0(kin, rows[0].tmp, rows[0].ue)
@@ -500,7 +508,7 @@ def _equations_loop(_t, _paraphin, boundary_conditions, p, grad_p, _Um_r2, qp1, 
                         calc_filtration(i, j, S, T, p, m, k, fi, Wc, Ws, Wps, Dep, grad_p, lam_o, kx, kin, integr_r2_fi0,
                                         rows[i], new_qp1, new_qp2, new_fi, new_k, new_m, new_kx, out_o, dt)
                     else:
-                        calc_deposition(i, j, S, T, p, m, k, fi, h_sloy, Wc, Ws, Wps, Dep, _Um_r2, grad_p, mu_p, kx, kin,
+                        calc_deposition(i, j, S, T, p, m, k, fi, h_sloy, Wc, Ws, Wps, Dep, _Um_r2, grad_p, mu_d, kx, kin,
                                         integr_r2_fi0, integr_r4_fi0, rows[i], net_g0,
                                         new_qp1, new_qp2, new_fi, new_h, new_k, new_m, new_kx, out_o, dt)
             elif asphaltenes:
@@ -601,7 +609,7 @@ def _calc_dt(n_wells, wells, m, cells_Q_out, max_dfw, dt_prev, dt_cells):
 
 
 @njit(cache=True)
-def _wells_loop(n_wells, wells, T, C_o, C_w, C_p, Wp, Wps, Hl, src_S, src_T, src_Qo):
+def _wells_loop(n_wells, wells, T, C_o, C_w, C_p, Wp, Wps, Hl, src_S, src_T, src_Qo, p):
     """Источники скважин в тех же единицах, что и перетоки через грани ячейки.
 
     Дебиты знаковые (q > 0 - закачка), поэтому источники складываются с перетоками как есть.
@@ -612,7 +620,7 @@ def _wells_loop(n_wells, wells, T, C_o, C_w, C_p, Wp, Wps, Hl, src_S, src_T, src
         wl = wells[w]
         i, j = wl.i, wl.j
         src_S[i, j] = wl.q_w
-        src_T[i, j] = temperature_source(wells, w, T, C_o, C_w, C_p, Wp, Wps, Hl)
+        src_T[i, j] = temperature_source(wells, w, T, C_o, C_w, C_p, Wp, Wps, Hl, p)
         src_Qo[i, j] = wl.q_o  # перенос компонентов нефти: у каждого свой множитель w_c
 
 
@@ -673,7 +681,7 @@ def _calc_max_dfw(init_T, wells) -> float:
     температуры, и пласт по мере закачки остывает от init_T до температуры нагнетаемой воды.
     """
     # Диапазон температур расчета: от начальной пластовой до самой холодной закачиваемой воды
-    temps = [init_T] + [well.T_inj for well in wells if well.is_injector]
+    temps = [init_T] + [well.T_inj - T_inj_amplitude for well in wells if well.is_injector]
 
     s = np.linspace(S_min, S_max, 2001)
     max_dfw = 0.0

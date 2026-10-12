@@ -34,7 +34,7 @@ import numpy as np
 
 from paraphin.constants import (data_type, init_Wp, init_Wps, init_T, MW, M_o, Tm_K, alpha, latent_heat,
                                 kal_to_J, R, ro_o, wax_characterization, scn_first, scn_last, scn_bounds,
-                                scn_slope, scn_gamma_alpha, wax_alpha_eff, wax_Tm_shift, wax_dv_frac, ro_wax_liq,
+                                scn_slope, scn_weights, scn_gamma_alpha, wax_alpha_eff, wax_Tm_shift, wax_dv_frac, ro_wax_liq,
                                 sara_aromatics, sara_resins, sara_asphaltenes, P_bubble, Rs_bubble,
                                 T_sc_gas, P_sc_gas, v_gas, delta_gas, P_onset_asph, v_asph, ro_asph, asph_curve,
                                 delta_sat, delta_aro, delta_res, c_oil_comp, beta_oil, P_ref_wax)
@@ -53,9 +53,11 @@ def won_dh(M):
     return 0.1426 * M * won_tm(M) * kal_to_J
 
 
-def scn_distribution(slope=scn_slope, n_first=scn_first, n_last=scn_last, total=WAX_TOTAL, alpha=None):
+def scn_distribution(slope=scn_slope, n_first=scn_first, n_last=scn_last, total=WAX_TOTAL, alpha=None,
+                     weights=scn_weights):
     """Массовые доли н-алканов C_n в нефтяной фазе при мольных долях z_n ~ exp(-slope*n) или, если задана
-    форма alpha, по гамма-распределению Уитсона с тем же масштабом (`thermo.characterization`).
+    форма alpha, по гамма-распределению Уитсона с тем же масштабом (`thermo.characterization`); weights - заданный
+    профиль массовых долей C_n_first..C_n_last (тогда slope и alpha не нужны).
 
     Returns
     -------
@@ -64,7 +66,11 @@ def scn_distribution(slope=scn_slope, n_first=scn_first, n_last=scn_last, total=
     """
     n = np.arange(n_first, n_last + 1)
     M = 14.027 * n + 2.016
-    if alpha is None:
+    if weights is not None:
+        w = np.array(weights, float)
+        if w.size != n.size:
+            raise ValueError(f'scn_weights: {w.size} долей на {n.size} н-алканов C{n_first}-C{n_last}')
+    elif alpha is None:
         w = np.exp(-slope * n) * M
     else:
         from paraphin.thermo.characterization import gamma_scn_fractions

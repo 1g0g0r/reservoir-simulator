@@ -65,6 +65,11 @@ _ARTICLE = (ROOT / 'твт_статья_АСПО' / 'article.md',
             _tables(ROOT / 'твт_статья_АСПО' / 'results' / 'numbers.json', 'python твт_статья_АСПО/make_article.py'))
 DOCS['статья_АСПО'] = _ARTICLE + ('journal',)
 DOCS['статья_АСПО_полная'] = _ARTICLE + ('full',)
+# Две статьи вместо одной: о термических процессах (ТВТ: подписи к рисункам после литературы) и о кристаллизации
+# и осаждении (подписи под рисунками, рисунки, таблицы и источники перенумерованы по первому упоминанию)
+_NUMBERS = _tables(ROOT / 'твт_статья_АСПО' / 'results' / 'numbers.json', 'python твт_статья_АСПО/make_article.py')
+DOCS['статья_тепло'] = (ROOT / 'твт_статья_АСПО' / 'article_thermal.md', _NUMBERS, 'journal')
+DOCS['статья_кристаллизация'] = (ROOT / 'твт_статья_АСПО' / 'article_crystallization.md', _NUMBERS, 'paper')
 # фрагменты только полной версии журнальная выбрасывает, а сокращенные формулировки только журнальной - полная
 FULL_ONLY = re.compile(r'<!-- полная -->.*?<!-- /полная -->\n?', re.S)
 JOURNAL_ONLY = re.compile(r'<!-- журнальная -->.*?<!-- /журнальная -->\n?', re.S)
@@ -95,7 +100,7 @@ def build(source: Path, substitutions=dict, version: str = None) -> None:
     if missing:
         raise SystemExit(f'{source.name}: не подставлено {missing}')
     if version:  # статья для ТВТ: простые формулы - текстом, подписи к рисункам - по правилам журнала
-        text = tvt_captions(tvt_text_math(text), inline=version == 'full')
+        text = tvt_captions(tvt_text_math(text), inline=version in ('full', 'paper'))
     work = folder / '_build.md'
     reference = folder / 'reference.docx'
     cwd = Path.cwd()

@@ -65,3 +65,22 @@ def test_table_cells_without_first_line_indent():
     body, compact = out.split('<w:style w:type="paragraph" w:customStyle="1" w:styleId="Compact">')
     assert 'w:firstLine="709"' in body
     assert compact.endswith('<w:spacing w:before="36" w:after="36" /><w:ind w:firstLine="0"/></w:pPr></w:style>')
+
+
+def test_thermal_article_rules():
+    """Статья для ТВТ (`article_thermal.md`, без перенумерации при сборке): источники - по порядку первого
+    упоминания и все процитированы, каждая нумерованная формула упомянута в тексте (правила, разд. II.4, II.9)."""
+    import re
+    from make_docx import _CITE, _expand
+    text = (Path(__file__).resolve().parent.parent / 'твт_статья_АСПО' / 'article_thermal.md').read_text(encoding='utf-8')
+    body, _, refs = text.partition('# СПИСОК ЛИТЕРАТУРЫ')
+    seen = []
+    for m in _CITE.finditer(body):
+        seen += [n for n in _expand(m.group('nums')) if n not in seen]
+    assert seen == list(range(1, len(seen) + 1)), f'порядок первого упоминания: {seen}'
+    listed = [int(n) for n in re.findall(r'^(\d+)\.\s', refs.partition('\n# ')[0], re.M)]
+    assert listed == seen, f'в списке {listed}, процитированы {seen}'
+    labels = [int(n) for n in re.findall(r'\\qquad \((\d+)\)\$\$', body)]
+    prose = re.sub(r'\$\$.*?\$\$', '', body, flags=re.S)
+    for n in labels:
+        assert re.search(rf'\({n}\)', prose), f'формула ({n}) не упомянута в тексте'

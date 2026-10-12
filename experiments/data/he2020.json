@@ -1,5 +1,5 @@
 {
- "source": "He Y., Pu W., Chen X. et al. Cold damage from wax deposition in a shallow, low-temperature, and high-wax reservoir in Changchunling Oilfield // Sci. Rep. 2020. V. 10. P. 14223. doi:10.1038/s41598-020-71065-z",
+ "source": "Xie J., Hu X., Liang H., Wang M., Guo F., Zhang S., Cai W., Wang R. Cold damage from wax deposition in a shallow, low-temperature, and high-wax reservoir in Changchunling Oilfield // Sci. Rep. 2020. V. 10. P. 14223. doi:10.1038/s41598-020-71065-z",
  "digitization": "рис. 9 (пористость, гелиевый порозиметр) и 10 (эффективная проницаемость по нефти) по сетке с растра 300 dpi: пористость ~0.3 %, проницаемость ~3 мД",
  "oil": {
   "WAT_DSC": "25-26 C",
@@ -79,5 +79,6 @@
    "8": 6,
    "5": 4
   }
- }
+ },
+ "note_authors": "до 10.10.2026 в проекте статья ошибочно приписывалась He Y. et al.; имя файла he2020 оставлено, чтобы не менять ссылки и ключи результатов"
 }

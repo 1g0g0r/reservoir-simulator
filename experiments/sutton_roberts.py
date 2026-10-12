@@ -36,7 +36,7 @@ ENTRAINMENT = dict(KERNEL, entrainment='True')
 FILTRATION = dict(SINGLE, deposition_model="'filtration'", perm_model="'power'", entrainment='True')
 # Сетки подбора. tau_w в этом керне 0.8-2.6 Па (каналы 12-40 мкм), поэтому ent_tau - в этом диапазоне, ent_rate -
 # от «вынос не успевает» до «мгновенный». Показатель n степенного закона: 8-19 по обзору (разд. 4.2) и ~6 по
-# парам (m/m0, k/k0) кернов He et al. (2020, `he2020.py`).
+# парам (m/m0, k/k0) кернов Xie et al. (2020, `he2020.py`).
 ENT_GRID = list(itertools.product((0.3, 0.6, 1.0, 1.5, 2.0), (1e-4, 3e-4, 1e-3, 3e-3, 1e-2)))
 FILT_GRID = list(itertools.product((0.005, 0.01, 0.02, 0.04), (0.0, 30.0, 300.0), (6.0, 10.0, 16.0)))
 FILT_UCR = 1e-5

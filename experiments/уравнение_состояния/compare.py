@@ -1,6 +1,9 @@
 """Модели на уравнении состояния (`paraphin/thermo`) против опытов и моделей других авторов.
 
-    python experiments/уравнение_состояния/compare.py [--plot]  ->  results.json, figures/*.png, сравнение_EOS.md
+    python experiments/уравнение_состояния/compare.py [--plot] [раздел ...]  ->  results.json, figures, сравнение_EOS.md
+
+Разделы (ключи results.json): synthetic, zhetybai, zhetybai_physical, pressure, asph, tabzar, pvt; с разделами
+пересчитываются только они, остальное берется из готового results.json.
 
 A. Синтетические смеси н-алканов C18-C36 в н-декане (da Silva et al., 2017; `experiments/data/dasilva2017_sle.json`):
    WDT и кривые выпадения. Проверяется сама термодинамика - PR + multi-solid (плавление по Вону и по Coutinho с
@@ -9,6 +12,11 @@ A. Синтетические смеси н-алканов C18-C36 в н-дек�
 B. Нефть Жетыбая (Li et al., 2024): кривая выпадения и WAT по ДСК. Текущая модель (идеальный раствор с
    эффективными dH, сдвигом Tm) против моделей с калориметрическими свойствами без подбора и UNIQUAC с подобранной
    характеризацией (наклон SCN-распределения и последний SCN).
+B'. Физическая термодинамика на нефти Жетыбая: UNIQUAC + Coutinho без подбора свойств; подбираются только наклон
+   распределения н-алканов и их доля в парафине ДСК, кривая ДСК сравнивается по теплоте (как ее пересчитали авторы),
+   с запаздыванием кристаллизации k_cr при скорости охлаждения ДСК. Две постановки: каждый н-алкан отдельно с
+   жидкостью PR и группы модели пласта с идеальной жидкостью (как ядро `Thermo_wax.ss_split`, флаг
+   `wax_solid_solution`) - ее состав идет в полевой вариант `uniquac` (`твт_статья_АСПО/run_thermal.py`).
 C. WAT от давления: дегазированная нефть (Sandyga et al., 2020: 0.15-0.23 C/МПа) и живая (Pan et al., 1997).
 D. Асфальтены: Hirschberg (Флори-Хаггинс) против модели твердой фазы Nghiem при тех же P_onset и P_b.
 E. Асфальтены Nghiem на кривой выпавших (Tabzar et al., 2018; `experiments/data/tabzar2018_asphaltene.json`):
@@ -30,8 +38,8 @@ sys.path.insert(0, str(ROOT / 'experiments' / 'исходная_модель'))
 import core_flood as cf  # noqa: E402
 from paraphin import oil_composition as oc  # noqa: E402
 from paraphin.constants import (P_ref_wax, P_bubble, P_onset_asph, init_T, R, ro_o, ro_asph, v_asph,  # noqa: E402
-                                sara_asphaltenes, sara_resins, scn_first, Rs_bubble, ro_wax_liq, ro_p, wax_alpha_eff,
-                                wax_Tm_shift)
+                                sara_asphaltenes, sara_resins, scn_first, scn_last, Rs_bubble, ro_wax_liq, ro_p,
+                                wax_alpha_eff, wax_Tm_shift)
 from paraphin.thermo import tables as tb  # noqa: E402
 from paraphin.thermo.characterization import (coutinho_nalkane, critical_props, nalkane_sg,  # noqa: E402
                                               nalkane_tb)
@@ -178,6 +186,122 @@ def zhetybai_uniquac_fit(exp):
             if best is None or r < best['rms']:
                 best = {'rms': r, 'scn_slope': float(s), 'scn_last': n_last, 'wat': uq.wat(P_ref_wax, z) - 273.15}
     return best
+
+
+# --- B'. Физическая термодинамика на нефти Жетыбая -----------------------------------------------------------
+LI_DSC_WAX = 0.2493   # парафин по ДСК, доля массы нефти (Li et al., 2024, рис. 3б)
+LI_DSC_HEAT = 210.0   # Дж/г: теплота, которой Li et al. пересчитали тепловой поток ДСК в массу парафина
+# Li et al. (2024), табл. 3: все углеводороды нефти по числу атомов углерода, доля массы
+LI_HC = {(16, 25): 0.2479, (26, 30): 0.1153, (31, 200): 0.0644}
+DSC_RATES = (0.0, 1.0, 5.0, 10.0)   # C/мин: скорость охлаждения ДСК в статье не указана - перебор
+PHYS_T = np.arange(70.0, -20.01, -1.0)
+PHYS_N = np.arange(scn_first, scn_last + 1)
+PHYS_M = 14.027 * PHYS_N + 2.016
+
+
+def li_hydrocarbons():
+    """Все углеводороды нефти Жетыбая по SCN C17-C60, доля массы: внутри классов табл. 3 Li et al. - поровну, класс
+    >C30 - геометрическая прогрессия, продолжающая среднее класса C26-C30 с n = 28 (допущение: рис. 2 статьи
+    доходит лишь до C34, сумма класса - из таблицы)."""
+    (lo1, hi1), (lo2, hi2), _ = LI_HC
+    a = LI_HC[(lo2, hi2)] / (hi2 - lo2 + 1)
+    r = brentq(lambda q: a * q ** 3 / (1.0 - q) - LI_HC[(31, 200)], 1e-3, 0.999)
+    n = PHYS_N
+    return np.where(n <= hi1, LI_HC[(lo1, hi1)] / (hi1 - lo1 + 1), np.where(n <= hi2, a, a * r ** (n - 28.0)))
+
+
+def li_nalkanes(phi_light, phi_heavy):
+    """н-алканы - доля от всех углеводородов того же SCN: phi_light в классе C17-C25 табл. 3 Li et al., phi_heavy -
+    в классах тяжелее C25. Плавный спад доли с n (phi0*exp(-beta*n)) подбор вырождал: долина по beta плоская."""
+    return np.where(PHYS_N <= 25, phi_light, phi_heavy) * li_hydrocarbons()
+
+
+def _physical_eq(w, per_scn):
+    """Равновесная кривая на PHYS_T: UNIQUAC + Coutinho при массовых долях н-алканов w (C17-C60). per_scn - каждый
+    н-алкан отдельно и жидкость PR, иначе группы модели пласта и идеальная жидкость (как ядро `ss_split`).
+    Возвращает массу и тепловой эквивалент ДСК (теплота кристаллизации Coutinho с переходом / 210 Дж/г), % масс.,
+    и равновесную WAT, C."""
+    wk, mk = (w, PHYS_M) if per_scn else oc.lump_groups(PHYS_N, PHYS_M, w)[:2]
+    eos, n, _, _, iw, _ = tb.oil_fluid(0.0, gas=False, w_wax=wk, m_wax=mk)
+    g = np.arange(iw, iw + wk.size)
+    ms = _coutinho_models(eos, g, mk, mk * 1e-3 * (1.0 / ro_wax_liq - 1.0 / ro_p))[0]
+    uq = UniquacSolidWax(ms, (mk - 2.016) / 14.027, liquid='eos' if per_scn else 'ideal')
+    z = n / n.sum()
+    mass, heat = [], []
+    for t in PHYS_T + 273.15:
+        sol = uq.precipitate(t, P_ref_wax, z)[0][g] * n.sum()  # моль твердого на грамм нефти
+        mass.append(100.0 * np.sum(sol * mk))
+        heat.append(100.0 * np.sum(sol * (ms.dh_fus + np.where(t < ms.t_tr, ms.dh_tr, 0.0))) / LI_DSC_HEAT)
+    return np.array(mass), np.array(heat), uq.wat(P_ref_wax, z) - 273.15
+
+
+def _dsc_lag(w_eq, rate, k_cr):
+    """Кривая при охлаждении со скоростью rate, C/мин: доля кристаллов релаксирует к равновесной с k_cr, 1/с
+    (первый порядок, как в ядре), при охлаждении не растворяется."""
+    if rate == 0.0:
+        return np.asarray(w_eq)
+    tf = np.arange(PHYS_T[0], PHYS_T[-1] - 1e-9, -0.05)
+    we = np.interp(-tf, -PHYS_T, w_eq)
+    f = np.exp(-k_cr * 0.05 / (rate / 60.0))
+    w, out = 0.0, np.empty_like(we)
+    for i, x in enumerate(we):
+        if x > w:
+            w = x + (w - x) * f
+        out[i] = w
+    return np.interp(-PHYS_T, -tf, out)
+
+
+def _hc_share(w):
+    """Доля н-алканов среди всех углеводородов классов табл. 3 Li et al. (больше 1 - состав невозможен)."""
+    return {f'{lo}-{hi}': float(w[(PHYS_N >= lo) & (PHYS_N <= hi)].sum() / v) for (lo, hi), v in LI_HC.items()}
+
+
+def zhetybai_physical(exp=None):
+    """Состав н-алканов подбирается, свойства - нет. Основная постановка: углеводороды по SCN - из табл. 3 Li et al.,
+    подбираются доли н-алканов в легком (C17-C25) и тяжелом (C26+) классах по кривой ДСК (точки не холоднее
+    LI_FIT_T_MIN) при каждой скорости ДСК. Отвергнутая: экспонента z_n ~ exp(-s*n) с долей н-алканов в парафине ДСК (как в модели с
+    эффективными параметрами) - проверка по той же табл. 3."""
+    exp = np.array(cf.LI_PRECIPITATION) if exp is None else exp
+    fit = exp[:, 0] >= cf.LI_FIT_T_MIN
+    k_cr = 10.0 ** json.loads((ROOT / 'experiments' / 'params.json').read_text(encoding='utf-8'))['li2024_cold']['x'][2]
+    out = {'T': PHYS_T.tolist(), 'k_cr': k_cr, 'rates': list(DSC_RATES), 'hc': li_hydrocarbons().tolist()}
+
+    def fit_one(profile, x0, lo, hi, per_scn, rate, cache):
+        def eq(x):
+            k = (round(float(x[0]), 7), round(float(x[1]), 7))
+            if k not in cache:
+                cache[k] = _physical_eq(profile(*x), per_scn)
+            return cache[k]
+        at = lambda x: np.interp(-exp[:, 0], -PHYS_T, _dsc_lag(eq(x)[1], rate, k_cr))  # noqa: E731
+        r = least_squares(lambda x: at(x)[fit] - exp[fit, 1], x0, bounds=(lo, hi), diff_step=1e-3)
+        c = at(r.x)
+        mass, heat, wat = eq(r.x)
+        w = profile(*r.x)
+        return {'x': [float(v) for v in r.x], 'rms_fit': _rms(c[fit], exp[fit, 1]), 'rms_all': _rms(c, exp[:, 1]),
+                'wat_eq': float(wat), 'curve': _dsc_lag(heat, rate, k_cr).tolist(), 'mass_eq': mass.tolist(),
+                'heat_eq': heat.tolist(), 'hc_share': _hc_share(w), 'w': w.tolist(), 'total': float(w.sum())}
+
+    # старт - лучший узел сетки по быстрой модели групп: у целевой функции бывают локальные минимумы
+    grid = [(a, b) for a in (0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0) for b in (0.4, 0.6, 0.8, 0.9, 1.0)]
+    err = [_rms(np.interp(-exp[:, 0], -PHYS_T, _physical_eq(li_nalkanes(*x), False)[1])[fit], exp[fit, 1]) for x in grid]
+    x0 = grid[int(np.argmin(err))]
+    out['x0'] = list(x0)
+    for per_scn, key in ((True, 'pr_scn'), (False, 'groups')):
+        cache, rows = {}, {}
+        for rate in (DSC_RATES if per_scn else (0.0,)):
+            row = fit_one(li_nalkanes, x0, (0.0, 0.0), (1.0, 1.0), per_scn, rate, cache)
+            rows[str(rate)] = row
+            print(f"{key} {rate} C/мин: доля н-алканов C17-25 {row['x'][0]:.3f}, C26+ {row['x'][1]:.3f}, всего {100 * row['total']:.1f} %, "
+                  f"СКО {row['rms_fit']:.2f} (все {row['rms_all']:.2f}), WAT равн. {row['wat_eq']:.1f} C, табл. 3: "
+                  + ', '.join(f'{k} {v:.2f}' for k, v in row['hc_share'].items()), flush=True)
+        out[key] = rows
+    expo = lambda s, share: oc.scn_distribution(s, scn_first, scn_last, share * LI_DSC_WAX, weights=None)[2]  # noqa: E731
+    row = fit_one(expo, (0.07, 0.8), (0.0, 0.2), (0.25, 1.0), True, 0.0, {})
+    out['exponential'] = row
+    print(f"экспонента: s {row['x'][0]:.3f}, доля {row['x'][1]:.2f}, СКО {row['rms_fit']:.2f}, табл. 3: "
+          + ', '.join(f'{k} {v:.2f}' for k, v in row['hc_share'].items()), flush=True)
+    out['curve'] = out['pr_scn']['0.0']['curve']  # рисунок статьи: равновесная кривая (скорость ДСК неизвестна)
+    return out
 
 
 # --- C. WAT от давления --------------------------------------------------------------------------------------
@@ -327,9 +451,15 @@ def main():
     res = {'t_syn': t_syn.tolist(), 't_li': t_li.tolist(), 'p_dead': p_dead, 'p_live': p_live,
            'p_asph': p_asph.tolist(), 'P_onset_asph': P_onset_asph, 'P_bubble': P_bubble,
            'p_tabzar_psig': p_tz.tolist(), 'p_pvt': p_pvt}
+    only = [a for a in sys.argv[1:] if not a.startswith('--')]
+    if only:  # только указанные разделы, остальное - из готового results.json
+        res = {**json.loads((HERE / 'results.json').read_text(encoding='utf-8')), **res}
     for key, job in (('synthetic', lambda: synthetic(t_syn)), ('zhetybai', lambda: zhetybai(t_li)),
+                     ('zhetybai_physical', zhetybai_physical),
                      ('pressure', lambda: wat_pressure(p_dead, p_live)), ('asph', lambda: asphaltenes(p_asph)),
                      ('tabzar', lambda: tabzar(p_tz)), ('pvt', lambda: pvt(p_pvt))):
+        if only and key not in only:
+            continue
         t0 = time.perf_counter()
         res[key] = job()
         print(f'{key}: {time.perf_counter() - t0:.0f} с', flush=True)

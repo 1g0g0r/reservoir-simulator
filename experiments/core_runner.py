@@ -12,7 +12,11 @@
     приводится к равновесию с перепадом при заданном расходе (нефть уже гелирована);
   - в результат пишутся профили вдоль керна и интегральные величины всех включенных механизмов.
 
-case.json: {"exp": {...свойства опыта...}, "mode": "rate" | "dp" | "ramp" | "thermal" | "stages", "kin": {...}}
+case.json: {"exp": {...свойства опыта...}, "mode": "rate" | "dp" | "ramp" | "thermal" | "thermal_bath" | "stages",
+"kin": {...}}
+Режим 'thermal' задает вдоль керна неизменный линейный профиль от T_hot на входе до T на выходе; 'thermal_bath' -
+нефть входит при T_hot в керн при T, а температура считается уравнением энергии с теплообменом с термостатом через
+боковую поверхность (константы heat_losses = 3, hv_bath; `experiments/sr_thermal.py`).
 Режим 'dp' - постоянный перепад dP_0 вместо постоянного расхода (скорость в капилляре падает вместе с k; k/k0 = q/q_0).
 - см. `experiments/common.py`, который его пишет. Режим 'stages' - ступенчатый протокол (Li et al. 2024): один керн
 охлаждается ступенями exp["stages"] = [[T, PV], ...]; на каждой ступени керн и втекающая нефть при T, проницаемость
@@ -133,7 +137,7 @@ def run(case: dict) -> dict:
     solver.add_bc(field=DataField.Pressure, bound=Bound.Right, type_bc=TypeBC.Dirichlet, value=p_out)
     solver.add_bc(field=DataField.Saturation, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=1.0 if water else 0.0)
     solver.add_bc(field=DataField.Temperature, bound=Bound.Left, type_bc=TypeBC.Dirichlet,
-                  value=exp.get('T_hot', t_core) if mode == 'thermal' else t_core)
+                  value=exp.get('T_hot', t_core) if mode in ('thermal', 'thermal_bath') else t_core)
     solver.add_bc(field=DataField.Paraffin, bound=Bound.Left, type_bc=TypeBC.Dirichlet, value=init_Wp + init_Wps)
     solver.initialize()
 
@@ -240,7 +244,7 @@ def run(case: dict) -> dict:
         'k_profile': (solver.k[0] / k0).tolist(), 'm_profile': (solver.m[0] / init_m).tolist(),
         'm_conductive_profile': m_cond.tolist(), 'phi_profile': solver.Phi[0].tolist(),
         'r': r.tolist(), 'fi0': fi_0.tolist(), 'fi_end': [solver.fi[0, j].tolist() for j in (0, Ny // 2, Ny - 1)],
-        'kin': solver.kin.tolist(),
+        'kin': solver.kin.tolist(), 'T_profile': solver.T[0].tolist(),
         'phi_min': [phi_hist[i] for i in idx],
         'wps_out': float(solver.Wps[0, -1]),
         # Контроль: отток через правую границу на последнем шаге равен заданному расходу

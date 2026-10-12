@@ -662,6 +662,44 @@ def fig_thermo(eos, cal, ds, num):
     _save(fig, 'aspo_f9')
 
 
+def fig_thermo_short(eos, ds, num):
+    """Статья B, рис. 1: кривая выпадения нефти Жетыбая и две синтетические смеси - три модели вместо семи:
+    1 - настоящая (эффективные параметры), 2 - уравнение Пенга - Робинсона со свойствами Вона без подбора,
+    3 - твердый раствор UNIQUAC со свойствами Coutinho без подбора; на нефти Жетыбая еще 4 - тот же UNIQUAC с
+    подобранным составом н-алканов (если посчитан, `compare.zhetybai_physical`)."""
+    import core_flood as cf
+    exp = np.array(cf.LI_PRECIPITATION)
+    z, tli = eos['zhetybai'], np.array(eos['t_li'])
+    fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.6))
+    ax = axes[0]
+    ax.plot(exp[:, 0], exp[:, 1], 'o', mfc='white', mec='k', ms=3.5)
+    ax.plot(tli, z['curves']['eff'], '-', color='k', lw=1.3, label='1')
+    ax.plot(tli, z['curves']['pr'], '--', color='k', lw=1.2, label='2')
+    ax.plot(tli, z['curves']['uq'], ':', color='k', lw=1.4, label='3')
+    phys = eos.get('zhetybai_physical')
+    if phys:
+        ax.plot(phys['T'], phys['curve'], '-', color='0.55', lw=2.0, label='4')
+    ax.set_xlim(-20, 75)
+    ax.set_ylim(0, 31)
+    ax.set_xlabel('T, °C')
+    ax.set_ylabel('w, % масс.')
+    ax.legend(loc='upper right', fontsize=7, handlelength=2.4)
+    _panel(ax, 'а')
+    for ax, name, letter in zip(axes[1:], ('Bim 0', 'Bim 13'), 'бв'):
+        t, sol = np.array(ds['mixtures'][name]['solid_wt']).T
+        ax.plot(t, sol, 'o', mfc='white', mec='k', ms=3.5)
+        c = eos['synthetic'][name]['curves']
+        ax.plot(eos['t_syn'], c['eff'], '-', color='k', lw=1.3, label='1')
+        ax.plot(eos['t_syn'], c['pr'], '--', color='k', lw=1.2, label='2')
+        ax.plot(eos['t_syn'], c['uq'], ':', color='k', lw=1.4, label='3')
+        ax.set_xlim(-10, 45)
+        ax.set_ylim(0, 40)
+        ax.set_xlabel('T, °C')
+        _panel(ax, letter)
+    fig.tight_layout()
+    _save(fig, 'crys_f1')
+
+
 def fig_pressure_asph(eos, cal, num):
     """Рис. 10: сдвиг WAT с давлением у дегазированной и живой нефти, колокол выпадения асфальтенов."""
     pr = eos['pressure']
@@ -917,10 +955,11 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
     rows = [
         ('Кривая выпадения, нефть Жетыбая [19]', 'СКО, % масс.', '—', num['TH_RMS_GROUPS'], num['EOS_LI_RMS_PR'],
          f"один псевдокомпонент: {num['TH_RMS_LEGACY']}; PR + UNIQUAC: {num['EOS_LI_RMS_UQ']}, с подобранным "
-         f"распределением н-алканов: {num['EOS_LI_UQFIT_RMS']}"),
+         f"распределением н-алканов: {num['EOS_LI_UQFIT_RMS']}, с долей н-алканов в углеводородах табл. 3 [19]: "
+         f"{num.get('PHYS_RMS', '—')}"),
         ('То же', 'WAT, °C', num['TH_WAT_EXP'], num['TH_WAT_GROUPS'], num['EOS_LI_WAT_PR'],
          f"один псевдокомпонент: {num['TH_WAT_LEGACY']}; по Вону без подбора: {num['TH_WON1_WAT']}; "
-         f"PR + UNIQUAC: {num['EOS_LI_WAT_UQ']}"),
+         f"PR + UNIQUAC: {num['EOS_LI_WAT_UQ']}, с составом по табл. 3 [19]: {num.get('PHYS_WAT', '—')}"),
         ('Синтетические смеси C18–C36 [30]', 'WDT − WDT опыта, °C', '—', num['EOS_SYN_DIDEAL'], num['EOS_SYN_DPR'],
          f"PR + переход по Coutinho: {num['EOS_SYN_DMSC_RNG']}; PR + UNIQUAC: {num['EOS_SYN_DUQ_RNG']}; "
          f"PR + multi-solid [30]: {num['EOS_SYN_DAUTH_MS']}; PR + UNIQUAC [30]: {num['EOS_SYN_DAUTH_UQ']}"),
@@ -1005,10 +1044,568 @@ def thermo_rheology(num, th):
               'experiments/состав/validate.py')
         return
     fig_thermo(eos, cal, ds, num)
+    fig_thermo_short(eos, ds, num)
     fig_pressure_asph(eos, cal, num)
     fig_viscosity(cal, num)
     fig_tabzar(eos, num)
+    phys_numbers(eos, num)
     thermo_numbers(eos, cal, ds, val, params, th, num)
+
+
+def phys_numbers(eos, num):
+    """Статья B: физическая термодинамика на нефти Жетыбая (`compare.zhetybai_physical`) - UNIQUAC + Coutinho,
+    подобран только состав н-алканов (доли в легком и тяжелом классах углеводородов табл. 3 Li et al.)."""
+    z = eos.get('zhetybai_physical')
+    if not z:
+        return
+    eq = z['pr_scn']['0.0']
+    num['PHYS_RMS'], num['PHYS_RMS_ALL'] = _f(eq['rms_fit'], 2), _f(eq['rms_all'], 1)
+    num['PHYS_WAT'] = _f(eq['wat_eq'], 1)
+    num['PHYS_PHI_L'], num['PHYS_PHI_H'] = (_f(v, 2) for v in eq['x'])
+    num['PHYS_NALK'] = _f(100 * eq['total'], 1)
+    import core_flood as cf
+    exp, t = np.array(cf.LI_PRECIPITATION), np.array(z['T'])
+    at = np.interp(-exp[:, 0], -t, eq['curve'])
+    num['PHYS_LOW_DEV'] = _f(np.abs(at - exp[:, 1])[exp[:, 0] <= 25.0].max(), 1)
+    num['PHYS_35'] = _f(float(np.interp(-35.0, -t, eq['curve'])), 1)
+    num['PHYS_RMS_RATES'] = ', '.join(_f(z['pr_scn'][str(r)]['rms_fit'], 2) for r in (1.0, 5.0, 10.0))
+    g = z['groups']['0.0']
+    num['PHYS_G_RMS'], num['PHYS_G_WAT'], num['PHYS_G_NALK'] = _f(g['rms_fit'], 2), _f(g['wat_eq'], 1), _f(100 * g['total'], 1)
+    num['PHYS_G_PHI_L'], num['PHYS_G_PHI_H'] = (_f(v, 2) for v in g['x'])
+    e = z['exponential']
+    num['PHYS_EXP_RMS'], num['PHYS_EXP_HC31'] = _f(e['rms_fit'], 1), _f(e['hc_share']['31-200'], 2)
+
+
+# --- Две статьи: о термических процессах (ТВТ, figures/term_f*) и о кристаллизации и осаждении (figures/crys_f*) ---
+
+# Рисунки, общие с прежней объединенной статьей, - копии ее файлов под именами новых статей
+ALIASES = {'term_f3': 'aspo_f5', 'term_f4': 'aspo_f6', 'term_f5': 'aspo_f7',
+           'crys_f2': 'aspo_f10', 'crys_f3': 'aspo_f12', 'crys_f4': 'aspo_f11',
+           'crys_f8': 'aspo_f4'}
+
+
+def _aliases():
+    import shutil
+    for dst, src in ALIASES.items():
+        for ext in ('tif', 'png'):
+            path = FIGURES / f'{src}.{ext}'
+            if path.is_file():
+                shutil.copy2(path, FIGURES / f'{dst}.{ext}')
+
+
+def fig_verify(vh, num):
+    """Статья A, рис. 1: (а) профиль температуры при закачке холодной воды против точного решения Ловерье;
+    (б) наибольшая ошибка безразмерной температуры от числа ячеек (метод Винсома - Вестервельда)."""
+    strip, days = vh['strip'], vh['days']
+    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.7))
+    ax = axes[0]
+    for k, (day, style) in enumerate(zip(days, ('-', '--'))):
+        exact = strip['lauwerier_hl2_n100'][k]
+        ax.plot(exact['x'], exact['exact'], ls=style, color='k', lw=1.3)
+        for scheme, marker in (('lauwerier_hl2_n100', 'o'), ('lauwerier_hl1_n100', 's'), ('lauwerier_hl0_n100', '^')):
+            e = strip[scheme][k]
+            ax.plot(e['x'][::6], e['model'][::6], marker, color='k', mfc='white', ms=3.5, ls='none')
+        x_lab = float(np.interp(-0.12, -np.array(exact['exact']), exact['x']))  # где точное решение падает до 0.12
+        ax.text(x_lab + 4.0, 0.14, f'{day / 365:g} г.', fontsize=8)
+    ax.set_xlim(0, 200)
+    ax.set_ylim(0, 1.05)
+    ax.set_xlabel('x, м')
+    ax.set_ylabel('θ')
+    ax.text(0.97, 0.95, '(а)', transform=ax.transAxes, va='top', ha='right', **PANEL)
+    ax = axes[1]
+    cells = sorted(int(n.split('_n')[-1]) for n in strip if n.startswith('lauwerier_hl2_n'))
+    for k, (day, marker) in enumerate(zip(days, ('o', 's'))):
+        err = [strip[f'lauwerier_hl2_n{n}'][k]['max'] for n in cells]
+        ax.loglog(cells, err, marker=marker, color='k', mfc='white', ms=4, lw=1.0, label=f'{day / 365:g} г.')
+    ax.set_xticks(cells)
+    ax.set_xticks([], minor=True)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%.2f'))
+    ax.yaxis.set_minor_formatter(matplotlib.ticker.FormatStrFormatter('%.2f'))
+    ax.set_xlabel('N')
+    ax.set_ylabel('max |Δθ|')
+    ax.legend(fontsize=8, loc='upper right')
+    ax.text(0.03, 0.05, '(б)', transform=ax.transAxes, va='bottom', **PANEL)
+    fig.tight_layout()
+    _save(fig, 'term_f1')
+    last = len(days) - 1
+    for scheme, tag in ((2, 'VW'), (1, 'STEP'), (0, 'NONE')):
+        e = strip[f'lauwerier_hl{scheme}_n100']
+        num[f'V_{tag}_MAX'] = _f(max(r['max'] for r in e), 3)
+        num[f'V_{tag}_RMS'] = _f(max(r['rms'] for r in e), 3)
+    errs = [strip[f'lauwerier_hl2_n{n}'][last]['max'] for n in cells]
+    num['V_GRID'] = ', '.join(str(n) for n in cells)
+    num['V_GRID_ERR'] = ', '.join(_f(v, 3) for v in errs)
+    num['V_ORDER'] = _f(math.log(errs[0] / errs[-1]) / math.log(cells[-1] / cells[0]), 1)
+    num['V_Q'] = f"{vh['q_m3_day']:.0f}"
+    mrst = vh['mrst']
+    n = max(mrst, key=int)
+    m = mrst[n]
+    num['V_MRST_N'] = str(n)
+    num['V_MRST_QINJ'] = _f(100 * m['q_inj'], 1)
+    num['V_MRST_DT_MEAN'] = _f(max(m['dT_mean']), 2)
+    num['V_MRST_DT_MAX'] = _f(max(m['dT_max']), 2)
+    num['V_MRST_TPROD'] = _f(m['T_prod_max'], 2)
+    num['V_MRST_DP'] = _f(max(m['dp_rms']), 2)
+    num['V_FRICTION'] = _f(vh['dT_friction'], 1)
+    if 'mrst_jt' in vh:  # с эффектом Джоуля - Томсона (флаг joule_thomson): нагрев трением, который есть в MRST
+        j = vh['mrst_jt'][n]
+        num['V_JT_QINJ'] = _f(100 * j['q_inj'], 2)
+        num['V_JT_DT_MEAN'] = _f(max(j['dT_mean']), 2)
+        num['V_JT_DT_MAX'] = _f(max(j['dT_max']), 2)
+        num['V_JT_TPROD'] = _f(j['T_prod_max'], 2)
+
+
+def romashkino_numbers(num):
+    """Статья A: обращение решения Ловерье по трем контрольным скважинам Ромашкинского месторождения
+    (`romashkino.py`): расход на длину ряда, допустимая теплопроводность вмещающих пород, промытые поровые объемы."""
+    r = _jload(RESULTS / 'romashkino.json')
+    if not r:
+        return
+    day = 86400.0
+    ok = sorted(float(k) for k, e in r['scan'].items() if e['overlap'])
+    bad = sorted(float(k) for k, e in r['scan'].items() if not e['overlap'])
+    num['ROM_Q'] = _f(r['q'] * day, 1)
+    num['ROM_Q_RANGE'] = _rng([v * day for v in r['overlap']], 2)
+    num['ROM_K_OK'] = f'{_f(ok[0], 1)}–{_f(ok[-1], 1)}'
+    num['ROM_K_BAD'] = ' и '.join(_f(k, 2 if k < 0.5 else 1) for k in bad)
+    num['ROM_Q_ALL'] = _rng([v * day for k, e in r['scan'].items() if e['overlap'] for v in e['overlap']], 1)
+    num['ROM_PV600'] = _rng(list(r['pv_600'].values()), 1)
+    num['ROM_PV600_ALL'] = _rng([v for e in r['scan'].values() if e['overlap'] for v in e['pv_600'].values()], 1)
+    num['ROM_SPACING'] = _rng(list(r['spacing'].values()), 0)
+    for x in ('250', '390', '600'):
+        num[f'ROM_T{x}'] = _f(r['T'][x], 1)
+    num['ROM_T600_KLO'] = _f(r['scan'][str(ok[0])]['T']['600'], 1)
+
+
+def lambda_number(h, t_years, k_ff=None):
+    """Безразмерный параметр теплообмена: теплота, запасенная прогретым слоем кровли и подошвы за время t, к
+    теплоемкости пласта, Lambda = 2 sqrt(K_ff rho_ff c_ff t/pi)/(h M), M - объемная теплоемкость заводненного пласта."""
+    from paraphin.constants import K_ff, ro_ff, c_ff, ro_f, c_f, ro_w, c_w, init_m
+    k = K_ff if k_ff is None else k_ff
+    M = (1.0 - init_m) * ro_f * c_f + init_m * ro_w * c_w
+    return 2.0 * math.sqrt(k * ro_ff * c_ff * t_years * 365.0 * 86400.0 / math.pi) / (h * M)
+
+
+FIELD_YEARS = 5.0  # длительность полевых расчетов (run_thermal.YEARS)
+
+
+def field_extra(th, num):
+    """Статья A: толщина пласта и теплопроводность пород (параметр Gamma), Джоуль - Томсон, сезонная закачка.
+    Сетки 25-100 - ключи F_BASE_G*_* (`field_numbers`): КИН немонотонен из-за осадка асфальтенов в ячейке добывающей
+    скважины, поэтому экстраполяции Ричардсона нет."""
+    v = th['variants']
+    rf = lambda n: v[n]['rf']  # noqa: E731
+    for h in (5, 10, 20):
+        num[f'LAM_H{h}'] = _f(lambda_number(h, FIELD_YEARS), 2)
+    rows = []
+    for h, base, hl0 in ((5, 'h5', 'h5_hl0'), (10, 'base', 'hl0'), (20, 'h20', 'h20_hl0')):
+        if base in v and hl0 in v:
+            num[f'HL_EFF_H{h}'] = _f(rf(base) - rf(hl0), 3)
+            num[f'H{h}_WAXRATIO'] = _f(v[hl0]['wax_dep_t'] / v[base]['wax_dep_t'], 1)
+            rows.append((f'{h}', _f(lambda_number(h, FIELD_YEARS), 2), f'{rf(base):.3f}', f'{rf(hl0):.3f}',
+                         f"{v[base]['wax_dep_t']:.0f}", f"{v[hl0]['wax_dep_t']:.0f}"))
+    if rows:
+        num['A_T_THICK'] = _table(['h, м', 'Γ', 'КИН', 'КИН без теплообмена', 'Парафин, т',
+                                   'Парафин без теплообмена, т'], rows)
+    for name, tag in (('kff15', 'KFF15'), ('kff30', 'KFF30'), ('jt', 'JT'), ('season', 'SEASON'),
+                      ('season_diss', 'SEASON_DISS')):
+        if name in v:
+            num[f'{tag}_RF'] = f'{rf(name):.3f}'
+            num[f'{tag}_DRF'] = _delta(rf(name) - rf('base'))
+            num[f'{tag}_WAX'] = f"{v[name]['wax_dep_t']:.0f}"
+            num[f'{tag}_TMEAN'] = _f(v[name]['T_mean'], 1)
+            num[f'{tag}_KINJ'] = _f(v[name]['k_inj'], 3)
+    if 'kff15' in v and 'kff30' in v:
+        num['LAM_KFF15'], num['LAM_KFF30'] = _f(lambda_number(10, FIELD_YEARS, 1.5), 2), _f(lambda_number(10, FIELD_YEARS, 3.0), 2)
+    if 'uniquac_g25' in v:  # статья B: твердый раствор с составом по ДСК против эффективной модели на той же сетке
+        u, b25 = v['uniquac_g25'], v['base_g25']
+        num['UQ_DRF'] = _delta(u['rf'] - b25['rf'])
+        num['UQ_WAT0'] = f"{u['wat0'][0]:.1f}–{u['wat0'][1]:.1f}"
+        num['UQ_WAXRATIO'] = _f(u['wax_dep_t'] / b25['wax_dep_t'], 1)
+    if 'jt' in v:
+        num['JT_DT'] = _f(v['jt']['T_mean'] - v['base']['T_mean'], 2)
+        num['JT_DT_PROD'] = _f(v['jt']['T_prod'] - v['base']['T_prod'], 1)
+        num['JT_WAX_PCT'] = _f(100 * (1 - v['jt']['wax_dep_t'] / v['base']['wax_dep_t']), 0)
+    # адиабатическое слагаемое m*beta*T*dp/dt: оценка сверху - весь перепад давления между скважинами при пластовой T
+    from paraphin.constants import beta_water, init_m, ro_f, c_f, ro_w, c_w
+    M = (1.0 - init_m) * ro_f * c_f + init_m * ro_w * c_w
+    dp, t_k = 10e6, th['init_T'] + 273.15  # перепад забойных давлений 17 - 7 МПа (run_thermal.COMMON)
+    num['ADIAB_DT'] = _f(init_m * beta_water * t_k * dp / M, 2)
+    num['JT_DT_FLOW'] = _f((1.0 - beta_water * t_k) * dp / (ro_w * c_w), 1)
+
+
+def _uni_curve(uni, key):
+    return uni['curves'][key] if uni and key in uni.get('curves', {}) else None
+
+
+def fig_sr_split(sr, uni, num):
+    """Статья B: опыты Sutton & Roberts - свой набор на опыт, общий набор, прогноз опыта 2 без него в подборе."""
+    import sutton_roberts as m
+    g = lambda d, n: d[n] if n in d else d[str(n)]
+    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.7), sharey=True)
+    for ax, n, letter in zip(axes, (1, 2), 'аб'):
+        pv, k = np.array(m.EXPS[n]['k_pv']).T
+        ax.plot(pv, k, 'o', mfc='white', mec='k', ms=4)
+        own = g(sr['lsq']['rate_entrainment'][f'own{n}']['curves'], n)
+        ax.plot(own['pv'], own['k'], '-', color='k', lw=1.5, label='1')
+        u = _uni_curve(uni, f'sr{n}')
+        if u:
+            ax.plot(u['pv'], u['k'], '--', color='k', lw=1.2, label='2')
+        x, y = np.array(m.EXPS[n]['models']['Wang & Civan (2005)']).T
+        ax.plot(x, y, ':', color='0.45', lw=1.4, label='3')
+        ax.set_xlim(0, 5.1)
+        ax.set_ylim(0, 1.05)
+        ax.set_xlabel('V')
+        _panel(ax, letter)
+    axes[0].set_ylabel('k/k₀')
+    axes[1].legend(loc='lower left', fontsize=8, handlelength=2.6)
+    fig.tight_layout()
+    _save(fig, 'crys_f5')
+
+
+def fig_li_split(li, uni, num):
+    """Статья B: опыт Li et al. по ступеням - подбор по семействам и общий набор."""
+    import li2024 as m
+    fig, ax = plt.subplots(figsize=(6.7, 2.7))
+    own = m.stage_curves(li['cold']['result'])
+    u = _uni_curve(uni, 'li')
+    common = m.stage_curves(u) if u else {}
+    start = 0.0
+    for t, pv_stage in m.STAGES:
+        pts = np.array(m.DATA['k_pv'][str(int(t))])
+        ax.plot(start + pts[:, 0], pts[:, 1], 'o', mfc='white', mec='k', ms=3.5)
+        if t in own:
+            x, y = own[t]
+            ax.plot(start + x, y, '-', color='k', lw=1.5)
+        ax.axvline(start, color='0.6', lw=0.6)
+        ax.text(start + 0.5 * pv_stage, 1.08, f'{t:.0f}°C', ha='center', fontsize=8)
+        start += pv_stage
+    ax.set_xlim(0, start)
+    ax.set_ylim(0, 1.15)
+    ax.set_xlabel('V')
+    ax.set_ylabel('k/k₀')
+    fig.tight_layout()
+    _save(fig, 'crys_f6')
+
+
+def fig_sd_split(sd, uni, num):
+    """Статья B: опыт Sandyga et al. - (а) рост градиента давления: подбор на опыт, общий набор, упрощенная модель;
+    (б) потеря объема по классам пор: томография и модель."""
+    import sandyga2020 as m
+    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.7))
+    ax = axes[0]
+    t_exp, g_exp = np.array(m.DATA['gradient']['points']).T
+    ax.plot(t_exp, g_exp / g_exp[0], 'o', mfc='white', mec='k', ms=4)
+    series = [(sd['kinetics_best']['result'], ':', '1')]
+    u = _uni_curve(uni, 'sd')
+    if u:
+        series.append((u, '-', '2'))
+    series.append((sd['legacy']['result'], '--', '3'))
+    for res, style, label in series:
+        t, g = m.curve(res)
+        ax.plot(t, g, ls=style, color='k', lw=1.3, label=label)
+    ax.set_yscale('log')
+    ax.invert_xaxis()
+    ax.set_xlabel('T, °C')
+    ax.set_ylabel('∇p/∇p₀')
+    ax.legend(loc='upper left', fontsize=8, bbox_to_anchor=(0.0, 0.88), handlelength=2.6)
+    _panel(ax, 'а')
+    ax = axes[1]
+    d = np.array(m.DATA['pores']['d_um'], float)
+    exp_loss = np.array(sd['best']['pore_loss_exp'])
+    res = u if u else sd['kinetics_best']['result']
+    model_loss = np.array(m.pore_loss(res)[0])
+    w = 0.35 * np.min(np.diff(d)) if d.size > 1 else 3.0
+    ax.bar(d - w / 2, exp_loss, width=w, color='0.75', edgecolor='k', lw=0.6, label='1')
+    ax.bar(d + w / 2, model_loss, width=w, color='white', edgecolor='k', lw=0.6, hatch='///', label='2')
+    ax.set_xlabel('d, мкм')
+    ax.set_ylabel('доля потерянного объема')
+    ax.set_ylim(0, 1.05)
+    ax.legend(loc='upper right', fontsize=8)
+    _panel(ax, 'б')
+    fig.tight_layout()
+    _save(fig, 'crys_f7')
+    num['B_SD_LOSS_MODEL'] = ', '.join(_f(v, 2) for v in model_loss)
+    num['B_SD_LOSS_EXP'] = ', '.join(_f(v, 2) for v in exp_loss)
+    num['B_SD_DBINS'] = ', '.join(f'{v:g}' for v in d)
+
+
+def split_summary(sr, li, sd, uni, num):
+    """Статья B: сводка согласия по всем керновым опытам и рисунок «расчет - опыт» (общий набор параметров).
+    Столбцы: шумовой порог, упрощенная модель, подбор на каждый опыт (прежний уровень), общий набор, прогноз опыта по
+    набору, подобранному без него."""
+    import sutton_roberts as msr
+    import li2024 as mli
+    import sandyga2020 as msd
+    from common import fit_metrics, k_model_at
+    g = lambda d, n: d[n] if n in d else d[str(n)]
+    rows, pairs, pairs_u = [], {}, {}
+    for n in (1, 2):
+        pts = msr.EXPS[n]['k_pv']
+        mo, ex = k_model_at(g(sr['lsq']['rate_entrainment'][f'own{n}']['curves'], n), pts)
+        r_uni = uni['scores'][f'sr{n}'] if uni else None
+        loo = uni['loo'][f'sr{n}']['scores'] if uni and f'sr{n}' in uni.get('loo', {}) else None
+        pairs[f'S&R {n}'] = (mo, ex)
+        if (u := _uni_curve(uni, f'sr{n}')) is not None:
+            pairs_u[f'S&R {n}'] = k_model_at(u, pts)
+        rows.append((f'Sutton, Roberts, опыт {n}', len(ex), _f(g(sr['noise'], n)), _f(msr.rms(g(sr['legacy'], n), n)),
+                     fit_metrics(mo, ex), r_uni, loo))
+    u = _uni_curve(uni, 'li')
+    for t, _ in mli.STAGES:
+        pts = np.array([p for p in mli.DATA['k_pv'][str(int(t))] if p[0] > 0.0])
+        mk = lambda res: (pts[:, 1] + mli.stage_residuals(res, [[t, 0.0]]), pts[:, 1])
+        r_uni = uni['scores']['li'][f'{t:.0f}'] if uni else None
+        loo = uni['loo']['li']['scores'][f'{t:.0f}'] if uni and 'li' in uni.get('loo', {}) else None
+        pairs[f'Li {t:.0f}°C'] = mk(li['cold']['result'])
+        if u is not None:
+            pairs_u[f'Li {t:.0f}°C'] = mk(u)
+        leg = mli.stage_rms(li['legacy']).get(t)
+        rows.append((f'Li и др., {t:.0f}°C', len(pts), _f(li['noise'][str(int(t))]),
+                     _f(leg) if leg is not None else 'закупорка', fit_metrics(*mk(li['cold']['result'])), r_uni, loo))
+    # Sandyga: метрики - в lg(grad/grad0), на рисунке - k/k0 = grad0/grad
+    _, g_exp = np.array(msd.DATA['gradient']['points']).T
+    lg_exp = np.log10(g_exp / g_exp[0])
+    r_uni = uni['scores']['sd'] if uni else None
+    loo = uni['loo']['sd']['scores'] if uni and 'sd' in uni.get('loo', {}) else None
+    pairs['Sandyga'] = (10.0 ** -(lg_exp + msd.residuals(sd['kinetics_best']['result'])), 10.0 ** -lg_exp)
+    if (u := _uni_curve(uni, 'sd')) is not None:
+        pairs_u['Sandyga'] = (10.0 ** -(lg_exp + msd.residuals(u)), 10.0 ** -lg_exp)
+    rows.append(('Sandyga и др., lg(∇p/∇p₀)', len(lg_exp), _f(sd['noise_log']), _f(sd['legacy']['rms_log']),
+                 fit_metrics(lg_exp + msd.residuals(sd['kinetics_best']['result']), lg_exp), r_uni, loo))
+    cell = lambda r: '—' if r is None else _f(r['rmse'])
+    r2 = lambda r: '—' if r is None or not math.isfinite(r['r2']) else _f(r['r2'], 2)
+    mape = lambda r: '—' if r is None or not math.isfinite(r['mape']) else _f(r['mape'], 0)
+    num['B_T_SUMMARY'] = _table(
+        ['Опыт', 'Точек', 'Шумовой порог', 'Упрощенная модель', 'Подбор на опыт: СКО', 'Подбор на опыт: R²',
+         'Общий набор: СКО', 'Общий набор: R²', 'Общий набор: MAPE, %', 'Прогноз без опыта: СКО'],
+        [(name, n_pts, noise, leg, cell(ro), r2(ro), cell(ru), r2(ru), mape(ru), cell(rl))
+         for name, n_pts, noise, leg, ro, ru, rl in rows])
+    # отдельные числа для текста: СКО общего набора и прогноза по каждому опыту
+    tags = ['SR1', 'SR2'] + [f'LI{t:.0f}' for t, _ in mli.STAGES] + ['SD']
+    for tag, (_, _, _, _, ro, ru, rl) in zip(tags, rows):
+        num[f'OWN_RMS_{tag}'] = cell(ro)
+        num[f'U_RMS_{tag}'], num[f'U_R2_{tag}'] = cell(ru), r2(ru)
+        num[f'LOO_RMS_{tag}'] = cell(rl)
+    if uni:
+        num['U_RMSK_SD'] = _f(uni['scores']['sd']['rms_k'])
+        num['U_SD_FACTOR'] = _f(uni['scores']['sd']['max_factor'], 2)
+        num['U_SD_MCOND'] = _f(uni['scores']['sd']['m_conductive'], 2)
+    kk = [r for r in rows if 'lg' not in r[0]]
+    num['B_OWN_MIN'], num['B_OWN_MAX'] = _f(min(r[4]['rmse'] for r in kk)), _f(max(r[4]['rmse'] for r in kk))
+    if uni:
+        num['B_UNI_MIN'], num['B_UNI_MAX'] = _f(min(r[5]['rmse'] for r in kk)), _f(max(r[5]['rmse'] for r in kk))
+    fig_parity(pairs, num)
+    if pairs_u:
+        mo = np.concatenate([np.asarray(a) for a, _ in pairs_u.values()])
+        ex = np.concatenate([np.asarray(b) for _, b in pairs_u.values()])
+        num['B_PARITY_125_U'] = _f(100 * np.mean(np.abs(np.log(np.maximum(mo, 1e-3) / ex)) <= math.log(1.25)), 0)
+
+
+def fig_parity(pairs, num):
+    """Статья B: расчет против опыта во всех точках керновых опытов (общий набор параметров)."""
+    fig, ax = plt.subplots(figsize=(3.4, 3.2))
+    allm, alle = [], []
+    for (name, (mo, ex)), marker in zip(pairs.items(), ('o', 's', '^', 'v', 'D', 'x', '+')):
+        ax.loglog(np.maximum(ex, 1e-3), np.maximum(mo, 1e-3), marker, color='k', mfc='white', ms=3.5, label=name)
+        allm += list(mo)
+        alle += list(ex)
+    x = np.array([1e-2, 1.1])
+    ax.loglog(x, x, '-', color='k', lw=0.8)
+    for f in (1.25, 0.8):
+        ax.loglog(x, f * x, ':', color='0.5', lw=0.8)
+    ax.set_xlim(1e-2, 1.1)
+    ax.set_ylim(1e-2, 1.1)
+    ax.set_xlabel('k/k₀, опыт')
+    ax.set_ylabel('k/k₀, расчет')
+    ax.legend(fontsize=6.5, loc='upper left', handletextpad=0.2)
+    fig.tight_layout()
+    _save(fig, 'crys_f10')
+    mo, ex = np.array(allm), np.array(alle)
+    num['B_PARITY_N'] = str(mo.size)
+    num['B_PARITY_125'] = _f(100 * np.mean(np.abs(np.log(np.maximum(mo, 1e-3) / ex)) <= math.log(1.25)), 0)
+
+
+def split_params(uni, num):
+    """Статья B: общий набор параметров и физически обоснованные различия систем."""
+    x = uni['x']
+    num['U_DCR'] = f'{10 ** x[0] * 1e6:.1f}'
+    num['U_TAU'] = _f(x[1], 2)
+    num['U_KENT'] = _sci(10 ** x[2])
+    num['U_MU1'] = f'{10 ** x[3] * 1e3:.1f}'
+    num['U_MU2'] = f'{10 ** x[4] * 1e3:.1f}'
+    num['U_KCO'] = _sci(10 ** x[5])
+    num['U_KW'] = _sci(10 ** x[6])
+    num['U_KCS'] = _sci(10 ** x[7])
+    num['U_TCO'] = f'{1.0 / 10 ** x[5] / 3600:.0f}'  # ч
+    num['U_TCS'] = f'{1.0 / 10 ** x[7] / 60:.0f}'    # мин
+    num['U_TW'] = f'{1.0 / 10 ** x[6] / 60:.0f}'     # мин
+    num['U_WALL_SHARE_OIL'] = _f(100 * 10 ** x[6] / (10 ** x[6] + 10 ** x[5]), 0)
+    num['U_WALL_SHARE_SOL'] = _f(100 * 10 ** x[6] / (10 ** x[6] + 10 ** x[7]), 0)
+    loo = uni.get('loo', {})
+    if 'li' in loo:  # без опыта Li et al. в подборе: вынос отложений
+        num['LOO_LI_TAU'], num['LOO_LI_KENT'] = _f(loo['li']['x'][1], 2), _sci(10 ** loo['li']['x'][2])
+    # проверка гипотезы о затрудненной диффузии в геле (ступень 25 C керна Li et al.)
+    chk = uni.get('checks', {})
+    for key, tag in (('DIFF_MULT = 1', 'D1'), ('DIFF_MULT = 1, диффузия по кажущейся вязкости', 'T2')):
+        if key in chk:
+            num[f'CHK_LI25_{tag}'] = _f(chk[key]['rms'].get('25'))
+
+
+def split_thermal_core(uni, num):
+    """Статья A, рис. 2: опыт Sandyga et al. общим набором параметров - рост градиента давления и прогноз по
+    скоростям охлаждения, числа Дамкелера."""
+    import sandyga2020 as m
+    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.7))
+    ax = axes[0]
+    t_exp, g_exp = np.array(m.DATA['gradient']['points']).T
+    ax.plot(t_exp, g_exp / g_exp[0], 'o', mfc='white', mec='k', ms=4)
+    t, g = m.curve(uni['curves']['sd'])
+    ax.plot(t, g, '-', color='k')
+    ax.set_yscale('log')
+    ax.invert_xaxis()
+    ax.set_xlabel('T, °C')
+    ax.set_ylabel('∇p/∇p₀')
+    _panel(ax, 'а')
+    ax = axes[1]
+    rates = sorted(uni['sd_cooling'].values(), key=lambda e: e['rate'])
+    for e, style in zip(rates, STYLES):
+        t, g = (np.array(v) for v in e['curve'])
+        ax.plot(t, g, ls=style, color='k', lw=1.3, label=f"{e['rate']:g}")
+    ax.set_yscale('log')
+    ax.invert_xaxis()
+    ax.set_xlabel('T, °C')
+    ax.legend(title='°C/ч', fontsize=7.5, title_fontsize=7.5, loc='upper left', bbox_to_anchor=(0.0, 0.88),
+              handlelength=2.6)
+    _panel(ax, 'б')
+    fig.tight_layout()
+    _save(fig, 'term_f2')
+    s = uni['scores']['sd']
+    num['A_SD_RMSLG'], num['A_SD_RMSK'] = _f(s['rmse']), _f(s['rms_k'])
+    num['A_SD_FACTOR'] = _f(s['max_factor'], 2)
+    for e in rates:
+        tag = f"{e['rate']:g}".replace('.', '_')
+        num[f'A_SD_FIN_{tag}'] = f"{e['final']:.0f}"
+        num[f'A_SD_DA_{tag}'] = f"{e['damkohler']:.1f}"
+        num[f'A_SD_T10_{tag}'] = _f(e['t10'], 1)
+        num[f'A_SD_TEND_{tag}'] = _f(min(e['curve'][0]), 1)  # температура конца расчета (закупорки, если раньше 32.8 C)
+    reach = [e for e in rates if e['t10'] is not None]
+    if len(reach) > 1:
+        num['A_SD_DT10'] = _f(reach[0]['t10'] - reach[-1]['t10'], 1)
+        num['A_SD_DT10_LO'], num['A_SD_DT10_HI'] = f"{reach[0]['rate']:g}", f"{reach[-1]['rate']:g}"
+
+
+def split_sr_thermal(sr, num):
+    """Тепловая постановка опытов Sutton & Roberts (`experiments/sr_thermal.py`); прежний режим 'thermal' с
+    неизменным линейным профилем температуры - для сравнения."""
+    g = lambda d, n: d[n] if n in d else d[str(n)]
+    lin = sr['lsq']['thermal_bundle']
+    num['SR_THERMAL_LIN1'], num['SR_THERMAL_LIN2'] = _f(g(lin['own1']['rms'], 1)), _f(g(lin['own2']['rms'], 2))
+    st = _load('sr_thermal')
+    if not st:
+        return
+    for n in (1, 2):
+        o = g(st['own'], n)
+        num[f'ST_ISO{n}'] = _f(o['iso'])
+        for u, l, v in zip(st['U'], g(st['L'], n), o['bath']):
+            num[f'ST_RMS{n}_U{u:g}'] = _f(v)
+            num[f'ST_L{n}_U{u:g}'] = f'{100 * l:.0f}'
+
+
+def split_grid(num):
+    """Статья B: сеточная сходимость керновых прогонов (`experiments/grid_check.py`)."""
+    gc = _load('grid_check')
+    if not gc:
+        return
+    head = list(next(iter(gc.values())))
+    rows = [[name] + [f"{_f(v['rms'])} ({_f(v['max_dev'])})" for v in d.values()] for name, d in gc.items()]
+    num['B_T_GRID'] = _table(['Опыт'] + [h.replace('NY=', 'N = ').replace('dt=', 'Δt = ') for h in head], rows)
+    dev = lambda names: max(v['max_dev'] for n, d in gc.items() if n in names for k, v in d.items() if k.startswith('NY=60'))
+    num['B_GRID_DEV'] = _f(dev([n for n in gc if not n.startswith('Sandyga')]), 4)
+    num['B_GRID_DEV_SD'] = _f(dev([n for n in gc if n.startswith('Sandyga')]), 3)
+
+
+# Варианты поля по статьям: термические - в статье A, механизмы осаждения - в статье B
+A_FIELD = ('base', 'tiso', 't40', 't5', 'hl0', 'hl1', 'nowax', 'hl0_nowax', 'nolatent', 'equil', 'ltne')
+B_FIELD = ('base', 'equil', 'nogel', 'ret', 'nopress')
+
+
+def field_tables(th, num):
+    """Таблицы показателей вариантов поля для двух статей (те же столбцы, что табл. 2 прежней статьи)."""
+    v = th['variants']
+    base = v['base']
+    head = ['Вариант', 'КИН', 'ΔКИН', 'Закачано, тыс. м³', 'Скин-фактор нагнетательной скважины',
+            'Парафин в осадке, т', 'Ниже WAT, % площади', 'Средняя температура, °C']
+    for key, names in (('A_T_FIELD', A_FIELD), ('B_T_FIELD', B_FIELD)):
+        rows = []
+        for name in names:
+            if name not in v:
+                continue
+            e = v[name]
+            rows.append((e['label'], f"{e['rf']:.3f}", '—' if name == 'base' else _delta(e['rf'] - base['rf']),
+                         f"{e['injected'] / 1e3:.1f}", _nz(e['skin_inj'], 1), f"{e['wax_dep_t']:.0f}",
+                         f"{100 * e['below_wat_area']:.0f}", f"{e['T_mean']:.1f}"))
+        num[key] = _table(head, rows)
+
+
+def field_grid_check(th, num):
+    """Статья A: факторный план теплообмен x парафин и изотермическая закачка на сетках 50 x 50 и 75 x 75 - зависят ли
+    от сетки абсолютные показатели и разности вариантов."""
+    v = th['variants']
+    names = ('base', 'tiso', 'hl0', 'nowax', 'hl0_nowax')
+    if not all(n in v and f'{n}_g75' in v for n in names):
+        return
+    rows, vals = [], {}
+    for tag, sfx in (('50', ''), ('75', '_g75')):
+        rf = lambda n, sfx=sfx: v[n + sfx]['rf']
+        fx = factorial(v, rf) if not sfx else {  # factorial() берет имена без суффикса
+            'hl_wax': rf('base') - rf('hl0'), 'hl_nowax': rf('nowax') - rf('hl0_nowax'),
+            'wax_hl': rf('base') - rf('nowax'), 'wax_nohl': rf('hl0') - rf('hl0_nowax')}
+        fx['inter'] = fx['hl_wax'] - fx['hl_nowax']
+        cool = rf('tiso') - rf('base')
+        vals[tag] = dict(rf=rf('base'), cool=cool, wax=rf('nowax') - rf('base'), share=100 * (rf('nowax') - rf('base')) / cool,
+                         hl=fx['hl_wax'], inter=fx['inter'], inter_pct=100 * fx['inter'] / fx['hl_wax'],
+                         waxratio=v['hl0' + sfx]['wax_dep_t'] / v['base' + sfx]['wax_dep_t'],
+                         inj=100 * (1 - v['base' + sfx]['injected'] / v['nowax' + sfx]['injected']))
+    spec = (('КИН базового варианта', 'rf', '{:.3f}'), ('Снижение КИН от охлаждения (20°C против изотермической)', 'cool', '{:.3f}'),
+            ('Снижение КИН от парафина', 'wax', '{:.3f}'), ('Доля парафина в снижении от охлаждения, %', 'share', '{:.0f}'),
+            ('Эффект теплообмена (с парафином)', 'hl', '{:.3f}'), ('Взаимодействие теплообмена и парафина', 'inter', '{:+.3f}'),
+            ('Взаимодействие, % эффекта теплообмена', 'inter_pct', '{:.0f}'),
+            ('Рост отложений без теплообмена, раз', 'waxratio', '{:.1f}'),
+            ('Снижение закачки от парафина, %', 'inj', '{:.0f}'))
+    num['A_T_GRID'] = _table(['Показатель', 'Сетка 50 × 50', 'Сетка 75 × 75'],
+                             [(label, fmt.format(vals['50'][k]).replace('-', '−'), fmt.format(vals['75'][k]).replace('-', '−'))
+                              for label, k, fmt in spec])
+    for k, fmt in (('rf', '{:.3f}'), ('cool', '{:.3f}'), ('wax', '{:.3f}'), ('share', '{:.0f}'), ('hl', '{:.3f}'),
+                   ('inter_pct', '{:.0f}'), ('waxratio', '{:.1f}'), ('inj', '{:.0f}')):
+        num[f'F75_{k.upper()}'] = fmt.format(vals['75'][k])
+
+
+def two_articles(sr, li, sd, num, th=None):
+    _aliases()
+    uni = _load('unified')
+    vh = _jload(RESULTS / 'verify_heat.json')
+    if vh:
+        fig_verify(vh, num)
+    fig_sr_split(sr, uni, num)
+    fig_li_split(li, uni, num)
+    fig_sd_split(sd, uni, num)
+    split_summary(sr, li, sd, uni, num)
+    if uni:
+        split_params(uni, num)
+        if 'sd_cooling' in uni:
+            split_thermal_core(uni, num)
+    split_sr_thermal(sr, num)
+    split_grid(num)
+    if th:
+        field_tables(th, num)
+        field_grid_check(th, num)
+        field_extra(th, num)
+    romashkino_numbers(num)
+    if uni and 'wat_rate' in uni:  # WAT раствора от скорости охлаждения с k_cr общего набора
+        wr = uni['wat_rate']
+        num['A_RATE_THR'], num['A_RATE_RMS'] = _f(100 * wr['sandyga']['thr'], 2), _f(wr['sandyga']['rms'], 2)
+        num['A_RATE_BULK20'] = _f(wr['bulk20_rheometer'], 1)
 
 
 def main():
@@ -1038,6 +1635,7 @@ def main():
     else:
         print('нет results/thermal.json - сначала python твт_статья_АСПО/run_thermal.py')
     thermo_rheology(num, th)
+    two_articles(sr, li, sd, num, th)  # рисунки и числа статей article_thermal.md, article_crystallization.md
     RESULTS.mkdir(exist_ok=True)
     (RESULTS / 'numbers.json').write_text(json.dumps(num, ensure_ascii=False, indent=1), encoding='utf-8')
     lines = ['# Числа статьи', '', 'Создается `python твт_статья_АСПО/make_article.py`, руками не править.', '']

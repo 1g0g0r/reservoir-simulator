@@ -1,7 +1,7 @@
 """Вычисление перетоков массы и энергии при решении методом конечных объемов на прямоугольной сетке."""
 from numba import njit
 
-from paraphin.constants import Nx, Ny, ro_w
+from paraphin.constants import Nx, Ny, ro_w, joule_thomson, beta_oil, beta_water
 from paraphin.layout import NC_T
 from paraphin.utils import (PARAFFIN, DIRICHLET, mid, lam_heat, up_fraction, apply_bc, get_bound,
                             mobility_o, mobility_w, DI, DJ, HIJ, AREA)
@@ -119,6 +119,12 @@ def flows_in_cells(i, j, boundary_conditions, bc_Wc, p, S, T, k, mu_o, mu_w, lam
             Fo[i, j, idx] = up_ko_ij
         _s += up_kw_ij
         _t += lam_heat_ij * (T_ij - T_c) + cw_ro_w * T_up * up_kw_ij + Ho_up * up_ko_ij
+        if joule_thomson:
+            # Джоуль-Томсон: работа сил давления на грани (1 - beta*T)*q*dP >= 0 делится поровну между соседями,
+            # на границе области соседа нет - вся ячейке
+            t_k = T_c + 273.15
+            share = 0.5 if (0 <= i1 < Nx) and (0 <= j1 < Ny) else 1.0
+            _t += share * (p_ij - p_c) * ((1.0 - beta_water * t_k) * up_kw_ij + (1.0 - beta_oil * t_k) * up_ko_ij)
 
         # value > 0 - приток в ячейку, value < 0 - отток
         if value < 0.0:

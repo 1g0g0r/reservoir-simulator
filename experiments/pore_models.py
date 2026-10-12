@@ -1,6 +1,6 @@
 """Геометрические модели порового пространства - потомки пучка капилляров - и их связь k(m) при отложении.
 
-    python experiments/pore_models.py          # секунды - минута: все модели против пар (m/m0, k/k0) He et al. (2020)
+    python experiments/pore_models.py          # секунды - минута: все модели против пар (m/m0, k/k0) Xie et al. (2020)
     python experiments/pore_models.py --plot   # только рисунок
 
 Семейства моделей (обзор `resources/всякие статьи/модели ПС/`, docs/кинетика_осаждения.md, разд. 13.13), все с
@@ -188,7 +188,7 @@ def plot(out):
     fig, ax = plt.subplots(figsize=(5.8, 4.0))
     for (well, rows), marker in zip(out['pairs'].items(), ('^', 'D', 's', 'v')):
         p = np.array(rows)
-        ax.semilogy(p[:, 0], p[:, 1], marker, color='k', mfc='white', ms=4.5, label=f'He et al., {well}')
+        ax.semilogy(p[:, 0], p[:, 1], marker, color='k', mfc='white', ms=4.5, label=f'Xie et al., {well}')
     styles = (':', '--', '-.', (0, (5, 1, 1, 1)), '-', (0, (1, 1)), (0, (6, 2)))
     for (name, curve), style in zip(out['curves'].items(), styles):
         c = np.array(curve)
