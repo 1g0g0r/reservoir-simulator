@@ -1,12 +1,14 @@
 """Скачивание открытых (легальных) копий статей, на которых построен детальный состав нефти.
 
-    python resources/литература/fetch_open_access.py [--email you@example.org]
+    python resources/литература/fetch_open_access.py [папка ...] [--email you@example.org]
 
 Для каждой статьи сначала пробуется известная открытая ссылка (издатель в открытом доступе, NIST,
 arXiv, OSTI, Europe PMC), затем - открытая копия по DOI: Unpaywall, если задана почта (api.unpaywall.org
 требует адрес в запросе; он уходит только туда), иначе OpenAlex (почта не нужна). Платные статьи не
 скачиваются: скрипт пишет, что их нет в открытом доступе.
-Пиратские источники не используются. Уже скачанные файлы пропускаются.
+Пиратские источники не используются. Уже скачанные файлы пропускаются. Папки в аргументах - скачать только их.
+Europe PMC отвечает простому клиенту 403, поэтому при установленном `curl_cffi` запросы идут с отпечатком
+браузера (`impersonate='chrome'`); без него - `requests`.
 
 Статьи разложены по папкам по темам, описание каждой - в README.md папки. В среде, где собиралась модель,
 внешняя сеть была закрыта, поэтому PDF в репозитории нет - их кладет этот скрипт.
@@ -83,13 +85,31 @@ ARTICLES = [
     ('реология_гель', 'liu2019_darcy_yield_stress_prl_arxiv.pdf', '10.1103/PhysRevLett.122.245502',
      'https://arxiv.org/pdf/1811.09494'),
     ('реология_гель', 'jtac2014_solid_fraction_gel_strength.pdf', '10.1007/s10973-014-3660-3', None),
+    # --- размер кристаллов парафина: диаметр d_p по измерениям (`experiments/data/crystal_size.json`) ---
+    ('размер_кристаллов', 'dong2022_rheo_optic_wax_crystals.pdf', '10.1021/acsomega.2c01251',
+     'https://europepmc.org/articles/PMC9161395?pdf=render'),
+    ('размер_кристаллов', 'zhao2020_insitu_microscopy_wax_crystals.pdf', '10.1021/acsomega.0c00606',
+     'https://europepmc.org/articles/PMC7254814?pdf=render'),
+    ('размер_кристаллов', 'dong2023_wax_crystals_gelation.pdf', '10.1021/acsomega.3c03021',
+     'https://europepmc.org/articles/PMC10468901?pdf=render'),
+    ('размер_кристаллов', 'dong2026_emulsion_gelling_mesoscopic.pdf', '10.1021/acsomega.6c02578',
+     'https://europepmc.org/articles/PMC13425321?pdf=render'),
+    ('размер_кристаллов', 'dong2026_emulsion_cross_scale.pdf', '10.1021/acsomega.6c08608',
+     'https://europepmc.org/articles/PMC13629359?pdf=render'),
+    ('размер_кристаллов', 'wang2022_ppd_crystallization_flow.pdf', '10.1021/acsomega.2c00068',
+     'https://europepmc.org/articles/PMC8992259?pdf=render'),
+    ('размер_кристаллов', 'sandyga2020_formation_damage_wax.pdf', '10.1007/s13202-020-00924-2',
+     'https://link.springer.com/content/pdf/10.1007/s13202-020-00924-2.pdf'),
+    ('размер_кристаллов', 'li2024_cooling_damage_processes.pdf', '10.3390/pr12020421',
+     'https://mdpi-res.com/d_attachment/processes/processes-12-00421/article_deploy/processes-12-00421.pdf'),
+    ('размер_кристаллов', 'ogst2015_wax_crystal_distribution.pdf', '10.6047/j.issn.1000-8241.2015.10.005', None),
 ]
 
 
 def _download(url: str, target: Path, session: requests.Session) -> bool:
     try:
         resp = session.get(url, timeout=60, allow_redirects=True)
-    except requests.RequestException as err:
+    except OSError as err:  # requests и curl_cffi: обе ошибки сети - OSError
         print(f'   ошибка сети: {err}')
         return False
     if resp.status_code != 200 or not resp.content.startswith(b'%PDF'):
@@ -107,7 +127,7 @@ def _unpaywall(doi: str, email: str, session: requests.Session):
             return None
         best = resp.json().get('best_oa_location') or {}
         return best.get('url_for_pdf')
-    except (requests.RequestException, ValueError):
+    except (OSError, ValueError):
         return None
 
 
@@ -117,19 +137,25 @@ def _openalex(doi: str, session: requests.Session):
         if resp.status_code != 200:
             return None
         return (resp.json().get('best_oa_location') or {}).get('pdf_url')
-    except (requests.RequestException, ValueError):
+    except (OSError, ValueError):
         return None
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('folders', nargs='*', help='только эти папки (по умолчанию - все)')
     parser.add_argument('--email', help='адрес для запросов к Unpaywall (требование API); без него - OpenAlex')
     args = parser.parse_args()
 
-    session = requests.Session()
-    session.headers['User-Agent'] = 'reservoir-simulator literature fetch (open access only)'
+    try:
+        from curl_cffi import requests as cffi
+        session = cffi.Session(impersonate='chrome')
+    except ImportError:
+        session = requests.Session()
+        session.headers['User-Agent'] = 'reservoir-simulator literature fetch (open access only)'
+    articles = [a for a in ARTICLES if not args.folders or a[0] in args.folders]
     missing = []
-    for folder, name, doi, url in ARTICLES:
+    for folder, name, doi, url in articles:
         target = HERE / folder / name
         if target.is_file():
             continue
@@ -143,7 +169,7 @@ def main() -> None:
             missing.append((folder, name, doi))
             print('   открытой копии нет - в README статья числится в «найдены, но не скачаны»')
 
-    print(f'\nНе скачано: {len(missing)} из {len(ARTICLES)}')
+    print(f'\nНе скачано: {len(missing)} из {len(articles)}')
     sys.exit(0)
 
 

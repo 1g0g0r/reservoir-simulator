@@ -14,10 +14,17 @@
     git archive <коммит> paraphin tests | tar -x -C <tmp>; cd <tmp>; python -m tests.regression_baseline --write
 и копируют tests/test_data/regression_flags_off_<хеш>.npz из <tmp> обратно. Пересъем существующего - только если
 сознательно меняется базовая физика.
+
+Регрессия проверяет код, а не калибровку: прогон идет в копии пакета (`tests/_patched_copy.make_copy`) с
+константами FROZEN, при которых сняты эталоны. Иначе каждая перекалибровка (D по измерениям, Lk, diff_mult) делала бы
+эталоны негодными.
 """
 import argparse
+import ast
 import hashlib
+import os
 import platform
+import subprocess
 import sys
 from pathlib import Path
 
@@ -26,6 +33,7 @@ import numpy as np
 DATA = Path(__file__).parent / 'test_data'
 T_END_DAYS = 100.0
 T_INJECTION = 5.0
+FROZEN = {'D': '15e-6', 'Lk': '3e-4', 'diff_mult': '1.0'}  # константы эталонов (до D по измерениям)
 
 FIELDS = ('p', 'S', 'T', 'T_0', 'm', 'k', 'Wo', 'Wp', 'Wps', 'fi', 'h_sloy', 'Ur', 'Ub', 'qp1', 'qp2',
           'mu_o', 'mu_w', 'E_ff', 'grad_p')
@@ -90,13 +98,28 @@ def run() -> dict:
     return out
 
 
+def run_frozen():
+    """`run` в копии пакета с константами FROZEN, отдельным процессом. Возвращает (поля, metadata() копии)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from tests._patched_copy import make_copy
+    root = make_copy('regression', FROZEN)
+    out = root / 'fields.npz'
+    subprocess.run([sys.executable, str(Path(__file__).resolve()), '--out', str(out)], cwd=root,
+                   env=dict(os.environ, PYTHONPATH=str(root)), check=True)
+    data = np.load(out)
+    return {k: data[k] for k in data.files if k != '__meta__'}, ast.literal_eval(str(data['__meta__']))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--write', action='store_true', help='записать эталон в tests/test_data')
+    parser.add_argument('--out', help='прогон в текущем пакете, поля - в этот npz (рабочий процесс `run_frozen`)')
     args = parser.parse_args()
 
-    fields = run()
-    meta = metadata()
+    if args.out:
+        np.savez(args.out, __meta__=np.array(repr(metadata())), **run())
+        return
+    fields, meta = run_frozen()
     if args.write:
         path = baseline_path(meta)
         path.parent.mkdir(parents=True, exist_ok=True)

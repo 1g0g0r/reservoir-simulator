@@ -11,14 +11,15 @@ Ring, керн изотермический (21.1 C), нефть и в керн�
 Reservoirs // Processes. 2024. V. 12. P. 421 - кривая выпадения парафина из нефти Жетыбая (рис. 3б).
 По ней подбираются эффективные Tm и alpha в (6.1) для полевого расчета (`--fit`).
 
-Параметры модели (d_p, L_k) у одного варианта - константы уровня модуля, numba вшивает их в машинный
+Параметры модели (d_p, L_k, diff_mult) у одного варианта - константы уровня модуля, numba вшивает их в машинный
 код. Поэтому каждый вариант - отдельный процесс в копии пакета с поправленным `constants.py`
 (`tests/_patched_copy.make_copy`), прогон - общим рабочим процессом `experiments/core_runner.py`; репозиторий и его
-кеш numba не трогаются.
+кеш numba не трогаются. Диаметр кристалла d_p - по измерениям (`constants.D`, `experiments/data/crystal_size.json`),
+не подбирается.
 
-    python experiments/исходная_модель/core_flood.py          # калибровка d_p, L_k по опыту 1, прогноз опыта 2
+    python experiments/исходная_модель/core_flood.py          # калибровка L_k, diff_mult по опыту 1, прогноз опыта 2
     python experiments/исходная_модель/core_flood.py --fit    # подгонка Tm, alpha по кривой Li
-    python experiments/исходная_модель/core_flood.py --check  # сходимость по сетке и шагу при найденных d_p, L_k
+    python experiments/исходная_модель/core_flood.py --check  # сходимость по сетке и шагу при найденных L_k, diff_mult
     python experiments/исходная_модель/core_flood.py --ring   # оба опыта с долей взвеси по расчету Ring
     python experiments/исходная_модель/core_flood.py --diag   # разложение расхождения с опытом по причинам
     python experiments/исходная_модель/core_flood.py --thermal  # калибровка в неизотермической постановке опыта
@@ -112,13 +113,16 @@ LI_PRECIPITATION = [(45.65, 0.0), (40.0, 1.5), (35.0, 5.0), (30.0, 9.5), (25.0, 
                     (10.0, 20.5), (0.0, 23.0), (-10.0, 24.2), (-20.0, 24.9)]
 LI_FIT_T_MIN = 10.0  # в пласте холоднее закачиваемой воды не бывает; подгонка - по интервалу 10-45 C
 
-# Калибровка: сетка по диаметру частиц и длине порового канала, критерий - СКО от опыта 1.
-# d_p задает, какие каналы блокируются (r <= d_p/(2*gamma)), то есть начальный провал k; L_k - интенсивность
-# сужения (u_r ~ L_k^(-1/3)), то есть длину зоны осаждения у входа. Доля блокируемых каналов beta не
-# калибруется: при любом beta из 0.003-0.3 блокирование идет за секунды, быстрее переноса, и k/k_0 от него
-# не зависит (проверено: СКО 0.335-0.338 при d_p = 5 мкм); остается полевое значение из constants.py.
-D_GRID = (10e-6, 12.5e-6, 15e-6, 17.5e-6, 20e-6)
-LK_GRID = (3e-5, 1e-4, 3e-4, 1e-3)
+# Калибровка: сетка по длине порового канала и множителю броуновской диффузии, критерий - СКО от опыта 1.
+# d_p задает, какие каналы блокируются (r <= d_p/(2*gamma)), то есть начальный провал k, и берется по измерениям
+# (`constants.D`); прежний подбор d_p = 15 мкм по этому же опыту отсекал 87% каналов пучка. L_k - интенсивность
+# сужения (u_r ~ (D_p^2/L_k)^(1/3)), то есть длину зоны осаждения у входа; diff_mult входит туда же через D_p, и
+# порознь с L_k различим только объемом пробки D^3/(6*L_k). Доля блокируемых каналов beta не калибруется: при любом
+# beta из 0.003-0.3 блокирование идет за секунды, быстрее переноса, и k/k_0 от него не зависит (проверено: СКО
+# 0.335-0.338 при d_p = 5 мкм); остается полевое значение из constants.py. Snowball и сети пор в этой модели нет
+# (`calc_velocities_h`): если ранний провал при d_p по измерениям не получается - так и записывается.
+LK_GRID = (3e-5, 1e-4, 3e-4, 1e-3, 3e-3)
+DIFF_GRID = (0.1, 0.3, 1.0, 3.0, 10.0)
 NY, DT = 60, 2.0        # ячеек вдоль керна; стартовый и наибольший шаг, [с]
 PV_END = 5.2
 PLUGGED = 0.02          # k/k_0, ниже которого керн считается закупоренным и счет прекращается
@@ -212,22 +216,25 @@ def _case_constants(exp: dict, d_p: float, lk: float, ny: int, dt: float) -> dic
 
 
 def run_case(number: int, d_p: float, lk: float, ny: int = NY, dt: float = DT, w: float = None,
-             oil: dict = None, extra: dict = None, mode: str = 'rate', exp: dict = None) -> dict:
+             oil: dict = None, extra: dict = None, mode: str = 'rate', exp: dict = None, diff_mult: float = None) -> dict:
     """Прогон опыта `number` отдельным процессом в копии пакета с поправленным `constants.py`.
 
     `w` - суммарная доля парафина вместо указанной в опыте (см. `w_ring_solids`); `oil` - свойства нефти
     вместо свойств опыта (MW, M_o, ro_o, ro_p, Tm, dH); `extra` - дополнительные константы `constants.py`;
     `mode` - режим рабочего процесса (`core_runner.py`): 'rate', 'dp', 'thermal' или 'ramp'; `exp` - сторонний опыт
-    вместо `EXPERIMENTS[number]` (тогда `number` - только метка временных файлов).
+    вместо `EXPERIMENTS[number]` (тогда `number` - только метка временных файлов); `diff_mult` - множитель
+    броуновской диффузии вместо `constants.diff_mult`.
     """
     exp = dict(exp or EXPERIMENTS[number], **(oil or {}), **({} if w is None else {'w': w}))
     values = _case_constants(exp, d_p, lk, ny, dt)
     if mode == 'thermal':  # керн нагрет и без взвеси, парафин весь растворен
         values.update(init_T=repr(exp.get('T_hot', T_HOT)), init_Wp=repr(exp['w']), init_Wps='0.0')
+    if diff_mult is not None:
+        values['diff_mult'] = repr(diff_mult)
     values.update(extra or {})
     root = make_copy(f'core_flood_{number}', values)
     result = run_runner(root, exp, mode)
-    result.update(d_p=d_p, lk=lk, ny=ny, dt=dt, rms=rms(result, exp['exp']))
+    result.update(d_p=d_p, lk=lk, diff_mult=diff_mult, ny=ny, dt=dt, rms=rms(result, exp['exp']))
     return result
 
 
@@ -268,46 +275,50 @@ def main() -> None:
         cp = cloud_point(exp['w'], exp['MW'], exp['M_o'], exp['Tm'], exp['dH'])
         print(f'Опыт {number}: точка помутнения модели {cp:.1f} C, измеренная {exp["cloud"]} C')
 
+    sys.path.insert(0, str(ROOT))
+    from paraphin.constants import D
+
     runs = []
-    for d_p, lk in product(D_GRID, LK_GRID):
-        res = run_case(1, d_p, lk)
+    for lk, diff in product(LK_GRID, DIFF_GRID):
+        res = run_case(1, D, lk, diff_mult=diff)
         runs.append(res)
-        at = [round(float(np.interp(x, res['pv'], res['k'])), 3) for x in (0.25, 1.0, 2.0, 3.0, 5.0)]
-        print(f'd_p = {d_p * 1e6:.1f} мкм, L_k = {lk * 1e6:.0f} мкм: СКО {res["rms"]:.4f}, k/k0 при 0.25/1/2/3/5 PV = {at}, '
-              f'закупорка {res["plugged"]}, ошибка расхода {res["q_error"]:.1e}', flush=True)
+        at = [round(float(np.interp(x, res['pv'], res['k'])), 3) for x in (0.25, 0.5, 1.0, 2.0, 3.0, 5.0)]
+        print(f'L_k = {lk * 1e6:.0f} мкм, diff_mult = {diff:g}: СКО {res["rms"]:.4f}, k/k0 при 0.25/0.5/1/2/3/5 PV = '
+              f'{at}, закупорка {res["plugged"]}, ошибка расхода {res["q_error"]:.1e}', flush=True)
 
     best = min(runs, key=lambda r: r['rms'])
-    prediction = run_case(2, best['d_p'], best['lk'])
-    print(f'Лучшее: d_p = {best["d_p"] * 1e6:.1f} мкм, L_k = {best["lk"] * 1e6:.0f} мкм; опыт 1 СКО {best["rms"]:.4f}, '
-          f'опыт 2 (прогноз) СКО {prediction["rms"]:.4f}')
+    prediction = run_case(2, D, best['lk'], diff_mult=best['diff_mult'])
+    print(f'Лучшее при d_p = {D * 1e6:.1f} мкм: L_k = {best["lk"] * 1e6:.0f} мкм, diff_mult = {best["diff_mult"]:g}; '
+          f'опыт 1 СКО {best["rms"]:.4f}, опыт 2 (прогноз) СКО {prediction["rms"]:.4f}')
+    print(f'В constants.py: Lk = {best["lk"]!r}, diff_mult = {best["diff_mult"]!r}')
 
     others = {n: {name: rms({'pv': [p for p, _ in e[name]], 'k': [k for _, k in e[name]]}, e['exp'])
                   for name in ('ring', 'wang_civan')} for n, e in EXPERIMENTS.items()}
     RESULT.write_text(json.dumps({
-        'calibration': [{k: r[k] for k in ('d_p', 'lk', 'rms')} for r in runs],
+        'calibration': [{k: r[k] for k in ('d_p', 'lk', 'diff_mult', 'rms')} for r in runs],
         'best': {1: best, 2: prediction}, 'others_rms': others,
     }, ensure_ascii=False), encoding='utf-8')
     print(f'Записано: {RESULT}')
 
 
 def check() -> None:
-    """Сходимость по сетке и шагу при найденных d_p, L_k (результаты - в docs/WAX_PRECIPITATION_FINDINGS.md)."""
+    """Сходимость по сетке и шагу при найденных L_k, diff_mult (результаты - в docs/WAX_PRECIPITATION_FINDINGS.md)."""
     sys.stdout.reconfigure(encoding='utf-8')
     best = json.loads(RESULT.read_text(encoding='utf-8'))['best']['1']
     for ny, dt in ((30, DT), (60, DT), (120, DT), (60, DT / 2)):
-        res = run_case(1, best['d_p'], best['lk'], ny, dt)
+        res = run_case(1, best['d_p'], best['lk'], ny, dt, diff_mult=best.get('diff_mult'))
         print(f'Ny = {ny}, dt = {dt} с: СКО {res["rms"]:.4f}, k/k0(1 PV) = {np.interp(1.0, res["pv"], res["k"]):.3f}, '
               f'k/k0(5 PV) = {np.interp(5.0, res["pv"], res["k"]):.3f}', flush=True)
 
 
 def ring_solids() -> None:
-    """Оба опыта при найденных d_p, L_k, но с долей взвеси, рассчитанной Ring (см. `w_ring_solids`)."""
+    """Оба опыта при найденных L_k, diff_mult, но с долей взвеси, рассчитанной Ring (см. `w_ring_solids`)."""
     sys.stdout.reconfigure(encoding='utf-8')
     result = json.loads(RESULT.read_text(encoding='utf-8'))
     best = result['best']['1']
     result['ring_solids'] = {}
     for number in EXPERIMENTS:
-        res = run_case(number, best['d_p'], best['lk'], w=w_ring_solids(number))
+        res = run_case(number, best['d_p'], best['lk'], w=w_ring_solids(number), diff_mult=best.get('diff_mult'))
         result['ring_solids'][str(number)] = res
         print(f'Опыт {number}, взвесь по Ring: СКО {res["rms"]:.4f}, закупорка {res["plugged"]}', flush=True)
     RESULT.write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
@@ -320,12 +331,12 @@ OIL_KEYS = ('MW', 'M_o', 'ro_o', 'ro_p', 'Tm', 'dH')
 def diagnose() -> None:
     """Разложение расхождения с опытом по причинам (см. docs/WAX_PRECIPITATION_FINDINGS.md).
 
-    Все прогоны - при найденных d_p, L_k; меняется по одному фактору. Результат - `core_flood_diag.json`
+    Все прогоны - при найденных L_k, diff_mult; меняется по одному фактору. Результат - `core_flood_diag.json`
     и таблица в консоли.
     """
     sys.stdout.reconfigure(encoding='utf-8')
     best = json.loads(RESULT.read_text(encoding='utf-8'))['best']['1']
-    d_p, lk = best['d_p'], best['lk']
+    d_p, lk, dm = best['d_p'], best['lk'], best.get('diff_mult')
     oil1 = {key: EXPERIMENTS[1][key] for key in OIL_KEYS}
     cases = [
         ('база', {}),
@@ -341,8 +352,8 @@ def diagnose() -> None:
     table = {}
     for title, kwargs in cases:
         for number in EXPERIMENTS:
-            table[f'{title} | опыт {number}'] = run_case(number, d_p, lk, **kwargs)
-    table['нефть опыта 1 | опыт 2'] = run_case(2, d_p, lk, oil=oil1)
+            table[f'{title} | опыт {number}'] = run_case(number, d_p, lk, diff_mult=dm, **kwargs)
+    table['нефть опыта 1 | опыт 2'] = run_case(2, d_p, lk, oil=oil1, diff_mult=dm)
 
     print('| Вариант | СКО | k/k0 при 0.25/1/3/5 PV | закупорка, PV | потеря пор / m0 | пробки / потеря | Um_r2 вход кон/нач |')
     for name, res in table.items():
@@ -356,21 +367,23 @@ def diagnose() -> None:
 
 
 def thermal_fit() -> None:
-    """Оценка исправления «постановка опыта»: d_p, L_k по опыту 1 в неизотермической постановке ('thermal')
-    и прогноз опыта 2 в ней же. Результат - ключ 'thermal_fit' в `core_flood_diag.json`."""
+    """Оценка исправления «постановка опыта»: L_k, diff_mult по опыту 1 в неизотермической постановке ('thermal')
+    при d_p по измерениям и прогноз опыта 2 в ней же. Результат - ключ 'thermal_fit' в `core_flood_diag.json`."""
     sys.stdout.reconfigure(encoding='utf-8')
+    sys.path.insert(0, str(ROOT))
+    from paraphin.constants import D
     runs = []
-    for d_p, lk in product((12.5e-6, 15e-6, 17.5e-6), (3e-5, 1e-4, 3e-4)):
-        res = run_case(1, d_p, lk, mode='thermal')
+    for lk, diff in product((3e-5, 1e-4, 3e-4, 1e-3), (0.3, 1.0, 3.0)):
+        res = run_case(1, D, lk, mode='thermal', diff_mult=diff)
         runs.append(res)
-        print(f'thermal: d_p = {d_p * 1e6:.1f} мкм, L_k = {lk * 1e6:.0f} мкм: СКО {res["rms"]:.4f}, '
+        print(f'thermal: L_k = {lk * 1e6:.0f} мкм, diff_mult = {diff:g}: СКО {res["rms"]:.4f}, '
               f'закупорка {res["plugged"]}', flush=True)
     best = min(runs, key=lambda r: r['rms'])
-    prediction = run_case(2, best['d_p'], best['lk'], mode='thermal')
-    print(f'thermal, лучшее: d_p = {best["d_p"] * 1e6:.1f} мкм, L_k = {best["lk"] * 1e6:.0f} мкм; опыт 1 СКО '
+    prediction = run_case(2, D, best['lk'], mode='thermal', diff_mult=best['diff_mult'])
+    print(f'thermal, лучшее: L_k = {best["lk"] * 1e6:.0f} мкм, diff_mult = {best["diff_mult"]:g}; опыт 1 СКО '
           f'{best["rms"]:.4f}, опыт 2 (прогноз) СКО {prediction["rms"]:.4f}, закупорка {prediction["plugged"]}')
     diag = json.loads(DIAG.read_text(encoding='utf-8'))
-    diag['thermal_fit'] = {'calibration': [{k: r[k] for k in ('d_p', 'lk', 'rms', 'plugged')} for r in runs],
+    diag['thermal_fit'] = {'calibration': [{k: r[k] for k in ('d_p', 'lk', 'diff_mult', 'rms', 'plugged')} for r in runs],
                            'best': {1: best, 2: prediction}}
     DIAG.write_text(json.dumps(diag, ensure_ascii=False), encoding='utf-8')
 

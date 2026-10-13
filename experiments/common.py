@@ -40,6 +40,17 @@ def load(name: str) -> dict:
     return json.loads((DATA / f'{name}.json').read_text(encoding='utf-8'))
 
 
+# Диаметр кристалла по измерениям в нефти (`data/crystal_size.json`): D_CRYST_MEAS - базовое значение (старт подборов,
+# упрощенная модель, constants.D); в подборах кинетики d_p уточняется только в пределах измерений D_CRYST_RANGE (1-10
+# мкм), LG_D - его lg для least_squares; D_CRYST_SENS - фиксированные диаметры для проверки чувствительности
+_CRYSTAL = load('crystal_size')['chosen']
+D_CRYST_MEAS = float(_CRYSTAL['d_p_m'])
+D_CRYST_SENS = tuple(float(d) for d in _CRYSTAL['sensitivity_m'])
+D_CRYST_RANGE = tuple(float(d) for d in _CRYSTAL['fit_range_m'])
+LG_D = dict(x0=float(np.log10(D_CRYST_MEAS)), lo=float(np.log10(D_CRYST_RANGE[0])),
+            hi=float(np.log10(D_CRYST_RANGE[1])), step=0.02)
+
+
 def mode_from_argv(argv=None) -> str:
     """Режим модуля опыта: 'full' - с подбором, 'quick' - только итоговые наборы из params.json, 'plot' - рисунок."""
     argv = sys.argv[1:] if argv is None else argv
@@ -79,6 +90,7 @@ def core_constants(exp: dict, ny: int = NY, dt: float = DT) -> dict:
 
     exp: length, side, porosity, k0 [Д], T, q, pv_end, w, MW, M_o, Tm, dH, ro_o, ro_p, mu; опционально T_hot.
     Нефть однофазная (S_min = 0, S_max = 1), керн изотермический при T, равновесная взвесь и в керне, и на входе.
+    Диаметр кристалла - измеренный `D_CRYST_MEAS` (он же `D_CRYST` ядра кинетики по умолчанию), а не `constants.D`.
     """
     from paraphin.constants import R  # noqa: F401  (проверка, что пакет импортируется)
     import importlib.util
@@ -112,6 +124,7 @@ def core_constants(exp: dict, ny: int = NY, dt: float = DT) -> dict:
         'M_o': repr(exp['M_o']),
         'Tm': repr(exp['Tm']),
         'alpha': repr(exp['dH']),
+        'D': repr(D_CRYST_MEAS),
     }
 
 
@@ -283,6 +296,8 @@ def k_model_at(res: dict, points):
 
 
 if __name__ == '__main__':
+    from paraphin.constants import D
+    assert D == D_CRYST_MEAS, f'constants.D = {D} расходится с data/crystal_size.json ({D_CRYST_MEAS})'
     m = fit_metrics([1.0, 0.5, 0.2], [1.0, 0.5, 0.2])
     assert m['rmse'] == 0.0 and m['r2'] == 1.0 and m['mape'] == 0.0
     m = fit_metrics([0.9, 0.6, 0.3], [1.0, 0.5, 0.2])

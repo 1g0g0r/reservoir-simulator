@@ -517,7 +517,7 @@ def main(short_docx: bool = False) -> None:
     if short_docx:
         source = 'article_short'
     else:
-        source = 'article'
+        source = 'article_crystallization'
     source_path = Path.cwd() / f'{source}.md'
     output_path = Path.cwd() / f'{source}.docx'
     reference = Path.cwd() / 'reference.docx'

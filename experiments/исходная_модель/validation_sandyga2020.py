@@ -185,7 +185,8 @@ def core_runs(pore_fit, wat_res):
     print('| Вариант | grad/grad0 при 35 / 34 / 33.5 / 33 / 32.8 C | T начала роста (x2), C | m/m0 | '
           'СКО lg(grad/grad0) |')
     for name, (tm, d_p) in cases.items():
-        res = cf.run_case(4, d_p, lk, dt=2.0, exp=dict(base, Tm=tm), extra=pores_extra, mode='ramp')
+        res = cf.run_case(4, d_p, lk, dt=2.0, exp=dict(base, Tm=tm), extra=pores_extra, mode='ramp',
+                          diff_mult=calibration.get('diff_mult'))
         t_hist, k_app = np.array(res['T_hist']), np.array(res['k'])
         if res['plugged'] is not None:  # драйвер дописывает точку k = 0 после закупорки - в сравнении ее нет
             t_hist, k_app = t_hist[:-1], k_app[:-1]

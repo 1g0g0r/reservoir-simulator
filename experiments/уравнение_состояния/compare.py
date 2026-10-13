@@ -199,21 +199,36 @@ PHYS_N = np.arange(scn_first, scn_last + 1)
 PHYS_M = 14.027 * PHYS_N + 2.016
 
 
-def li_hydrocarbons():
+def li_hydrocarbons(tail_b=None):
     """Все углеводороды нефти Жетыбая по SCN C17-C60, доля массы: внутри классов табл. 3 Li et al. - поровну, класс
     >C30 - геометрическая прогрессия, продолжающая среднее класса C26-C30 с n = 28 (допущение: рис. 2 статьи
-    доходит лишь до C34, сумма класса - из таблицы)."""
+    доходит лишь до C34, сумма класса - из таблицы). tail_b - вместо этого допущения класс C31-C60 ~ exp(-b*(n-31))
+    с той же суммой класса: форма хвоста не измерена и подбирается."""
     (lo1, hi1), (lo2, hi2), _ = LI_HC
     a = LI_HC[(lo2, hi2)] / (hi2 - lo2 + 1)
     r = brentq(lambda q: a * q ** 3 / (1.0 - q) - LI_HC[(31, 200)], 1e-3, 0.999)
     n = PHYS_N
-    return np.where(n <= hi1, LI_HC[(lo1, hi1)] / (hi1 - lo1 + 1), np.where(n <= hi2, a, a * r ** (n - 28.0)))
+    w = np.where(n <= hi1, LI_HC[(lo1, hi1)] / (hi1 - lo1 + 1), np.where(n <= hi2, a, a * r ** (n - 28.0)))
+    if tail_b is not None:
+        t = n > hi2
+        sh = np.exp(-tail_b * (n[t] - hi2 - 1.0))
+        w[t] = LI_HC[(31, 200)] * sh / sh.sum()
+    return w
 
 
-def li_nalkanes(phi_light, phi_heavy):
+def li_nalkanes(phi_light, phi_heavy, tail_b=None):
     """н-алканы - доля от всех углеводородов того же SCN: phi_light в классе C17-C25 табл. 3 Li et al., phi_heavy -
     в классах тяжелее C25. Плавный спад доли с n (phi0*exp(-beta*n)) подбор вырождал: долина по beta плоская."""
-    return np.where(PHYS_N <= 25, phi_light, phi_heavy) * li_hydrocarbons()
+    return np.where(PHYS_N <= 25, phi_light, phi_heavy) * li_hydrocarbons(tail_b)
+
+
+DSC_DETECT = (0.1, 0.2)  # % масс.: доля кристаллов, с которой ДСК видит начало кристаллизации (диапазон оценки)
+
+
+def dsc_onset(heat):
+    """Температура, при которой равновесная кривая (тепловой эквивалент ДСК, по убыванию T) достигает порога
+    обнаружения ДСК: с ней сравнивается измеренная WAT, а не с равновесной температурой исчезновения кристаллов."""
+    return [float(np.interp(d, heat, PHYS_T)) for d in DSC_DETECT]
 
 
 def _physical_eq(w, per_scn):
@@ -263,12 +278,12 @@ def zhetybai_physical(exp=None):
     эффективными параметрами) - проверка по той же табл. 3."""
     exp = np.array(cf.LI_PRECIPITATION) if exp is None else exp
     fit = exp[:, 0] >= cf.LI_FIT_T_MIN
-    k_cr = 10.0 ** json.loads((ROOT / 'experiments' / 'params.json').read_text(encoding='utf-8'))['li2024_cold']['x'][2]
+    k_cr = json.loads((ROOT / 'experiments' / 'params.json').read_text(encoding='utf-8'))['li2024_cold']['kin']['K_CRYST']
     out = {'T': PHYS_T.tolist(), 'k_cr': k_cr, 'rates': list(DSC_RATES), 'hc': li_hydrocarbons().tolist()}
 
     def fit_one(profile, x0, lo, hi, per_scn, rate, cache):
         def eq(x):
-            k = (round(float(x[0]), 7), round(float(x[1]), 7))
+            k = tuple(round(float(v), 7) for v in x)
             if k not in cache:
                 cache[k] = _physical_eq(profile(*x), per_scn)
             return cache[k]
@@ -278,7 +293,7 @@ def zhetybai_physical(exp=None):
         mass, heat, wat = eq(r.x)
         w = profile(*r.x)
         return {'x': [float(v) for v in r.x], 'rms_fit': _rms(c[fit], exp[fit, 1]), 'rms_all': _rms(c, exp[:, 1]),
-                'wat_eq': float(wat), 'curve': _dsc_lag(heat, rate, k_cr).tolist(), 'mass_eq': mass.tolist(),
+                'wat_eq': float(wat), 'wat_dsc': dsc_onset(heat), 'curve': _dsc_lag(heat, rate, k_cr).tolist(), 'mass_eq': mass.tolist(),
                 'heat_eq': heat.tolist(), 'hc_share': _hc_share(w), 'w': w.tolist(), 'total': float(w.sum())}
 
     # старт - лучший узел сетки по быстрой модели групп: у целевой функции бывают локальные минимумы
@@ -295,6 +310,13 @@ def zhetybai_physical(exp=None):
                   f"СКО {row['rms_fit']:.2f} (все {row['rms_all']:.2f}), WAT равн. {row['wat_eq']:.1f} C, табл. 3: "
                   + ', '.join(f'{k} {v:.2f}' for k, v in row['hc_share'].items()), flush=True)
         out[key] = rows
+    # форма хвоста C31-C60 не измерена (сумма класса - из табл. 3): наклон подбирается вместе с долями н-алканов;
+    # два старта - от прежнего допущения и от пологого хвоста (тяжелые н-алканы для раннего участка кривой)
+    tails = [fit_one(li_nalkanes, (*x0, b0), (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), True, 0.0, {}) for b0 in (0.05, 0.21)]
+    out['tail'] = min(tails, key=lambda row: row['rms_fit'])
+    row = out['tail']
+    print(f"хвост C31+: доли {row['x'][0]:.3f}, {row['x'][1]:.3f}, наклон {row['x'][2]:.3f}, СКО {row['rms_fit']:.2f}, "
+          f"WAT равн. {row['wat_eq']:.1f} C, по порогу ДСК {row['wat_dsc'][1]:.1f}-{row['wat_dsc'][0]:.1f} C", flush=True)
     expo = lambda s, share: oc.scn_distribution(s, scn_first, scn_last, share * LI_DSC_WAX, weights=None)[2]  # noqa: E731
     row = fit_one(expo, (0.07, 0.8), (0.0, 0.2), (0.25, 1.0), True, 0.0, {})
     out['exponential'] = row

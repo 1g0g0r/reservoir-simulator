@@ -59,6 +59,11 @@ def _patch_sets() -> dict:
     # проверка гипотезы о диффузии в геле
     uni = _module(EXPERIMENTS / 'unified.py')
     sets.update({f'unified_{n}': consts for n, (_, consts, _) in zip(uni.EXPS, uni.jobs_of(uni.X0))})
+    sets.update({f'unified_net_{n}': consts for n, (_, consts, _) in
+                 zip(uni.EXPS, uni.jobs_of(list(uni.X0) + [uni.NET['x0']]))})
+    sets['li_net'] = li.net_job(3600.0, li.COLD_X0, {}, li.D_CRYST_MEAS, 0.4)[1]
+    from tests.regression_baseline import FROZEN
+    sets['regression'] = FROZEN  # регрессия в копии с константами эталонов
     sets['sr_thermal'] = dict(core, **sr.ENTRAINMENT, heat_losses='3', hv_bath='1000.0')
     sets['li_gel_hindered'] = li.constants(dict(li.RETENTION, wax_kinetics='True', gel_hindered_diffusion='True'))
     sets['verify_heat'] = {'Nx, Ny': '1, 100', **mrst.PATCH_TWO_PHASE, 'S_max': '1.0', 'init_S': 'S_max',

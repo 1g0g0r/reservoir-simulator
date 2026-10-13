@@ -11,7 +11,7 @@
 """
 import numpy as np
 
-from paraphin.geometry import r1, fi_0, n_pass, dr_cv, w2_cv, plug_cv
+from paraphin.geometry import r1, fi_0, n_pass, dr_cv, w2_cv, w4_cv, plug_cv
 from paraphin.constants import Nr, init_m, init_k
 from paraphin.equations.Pore_bundle import update_fi_rows
 from paraphin.equations.Qp_m_k_fi import _calculate_integrals, calc_qp_m_k_fi
@@ -74,10 +74,13 @@ def test_blocking_keeps_pore_volume():
     blocked = init_m * (w2_cv * gone).sum() / i2
     plugs = init_m * (plug_cv * gone).sum() / i2
     loss = init_m - new_m[0, 0]
-    assert new_k[0, 0] < 0.9 * init_k, 'блокирование не снизило проницаемость'
-    assert new_qp1[0, 0] == 0.0, 'без сужения осадка на стенках нет'
-    assert abs(loss - plugs) < 1e-12 * loss, 'пористость убыла не на объем пробок'
-    assert abs(loss - new_qp2[0, 0] * dt) < 1e-12 * loss
+    # k падает на долю проводимости каналов ниже r_pass (при b*dt = 1e3 они выбывают почти целиком); доля зависит
+    # от D: 34 % при 15 мкм, 0.07 % при 5 мкм
+    share = (w4_cv * fi_0)[:n_pass].sum() / (w4_cv * fi_0).sum()
+    assert new_k[0, 0] < (1.0 - 0.5 * share) * init_k, 'блокирование не снизило проницаемость'
+    assert abs(new_qp1[0, 0]) * dt < 1e-14 * init_m, 'без сужения осадка на стенках нет'  # ноль до округления m
+    assert abs(loss - plugs) < 1e-14 * init_m, 'пористость убыла не на объем пробок'
+    assert abs(loss - new_qp2[0, 0] * dt) < 1e-14 * init_m
     assert loss < 0.1 * blocked, f'пробки {loss:.3e} не малы по сравнению с каналами {blocked:.3e}'
 
 

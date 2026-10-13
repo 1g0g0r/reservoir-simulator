@@ -14,7 +14,11 @@
 исключает равномерный слой адсорбции (docs/кинетика_осаждения.md, разд. 13.7): удержание идет в горлах, где
 малый объем дает большую потерю проводимости (обзор 4.1-4.2). Поэтому удержанные по Ленгмюру (K(T) по
 Вант-Гоффу) смолы и асфальтены умножают проводимость пучка на функцию повреждения k/k0 = 1 - sigma/sigma_max
-(Civan 2015), а парафин по-прежнему сужает и затыкает каналы пучка (d_p, L_k по Sutton & Roberts).
+(Civan 2015), а парафин по-прежнему сужает и затыкает каналы пучка (d_p по измерениям, L_k по Sutton & Roberts).
+
+Поры керна - как у Berea (r_m 12 мкм). ЯМР T2 этого керна (Li et al., рис. 7) в радиусы не переводится: коэффициент
+T2 = A*r не приведен, и спектр дает только ширину распределения, а не r_m. Вариант с ней имеет смысл, если ступень 25 C
+при d_p по измерениям описывается хуже 0.05 (тогда оцифровать спектр 0 PV в `data/li2024.json`).
 
 Подбор (семейство «выше WAT»): предельное удержание G_s, константа Ленгмюра K_ref, энтальпия dH и скорость
 k_ads - по ступеням 90, 65 и 45 C; ступень 25 C (парафин и гель) - прогноз. Начальная точка - равновесный подбор
@@ -33,7 +37,7 @@ import numpy as np
 from scipy.optimize import brentq, least_squares
 
 from common import (load, core_constants, run_many, rms_k, noise_floor, mode_from_argv, load_params, save_params,
-                    save_results, load_results, lsq, FIGURES)
+                    save_results, load_results, lsq, FIGURES, D_CRYST_MEAS, D_CRYST_SENS, LG_D)
 
 DATA = load('li2024')
 STAGES = [[90.0, 5.0], [65.0, 5.0], [45.0, 5.0], [25.0, 5.0]]
@@ -65,38 +69,54 @@ def constants(flags: dict) -> dict:
 
 SCN = {'wax_characterization': "'scn'", 'wax_viscosity': '1', 'gelation': 'True', 'gel_time': '300.0',
        'asphaltenes': 'True'}
-# Удержание смол и асфальтенов в горлах (адсорбция + функция повреждения), парафин - пучок капилляров с d_p, L_k
-# по Sutton & Roberts, гель с объемным пределом текучести
+# Удержание смол и асфальтенов в горлах (адсорбция + функция повреждения), парафин - пучок капилляров с d_p по
+# измерениям и L_k по Sutton & Roberts, гель с объемным пределом текучести
 RETENTION = dict(SCN, adsorption='True')
-# Семейство «ниже WAT» (ступень 25 C): к удержанию добавляется конечная скорость кристаллизации (`wax_kinetics`).
-# Подбираются least_squares диаметр кристалла (порог блокирования; d_p = 15 мкм подобран на Berea, а у керна Li
-# поры мельче - 18.8 мД), множитель броуновской диффузии и константа кристаллизации в объеме; тиксотропное время
-# геля - сеткой (константа, копия пакета на значение; у парафинистых нефтей - от минут до часов, Dimitriou &
-# McKinley 2014). Удержание смол и асфальтенов - из подбора выше WAT.
+# Семейство «ниже WAT» (ступень 25 C): к удержанию добавляется конечная скорость кристаллизации (`wax_kinetics`) и
+# рост захвата с осадком (`snowball`). Подбираются least_squares множитель броуновской диффузии, константа кристаллизации
+# в объеме, SNOW_A и диаметр кристалла - только в пределах измерений (`common.LG_D`, 1-10 мкм); тиксотропное время геля
+# - сеткой (константа, копия пакета на значение; у парафинистых нефтей - от минут до часов, Dimitriou & McKinley 2014).
+# Удержание смол и асфальтенов - из подбора выше WAT. Проверка чувствительности - подбор заново при фиксированных
+# d_p из SENS_D (тогда x - первые три параметра).
 COLD_GEL_TIMES = (3600.0, 300.0)
-COLD_X0 = (-4.824, 0.0, -2.0)  # lg D_CRYST, lg DIFF_MULT, lg K_CRYST (старт - почти равновесная кристаллизация)
-COLD_LO, COLD_HI = (-6.0, -3.0, -5.0), (-4.3, 2.0, -1.0)
-COLD_STEP = (0.02, 0.05, 0.05)
+COLD_X0 = (0.0, -2.0, 1.0, LG_D['x0'])  # lg DIFF_MULT, lg K_CRYST (старт - почти равновесная), lg SNOW_A, lg D_CRYST
+COLD_LO, COLD_HI = (-3.0, -5.0, -1.0, LG_D['lo']), (2.0, -1.0, 3.0, LG_D['hi'])
+COLD_STEP = (0.05, 0.05, 0.05, LG_D['step'])
+COLD_NAMES = 'lg DIFF_MULT, lg K_CRYST [1/с], lg SNOW_A, lg D_CRYST [м]'
+SENS_D = (D_CRYST_SENS[0], D_CRYST_MEAS, D_CRYST_SENS[1])
 
 
-def cold_kin(x, kin_ret):
-    return dict(kin_ret, D_CRYST=float(10 ** x[0]), DIFF_MULT=float(10 ** x[1]), K_CRYST=float(10 ** x[2]))
+def cold_kin(x, kin_ret, d_cryst=None):
+    """Кинетика ступени 25 C; d_cryst - заданный диаметр кристалла (иначе x[3])."""
+    d = d_cryst if d_cryst is not None else float(10 ** x[3]) if len(x) > 3 else D_CRYST_MEAS
+    return dict(kin_ret, D_CRYST=d, DIFF_MULT=float(10 ** x[0]), K_CRYST=float(10 ** x[1]), SNOW_A=float(10 ** x[2]))
 
 
-# Сеть пор и горл (`pore_network`) с той же кинетикой: переносится ли подбор для пучка. Сначала подобранный диаметр
-# кристалла, затем мельче и крупнее - при каком закупорка на 45 и 25 C пропадает (прогноз, не подбор)
-NET_D_CRYST = (None, 2e-6, 4e-6, 7e-6, 10e-6)  # [м]; None - подобранный для пучка
+# Сеть пор и горл (`pore_network`) с кинетикой, подобранной для пучка: переносится ли подбор. Отношение горла к поре
+# подбирается по всем ступеням (одномерно), при подобранном диаметре кристалла (None) и при 3 и 10 мкм
+NET_D_CRYST = (None,) + D_CRYST_SENS  # [м]
+NET_X0, NET_LO, NET_HI, NET_STEP = (0.4,), (0.2,), (0.9,), (0.02,)  # NET_GAMMA
 
 
-def net_job(gel_time, x, kin_ret):
-    name, consts, case = cold_job(gel_time, x, kin_ret)
+def net_job(gel_time, x, kin_ret, d_cryst, net_gamma):
+    name, consts, case = cold_job(gel_time, x, kin_ret, d_cryst)
+    case['kin'].update(NET_Z=6.0, NET_GAMMA=float(net_gamma))
     return name + '_net', dict(consts, pore_network='True'), case
 
 
-def cold_job(gel_time, x, kin_ret):
-    flags = dict(RETENTION, wax_kinetics='True', gel_time=repr(gel_time))
+def cold_job(gel_time, x, kin_ret, d_cryst=None):
+    flags = dict(RETENTION, wax_kinetics='True', snowball='True', gel_time=repr(gel_time))
     return (f'exp_li_cold_{gel_time:g}', constants(flags),
-            {'mode': 'stages', 'exp': exp_dict(), 'kin': cold_kin(x, kin_ret)})
+            {'mode': 'stages', 'exp': exp_dict(), 'kin': cold_kin(x, kin_ret, d_cryst)})
+
+
+def net_fit(gel_time, x, kin_ret, d_cryst):
+    """NET_GAMMA сети пор и горл по всем ступеням при кинетике пучка x и диаметре d_cryst (None - из x). Возвращает
+    (gamma, прогон)."""
+    g, res, _ = lsq(f'сеть пор и горл, d_p = {cold_kin(x, {}, d_cryst)["D_CRYST"] * 1e6:.2f} мкм',
+                    lambda z: [net_job(gel_time, x, kin_ret, d_cryst, z[0])],
+                    lambda rr: stage_residuals(rr[0], STAGES), NET_X0, NET_STEP, NET_LO, NET_HI)
+    return g[0], res[0]
 
 
 def cumulative_plateaus():
@@ -303,31 +323,58 @@ def run(mode: str = 'full') -> dict:
         save_params('li2024', dict({form: {'x': xs[form], 'kin': fit_kin(xs[form], film)} for form, film in FORMS.items()},
                                    best=best, x_names='lg ADS_GMAX [кг/м^2], lg ADS_K, -ADS_DH/1e4 [Дж/моль], '
                                                       'lg ADS_RATE [1/с]'))
-    # Ступень 25 C: least_squares по d_p, множителю диффузии и k_cryst при каждом тиксотропном времени геля
+    # Ступень 25 C: least_squares по множителю диффузии, k_cryst, SNOW_A и d_p (в пределах измерений) при каждом
+    # тиксотропном времени геля; проверка чувствительности - подбор заново при фиксированных d_p из SENS_D (ключ - d,
+    # подобранный - ключ 'fit')
     kin_ret = out['dynamic']['kin']
     stage25 = [[25.0, 5.0]]
+
+    def fit25(gt, d=None, x0=COLD_X0):
+        """При подборе d_p - два старта (базовый и у верхней границы измерений): целевая функция многоэкстремальна."""
+        n = 4 if d is None else 3
+        label = 'd_p подбирается' if d is None else f'd_p = {d * 1e6:g} мкм'
+        starts = [x0[:n]] + ([tuple(x0[:3]) + (LG_D['hi'] - 0.02,)] if d is None else [])
+        fits = [lsq(f'ниже WAT, гель {gt:g} с, {label}', lambda x: [cold_job(gt, x, kin_ret, d)],
+                    lambda rr: stage_residuals(rr[0], stage25), s, COLD_STEP[:n], COLD_LO[:n], COLD_HI[:n])
+                for s in starts]
+        return min(fits, key=lambda e: e[2])
+
     if mode == 'full':
         table = []
         for gt in COLD_GEL_TIMES:
-            x, res, err = lsq(f'ниже WAT, гель {gt:g} с', lambda x, gt=gt: [cold_job(gt, x, kin_ret)],
-                              lambda rr: stage_residuals(rr[0], stage25), COLD_X0, COLD_STEP, COLD_LO, COLD_HI)
+            x, res, err = fit25(gt)
             table.append(dict(gel_time=gt, x=x, rms25=err))
         best_cold = min(table, key=lambda e: e['rms25'])
-        save_params('li2024_cold', {'gel_time': best_cold['gel_time'], 'x': best_cold['x'],
-                                    'x_names': 'lg D_CRYST [м], lg DIFF_MULT, lg K_CRYST [1/с]'})
+        sens_x = {f'{d:g}': fit25(best_cold['gel_time'], d, best_cold['x'])[0] for d in SENS_D}
+        net_g = {f'{d:g}' if d else 'fit': net_fit(best_cold['gel_time'], best_cold['x'], kin_ret, d)[0]
+                 for d in NET_D_CRYST}
+        save_params('li2024_cold', {'gel_time': best_cold['gel_time'], 'x': best_cold['x'], 'x_names': COLD_NAMES,
+                                    'kin': cold_kin(best_cold['x'], {}), 'sens': sens_x, 'net_gamma': net_g})
     else:
         pc = load_params('li2024_cold')
-        best_cold, table = {'gel_time': pc['gel_time'], 'x': pc['x']}, []
-    r_cold = run_many([cold_job(best_cold['gel_time'], best_cold['x'], kin_ret)])[0]
-    out['cold'] = dict(gel_time=best_cold['gel_time'], x=best_cold['x'], kin=cold_kin(best_cold['x'], {}),
+        if pc.get('x_names') != COLD_NAMES:
+            raise SystemExit('params.json: li2024_cold - набор прежнего формата: сначала полный прогон')
+        best_cold, table, sens_x, net_g = {'gel_time': pc['gel_time'], 'x': pc['x']}, [], pc['sens'], pc['net_gamma']
+    gt = best_cold['gel_time']
+    sens = [('fit', None, best_cold['x'])] + [(f'{d:g}', d, sens_x[f'{d:g}']) for d in SENS_D]
+    nets = [(f'{d:g}' if d else 'fit', d) for d in NET_D_CRYST]
+    res = run_many([cold_job(gt, x, kin_ret, d) for _, d, x in sens]
+                   + [net_job(gt, best_cold['x'], kin_ret, d, net_g[key]) for key, d in nets])
+    by_key, res_net = dict(zip([k for k, _, _ in sens], res[:len(sens)])), res[len(sens):]
+    r_cold = by_key['fit']
+    out['cold'] = dict(gel_time=gt, x=best_cold['x'], kin=cold_kin(best_cold['x'], {}),
                        rms=stage_rms(r_cold), result=r_cold, table=table)
-    net_xs = [list(best_cold['x']) if d is None else [math.log10(d)] + list(best_cold['x'][1:]) for d in NET_D_CRYST]
-    res_net = run_many([net_job(best_cold['gel_time'], x, kin_ret) for x in net_xs])
-    out['network'] = [dict(d_cryst=10 ** x[0], fitted=d is None, rms=stage_rms(r), plugged=r['plugged'])
-                      for d, x, r in zip(NET_D_CRYST, net_xs, res_net)]
+    out['cold_sens'] = {key: dict(d_cryst=cold_kin(x, {}, d)['D_CRYST'], fitted=key == 'fit', x=x,
+                                  rms=stage_rms(by_key[key]), plugged=by_key[key]['plugged']) for key, d, x in sens}
+    out['network'] = [dict(d_cryst=cold_kin(best_cold['x'], {}, d)['D_CRYST'], fitted=key == 'fit',
+                           net_gamma=net_g[key], rms=stage_rms(r), plugged=r['plugged'])
+                      for (key, d), r in zip(nets, res_net)]
     for e in out['network']:
-        print(f"сеть пор и горл, d = {e['d_cryst'] * 1e6:.1f} мкм:", {t: round(v, 3) for t, v in e['rms'].items()},
-              'закупорка', e['plugged'], flush=True)
+        print(f"сеть пор и горл, d = {e['d_cryst'] * 1e6:.2f} мкм, горло/пора {e['net_gamma']:.3f}:",
+              {t: round(v, 3) for t, v in e['rms'].items()}, 'закупорка', e['plugged'], flush=True)
+    for e in out['cold_sens'].values():
+        print(f"ниже WAT, d = {e['d_cryst'] * 1e6:.2f} мкм{' (подбор)' if e['fitted'] else ''}:",
+              {t: round(v, 3) for t, v in e['rms'].items()}, 'закупорка', e['plugged'], flush=True)
     for name, key in (('прежняя', 'legacy'), ('4 группы + гель', 'scn')):
         print(name, {t: round(v, 3) for t, v in stage_rms(out[key]).items()}, flush=True)
     print(f'ниже WAT: гель {best_cold["gel_time"]:g} с, {out["cold"]["kin"]}:',
@@ -358,8 +405,8 @@ def summary(out) -> list:
         rows.append((f'+ кинетика кристаллизации, гель {c["gel_time"]:g} с (подбор 25 °C)',
                      [get(c['rms'], t) for t in temps]))
     for e in out.get('network', []):
-        rows.append((f'  сеть пор и горл, d = {e["d_cryst"] * 1e6:.1f} мкм{" (подбор для пучка)" if e["fitted"] else ""}',
-                     [get(e['rms'], t) for t in temps]))
+        rows.append((f'  сеть пор и горл, d = {e["d_cryst"] * 1e6:.2g} мкм{" (подбор)" if e["fitted"] else ""}, '
+                     f'горло/пора {e["net_gamma"]:.2f}', [get(e['rms'], t) for t in temps]))
     return rows
 
 

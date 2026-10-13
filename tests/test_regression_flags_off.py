@@ -19,7 +19,7 @@ import pytest
 from paraphin.constants import (wax_pressure, asphaltenes, gelation, wax_viscosity, pressure_viscosity,
                                 deposition_kinetics)
 from paraphin.layout import N_W
-from tests.regression_baseline import DATA, baseline_path, legacy_path, metadata, run
+from tests.regression_baseline import DATA, baseline_path, legacy_path, run_frozen
 
 if N_W > 1 or wax_pressure or asphaltenes or gelation or wax_viscosity != 0 or pressure_viscosity or deposition_kinetics:
     pytest.skip('в constants.py включены механизмы - регрессия осмысленна только для модели по умолчанию',
@@ -27,17 +27,24 @@ if N_W > 1 or wax_pressure or asphaltenes or gelation or wax_viscosity != 0 or p
 
 
 @pytest.fixture(scope='module')
-def fields():
-    return run()
+def frozen():
+    """Прогон в копии пакета с константами эталонов (`regression_baseline.FROZEN`): (поля, metadata())."""
+    return run_frozen()
 
 
-def test_flags_off_bitwise(fields):
-    path = baseline_path()
+@pytest.fixture(scope='module')
+def fields(frozen):
+    return frozen[0]
+
+
+def test_flags_off_bitwise(frozen, fields):
+    meta = frozen[1]
+    path = baseline_path(meta)
     if not path.is_file():
-        pytest.skip(f'нет эталона для окружения {metadata()}: см. tests/regression_baseline.py')
+        pytest.skip(f'нет эталона для окружения {meta}: см. tests/regression_baseline.py')
 
     ref = np.load(path, allow_pickle=False)
-    assert ast.literal_eval(str(ref['__meta__'])) == metadata()
+    assert ast.literal_eval(str(ref['__meta__'])) == meta
 
     diffs = []
     for name in ref.files:

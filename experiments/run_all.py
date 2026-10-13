@@ -45,6 +45,25 @@ def tables(results: dict) -> dict:
         rows = sutton_roberts.summary(results['sutton_roberts'])
         out['SR'] = _table(['Вариант', 'СКО k/k₀, опыт 1', 'СКО k/k₀, опыт 2', 'Подобрано по'],
                            [(n, _f(a), _f(b), c) for n, a, b, c in rows])
+        pv = sutton_roberts.EARLY_PV
+        out['SR_EARLY'] = _table(['Вариант'] + [f'опыт {n}, {x:g} PV' for n in (1, 2) for x in pv],
+                                 [(n, *[_f(v, 2) for v in vals]) for n, *vals in
+                                  sutton_roberts.early_rows(results['sutton_roberts'])])
+    if 'sens' in results.get('sutton_roberts', {}) and 'cold_sens' in results.get('li2024', {}):
+        sr, li = results['sutton_roberts'], results['li2024']
+        g = lambda d, n: d[n] if n in d else d[str(n)]
+        rows = []
+        for key, e in sr['sens'].items():
+            el = li['cold_sens'].get(key, {})
+            r25 = el.get('rms', {}).get('25.0')
+            d = f"{e['d_cryst'] * 1e6:.1f}" if e['fitted'] else f"{e['d_cryst'] * 1e6:g}"
+            if e['fitted']:  # у Li et al. свой подобранный диаметр
+                d = f"подбор: {d} (Li et al.: {el['d_cryst'] * 1e6:.1f})" if el else f'подбор: {d}'
+            rows.append((d, _f(g(e['rms'], 1)), _f(g(e['rms'], 2)), ' / '.join(_f(v, 2) for v in g(e['early'], 1)),
+                         'закупорка' if r25 is None else _f(r25)))
+        out['DP_SENS'] = _table(['d_p, мкм', 'СКО k/k₀, Sutton & Roberts 1', 'СКО k/k₀, Sutton & Roberts 2',
+                                 'k/k₀ опыта 1 при ' + ' / '.join(f'{x:g}' for x in sutton_roberts.EARLY_PV) + ' PV',
+                                 'СКО k/k₀, Li et al. 25 °C'], rows)
     if 'li2024' in results:
         o = results['li2024']
         rows = li2024.summary(o)
@@ -63,10 +82,11 @@ def tables(results: dict) -> dict:
             out['LI_HOLD_25'] = f'СКО ступени 25 °C {_f(r25)}'
             k = c['kin']
             out['LI_COLD_TEXT'] = (
-                f"семейство подобрано отдельно при удержании из подбора выше WAT: тиксотропное время геля "
-                f"{c['gel_time']:g} с, диаметр кристалла {k['D_CRYST'] * 1e6:.1f} мкм (на Berea - 15 мкм, у керна Li "
-                f"поры мельче), множитель броуновской диффузии {k['DIFF_MULT']:.2f}, константа кристаллизации в "
-                f"объеме {k['K_CRYST']:.1e} 1/с. СКО ступени {_f(r25)} при шумовом пороге {_f(o['noise']['25'])}.")
+                f"семейство подобрано отдельно при удержании из подбора выше WAT: диаметр кристалла "
+                f"{k['D_CRYST'] * 1e6:.1f} мкм (в пределах измерений 1-10 мкм), тиксотропное время геля {c['gel_time']:g} с, множитель "
+                f"броуновской диффузии {k['DIFF_MULT']:.2f}, константа кристаллизации в объеме {k['K_CRYST']:.1e} 1/с, "
+                f"рост захвата с осадком SNOW_A = {k['SNOW_A']:.3g}. СКО ступени {_f(r25)} при шумовом пороге "
+                f"{_f(o['noise']['25'])}.")
     if 'sandyga2020' in results:
         rows = sandyga2020.summary(results['sandyga2020'])
         out['SD'] = _table(['Вариант', 'СКО lg(∇p/∇p₀)', 'СКО k/k₀', 'наибольшее расхождение в 5 точках, раз',
@@ -118,7 +138,7 @@ def summary_table(results: dict) -> str:
         import sutton_roberts as sr
         o = results['sutton_roberts']
         for n in (1, 2):
-            own = g(o['lsq']['rate_entrainment'][f'own{n}']['rms'], n)
+            own = g(o['lsq'][sr.MAIN_FAMILY][f'own{n}']['rms'], n)
             shared = g(o['visc']['rms'], n) if 'visc' in o else None
             rows.append((f'Sutton & Roberts, опыт {n}', _f(g(o['noise'], n)), _f(sr.rms(g(o['legacy'], n), n)),
                          _f(own), _f(shared), _f(g(o['others']['Wang & Civan (2005)'], n))))

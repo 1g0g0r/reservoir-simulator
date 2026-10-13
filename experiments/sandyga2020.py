@@ -32,7 +32,7 @@ import numpy as np
 from scipy.optimize import brentq, least_squares
 
 from common import (load, core_constants, run_many, mode_from_argv, load_params, save_params, save_results,
-                    load_results, FIGURES, ROOT, DARCY)
+                    load_results, FIGURES, ROOT, DARCY, D_CRYST_MEAS)
 
 DATA = load('sandyga2020')
 SOL, CORE = DATA['solution'], DATA['core']
@@ -151,7 +151,8 @@ def metrics(res):
 
 
 def kin(k_wall, c0, k_cr, net=None):
-    out = {'K_WALL': k_wall, 'AGE_C0': c0, 'K_CRYST': k_cr, 'AGE_RATE': 0.0}
+    # диаметр кристалла - измеренный (как и `D` постановки керна, `common.core_constants`), не подбирается
+    out = {'K_WALL': k_wall, 'AGE_C0': c0, 'K_CRYST': k_cr, 'AGE_RATE': 0.0, 'D_CRYST': D_CRYST_MEAS}
     if net is not None:
         out.update(NET_Z=6.0, NET_GAMMA=net)
     return out
@@ -301,7 +302,7 @@ def wat_rate(wat: float, k_cr: float) -> dict:
     eq30 = cf.cloud_point(rr['w'], SOL['MW_wax'], SOL['M_kerosene'], tm, SOL['dH'])
 
     out = {}
-    for name, k in (('sandyga', k_cr), ('li2024', 10.0 ** load_params('li2024_cold')['x'][2])):
+    for name, k in (('sandyga', k_cr), ('li2024', load_params('li2024_cold')['kin']['K_CRYST'])):
         # модель ступенчатая (шаг по температуре), поэтому порог - перебором, сдвиг при нем - средняя невязка
         best = None
         for thr in 10.0 ** np.arange(-5.0, -0.95, 0.05):

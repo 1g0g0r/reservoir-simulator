@@ -34,7 +34,8 @@ python твт_статья_АСПО/run_thermal.py [вариант ...|--metrics
 python твт_статья_АСПО/make_article.py # рисунки (TIF 600 dpi, серые) и числа статьи -> results/numbers.json, metrics.md
 python твт_статья_АСПО/verify_heat.py  # верификация тепловой части: решение Ловерье, сетка, MRST -> results/verify_heat.json
 python твт_статья_АСПО/romashkino.py   # обращение решения Ловерье по контрольным скважинам Ромашкино -> results/romashkino.json
-python experiments/unified.py          # общий набор параметров на все керны + перекрестная проверка -> results/unified.json
+python experiments/unified.py [--net]  # общий набор параметров на все керны + перекрестная проверка -> results/unified.json
+                                       # (--net - сеть пор и горл, ключ 'net'; лучший по невязкам - params.json: unified.best)
 python experiments/grid_check.py       # сеточная сходимость керновых прогонов -> results/grid_check.json
 python experiments/sr_thermal.py       # тепловая постановка опытов Sutton & Roberts (термостат, heat_losses = 3)
 python docs/build_docx.py статья_тепло статья_кристаллизация  # две статьи вместо одной (см. твт_статья_АСПО/CHANGES.md)
@@ -398,7 +399,8 @@ O(N) по правилу цены (`p_mg_setup_ratio`, состояние — `S
 его не копирует обмен слоев.
 
 **Регрессия** (`tests/test_regression_flags_off.py`, прогон и эталоны - `tests/regression_baseline.py`): модель по
-умолчанию, 100 сут на сетке 75x75. `test_flags_off_bitwise` - побитово с эталоном своего окружения
+умолчанию, 100 сут на сетке 75x75, в копии пакета с константами эталонов (`regression_baseline.FROZEN`: D = 15 мкм,
+Lk, diff_mult) - регрессия проверяет код, а не калибровку. `test_flags_off_bitwise` - побитово с эталоном своего окружения
 `tests/test_data/regression_flags_off_<хеш>.npz` (снят кодом единой модели). Побитово сравнивать можно только в том
 же окружении (платформа, numba/llvmlite/numpy, python), хеш `metadata()` - в имени файла; без своего эталона тест
 пропускается. Эталон снимают кодом до правок: `git archive HEAD paraphin tests | tar -x -C <tmp>` (worktree на
@@ -561,7 +563,9 @@ LTNE (`equations/Thermal_ltne.py`) - температура породы в `kx[
 считается от него: `kx['sig0']`; тождество пористости тогда - от начального удержания.
 Диаметр кристалла в ядре - runtime `D_CRYST` (по умолчанию `D`: порог блокирования d/(2*gamma), объем пробки
 `plug_cv*(d/D)^3`), множитель броуновской диффузии - runtime `DIFF_MULT` поверх compile-time `diff_mult`: на них
-держится подбор по керновым опытам без перекомпиляции.
+держится подбор по керновым опытам без перекомпиляции. `D_CRYST` в опытах подбирается только в пределах измерений
+1-10 мкм (`common.LG_D`, `experiments/data/crystal_size.json`, решение автора); базовые 5 мкм - старт подбора и
+`constants.D`, фиксированные 3, 5 и 10 мкм - проверка чувствительности.
 
 **Сеть пор и горл (`pore_network`, разд. 13.13 описания).** Проводимость ячейки - не сумма по каналам пучка
 (`init_k*r4fi/integr_r4_fi0`), а эффективная проводимость сети горл (`_network_ratio` в `Deposition.py`,
@@ -692,8 +696,9 @@ paraphin/
   деление на ноль в прогоне керна - закупорка, а не падение подбора (`core_runner.py`).
 - `experiments/исходная_модель/core_flood.py` — проверка модели по лабораторным данным: одномерный керн (Nx = 1) с прокачкой
   нефти при постоянном расходе, опыты Sutton & Roberts (1974) и кривая выпадения Li et al. (2024). Каждый
-  вариант считается в копии пакета `outputs/.flags_on/core_flood_<опыт>`. Калибрует `D` (d_p) и `Lk` — их значения
-  в `constants.py` оттуда.
+  вариант считается в копии пакета `outputs/.flags_on/core_flood_<опыт>`. `D` (d_p) — по измерениям
+  (`experiments/data/crystal_size.json`, 5 мкм); в ядре кинетики опытов он уточняется в пределах 1-10 мкм. `Lk` = 0.3 мм и
+  `diff_mult` = 1: их подбор при 5 мкм не принят (минимум вырожден, СКО 0.29, `docs/параметры_модели.md`).
   `--diag`/`--thermal` — разбор расхождения с опытом (раздел в `docs/WAX_PRECIPITATION_FINDINGS.md`). `run_case`
   принимает сторонний опыт словарем (`exp=`: геометрия, T, вязкость) и режимы `rate`, `dp`, `thermal`, `ramp`
   (равномерное охлаждение); рабочий процесс получает опыт json-файлом.

@@ -4,7 +4,7 @@
     python experiments/состав/validate.py --plot    # только рисунки figures/val*.png и таблицы validation_tables.json
 
 Опыты и данные - те же, что в `experiments/исходная_модель/VALIDATION.md` (оцифровка там же, в `core_flood.py`,
-`validation_li2024.py`, `validation_sandyga2020.py`); d_p = 15 мкм и L_k = 0.3 мм - калибровка по опыту 1
+`validation_li2024.py`, `validation_sandyga2020.py`); d_p = 5 мкм - по измерениям, L_k = 0.3 мм - по опыту 1
 Sutton & Roberts (`constants.py`). Здесь к упрощенной модели добавляются механизмы детального состава:
   1. Sutton & Roberts (1974), опыты 1 и 2: гель с осадком в порах. Множитель `gel_tau_mult` - единственный
      свободный параметр геля (предел текучести перенесен из объема в пору), его допустимый диапазон
@@ -86,8 +86,8 @@ def run(name: str, exp: dict, flags: dict = None, mode: str = 'rate', extra: dic
     res['rms'] = cf.rms(res, exp['exp'])
     idx = np.unique(np.linspace(0, len(res['pv']) - 1, 400).astype(int))
     for key in ('pv', 'k', 'k_harm', 'phi_min', 'T_hist'):
-        if res.get(key):
-            res[key] = [res[key][i] for i in idx]
+        if res.get(key):  # при закупорке pv, k, k_harm длиннее на точку конца прокачки (`core_flood.run_runner`)
+            res[key] = [res[key][min(i, len(res[key]) - 1)] for i in idx]
     at = '/'.join(f'{np.interp(x, res["pv"], res["k"]):.2f}' for x in (0.25, 1.0, 3.0, 5.0))
     print(f'{name}: СКО {res["rms"]:.3f}, k/k0 при 0.25/1/3/5 PV = {at}, закупорка {res["plugged"]}, '
           f'гель в начале x{res["gel_start"]:.2f}', flush=True)

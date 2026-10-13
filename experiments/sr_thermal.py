@@ -17,6 +17,7 @@ import sys
 import sutton_roberts as sr
 from common import run_many, load_params, save_results, rms_k
 
+FLAGS = sr.LSQ_FAMILIES[sr.MAIN_FAMILY]['flags']  # основная модель опытов (сеть пор и горл + вынос)
 U_BATH = (3.0, 10.0, 30.0, 100.0, 300.0)  # [Вт/(м^2*C)]
 
 
@@ -35,17 +36,17 @@ def entrance_length(n, u):
 def jobs(kin_of):
     out = []
     for n in (1, 2):
-        out.append(sr.job('ent', n, sr.ENTRAINMENT, kin_of(n)))  # изотермический керн - предел U -> inf
+        out.append(sr.job('ent', n, FLAGS, kin_of(n)))  # изотермический керн - предел U -> inf
         for u in U_BATH:
-            flags = dict(sr.ENTRAINMENT, heat_losses='3', hv_bath=repr(_hv(n, u)))
+            flags = dict(FLAGS, heat_losses='3', hv_bath=repr(_hv(n, u)))
             out.append(sr.job(f'bath{u:g}', n, flags, kin_of(n), mode='thermal_bath'))
     return out
 
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
-    p = load_params('sutton_roberts_lsq')['rate_entrainment']
-    own = lambda n: sr.lsq_kin('rate_entrainment', p[f'own{n}'])
+    p = load_params('sutton_roberts_lsq')[sr.MAIN_FAMILY]
+    own = lambda n: sr.lsq_kin(sr.MAIN_FAMILY, p[f'own{n}'])
     res = run_many(jobs(own))
     out = {'U': list(U_BATH), 'L': {n: [entrance_length(n, u) for u in U_BATH] for n in (1, 2)}, 'own': {}}
     per = 1 + len(U_BATH)

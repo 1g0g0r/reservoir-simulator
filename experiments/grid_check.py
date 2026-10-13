@@ -29,7 +29,7 @@ def _jobs():
     out = {}
     p = load_params('sutton_roberts_lsq')
     for n in (1, 2):
-        fam = 'rate_entrainment'
+        fam = sr.MAIN_FAMILY
         job = sr.job(fam, n, sr.LSQ_FAMILIES[fam]['flags'], sr.lsq_kin(fam, p[fam][f'own{n}']))
         out[f'Sutton & Roberts {n}'] = (job, lambda r, n=n: k_residuals(r, sr.EXPS[n]['k_pv']))
     pl, pc = load_params('li2024'), load_params('li2024_cold')

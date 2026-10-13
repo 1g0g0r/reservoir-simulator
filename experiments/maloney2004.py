@@ -54,7 +54,7 @@ def job(total: float):
                pv_end=sum(p for _, p in STAGES), stages=STAGES, w=total, MW=MW, M_o=M_o, Tm=Tm, dH=alpha,
                ro_o=850.0, ro_p=ro_p, mu=3e-3, water=True)
     c = core_constants(exp)
-    c.update(li2024.SCN, wax_kinetics='True', gel_time='3600.0',
+    c.update(li2024.SCN, wax_kinetics='True', snowball='True', gel_time='3600.0',
              S_min=repr(DATA['S_wr']), S_max=repr(DATA['S_w_flood']), init_S='S_max',
              init_Wp=repr(total), init_Wps='0.0', wax_Tm_shift=repr(round(tm_shift(total), 3)),
              mu_o_ref='3e-3', T_mu_ref='66.0', r_m=repr(R_M), r_max=repr(R_M * 40.0 / 12.0))

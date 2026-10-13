@@ -140,7 +140,7 @@ def core_runs(mu25):
     runs = {}
 
     def run(name, d_p, lk, extra):
-        res = cf.run_case(3, d_p, lk, exp=exp, extra=extra)
+        res = cf.run_case(3, d_p, lk, exp=exp, extra=extra, diff_mult=CALIBRATION.get('diff_mult'))
         res['rms_ratio'] = rms_ratio(res)
         at = '/'.join(f'{np.interp(x, res["pv"], res["k"]):.2f}' for x in (0.25, 1.0, 3.0, 5.0))
         print(f'| {name} | {d_p * 1e6:.1f} | {lk * 1e3:.2f} | {res["rms"]:.3f} | {res["rms_ratio"]:.3f} | {at} | '

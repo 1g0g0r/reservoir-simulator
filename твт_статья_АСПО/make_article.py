@@ -25,6 +25,7 @@ ROOT = HERE.parent
 EXP = ROOT / 'experiments'
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(EXP))
+SR_MAIN = 'rate_network'  # = sutton_roberts.MAIN_FAMILY: основная модель опытов Sutton & Roberts
 FIGURES = HERE / 'figures'
 RESULTS = HERE / 'results'
 
@@ -97,7 +98,7 @@ def fig_sutton_roberts(sr, num):
     for ax, n, letter in zip(axes, (1, 2), 'аб'):
         pv, k = np.array(m.EXPS[n]['k_pv']).T
         ax.plot(pv, k, 'o', mfc='white', mec='k', ms=4)
-        own = g(sr['lsq']['rate_entrainment'][f'own{n}']['curves'], n)
+        own = g(sr['lsq'][SR_MAIN][f'own{n}']['curves'], n)
         ax.plot(own['pv'], own['k'], '-', color='k', label='1')
         x, y = np.array(m.EXPS[n]['models']['Wang & Civan (2005)']).T
         ax.plot(x, y, '--', color='k', lw=1.2, label='2')
@@ -107,7 +108,7 @@ def fig_sutton_roberts(sr, num):
         ax.set_ylim(0, 1.05)
         ax.set_xlabel('V')
         _panel(ax, letter)
-        num[f'SR_OWN{n}'] = _f(g(sr['lsq']['rate_entrainment'][f'own{n}']['rms'], n))
+        num[f'SR_OWN{n}'] = _f(g(sr['lsq'][SR_MAIN][f'own{n}']['rms'], n))
         num[f'SR_WC{n}'] = _f(g(sr['others']['Wang & Civan (2005)'], n))
         num[f'SR_LEG{n}'] = _f(m.rms(leg, n))
         num[f'SR_NOISE{n}'] = _f(g(sr['noise'], n))
@@ -152,26 +153,32 @@ def fig_li(li, num):
     num['LI_DH'] = f"{-kin['ADS_DH'] / 1e3:.0f}"
     num['LI_FILM'] = _f(math.sqrt(sum(li['forms']['film']['rms'][t] ** 2 for t in ('90.0', '65.0', '45.0')) / 3))
     c = li['cold']['kin']
-    num['LI_DCR'] = f"{c['D_CRYST'] * 1e6:.1f}"
+    num['LI_DCR'] = _f(c['D_CRYST'] * 1e6, 1)
+    num['LI_SNOW'] = f"{c['SNOW_A']:.3g}"
     num['LI_DIFF'] = f"{c['DIFF_MULT']:.2f}"
     num['LI_KCR'] = f"{c['K_CRYST']:.3f}"
     num['LI_TCR'] = f"{1.0 / c['K_CRYST']:.0f}"
     num['LI_HOLD'] = f"{m.STAGE_HOLD / 3600:.0f}"
     cum = li['cumulative']
     num['LI_CUM25'] = _f(cum['25.0'])
-    # Сеть пор и горл с кинетикой, подобранной для пучка, и с кристаллами другого диаметра (`li2024.NET_D_CRYST`)
+    # Сеть пор и горл с кинетикой, подобранной для пучка, и отношением горла к поре, подобранным по всем ступеням: при
+    # измеренном диаметре кристалла и при 3 и 10 мкм (`li2024.NET_D_CRYST`). Закупоренная ступень - '—'
     net = li.get('network', [])
+    rms = lambda e, t: e['rms'].get(f'{t}.0', e['rms'].get(t))  # noqa: E731
     if net:
-        rms = lambda e, t: e['rms'].get(f'{t}.0', e['rms'].get(t))
-        fit = next(e for e in net if e['fitted'])
-        num['LI_NET_FIT45'] = _f(rms(fit, '45'))
-        sweep = [e for e in net if not e['fitted']]
-        ok = [e for e in sweep if rms(e, '45') is not None and rms(e, '45') <= 0.05]
-        span = lambda vals, fmt: fmt.format(min(vals)) + '–' + fmt.format(max(vals))
+        span = lambda vals, fmt: (fmt.format(min(vals)) + '–' + fmt.format(max(vals))) if vals else '—'
+        meas = next(e for e in net if e['fitted'])
+        num['LI_NET_FIT45'], num['LI_NET_FIT25'] = _f(rms(meas, '45')), _f(rms(meas, '25'))
+        num['LI_NET_GAMMA'] = _f(meas['net_gamma'], 2)
+        ok = [e for e in net if rms(e, '45') is not None and rms(e, '45') <= 0.05]
         num['LI_NET_D'] = span([e['d_cryst'] * 1e6 for e in ok], '{:g}')
         num['LI_NET45'] = span([rms(e, '45') for e in ok], '{:.3f}')
-        num['LI_NET_DALL'] = span([e['d_cryst'] * 1e6 for e in sweep], '{:g}')
-        num['LI_NET25'] = span([rms(e, '25') for e in sweep if rms(e, '25') is not None], '{:.2f}')
+        num['LI_NET_DALL'] = span([e['d_cryst'] * 1e6 for e in net], '{:g}')
+        num['LI_NET25'] = span([rms(e, '25') for e in net if rms(e, '25') is not None], '{:.2f}')
+    # Чувствительность ступени 25 C к диаметру кристалла (подбор заново при 3 и 10 мкм)
+    for key, e in li.get('cold_sens', {}).items():
+        tag = 'FIT' if e['fitted'] else f"{e['d_cryst'] * 1e6:g}"
+        num[f'LI_SENS25_{tag}'] = _f(rms(e, '25')) if rms(e, '25') is not None else 'закупорка'
 
 
 def fig_sandyga(sd, num):
@@ -904,7 +911,8 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
     num['GEL_TAU'], num['GEL_N'] = _f(rh['gel_tau_ref'], 1), _f(rh['gel_n'], 2)
     runs = val['runs']
     for key, tag in (('sr1_legacy', 'SR_LEG'), ('sr1_gel_1.0', 'SR_1'), ('sr1_gel_0.1', 'SR_01'),
-                     ('sr1_gel_0.03', 'SR_003'), ('sr2_legacy', 'SR2_LEG'), ('sr2_gel_0.03', 'SR2_003'),
+                     ('sr1_gel_0.03', 'SR_003'), ('sr1_gel_0.01', 'SR_001'), ('sr2_legacy', 'SR2_LEG'),
+                     (f"sr2_gel_{val['mult']}", 'SR2_SEL'),
                      ('li25_comp', 'LI_COMP'), ('li25_gel_1.0', 'LI_1')):
         num[f'GEL_{tag}'] = _f(runs[key]['rms'], 3)
     num['GEL_SD_STATIC'] = _f(1.0 / min(runs['sd_gelphi_0.02_1.0']['k']), 1)
@@ -913,14 +921,32 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
     # Е. Причины расхождений в керновых опытах
     sr = _load('sutton_roberts')
     g = lambda d, n: d[n] if n in d else d[str(n)]
-    joint = sr['lsq']['rate_entrainment']['joint']['rms']
+    joint = sr['lsq'][SR_MAIN]['joint']['rms']
     num['SR_JOINT'] = _rng([g(joint, 1), g(joint, 2)], 2)
-    cross = sr['entrainment']['cross']
+    cross = sr['lsq'][SR_MAIN]['cross']
     num['SR_CROSS'] = f"{_f(min(cross.values()), 2)}–{_f(max(cross.values()), 2)}"
+    be = sr['lsq']['rate_entrainment']  # пучок с выносом, свой набор на опыт - для сравнения с сетью
+    num['SR_BUNDLE_OWN'] = f"{_f(g(be['own1']['rms'], 1))} и {_f(g(be['own2']['rms'], 2))}"
+    num['SR_NET_GAMMA'] = _rng([sr['lsq'][SR_MAIN][f'own{n}']['kin']['NET_GAMMA'] for n in (1, 2)], 2)
+    num['SR_ENT_TAU'] = ' и '.join(_f(sr['lsq'][SR_MAIN][f'own{n}']['kin']['ENT_TAU'], 1) for n in (1, 2))
     x = sr['visc']['x']
     mult = (10 ** x[3], 10 ** x[4])
     num['SR_MULT1'], num['SR_MULT2'] = _f(mult[0], 1), _f(mult[1], 2)
     num['SR_MU1'], num['SR_MU2'] = _f(3.0 / mult[0], 0), _f(3.0 / mult[1], 0)
+    # ранний участок (то, что прежде подгонял диаметр кристалла): k/k0 при 0.25 и 0.5 PV, общий набор пучка с выносом,
+    # и рост захвата с осадком; чувствительность к d_p - общий набор, подобранный заново при 3 и 10 мкм
+    import sutton_roberts as msr
+    jc = sr['lsq'][SR_MAIN]['joint']
+    num['SR_SNOW'] = _f(jc['kin']['SNOW_A'], 1)
+    num['SR_DFIT'] = _f(jc['kin']['D_CRYST'] * 1e6, 1)  # подобран в пределах измерений
+    for n in (1, 2):
+        model = msr.early(g(jc['curves'], n))
+        exp = [float(np.interp(v, *np.array(msr.EXPS[n]['k_pv']).T)) for v in msr.EARLY_PV]
+        num[f'SR_EARLY{n}'] = ' и '.join(_f(v, 2) for v in model)
+        num[f'SR_EARLY_EXP{n}'] = ' и '.join(_f(v, 2) for v in exp)
+    for e in sr.get('sens', {}).values():
+        tag = '_FIT' if e['fitted'] else f"{e['d_cryst'] * 1e6:g}"
+        num[f'SR_SENS{tag}'] = f"{_f(g(e['rms'], 1))} и {_f(g(e['rms'], 2))}"
     sd = _load('sandyga2020')
     loss, loss_exp = sd['best']['pore_loss'], sd['best']['pore_loss_exp']
     num['SD_LOSS_NARROW'], num['SD_LOSS_WIDE'] = _rng(loss[:2], 2), _rng(loss[2:], 2)
@@ -929,19 +955,26 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
     # Ж. Пласт: доля блокируемых каналов при d_p полевого расчета, чувствительность вязкости к E_a
     r = np.linspace(1e-9, r_max, 4001)
     phi0 = np.exp(-np.log(r / r_m) ** 2 / (2 * sigma_r ** 2)) / r
-    d_p = th['kin']['D_CRYST'] if th else 15e-6
-    r_pass = d_p / (2 * gamma)
-    below = r <= r_pass
-    num['F_RPASS'] = _f(r_pass * 1e6, 1)
-    vol = np.trapezoid(r[below] ** 2 * phi0[below], r[below]) / np.trapezoid(r ** 2 * phi0, r)
-    cond = np.trapezoid(r[below] ** 4 * phi0[below], r[below]) / np.trapezoid(r ** 4 * phi0, r)
-    num['F_VOL_BLOCK'], num['F_COND_BLOCK'] = _f(100 * vol, 0), _f(100 * cond, 0)
-    # то же при диаметре кристалла общего набора Sutton и Roberts (распределение пор в керне - как в пласте)
-    rp_sr = 10 ** params['sutton_roberts_lsq']['rate_entrainment']['joint'][0] / (2 * gamma)
-    b_sr = r <= rp_sr
-    num['SR_RPASS'] = _f(rp_sr * 1e6, 1)
-    num['SR_VOL_BLOCK'] = _f(100 * np.trapezoid(r[b_sr] ** 2 * phi0[b_sr], r[b_sr]) / np.trapezoid(r ** 2 * phi0, r), 0)
-    num['SR_COND_BLOCK'] = _f(100 * np.trapezoid(r[b_sr] ** 4 * phi0[b_sr], r[b_sr]) / np.trapezoid(r ** 4 * phi0, r), 0)
+    from common import D_CRYST_MEAS
+    pct = lambda v: _f(v, 2 if v < 1 else 1 if v < 10 else 0)  # noqa: E731  доли в процентах
+
+    def blocked(d):
+        """Порог блокирования d/(2*gamma) и доли числа каналов, объема и проводимости пучка fi_0 ниже него, %."""
+        b = r <= d / (2 * gamma)
+        part = lambda p: 100 * np.trapezoid(r[b] ** p * phi0[b], r[b]) / np.trapezoid(r ** p * phi0, r)  # noqa: E731
+        return d / (2 * gamma), part(0), part(2), part(4)
+    rp, _, vol, cond = blocked(th['kin']['D_CRYST'] if th else D_CRYST_MEAS)
+    num['F_RPASS'] = _f(rp * 1e6, 1)
+    num['F_VOL_BLOCK'], num['F_COND_BLOCK'] = pct(vol), pct(cond)
+    # то же в керне Sutton и Roberts (распределение пор - как в пласте): диаметр кристалла измерен, не подбирается;
+    # для сравнения - прежний подбор 15 мкм
+    rp, n_ch, vol, cond = blocked(sr['lsq'][SR_MAIN]['joint']['kin']['D_CRYST'])
+    num['SR_RPASS'], num['SR_N_BLOCK'], num['SR_VOL_BLOCK'], num['SR_COND_BLOCK'] = (_f(rp * 1e6, 2), pct(n_ch),
+                                                                                    pct(vol), pct(cond))
+    rp, n_ch, vol, cond = blocked(15e-6)
+    num['OLD_RPASS'], num['OLD_N_BLOCK'], num['OLD_VOL_BLOCK'], num['OLD_COND_BLOCK'] = (_f(rp * 1e6, 2), pct(n_ch),
+                                                                                        pct(vol), pct(cond))
+    num['D_MEAS'] = f'{D_CRYST_MEAS * 1e6:g}'
     t0 = (th['init_T'] if th else 55.0) + 273.15
     ratio = lambda e: math.exp(e / R * (1.0 / 293.15 - 1.0 / t0))
     num['F_MU_RATIO_25'], num['F_MU_RATIO_FIT'] = _f(ratio(25e3), 1), _f(ratio(rh['E']), 1)
@@ -980,12 +1013,12 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
                         'Другие модели'], rows)
 
     # Таблица 5: что подбирается и по каким данным
-    lsq = sutton_roberts.LSQ_FAMILIES['rate_entrainment']
-    sj = params['sutton_roberts_lsq']['rate_entrainment']['joint']
+    lsq = sutton_roberts.LSQ_FAMILIES[SR_MAIN]
+    sj = dict(zip(lsq['names'], params['sutton_roberts_lsq'][SR_MAIN]['joint']))
+    rng = {n: (lo, hi) for n, lo, hi in zip(lsq['names'], lsq['lo'], lsq['hi'])}
     ad = params['li2024']['solid']['kin']
     cold = params['li2024_cold']['x']
     sdb = params['sandyga2020']['best']
-    um = lambda lg, d=1: _f(10 ** lg * 1e6, d)
     rows = [
         ('Кривая выпадения и WAT нефти Жетыбая [19]', 'наклон распределения s, эффективная теплота ΔH_eff, сдвиг '
          'T_m; перебор разбиений на группы', 'метод наименьших квадратов', 'доля выпавшего при 10–45°C и WAT',
@@ -1001,23 +1034,29 @@ def thermo_numbers(eos, cal, ds, val, params, th, num):
         ('Кривая выпавших асфальтенов [34]', 'k_ij асфальтены—легкие 0–0.5, V_s (Нгхайем); v_a (Хиршберг)',
          'перебор k_ij с шагом 0.005, V_s — метод наименьших квадратов; k_ij метан—C7+ по давлению насыщения',
          'СКО выпавших, % масс.', f"k_ij = {num['TZ_KIJ']}, V_s = {num['TZ_VS']} л/моль"),
-        ('Sutton и Roberts [27]', f"d_p = {um(lsq['lo'][0], 0)}–{um(lsq['hi'][0], 0)} мкм, f_D = "
-         f"{_e10(lsq['lo'][1])}–{_e10(lsq['hi'][1])}, порог выноса {lsq['lo'][2]:g}–{lsq['hi'][2]:g} Па и его "
-         f"скорость {_e10(lsq['lo'][3])}–{_e10(lsq['hi'][3])} с⁻¹", 'метод наименьших квадратов по расчетам керна: '
-         'общий набор, набор на опыт, перекрестный прогноз', 'СКО k/k₀',
-         f"общий набор: d_p = {um(sj[0])} мкм, f_D = {_f(10 ** sj[1], 2)}, порог {_f(sj[2], 1)} Па, "
-         f"скорость {_sci(10 ** sj[3], 1)} с⁻¹"),
+        ('Sutton и Roberts [27]', f"d_p = {10 ** rng['D_CRYST'][0] * 1e6:g}–{10 ** rng['D_CRYST'][1] * 1e6:g} мкм "
+         f"(пределы измерений), f_D = {_e10(rng['DIFF_MULT'][0])}–{_e10(rng['DIFF_MULT'][1])}, отношение горла к поре "
+         f"{rng['NET_GAMMA'][0]:g}–{rng['NET_GAMMA'][1]:g}, порог выноса {rng['ENT_TAU'][0]:g}–{rng['ENT_TAU'][1]:g} Па и его "
+         f"скорость {_e10(rng['ENT_RATE'][0])}–{_e10(rng['ENT_RATE'][1])} с⁻¹, рост захвата с осадком a_s = "
+         f"{_e10(rng['SNOW_A'][0])}–{_e10(rng['SNOW_A'][1])}", 'метод наименьших квадратов по расчетам керна: общий набор, '
+         'набор на опыт, перекрестный прогноз', 'СКО k/k₀',
+         f"общий набор: d_p = {_f(10 ** sj['D_CRYST'] * 1e6, 1)} мкм, f_D = {_f(10 ** sj['DIFF_MULT'], 2)}, горло/пора "
+         f"{_f(sj['NET_GAMMA'], 2)}, порог {_f(sj['ENT_TAU'], 1)} Па, скорость {_sci(10 ** sj['ENT_RATE'], 1)} с⁻¹, "
+         f"a_s = {_f(10 ** sj['SNOW_A'], 1)}"),
         ('Li и др., 90–45°C [19]', f"Γ_max = {_e10(li2024.FIT_LO[0])}–{_e10(li2024.FIT_HI[0])} кг/м², "
          f"K_ref = {_e10(li2024.FIT_LO[1])}–{_e10(li2024.FIT_HI[1])}, −ΔH_ads = 0–{li2024.FIT_HI[2] * 10:g} кДж/моль, "
          f"k_ads = {_e10(li2024.FIT_LO[3])}–{_e10(li2024.FIT_HI[3])} с⁻¹", 'точно по трем плато, затем метод '
          'наименьших квадратов; две формы кинетики', 'СКО k/k₀ ступеней',
          f"Γ_max = {_sci(ad['ADS_GMAX'], 1)} кг/м², K_ref = {_f(ad['ADS_K'], 0)}, ΔH_ads = "
          f"−{_f(-ad['ADS_DH'] / 1e3, 0)} кДж/моль, k_ads = {_sci(ad['ADS_RATE'], 1)} с⁻¹"),
-        ('Li и др., 25°C [19]', f"d_p = {um(li2024.COLD_LO[0], 0)}–{um(li2024.COLD_HI[0], 0)} мкм, f_D = "
-         f"{_e10(li2024.COLD_LO[1])}–{_e10(li2024.COLD_HI[1])}, k_cr = {_e10(li2024.COLD_LO[2])}–"
-         f"{_e10(li2024.COLD_HI[2])} с⁻¹; тиксотропное время геля "
-         f"{', '.join(f'{t / 60:g}' for t in sorted(li2024.COLD_GEL_TIMES))} мин", 'метод наименьших квадратов',
-         'СКО k/k₀', f"d_p = {um(cold[0])} мкм, f_D = {_f(10 ** cold[1], 2)}, 1/k_cr = {_f(10 ** -cold[2], 0)} с, "
+        ('Li и др., 25°C [19]', f"f_D = {_e10(li2024.COLD_LO[0])}–{_e10(li2024.COLD_HI[0])}, k_cr = "
+         f"{_e10(li2024.COLD_LO[1])}–{_e10(li2024.COLD_HI[1])} с⁻¹, a_s = {_e10(li2024.COLD_LO[2])}–"
+         f"{_e10(li2024.COLD_HI[2])}; тиксотропное время геля "
+         f"{', '.join(f'{t / 60:g}' for t in sorted(li2024.COLD_GEL_TIMES))} мин; d_p = "
+         f"{10 ** li2024.COLD_LO[3] * 1e6:g}–{10 ** li2024.COLD_HI[3] * 1e6:g} мкм (пределы измерений)",
+         'метод наименьших квадратов', 'СКО k/k₀',
+         f"d_p = {_f(10 ** cold[3] * 1e6, 1)} мкм, f_D = {_f(10 ** cold[0], 2)}, 1/k_cr = {_f(10 ** -cold[1], 0)} с, "
+         f"a_s = {_f(10 ** cold[2], 1)}, "
          f"время геля {params['li2024_cold']['gel_time'] / 60:g} мин"),
         ('Sandyga и др. [2]', f"WAT пористой среды {', '.join(f'{w:g}' for w in sandyga2020.WATS)}°C; "
          f"k_w = {_e10(sandyga2020.FIT_LO[0])}–1 с⁻¹, C_0 = {_e10(sandyga2020.FIT_LO[1])}–1, "
@@ -1074,6 +1113,19 @@ def phys_numbers(eos, num):
     num['PHYS_G_PHI_L'], num['PHYS_G_PHI_H'] = (_f(v, 2) for v in g['x'])
     e = z['exponential']
     num['PHYS_EXP_RMS'], num['PHYS_EXP_HC31'] = _f(e['rms_fit'], 1), _f(e['hc_share']['31-200'], 2)
+    # WAT, которую увидел бы ДСК: равновесная кривая достигает порога обнаружения 0.1-0.2 % масс.
+    dsc = lambda row: f"{_f(row['wat_dsc'][1], 1)}–{_f(row['wat_dsc'][0], 1)}"  # noqa: E731
+    if 'wat_dsc' in eq:
+        num['PHYS_WAT_DSC'] = dsc(eq)
+    tail = z.get('tail')  # форма хвоста C31-C60 подобрана при сумме класса из табл. 3
+    if tail:
+        tat = np.interp(-exp[:, 0], -t, tail['curve'])
+        num['PHYS_TAIL_RMS'], num['PHYS_TAIL_B'] = _f(tail['rms_fit'], 2), _f(tail['x'][2], 2)
+        num['PHYS_TAIL_PHI_L'], num['PHYS_TAIL_PHI_H'] = _f(tail['x'][0], 2), _f(tail['x'][1], 2)
+        num['PHYS_TAIL_WAT'], num['PHYS_TAIL_WAT_DSC'] = _f(tail['wat_eq'], 1), dsc(tail)
+        num['PHYS_TAIL_40'], num['PHYS_TAIL_35'] = (_f(float(tat[exp[:, 0] == v][0]), 1) for v in (40.0, 35.0))
+        num['PHYS_40'] = _f(float(at[exp[:, 0] == 40.0][0]), 1)
+        num['PHYS_B0'] = _f(-math.log(np.diff(np.array(z['hc'])[-30:])[0] / z['hc'][-30] + 1.0), 2)
 
 
 # --- Две статьи: о термических процессах (ТВТ, figures/term_f*) и о кристаллизации и осаждении (figures/crys_f*) ---
@@ -1218,8 +1270,8 @@ def field_extra(th, num):
             num[f'{tag}_KINJ'] = _f(v[name]['k_inj'], 3)
     if 'kff15' in v and 'kff30' in v:
         num['LAM_KFF15'], num['LAM_KFF30'] = _f(lambda_number(10, FIELD_YEARS, 1.5), 2), _f(lambda_number(10, FIELD_YEARS, 3.0), 2)
-    if 'uniquac_g25' in v:  # статья B: твердый раствор с составом по ДСК против эффективной модели на той же сетке
-        u, b25 = v['uniquac_g25'], v['base_g25']
+    if 'uniquac_g50' in v and 'base_g50' in v:  # статья B: твердый раствор с составом по ДСК против эффективной модели на той же сетке
+        u, b25 = v['uniquac_g50'], v['base_g50']
         num['UQ_DRF'] = _delta(u['rf'] - b25['rf'])
         num['UQ_WAT0'] = f"{u['wat0'][0]:.1f}–{u['wat0'][1]:.1f}"
         num['UQ_WAXRATIO'] = _f(u['wax_dep_t'] / b25['wax_dep_t'], 1)
@@ -1247,7 +1299,7 @@ def fig_sr_split(sr, uni, num):
     for ax, n, letter in zip(axes, (1, 2), 'аб'):
         pv, k = np.array(m.EXPS[n]['k_pv']).T
         ax.plot(pv, k, 'o', mfc='white', mec='k', ms=4)
-        own = g(sr['lsq']['rate_entrainment'][f'own{n}']['curves'], n)
+        own = g(sr['lsq'][SR_MAIN][f'own{n}']['curves'], n)
         ax.plot(own['pv'], own['k'], '-', color='k', lw=1.5, label='1')
         u = _uni_curve(uni, f'sr{n}')
         if u:
@@ -1343,7 +1395,7 @@ def split_summary(sr, li, sd, uni, num):
     rows, pairs, pairs_u = [], {}, {}
     for n in (1, 2):
         pts = msr.EXPS[n]['k_pv']
-        mo, ex = k_model_at(g(sr['lsq']['rate_entrainment'][f'own{n}']['curves'], n), pts)
+        mo, ex = k_model_at(g(sr['lsq'][SR_MAIN][f'own{n}']['curves'], n), pts)
         r_uni = uni['scores'][f'sr{n}'] if uni else None
         loo = uni['loo'][f'sr{n}']['scores'] if uni and f'sr{n}' in uni.get('loo', {}) else None
         pairs[f'S&R {n}'] = (mo, ex)
@@ -1429,7 +1481,8 @@ def fig_parity(pairs, num):
 def split_params(uni, num):
     """Статья B: общий набор параметров и физически обоснованные различия систем."""
     x = uni['x']
-    num['U_DCR'] = f'{10 ** x[0] * 1e6:.1f}'
+    num['U_DCR'] = _f(10 ** x[8] * 1e6, 1)  # подобран в пределах измерений 1-10 мкм
+    num['U_SNOW'] = _f(10 ** x[0], 1)
     num['U_TAU'] = _f(x[1], 2)
     num['U_KENT'] = _sci(10 ** x[2])
     num['U_MU1'] = f'{10 ** x[3] * 1e3:.1f}'
@@ -1445,6 +1498,22 @@ def split_params(uni, num):
     loo = uni.get('loo', {})
     if 'li' in loo:  # без опыта Li et al. в подборе: вынос отложений
         num['LOO_LI_TAU'], num['LOO_LI_KENT'] = _f(loo['li']['x'][1], 2), _sci(10 ** loo['li']['x'][2])
+    num['U_NPAR'] = str(len(x))  # число общих параметров
+    # k/k0 в конце ступени 25 C: общий набор против опыта (общий набор теряет проницаемость медленнее опыта)
+    import li2024 as mli
+    s25 = mli.stage_curves(uni['curves']['li'])[25.0]
+    pts = np.array(mli.DATA['k_pv']['25'])
+    num['U_LI25_END'] = _f(float(np.interp(pts[-1, 0], s25[0], s25[1])), 2)
+    num['LI25_END_EXP'] = _f(pts[-1, 1], 2)
+    # второй вариант общего набора - сеть пор и горл (`unified.py --net`): СКО по опытам и выбор по сумме невязок
+    net = uni.get('net')
+    if net:
+        s = net['scores']
+        num['U_NET_GAMMA'] = _f(net['x'][-1], 2)
+        num['U_NET_RMS_SR1'], num['U_NET_RMS_SR2'] = _f(s['sr1']['rmse']), _f(s['sr2']['rmse'])
+        num['U_NET_RMS_LI25'], num['U_NET_RMS_SD'] = _f(s['li']['25']['rmse']), _f(s['sd']['rmse'])
+        num['U_COST'], num['U_NET_COST'] = _f(uni['cost'], 1), _f(net['cost'], 1)
+        num['U_BEST'] = 'сеть пор и горл' if net['cost'] < uni['cost'] else 'пучок капилляров'
     # проверка гипотезы о затрудненной диффузии в геле (ступень 25 C керна Li et al.)
     chk = uni.get('checks', {})
     for key, tag in (('DIFF_MULT = 1', 'D1'), ('DIFF_MULT = 1, диффузия по кажущейся вязкости', 'T2')):
@@ -1499,7 +1568,7 @@ def split_sr_thermal(sr, num):
     """Тепловая постановка опытов Sutton & Roberts (`experiments/sr_thermal.py`); прежний режим 'thermal' с
     неизменным линейным профилем температуры - для сравнения."""
     g = lambda d, n: d[n] if n in d else d[str(n)]
-    lin = sr['lsq']['thermal_bundle']
+    lin = sr['lsq']['thermal_network']  # геометрия основной модели (сеть), выноса в тепловых семействах нет
     num['SR_THERMAL_LIN1'], num['SR_THERMAL_LIN2'] = _f(g(lin['own1']['rms'], 1)), _f(g(lin['own2']['rms'], 2))
     st = _load('sr_thermal')
     if not st:
@@ -1549,14 +1618,14 @@ def field_tables(th, num):
 
 
 def field_grid_check(th, num):
-    """Статья A: факторный план теплообмен x парафин и изотермическая закачка на сетках 50 x 50 и 75 x 75 - зависят ли
-    от сетки абсолютные показатели и разности вариантов."""
+    """Статья A: факторный план теплообмен x парафин и изотермическая закачка на сетках 75 x 75 (основная) и 50 x 50 -
+    зависят ли от сетки абсолютные показатели и разности вариантов."""
     v = th['variants']
     names = ('base', 'tiso', 'hl0', 'nowax', 'hl0_nowax')
-    if not all(n in v and f'{n}_g75' in v for n in names):
+    if not all(n in v and f'{n}_g50' in v for n in names):
         return
     rows, vals = [], {}
-    for tag, sfx in (('50', ''), ('75', '_g75')):
+    for tag, sfx in (('50', '_g50'), ('75', '')):
         rf = lambda n, sfx=sfx: v[n + sfx]['rf']
         fx = factorial(v, rf) if not sfx else {  # factorial() берет имена без суффикса
             'hl_wax': rf('base') - rf('hl0'), 'hl_nowax': rf('nowax') - rf('hl0_nowax'),
@@ -1578,7 +1647,8 @@ def field_grid_check(th, num):
                               for label, k, fmt in spec])
     for k, fmt in (('rf', '{:.3f}'), ('cool', '{:.3f}'), ('wax', '{:.3f}'), ('share', '{:.0f}'), ('hl', '{:.3f}'),
                    ('inter_pct', '{:.0f}'), ('waxratio', '{:.1f}'), ('inj', '{:.0f}')):
-        num[f'F75_{k.upper()}'] = fmt.format(vals['75'][k])
+        for tag in ('50', '75'):
+            num[f'F{tag}_{k.upper()}'] = fmt.format(vals[tag][k])
 
 
 def two_articles(sr, li, sd, num, th=None):
