@@ -17,7 +17,7 @@ kaleido==0.*
 
 # images / document export
 pillow
-python-docx
+lxml
 pypandoc_binary
 
 # Для ускорения сборки окружения перед установкой библиотек необходимо использовать UV

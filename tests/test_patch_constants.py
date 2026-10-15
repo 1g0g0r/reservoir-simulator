@@ -22,7 +22,7 @@ def _module(path):
 def _patch_sets() -> dict:
     from tests.test_composition_flags_on import ALL_ON, KIN_ALL, EOS_ON
     demo = _module(ROOT / 'demo_composition.py')
-    thermal = _module(ROOT / 'твт_статья_АСПО' / 'run_thermal.py')
+    thermal = _module(ROOT / 'статья_твт' / 'run_thermal.py')
     cf = _module(EXPERIMENTS / 'исходная_модель' / 'core_flood.py')
     common = _module(EXPERIMENTS / 'common.py')
     sr = _module(EXPERIMENTS / 'sutton_roberts.py')
@@ -37,7 +37,7 @@ def _patch_sets() -> dict:
     sets = {
         'ALL_ON': ALL_ON, 'KIN_ALL': KIN_ALL, 'EOS_ON': EOS_ON,
         'run_grid_study': {'Nx, Ny': '100, 100'}, 'run_grid_study_nr': {'Nr': '45'},
-        'run_cases': {'init_Wp': '0.0', 'heat_losses': '1'},
+        'run_grid_study_cfl': {'CFL_target': '0.4', 'Time_end': 'day_to_sec*100'},
         'core_flood': dict(flood, Nr='21', r_m='16e-6', sigma_r='0.6', r_max='5e-5', init_T='54.4'),
         'li2024': li.constants(dict(li.RETENTION, wax_kinetics='True')),
         'maloney2004': ml.job(ml.WAX[1])[1],

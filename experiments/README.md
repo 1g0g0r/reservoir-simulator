@@ -11,7 +11,7 @@ python experiments/run_all.py --quick   # итоговые наборы пара
 python experiments/run_all.py           # полностью, с подбором по сеткам и least_squares: часы
 python experiments/run_all.py --plot    # только рисунки и таблицы по готовым results/*.json
 python experiments/run_all.py li2024    # один опыт (любой режим)
-python docs/build_docx.py сравнение_с_опытами   # отчет в docx
+python md_to_docx.py сравнение_с_опытами   # отчет в docx
 ```
 
 Прогоны кэшируются в `results/cache/` по хешу констант, параметров кинетики, опыта и исходников пакета
