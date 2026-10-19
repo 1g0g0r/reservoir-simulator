@@ -11,17 +11,19 @@ from numba import njit, prange
 from tqdm import tqdm
 
 from paraphin.geometry import r1, r3, r4, r5, r6, fi_0, surf_0
-from .constants import (data_type, Nx, Ny, Nr, rw, results_path, data_path, logs_path, init_T, init_k, init_S, init_m,
+from .constants import (data_type, Nx, Ny, Nr, rw, init_T, init_k, init_S, init_m,
                         init_p, init_Wp, init_Wps, bar_to_pa, dt, day_to_sec,
                         max_eta, c_o, c_w, c_p, c_f, sol_time_step, Time_end, LOGGING, geological_reserves,
                         volume, S_min, S_max, CFL_target, dt_growth, dt_max, dt_min, dfw_bins,
                         min_Wps_bound, asphaltenes, gelation, pressure_viscosity,
-                        gel_time, gel_mobility_min, alpha_p_visc, P_ref_wax, sara_asphaltenes, case_name,
+                        gel_time, gel_mobility_min, alpha_p_visc, P_ref_wax, sara_asphaltenes,
                         ro_asph_dep, ro_asph, deposition_kinetics, deposition_model, wax_kinetics,
                         asph_aggregation, wettability, thermal_nonequilibrium, adsorption,
-                        ads_init_equilibrium, R, pore_network, p_guess_m, gel_hindered_diffusion,
+                        ads_init_equilibrium, R, pore_network, gel_hindered_diffusion,
                         T_inj_amplitude, T_inj_period)
+from .utils.read_data_files import outputs_path, results_path, data_path, case_name
 from .utils.math_utils import MG_ROWS, MG_TOTAL, MG_COARSE, MG_COARSE_KD, P_STATE
+from .utils.math_utils.guess import p_guess_m
 from .equations import (calc_qp_m_k_fi, calc_pressure, saturation_equation, temperature_source,
                         temperature_equation, calc_velocities_h, flows_in_cells,
                         calc_Um_r2, components_equation, calc_velocity_asph, oil_viscosity, sle_split)
@@ -168,7 +170,7 @@ class Solver:
             self.logger = getLogger(__name__)
             self.logger.setLevel(INFO)
             self.logger.propagate = False
-            handler = FileHandler(logs_path, mode='w')
+            handler = FileHandler(outputs_path / '.log', mode='w')
             handler.setFormatter(Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S'))
             self.logger.addHandler(handler)
         else:

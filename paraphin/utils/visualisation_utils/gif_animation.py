@@ -8,9 +8,9 @@ import plotly.graph_objects as go
 from PIL import Image
 from joblib import Parallel, delayed
 
-from ..read_data_files import read_solution_data
+from ..read_data_files import read_solution_data, outputs_path
 from paraphin.geometry import r
-from paraphin.constants import outputs_path, bar_to_pa, day_to_sec, S_min, init_T, Twater, init_Wp
+from paraphin.constants import bar_to_pa, day_to_sec, S_min, init_T, Twater, init_Wp
 
 gif_path = outputs_path / 'gif'
 
@@ -179,7 +179,7 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
             else:
                 z_min = 0.85
         _fig.add_trace(go.Contour(
-            x=x_mesh, y=y_mesh, z=_data_wp[_name][_ii], zmin=z_min, zmax=z_max,
+            x=x_mesh, y=y_mesh, z=_data_wp[_name][_ii].T, zmin=z_min, zmax=z_max,
             contours=dict(
                 coloring='fill', showlabels=True,
                 # start=start, end=end, size=step,
@@ -190,7 +190,7 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
     else:
         isolines = isolines_settings[_name]
         _fig.add_trace(go.Contour(
-            x=x_mesh, y=y_mesh, z=_data_wp[_name][_ii],
+            x=x_mesh, y=y_mesh, z=_data_wp[_name][_ii].T,
             contours=dict(
                 coloring='lines', showlabels=True,
                 start=isolines[0], end=isolines[1], size=isolines[2]
@@ -200,7 +200,7 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
         ))
         if _name in _data.keys():
             _fig.add_trace(go.Contour(
-                x=x_mesh, y=y_mesh, z=_data[_name][_ii],
+                x=x_mesh, y=y_mesh, z=_data[_name][_ii].T,
                 contours=dict(
                     coloring='lines', showlabels=True,
                     start=isolines[0], end=isolines[1], size=isolines[2]

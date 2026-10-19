@@ -18,12 +18,11 @@
     9. Флаги механизмов
     10. Детальный состав: SARA и SCN, давление и газ, асфальтены и смолы, уравнение состояния
     11. Реология и гель
-    12. Решатель уравнения давления
-    13. Пути и имена выгрузки
-    14. Проверки согласованности флагов
-Числовые параметры кинетики осаждения - не здесь, а в `paraphin/kinetics_params.py` (runtime-вектор `solver.kin`).
+    12. Проверки согласованности флагов
+Числовые параметры кинетики осаждения - не здесь, а в `paraphin/kinetics_params.py` (runtime-вектор `solver.kin`);
+параметры решателя давления - в `paraphin/utils/math_utils/mg_solver.py` и `guess.py`; пути и имена выгрузки - в
+`paraphin/utils/read_data_files.py`.
 """
-from pathlib import Path
 import numpy as np
 
 # --- 1. Служебное, единицы, физические постоянные -----------------------------------------------------------------
@@ -46,14 +45,14 @@ Nr = 31          # Число узлов сетки радиусов капил�
 Nx, Ny = 75, 75  # Число узлов сетки по x и y
 X_min, X_max = 0., 200.  # Длина пласта, [м]
 Y_min, Y_max = 0., 200.  # Ширина пласта, [м]
-h = 10.0  # Толщина пласта, [м]
+h = 10.0                 # Толщина пласта, [м]
 hx = (X_max - X_min) / Nx
 hy = (Y_max - Y_min) / Ny
 volume = hx * hy * h  # Объем ячейки, [м^3]
 
 # --- 3. Время и шаг --------------------------------------------------------------------------------------------------
 Time_end = day_to_sec * 365 * 9.0  # Время моделирования, [с]
-dt = day_to_sec / 10.0     # Стартовый шаг; дальше шаг подбирается по Куранту (`solver._calc_dt`), [с]
+dt = day_to_sec / 10.0    # Стартовый шаг; дальше шаг подбирается по Куранту (`solver._calc_dt`), [с]
 max_eta = 0.98            # Предельная обводненность - останов расчета
 sol_time_step = dt * 50   # Шаг по времени для сохранения результатов и записи в лог, [с]
 CFL_target = 0.8          # Целевое число Куранта для явной схемы
@@ -178,7 +177,7 @@ sara_asphaltenes = 0.0091  # асфальтены, [-]; там же
 scn_first  = 17            # первый н-алкан C17
 scn_last   = 60            # последний н-алкан C60
 scn_bounds = (22, 30, 40)  # верхние границы групп по числу атомов углерода, включительно
-scn_slope      = 0.07     # z_n ~ exp(-scn_slope*n), [1/атом C]; калибровка: experiments/calibrate.py
+scn_slope      = 0.07      # z_n ~ exp(-scn_slope*n), [1/атом C]; калибровка: experiments/calibrate.py
 scn_weights = None         # профиль массовых долей н-алканов C_scn_first..C_scn_last (кортеж; None - экспонента
                            # scn_slope), нормируется на init_Wp + init_Wps: состав по хроматограмме
 wax_alpha_eff  = 41.86e3  # эффективная теплота растворимости групп, [Дж/моль]; калибровка: experiments/calibrate.py
@@ -236,46 +235,7 @@ gel_time         = 86400.0  # время тиксотропной релакса
 gel_mobility_min = 0.05     # нижняя граница множителя подвижности: матрица давления остается положительно определенной
 alpha_p_visc = 1.5e-8     # коэффициент Баруса mu *= exp(alpha_p_visc*(P - P_ref_wax)), [1/Па]; оценка
 
-# --- 12. Решатель уравнения давления (`utils/math_utils/mg_solver.py`, `guess.py`) ----------------------------------
-# PCG с многосеточным предобуславливателем. Замеры и выбор - docs/PERFORMANCE_FINDINGS.md, «Решатель давления»
-p_pcg_rtol        = 1e-10  # относительная невязка PCG
-p_mg_maxit        = 200    # не уложился - ошибка (вырожденная матрица)
-p_mg_scale        = 1.7    # множитель грубой поправки агрегации 2x2 (unsmoothed aggregation)
-p_mg_par_min      = 4000   # уровни от стольких ячеек - параллельно, мельче - последовательно
-p_mg_setup_ratio  = 0.3    # цена пересборки грубых уровней в итерациях PCG (замер на 100x100, 150x150)
-p_guess_m         = 6      # начальное приближение PCG - проекция на столько разностей прошлых решений (`guess.py`)
-# Ожидание потоков OpenMP между параллельными циклами. 'PASSIVE' - потоки засыпают, когда ждать нечего: без провалов,
-# когда ядра делят с расчетом рабочий стол или другие расчеты. 'ACTIVE' - крутятся всегда: при фоновой нагрузке
-# провалы шага в разы. Переменная окружения OMP_WAIT_POLICY, если задана, важнее (читает paraphin/__init__.py).
-# На Windows не ставится: MS OpenMP не крутится перед сном (GOMP_SPINCOUNT не читает), PASSIVE там в 2.3 раза медленнее
-omp_wait_policy = 'PASSIVE'
-# Сколько циклов потоки крутятся перед сном (GOMP_SPINCOUNT, только libgomp - слой omp numba на Linux). 0 - сразу спят.
-# 300000 покрывает паузы между параллельными циклами шага: одиночный расчет на свободной машине быстрее на 7-26 %. Но
-# когда ядра делят несколько расчетов (тесты и опыты в подпроцессах, полевые варианты), крутящиеся потоки отнимают
-# время у чужих: два bench.py 75x75 одновременно - 22 мс на шаг вместо 4.3. Несколько расчетов сразу - запускать с
-# GOMP_SPINCOUNT=0 в окружении (оно важнее). На Windows numba берет MS OpenMP или TBB - там не действует
-omp_spin_count = 300000
-
-# --- 13. Пути и имена выгрузки ---------------------------------------------------------------------------------------
-root_folder = Path(__file__).parent.parent
-outputs_path = root_folder / 'outputs'
-pictures_path = outputs_path / 'pictures'
-
-if heat_losses == 0:
-    _heat_tag = '_noheat'
-elif heat_losses == 1:
-    _heat_tag = '_lauwerier'
-else:
-    _heat_tag = ''
-_comp_tag = '' if wax_characterization == 'single' else '_comp'
-case_name = f'Wp={init_Wp}{_heat_tag}{_comp_tag}'
-results_path = outputs_path / f'results_{case_name}'
-layers_file = results_path / 'layers.pkl'  # промежуточные слои расчета, один файл на весь расчет
-data_path = outputs_path / 'data'
-logs_path = outputs_path / '.log'
-js_path = root_folder / 'paraphin' / 'utils' / 'visualisation_utils' / 'plotly_script.js'
-
-# --- 14. Проверки согласованности флагов -----------------------------------------------------------------------------
+# --- 12. Проверки согласованности флагов ------------------------------------------------------------------------------
 deposition_kinetics = (wax_kinetics or wall_transport or entrainment or asph_aggregation or snowball or adsorption
                        or wettability or deposit_aging or thermal_nonequilibrium or pore_network
                        or deposition_model != 'bundle')

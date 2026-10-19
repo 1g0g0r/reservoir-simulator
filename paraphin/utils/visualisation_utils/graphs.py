@@ -2,9 +2,11 @@
 import numpy as np
 import plotly.graph_objects as go
 
-from ..read_data_files import read_solution_data
-from paraphin.constants import pictures_path, bar_to_pa, day_to_sec, S_min, init_T, geological_reserves, init_Wp
+from ..read_data_files import read_solution_data, outputs_path
+from paraphin.constants import bar_to_pa, day_to_sec, S_min, init_T, geological_reserves, init_Wp
 from paraphin.geometry import r, fi_0
+
+pictures_path = outputs_path / 'pictures'
 
 
 def create_graphs_and_maps():
@@ -106,7 +108,7 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
     field = data[field_name][idx]
 
     fig.add_trace(go.Contour(
-        x=x_mesh, y=y_mesh, z=field_wp, name='Wp=5%',
+        x=x_mesh, y=y_mesh, z=field_wp.T, name='Wp=5%',
         contours=dict(
             coloring='lines', showlabels=True,
             start=start, end=end, size=step,
@@ -115,7 +117,7 @@ def _field_vis(idx, idx_wp, data, data_wp, field_name, start, end, step):
         showscale=False, showlegend=True
     ))
     fig.add_trace(go.Contour(
-        x=x_mesh, y=y_mesh, z=field, name='Wp=0%',
+        x=x_mesh, y=y_mesh, z=field.T, name='Wp=0%',
         contours=dict(
             coloring='lines', showlabels=True,
             start=start, end=end, size=step,
@@ -138,7 +140,7 @@ def _create_map(idx_wp, data_wp, field_name, start, end, step):
     field = data_wp[field_name][idx_wp]
 
     fig.add_trace(go.Contour(
-        x=x_mesh, y=y_mesh, z=field,
+        x=x_mesh, y=y_mesh, z=field.T,
         contours=dict(
             coloring='fill', showlabels=True,
             # start=start, end=end, size=step,

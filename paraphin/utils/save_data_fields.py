@@ -3,13 +3,14 @@ from pickle import dump, HIGHEST_PROTOCOL
 
 import numpy as np
 
-from paraphin.constants import (layers_file, init_k, init_m, Nx, Ny, gelation, ro_o, ro_p,
+from paraphin.constants import (init_k, init_m, Nx, Ny, gelation, ro_o, ro_p,
                                 ro_asph_dep, volume, _re, deposition_kinetics, adsorption, deposit_aging,
                                 asph_aggregation, wax_kinetics, thermal_nonequilibrium, wax_eos, wax_pressure,
                                 asphaltenes, wettability)
 from paraphin.layout import N_W, NC_T, named
+from paraphin.utils.read_data_files import layers_file
 
-# Точка, в которой снимается кривая fi(r) для графиков: `visualisation._visualize_plots_fi` и `graphs._plot_fi`.
+# Точка, в которой снимается кривая fi(r) для графиков: `visualisation_dash._fi_figure` и `graphs._plot_fi`.
 # Прижата к сетке: на одномерном керне (Nx = 1) точки (3, 3) нет.
 FI_PROBE = (min(3, Nx - 1), min(3, Ny - 1))
 

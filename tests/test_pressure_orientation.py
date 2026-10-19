@@ -10,7 +10,8 @@ import numpy as np
 
 from paraphin.geometry import N
 from paraphin.constants import (Nx, Ny, Pw, Po, Twater, rw, init_S, init_k, init_m, init_p, init_T, init_Wp, init_Wps,
-                                data_type, p_guess_m)
+                                data_type)
+from paraphin.utils.math_utils.guess import p_guess_m
 from paraphin.layout import NP, PX
 from paraphin.equations import calc_pressure
 from paraphin.utils import BC, new_well, preprocess_wells, calc_mu_o, calc_mu_w, calc_mobility

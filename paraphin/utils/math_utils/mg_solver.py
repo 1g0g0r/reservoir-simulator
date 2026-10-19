@@ -51,7 +51,15 @@ import types
 import numpy as np
 from numba import njit, prange
 
-from paraphin.constants import Nx, Ny, p_pcg_rtol, p_mg_maxit, p_mg_scale, p_mg_par_min, p_mg_setup_ratio
+from paraphin.constants import Nx, Ny
+
+# Параметры решателя - здесь, а не в constants.py: их никто не патчит, а читает только этот модуль. Подбор и замеры -
+# docs/решатель_давления.md, разд. 7, и docs/PERFORMANCE_FINDINGS.md, «Решатель давления»
+p_pcg_rtol        = 1e-10  # относительная невязка PCG; на ней держится баланс масс скважин - не ослаблять
+p_mg_maxit        = 200    # не уложился - ошибка (вырожденная матрица)
+p_mg_scale        = 1.7    # множитель грубой поправки агрегации 2x2 (unsmoothed aggregation)
+p_mg_par_min      = 4000   # уровни от стольких ячеек - параллельно, мельче - последовательно
+p_mg_setup_ratio  = 0.3    # цена пересборки грубых уровней в итерациях PCG (замер 2026-10: 0.13-0.15 на 75x75, 150x150)
 _PX = Nx + 2  # шаг строки мелкого уровня
 
 # Состояние решателя между шагами - массив `Solver.p_state`

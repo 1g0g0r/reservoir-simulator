@@ -13,6 +13,11 @@
 6. Wildcard-выход (кнопки) всегда получает СПИСОК значений — иначе Dash падает
    с InvalidCallbackReturnValue (что ломало обновление по слайдеру).
 
+Карта - одно поле заливкой (кнопка справа) и любые поля изолиниями поверх (список под ползунком);
+«Sat and Temp» - готовый набор из них. Настройки отображения - в `map-settings`, от них пересобирается
+фигура (`_redraw`); ползунок шлет только данные слоя (`_on_slider`). Справа от кнопок - дополнительный график:
+величины в выбранной щелчком ячейке во времени или профиль вдоль линии.
+
 Данные: кэш pkl -> npy (float32, memory-mapped). Сохранение в HTML — полная анимация.
 """
 from __future__ import annotations
@@ -20,10 +25,12 @@ from __future__ import annotations
 import gc
 import json
 import math
+import os
 import re
 import shutil
 import threading
 import traceback
+import webbrowser
 from collections import OrderedDict
 from pathlib import Path
 
@@ -35,18 +42,23 @@ from dash import Dash, Input, Output, State, dcc, html, no_update, ctx, Patch, A
 assert hasattr(dash, 'Patch'), 'Требуется dash>=2.9: pip install -U dash'
 
 from paraphin.geometry import r, fi_0
-from paraphin.constants import (Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, results_path, layers_file, js_path,
-                                bar_to_pa, day_to_sec, CONTOUR_PLOT, S_max, case_name)
-from paraphin.utils.read_data_files import read_solution_data, convert_pkl_files
+from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, bar_to_pa, day_to_sec, CONTOUR_PLOT, S_max
+from paraphin.utils.read_data_files import (read_solution_data, convert_pkl_files, results_path, layers_file,
+                                           case_name)
+
+js_path = Path(__file__).parent / 'plotly_script.js'
 
 # ----------------------------- Настройки ------------------------------------
-CACHE_VERSION = 7
+CACHE_VERSION = 8
 CACHE_DIR = results_path.parent / f'{case_name}_vizcache'
 DTYPE = np.float32
 MAX_DISPLAY_CELLS = 250_000             # максимум точек сетки для экрана (None — без прореживания)
 MAX_MARKS = 7                           # подписей под слайдером, как в оригинале
 JSON_DECIMALS = 5
 GRAPH_W, GRAPH_H = 720, 800             # размер фигуры карты (фиксированный, квадратная область)
+# Высота карты: квадратная область уже GRAPH_H, и под ней оставалась пустая полоса до ползунка
+MAP_H = 660
+CTRL_SHIFT = 50                         # сдвиг подписи времени, ползунка и настроек вправо от края фигуры, px
 WIDE_W = 950                            # 1D-графики (временные ряды, φ(r)) шире карты — слайдер уже них не растягивается
 SKIP_FIELDS = {}
 SERIES_GROUPS = ('Wells', 'Wells_accumulated', 'Totals', 'Other params')
@@ -69,8 +81,26 @@ FIELD_SECTIONS = (
 x_mesh = np.linspace(X_min + hx / 2, X_max - hx / 2, Nx)
 y_mesh = np.linspace(Y_min + hy / 2, Y_max - hy / 2, Ny)
 
-names_converter = {'fi': '$$\\varphi$$', 'fi_o': '$$\\varphi_0$$'}
-_HOVER_MAP = 'X: %{x}<br>Y: %{y}<br>Value: %{z}<extra></extra>'
+# Юникод, а не LaTeX: dcc.Graph без mathjax=True показывает формулу сырым текстом
+names_converter = {'fi': 'φ', 'fi_o': 'φ₀'}
+
+PALETTES = ('Jet', 'Turbo', 'Viridis', 'Plasma', 'RdBu', 'Greys')
+LINE_COLORS = ('black', 'white', 'red', 'magenta', 'cyan', 'lime', 'blue', 'green', 'orange', 'gray')
+OV_COLORS = LINE_COLORS[:6]             # цвета изолиний по умолчанию - по очереди
+AUX_H = 330                             # высота дополнительного графика под картой
+PROFILES = ('diag', 'x', 'y')           # значения `aux` для профиля: диагональ, вдоль X при j, вдоль Y при i
+
+# Настройки отображения (`map-settings`); `ov` - стиль изолиний по имени поля, `cell` - (i, j) выбранной ячейки
+DEFAULT_SETTINGS = {
+    'overlays': [], 'mode': 'fill' if CONTOUR_PLOT else 'heatmap', 'cmap': 'Jet', 'ncont': 10, 'labels': True,
+    'range': 'all', 'zmin': None, 'zmax': None, 'log': False, 'ov': {},
+    'aux': 'none', 'cell': None, 'line_idx': 0,
+    'series_log': False, 'series_norm': False,
+}
+
+
+def _hover(name: str) -> str:
+    return f'X: %{{x}}<br>Y: %{{y}}<br>{name}: %{{z}}<extra></extra>'
 
 _FONT = "'Open Sans', Verdana, Arial, sans-serif"
 _BTN_SAVE = {'backgroundColor': '#2196F3', 'color': 'white', 'fontWeight': 'bold',
@@ -89,6 +119,9 @@ _CSS = f"""
 .plt-btn:focus,.plt-btn:focus-visible{{outline:none;box-shadow:none;}}
 .plt-btn:active{{background:#eef2f9;}}
 .plt-section{{font-family:{_FONT};font-size:12px;font-weight:bold;color:#7f8c9d;padding:8px 2px 2px;}}
+.plt-row{{display:flex;align-items:center;gap:8px;margin:4px 0;font-family:{_FONT};font-size:13px;color:#2a3f5f;}}
+.plt-lbl{{width:120px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}}
+.plt-num{{width:64px;}}
 
 .plt-time-label{{font-family:{_FONT};font-size:13px;font-weight:bold;color:#2a3f5f;
                  height:22px;padding-left:2px;font-variant-numeric:tabular-nums;white-space:nowrap;}}
@@ -211,12 +244,17 @@ class SolutionStore:
                 print(f'  поле "{name}" пропущено (ожидался куб n×Ny×Nx, ndim={arr.ndim})')
                 continue
             fname = f'field__{_sanitize(name)}.npy'
-            mm = np.lib.format.open_memmap(CACHE_DIR / fname, mode='w+', dtype=DTYPE, shape=arr.shape)
+            # Поле расчета - [i=x, j=y], а plotly читает z как [строка=y][столбец=x]: в кэш кладется транспонированным
+            shape = (arr.shape[0], arr.shape[2], arr.shape[1])
+            mm = np.lib.format.open_memmap(CACHE_DIR / fname, mode='w+', dtype=DTYPE, shape=shape)
             for i in range(arr.shape[0]):
-                mm[i] = arr[i]
+                mm[i] = arr[i].T
             mm.flush()
             del mm
-            fields[name] = {'file': fname, 'shape': list(arr.shape), **dict(zip(('zmin', 'zmax'), _safe_minmax(arr)))}
+            pos = arr[arr > 0]
+            fields[name] = {'file': fname, 'shape': list(shape), **dict(zip(('zmin', 'zmax'), _safe_minmax(arr))),
+                            # нижняя граница логарифмической шкалы
+                            'zpos': float(pos.min()) if pos.size else 1e-12}
             print(f'  поле "{name}": {arr.shape} -> {fname}')
             del arr
         meta['fields'] = fields
@@ -292,10 +330,18 @@ class SolutionStore:
         return a if JSON_DECIMALS is None else np.round(a.astype(np.float64, copy=False), JSON_DECIMALS)
 
     def get_field(self, name: str, i: int) -> np.ndarray:
-        """Срез поля в момент i (с прореживанием и округлением)."""
+        """Срез поля в момент i (с прореживанием, без округления), z[j, i]."""
         mm = self._mmap(self.meta['fields'][name]['file'])
         s = self.stride
-        return self._round(np.ascontiguousarray(mm[i, ::s, ::s]))
+        return np.asarray(mm[i, ::s, ::s], dtype=np.float64)
+
+    def get_cell(self, name: str, i: int, j: int) -> np.ndarray:
+        """Величина в ячейке (i, j) во все моменты: из memmap читается только этот столбец."""
+        return np.asarray(self._mmap(self.meta['fields'][name]['file'])[:, j, i], dtype=np.float64)
+
+    def get_profile(self, name: str, t: int, ii: np.ndarray, jj: np.ndarray) -> np.ndarray:
+        """Значения в ячейках (ii[k], jj[k]) в момент t."""
+        return np.asarray(self._mmap(self.meta['fields'][name]['file'])[t][jj, ii], dtype=np.float64)
 
     def get_series(self, group: str) -> np.ndarray:
         with self._lock:
@@ -352,56 +398,166 @@ def _map_axes() -> tuple[dict, dict]:
     xax = _axis_dict()
     xax.update(autorange=True, constrain='domain')
     yax = _axis_dict()
-    yax.update(autorange=True, scaleanchor='x', scaleratio=1, constrain='domain')
+    # Квадратная область уже высоты фигуры: constrain='domain' по умолчанию ставит ее посередине, ниже кнопок
+    yax.update(autorange=True, scaleanchor='x', scaleratio=1, constrain='domain', constraintoward='top')
     return xax, yax
 
 
-def _map_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) -> go.Figure:
-    """Поле данных — вид как в оригинале (Jet, подписи контуров), квадратная область."""
-    if view.get('sattemp'):
-        traces = [
-            go.Contour(x=store.x, y=store.y, z=store.get_field('Saturation', i), colorscale='Jet',
-                       name='Saturation', contours=dict(coloring='fill', showlabels=True),
-                       hovertemplate=_HOVER_MAP),
-            go.Contour(x=store.x, y=store.y, z=store.get_field('Temperature', i), name='Temperature',
-                       contours=dict(coloring='lines', showlabels=True,
-                                     start=25 * 1.001, end=70 * 0.99, size=10),
-                       line=dict(width=3), colorscale=[[0, 'black'], [1, 'black']],
-                       showscale=False, showlegend=True, hovertemplate=_HOVER_MAP),
-        ]
+def _overlays(st: dict, base: str, store: SolutionStore) -> list[str]:
+    """Поля изолиний поверх заливки (без самой заливки)."""
+    return [n for n in st['overlays'] if n != base and n in store.meta['fields']]
+
+
+def _ov_style(st: dict, name: str) -> dict:
+    """Стиль изолиний поля; цвет по умолчанию - по месту поля в списке наложенных."""
+    k = st['overlays'].index(name) if name in st['overlays'] else 0
+    s = st['ov'].get(name) or {}
+    return {'color': s.get('color') or OV_COLORS[k % len(OV_COLORS)], 'n': s.get('n') or 5,
+            'width': s.get('width') or 2, 'labels': s.get('labels', True)}
+
+
+def _levels(lo: float, hi: float, n: int) -> dict:
+    """n изолиний внутри [lo, hi]. Уровни явные: автоуровни plotly прыгают от кадра к кадру."""
+    size = (hi - lo) / (n + 1) if hi > lo else 1e-12
+    return dict(start=lo + size, end=hi - size if hi > lo else lo, size=size)
+
+
+def _layer(store: SolutionStore, name: str, t: int, st: dict, is_base: bool) -> tuple[np.ndarray, float, float]:
+    """Срез поля для экрана (lg - только у заливки) и диапазон шкалы по настройке."""
+    info = store.meta['fields'][name]
+    z = store.get_field(name, t)
+    log = is_base and st['log']
+    if log:
+        z = np.log10(np.maximum(z, info['zpos']))
+    if is_base and st['range'] == 'manual' and st['zmin'] is not None and st['zmax'] is not None:
+        lo, hi = float(st['zmin']), float(st['zmax'])   # в единицах шкалы, то есть в lg при логарифмической
+    elif st['range'] == 'layer':
+        lo, hi = _safe_minmax(z)
     else:
-        name = view['sources'][0]
-        info = store.meta['fields'][name]
-        common = dict(x=store.x, y=store.y, z=store.get_field(name, i), name=name, colorscale='Jet',
-                      zmin=info['zmin'], zmax=info['zmax'], hovertemplate=_HOVER_MAP)
-        if CONTOUR_PLOT:
-            traces = [go.Contour(**common, contours=dict(coloring='fill', showlabels=True,
-                                                         labelfont=dict(size=12, color='black')))]
-        else:
-            traces = [go.Heatmap(**common)]
+        lo, hi = info['zmin'], info['zmax']
+        if log:
+            lo, hi = math.log10(max(lo, info['zpos'])), math.log10(max(hi, info['zpos']))
+    return store._round(z), lo, hi
+
+
+def _trace_data(store: SolutionStore, base: str, overlays: list[str], t: int, st: dict) -> list[dict]:
+    """Что меняется у трасс карты от слоя к слою: z, а при шкале по текущему слою - и диапазон с уровнями."""
+    out = []
+    for k, name in enumerate([base] + overlays):
+        z, lo, hi = _layer(store, name, t, st, k == 0)
+        d = {'z': z}
+        if st['range'] == 'layer':
+            d.update(zmin=lo, zmax=hi)
+            if k > 0 or st['mode'] != 'heatmap':
+                d['contours'] = _levels(lo, hi, st['ncont'] if k == 0 else _ov_style(st, name)['n'])
+        out.append(d)
+    return out
+
+
+def _line_cells(st: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Ячейки профиля (ii, jj) и расстояние вдоль линии, м."""
+    if st['aux'] == 'x':
+        jj = int(min(max(st['line_idx'] or 0, 0), Ny - 1))
+        ii = np.arange(Nx)
+        return ii, np.full(Nx, jj), x_mesh - x_mesh[0]
+    if st['aux'] == 'y':
+        ii = int(min(max(st['line_idx'] or 0, 0), Nx - 1))
+        jj = np.arange(Ny)
+        return np.full(Ny, ii), jj, y_mesh - y_mesh[0]
+    f = np.linspace(0.0, 1.0, max(Nx, Ny))   # диагональ (0, 0) -> (Nx-1, Ny-1)
+    ii, jj = np.rint(f * (Nx - 1)).astype(int), np.rint(f * (Ny - 1)).astype(int)
+    return ii, jj, np.hypot(x_mesh[ii] - x_mesh[0], y_mesh[jj] - y_mesh[0])
+
+
+def _map_figure(base: str, i: int, store: SolutionStore, st: dict, animate: bool = False) -> go.Figure:
+    """Карта: поле `base` заливкой (контур, линии или Heatmap) и изолинии полей `st['overlays']` поверх."""
+    overlays = _overlays(st, base, store)
+    z, lo, hi = _layer(store, base, i, st, True)
+    common = dict(x=store.x, y=store.y, z=z, name=base, colorscale=st['cmap'], zmin=lo, zmax=hi,
+                  hovertemplate=_hover(base), colorbar=dict(title='lg' if st['log'] else None))  # имя поля - на кнопке
+    if st['mode'] == 'heatmap':
+        traces = [go.Heatmap(**common)]
+    else:
+        traces = [go.Contour(**common, autocontour=False,
+                             contours=dict(coloring=st['mode'], showlabels=st['labels'],
+                                           labelfont=dict(size=12, color='black'), **_levels(lo, hi, st['ncont'])),
+                             line=dict(width=2) if st['mode'] == 'lines' else None)]
+    for name in overlays:
+        s = _ov_style(st, name)
+        z_o, lo_o, hi_o = _layer(store, name, i, st, False)
+        traces.append(go.Contour(
+            x=store.x, y=store.y, z=z_o, name=name, autocontour=False,
+            contours=dict(coloring='lines', showlabels=s['labels'], labelfont=dict(size=12, color=s['color']),
+                          **_levels(lo_o, hi_o, s['n'])),
+            line=dict(width=s['width']), colorscale=[[0, s['color']], [1, s['color']]],
+            showscale=False, showlegend=True, hovertemplate=_hover(name)))
 
     fig = go.Figure(data=traces)
+    # Отметка ячейки и линия профиля идут после трасс полей: Patch по ползунку правит data[k] по номеру поля
+    if st['aux'] == 'cell' and st['cell']:
+        ci, cj = st['cell']
+        fig.add_trace(go.Scatter(x=[x_mesh[ci]], y=[y_mesh[cj]], mode='markers', showlegend=False, hoverinfo='skip',
+                                 marker=dict(symbol='x', size=13, color='black', line=dict(width=1, color='white'))))
+    elif st['aux'] in PROFILES:
+        ii, jj, _ = _line_cells(st)
+        fig.add_shape(type='line', x0=x_mesh[ii[0]], y0=y_mesh[jj[0]], x1=x_mesh[ii[-1]], y1=y_mesh[jj[-1]],
+                      line=dict(color='black', width=2, dash='dash'))
+
     xax, yax = _map_axes()
     # uirevision меняется вместе с режимом: у Contour и Heatmap разные диапазоны, и масштаб пользователя
-    # переносить между ними нельзя. Между полями (Pressure/Saturation/...) в одном режиме uirevision
-    # не меняется, так что масштаб/зум сохраняется.
-    uirevision = 'map-sattemp' if view.get('sattemp') else f"map-{'contour' if CONTOUR_PLOT else 'heatmap'}"
-    fig.update_layout(plot_bgcolor='white', uirevision=uirevision,
-                      xaxis=xax, yaxis=yax, legend=dict(x=1.05, y=1.0),
-                      width=GRAPH_W, height=GRAPH_H)
+    # переносить между ними нельзя. Между полями в одном режиме uirevision не меняется - масштаб сохраняется.
+    fig.update_layout(plot_bgcolor='white', uirevision=f"map-{'heatmap' if st['mode'] == 'heatmap' else 'contour'}",
+                      xaxis=xax, yaxis=yax, legend=dict(orientation='h', x=0, y=1.01, yanchor='bottom'),
+                      margin=dict(t=65, b=50), width=GRAPH_W, height=MAP_H)  # верх карты - вровень с первой кнопкой
 
     if animate:   # полная анимация для сохранения в HTML
-        steps = [dict(method='update',
-                      args=[{'z': [store.get_field(nm, j) for nm in view['sources']]}],
-                      label=_day_fmt(store.time[j]))
-                 for j in range(store.meta['n_times'])]
+        idx = list(range(1 + len(overlays)))
+        steps = []
+        for j in range(store.meta['n_times']):
+            ds = _trace_data(store, base, overlays, j, st)
+            args = {'z': [d['z'] for d in ds]}
+            if st['range'] == 'layer':
+                args['zmin'], args['zmax'] = [d['zmin'] for d in ds], [d['zmax'] for d in ds]
+                for key in ('start', 'end', 'size'):
+                    args[f'contours.{key}'] = [d['contours'][key] if 'contours' in d else None for d in ds]
+            steps.append(dict(method='restyle', args=[args, idx], label=_day_fmt(store.time[j])))
         fig.update_layout(sliders=[dict(active=min(i, len(steps) - 1),
                                         currentvalue={'prefix': 'Время: '}, steps=steps)])
     return fig
 
 
-def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
-    """Скважины / прочие параметры — оформление как в оригинале."""
+def _aux_figure(base: str, i: int, store: SolutionStore, st: dict) -> go.Figure:
+    """Дополнительный график под картой: поля карты в выбранной ячейке во времени или профиль вдоль линии."""
+    names = [base] + _overlays(st, base, store)
+    fig = go.Figure()
+    if st['aux'] == 'cell':
+        if not st['cell']:
+            fig.add_annotation(text='Щелкните по карте, чтобы выбрать ячейку', showarrow=False, font=dict(size=15))
+        else:
+            ci, cj = st['cell']
+            for k, nm in enumerate(names):
+                fig.add_trace(go.Scatter(x=store.time, y=store.get_cell(nm, ci, cj), mode='lines', name=nm,
+                                         yaxis='y2' if k else 'y', hovertemplate='x: %{x} день<br>y: %{y}<br>'))
+            fig.add_shape(type='line', xref='x', yref='paper', x0=store.time[i], x1=store.time[i], y0=0, y1=1,
+                          line=dict(color='gray', width=1, dash='dot'))
+            fig.update_layout(title=dict(text=f'Ячейка ({ci}, {cj})', font=dict(size=14)), xaxis_title='t, день')
+    else:
+        ii, jj, s = _line_cells(st)
+        for k, nm in enumerate(names):
+            fig.add_trace(go.Scatter(x=s, y=store.get_profile(nm, i, ii, jj), mode='lines', name=nm,
+                                     yaxis='y2' if k else 'y', hovertemplate='x: %{x} м<br>y: %{y}<br>'))
+        fig.update_layout(xaxis_title='Расстояние вдоль линии, м')
+    yax = _axis_dict()
+    if st['log']:
+        yax['type'] = 'log'
+    fig.update_layout(plot_bgcolor='white', uirevision=f"aux-{st['aux']}", xaxis=_axis_dict(), yaxis=yax,
+                      yaxis2=dict(side='right', overlaying='y'), legend=dict(orientation='h', x=0, y=-0.25),
+                      margin=dict(t=40, b=10), width=GRAPH_W, height=AUX_H)
+    return fig
+
+
+def _series_figure(view: dict, store: SolutionStore, st: dict) -> go.Figure:
+    """Скважины / прочие параметры — оформление как в оригинале; логарифмическая ось и нормировка - по настройкам."""
     g = view['group']
     s = store.meta['series'][g]
     M = store.get_series(g)
@@ -409,7 +565,12 @@ def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
     for j, nm in enumerate(s['names']):
         if not s['visible'][j]:
             continue
-        if g == 'Wells':
+        y = M[j]
+        if st['series_norm']:
+            nz = y[y != 0.0]
+            y = y / nz[0] if nz.size else y
+            ht = 'x: %{x} день<br>y: %{y}<br>'
+        elif g == 'Wells':
             ht = 'x: %{x} день<br>y: %{y}<br>' if s['axes'][j] == 'y2' else 'x: %{x} день<br>y: %{y} м^3/день<br>'
         elif g == 'Wells_accumulated':
             ht = 'x: %{x} день<br>y: %{y} м^3<br>'
@@ -417,15 +578,18 @@ def _series_figure(view: dict, store: SolutionStore) -> go.Figure:
             ht = 'x: %{x} день<br>y: %{y} кг<br>'
         else:
             ht = 'x: %{x}<br>y: %{y}<br>'
+        if st['series_log']:
+            y = np.where(y != 0.0, np.abs(y), np.nan)   # ноль на логарифмической оси - разрыв кривой
         kw = {'yaxis': 'y2'} if s['axes'][j] == 'y2' else {}
-        traces.append(go.Scatter(x=store.time, y=M[j], mode='lines', name=nm, hovertemplate=ht, **kw))
+        traces.append(go.Scatter(x=store.time, y=y, mode='lines', name=nm, hovertemplate=ht, **kw))
 
     fig = go.Figure(data=traces)
     if not traces:
         fig.add_annotation(text='Нет данных для отображения', showarrow=False, font=dict(size=18))
-    fig.update_layout(plot_bgcolor='white', uirevision=f'series:{g}',
-                      xaxis=_axis_dict(), yaxis=_axis_dict(),
-                      yaxis2=dict(side='right', overlaying='y'),
+    y_type = 'log' if st['series_log'] else 'linear'
+    fig.update_layout(plot_bgcolor='white', uirevision=f"series:{g}:{y_type}:{st['series_norm']}",
+                      xaxis=_axis_dict(), yaxis=_axis_dict() | {'type': y_type},
+                      yaxis2=dict(side='right', overlaying='y', type=y_type),
                       legend=dict(x=1.05, y=1.0),
                       width=WIDE_W, height=GRAPH_H)
     return fig
@@ -467,10 +631,11 @@ def _fi_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) 
 
 
 def _view_def(view_id: str, store: SolutionStore) -> dict:
+    """Вид по id кнопки. У карты `base` - поле заливкой; «Sat and Temp» - насыщенность с изолиниями температуры."""
     if view_id == 'sattemp':
-        return {'kind': 'map', 'id': view_id, 'sources': ['Saturation', 'Temperature'], 'sattemp': True}
+        return {'kind': 'map', 'id': view_id, 'base': 'Saturation'}
     if view_id.startswith('field:'):
-        return {'kind': 'map', 'id': view_id, 'sources': [view_id.split(':', 1)[1]], 'sattemp': False}
+        return {'kind': 'map', 'id': view_id, 'base': view_id.split(':', 1)[1]}
     if view_id.startswith('series:'):
         return {'kind': 'series', 'id': view_id, 'group': view_id.split(':', 1)[1]}
     if view_id == 'fi':
@@ -478,19 +643,19 @@ def _view_def(view_id: str, store: SolutionStore) -> dict:
     raise ValueError(view_id)
 
 
-def _figure_for(view_id: str, i: int, store: SolutionStore, animate: bool = False) -> go.Figure:
+def _figure_for(view_id: str, i: int, store: SolutionStore, st: dict, animate: bool = False) -> go.Figure:
     v = _view_def(view_id, store)
     if v['kind'] == 'map':
-        return _map_figure(v, i, store, animate)
+        return _map_figure(v['base'], i, store, st, animate)
     if v['kind'] == 'fi':
         return _fi_figure(v, i, store, animate)
-    return _series_figure(v, store)
+    return _series_figure(v, store, st)
 
 
 # ============================ Интерфейс ======================================
 def _view_entries(meta: dict) -> list[tuple[str, str, str]]:
     """Кнопки по разделам: (раздел, id вида, подпись). Один порядок на столбец кнопок и на список их стилей в
-    `_update` (wildcard-выход сопоставляет стили кнопкам по порядку)."""
+    `_select_view` (wildcard-выход сопоставляет стили кнопкам по порядку)."""
     out = []
     names = [n for n in meta['fields'] if n not in SKIP_FIELDS]
     for title, fits in FIELD_SECTIONS:
@@ -529,7 +694,8 @@ def _payload(view_id: str | None, store: SolutionStore) -> dict | None:
     if view_id is None:
         return None
     v = _view_def(view_id, store)
-    return {'id': v['id'], 'kind': v['kind'], 'sources': v.get('sources', []), 'group': v.get('group')}
+    return {'id': v['id'], 'kind': v['kind'], 'base': v.get('base'), 'sources': v.get('sources', []),
+            'group': v.get('group')}
 
 
 def _marks(store: SolutionStore) -> dict:
@@ -553,7 +719,8 @@ def _graph_width(kind: str | None) -> int:
 
 
 def _container_style(kind: str | None) -> dict:
-    return {'height': f'{GRAPH_H + 10}px', 'width': f'{_graph_width(kind) + 10}px', 'overflow': 'hidden'}
+    h = MAP_H if kind == 'map' else GRAPH_H
+    return {'height': f'{h + 10}px', 'width': f'{_graph_width(kind) + 10}px', 'overflow': 'hidden'}
 
 
 def _column_style(kind: str | None) -> dict:
@@ -561,6 +728,81 @@ def _column_style(kind: str | None) -> dict:
     переключении на более широкий вид (fi/series) колонка остаётся старой ширины и кнопки
     справа не сдвигаются, а виджет графика просто наезжает на них поверх."""
     return {'width': f'{_graph_width(kind) + 10}px', 'flexShrink': 0}
+
+
+def _shown(on: bool) -> dict:
+    return {} if on else {'display': 'none'}
+
+
+def _row(label: str, *children) -> html.Div:
+    return html.Div([html.Span(label, className='plt-lbl', title=label), *children], className='plt-row')
+
+
+def _check(cid, label: str, on: bool) -> dcc.Checklist:
+    return dcc.Checklist(id=cid, options=[{'label': f' {label}', 'value': 'on'}], value=['on'] if on else [],
+                         inline=True)
+
+
+def _num(cid, value, **kw) -> dcc.Input:
+    # debounce: фигура пересобирается по Enter или уходу из поля, а не на каждую цифру
+    return dcc.Input(id=cid, type='number', value=value, debounce=True, className='plt-num', **kw)
+
+
+def _ov_row(name: str, st: dict) -> html.Div:
+    """Строка стиля изолиний одного наложенного поля: цвет, число линий, толщина, подписи."""
+    s = _ov_style(st, name)
+    return _row(name,
+                dcc.Dropdown(id={'type': 'ov-color', 'index': name}, options=list(LINE_COLORS), value=s['color'],
+                             clearable=False, style={'width': '110px'}),
+                _num({'type': 'ov-n', 'index': name}, s['n'], min=1, max=100, step=1, placeholder='линий'),
+                _num({'type': 'ov-width', 'index': name}, s['width'], min=0.5, max=10, step=0.5, placeholder='толщина'),
+                _check({'type': 'ov-labels', 'index': name}, 'подписи', s['labels']))
+
+
+def _map_panel(store: SolutionStore, st: dict, kind: str | None) -> html.Details:
+    """Настройки карты: изолинии поверх, заливка, шкала, дополнительный график."""
+    # Вариант переключателя переносится на новую строку целиком, а не разрывается («вдоль» / «Y»): nowrap здесь
+    # и неразрывные пробелы \u00a0 в подписях (labelStyle dash 4 вешает на внутренний span, его могут перебить стили)
+    radio = dict(inline=True, inputStyle={'marginRight': '4px'},
+                 labelStyle={'marginRight': '10px', 'whiteSpace': 'nowrap', 'display': 'inline-block'})
+    return html.Details([
+        html.Summary('Настройки карты', className='plt-section', style={'cursor': 'pointer'}),
+        _row('Изолинии поверх', dcc.Dropdown(id='overlays', options=list(store.meta['fields']), value=st['overlays'],
+                                             multi=True, placeholder='поля...', style={'flex': 1})),
+        html.Div([_ov_row(n, st) for n in st['overlays']], id='ov-rows'),
+        _row('Заливка', dcc.RadioItems(id='set-mode', value=st['mode'], **radio, options=[
+            {'label': 'контур', 'value': 'fill'}, {'label': 'линии', 'value': 'lines'},
+            {'label': 'Heatmap', 'value': 'heatmap'}])),
+        _row('Палитра', dcc.Dropdown(id='set-cmap', options=list(PALETTES), value=st['cmap'], clearable=False,
+                                     style={'width': '130px'}),
+             _check('set-log', 'логарифмическая', st['log'])),
+        _row('Изолиний', _num('set-ncont', st['ncont'], min=1, max=100, step=1),
+             _check('set-labels', 'подписи', st['labels'])),
+        _row('Шкала', dcc.RadioItems(id='set-range', value=st['range'], **radio, options=[
+            {'label': 'весь расчет', 'value': 'all'}, {'label': 'текущий слой', 'value': 'layer'},
+            {'label': 'вручную', 'value': 'manual'}]),
+             _num('set-zmin', st['zmin'], placeholder='min'), _num('set-zmax', st['zmax'], placeholder='max')),
+        # Один переключатель: выбор линии профиля сам включает график (справа от кнопок). Подписи короткие -
+        # все варианты помещаются в одну строку; что они значат - в строке ниже
+        _row('Доп. график', dcc.RadioItems(id='aux-mode', value=st['aux'], **radio, options=[
+            {'label': 'нет', 'value': 'none'}, {'label': 'ячейка', 'value': 'cell'},
+            {'label': 'диагональ', 'value': 'diag'}, {'label': 'вдоль\u00a0X', 'value': 'x'},
+            {'label': 'вдоль\u00a0Y', 'value': 'y'}])),
+        _row('Номер j / i', _num('line-idx', st['line_idx'], min=0, step=1),
+             html.Span('ячейка - щелчок по карте; профиль вдоль X - строка j, вдоль Y - столбец i')),
+    ], open=True, id='map-panel', style=_shown(kind == 'map'))
+
+
+def _series_panel(st: dict, kind: str | None) -> html.Div:
+    return html.Div(_row('Ось Y', _check('series-log', 'логарифмическая', st['series_log']),
+                         _check('series-norm', 'нормировать на начальное', st['series_norm'])),
+                    id='series-panel', style=_shown(kind == 'series'))
+
+
+def _aux_style(view: dict | None, st: dict) -> dict:
+    """Дополнительный график - третьей колонкой, вровень с кнопками (paddingTop как у их столбца)."""
+    on = isinstance(view, dict) and view['kind'] == 'map' and st['aux'] != 'none'
+    return {'paddingTop': '40px', 'flexShrink': 0} | _shown(on)
 
 
 app = Dash(__name__)
@@ -591,8 +833,8 @@ app.index_string = f'''<!DOCTYPE html>
 # Минимальный статический layout: спиннер только на первичной загрузке данных.
 # target_components сужает dcc.Loading ровно до вывода ui-root.children (загрузка
 # при старте): без него dash>=3 подписывает спиннер на ЛЮБОЙ вложенный компонент,
-# и он срабатывает на каждое отпускание слайдера/клик по кнопке (callback _update
-# тоже пишет в потомков ui-root), пряча график и слайдер (visibility:hidden) —
+# и он срабатывает на каждое отпускание слайдера/клик по кнопке (колбэки шага и вида
+# тоже пишут в потомков ui-root), пряча график и слайдер (visibility:hidden) —
 # отсюда мелькание белого фона страницы.
 app.layout = html.Div([
     dcc.Interval(id='boot', interval=50, max_intervals=1),
@@ -612,8 +854,10 @@ def _init(_n):
 
     view_id = _resolve_view(None, store)
     n_times = store.meta['n_times']
-    kind = _view_def(view_id, store)['kind'] if view_id else 'series'
+    view = _payload(view_id, store)
+    kind = view['kind'] if view else 'series'
     slider_disabled = view_id is None or kind == 'series' or n_times <= 1
+    st = dict(DEFAULT_SETTINGS)
 
     return html.Div([
         html.Div([
@@ -621,10 +865,12 @@ def _init(_n):
             html.Div([
                 html.Div(
                     dcc.Graph(id='main-graph',
-                              figure=_figure_for(view_id, 0, store) if view_id else _empty_figure('Нет данных'),
+                              figure=_figure_for(view_id, 0, store, st) if view_id else _empty_figure('Нет данных'),
                               responsive=False,
                               config={'displaylogo': False}),
                     id='graph-container', style=_container_style(kind)),
+                # Подпись, ползунок и настройки - правее левого края фигуры, ближе к области графика
+                html.Div([
                 html.Div(id='time-label',
                          children=f'Время: {_day_fmt(store.time[0])}' if kind != 'series' else '',
                          className='plt-time-label'),
@@ -636,12 +882,12 @@ def _init(_n):
                      html.Button( '▶', id='btn-play', n_clicks=0, disabled=slider_disabled, className='plt-btn',
                                   style={'width': '28px', 'padding': '5px 0', 'textAlign': 'center', 'flexShrink': 0,
                                          'marginLeft': 'auto', 'transform': 'translateX(30px)'}),
-                        html.Button(f"Contour: {'вкл' if CONTOUR_PLOT else 'выкл'}", id='btn-contour', n_clicks=0,
-                                    className='plt-btn', style={'width': 'auto', 'whiteSpace': 'nowrap', 'flexShrink': 0,
-                                                                'padding': '5px 11px', 'transform': 'translateX(40px)'}),
                      ], style={'display': 'flex', 'alignItems': 'center', 'gap': '8px', 'width': '100%'}
                 ),
                 dcc.Interval(id='play-interval', interval=300, disabled=True),
+                _map_panel(store, st, kind),
+                _series_panel(st, kind),
+                ], style={'paddingLeft': f'{CTRL_SHIFT}px'}),
             ], id='graph-column', style=_column_style(kind)),
 
             # ------- правая колонка: вертикальный столбец кнопок -------
@@ -653,9 +899,15 @@ def _init(_n):
                 style={'width': '185px', 'display': 'flex', 'flexDirection': 'column',
                        'gap': '2px', 'paddingTop': '40px', 'flexShrink': 0,
                        'maxHeight': f'{GRAPH_H}px', 'overflowY': 'auto'}),
+
+            # ------- справа от кнопок, сверху: ячейка во времени или профиль -------
+            html.Div(dcc.Graph(id='aux-graph', figure=go.Figure(), responsive=False,
+                               config={'displaylogo': False}),
+                     id='aux-container', style=_aux_style(view, st)),
         ], style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '30px', 'alignItems': 'flex-start'}),
 
-        dcc.Store(id='view-state', data=_payload(view_id, store)),
+        dcc.Store(id='view-state', data=view),
+        dcc.Store(id='map-settings', data=st),
         dcc.Store(id='times-store', data=store.meta['time']),
     ], style={'padding': '0 10px'})
 
@@ -678,7 +930,6 @@ app.clientside_callback(
 
 
 @app.callback(
-    Output('main-graph', 'figure', allow_duplicate=True),
     Output('view-state', 'data'),
     Output('time-slider', 'disabled'),
     Output('btn-play', 'disabled'),
@@ -686,86 +937,156 @@ app.clientside_callback(
     Output('graph-container', 'style'),
     Output('graph-column', 'style'),
     Output({'type': 'view-btn', 'index': ALL}, 'style'),
+    Output('overlays', 'value'),
+    Output('map-panel', 'style'),
+    Output('series-panel', 'style'),
     Input({'type': 'view-btn', 'index': ALL}, 'n_clicks'),
-    Input('time-slider', 'value'),
-    State('view-state', 'data'),
     prevent_initial_call=True,
 )
-def _update(clicks, t, prev):
-    """Единый колбэк: отпускание ползунка -> Patch (только данные), кнопка -> лёгкая фигура.
+def _select_view(clicks):
+    """Кнопка вида. Фигуру строит `_redraw` по новому view-state.
 
     ВАЖНО: wildcard-выход (стили кнопок) должен ВСЕГДА получать список длиной
     с число кнопок — одиночный no_update для него недопустим (InvalidCallbackReturnValue).
     """
     store = get_store()
-    t = int(t or 0)
-    n_btn = len(_valid_view_ids(store.meta))
-    noop_btns = [no_update] * n_btn
+    valid = _valid_view_ids(store.meta)
+    trig_id = ctx.triggered_id
+    # защита от холостого срабатывания при создании кнопок (n_clicks == 0 / не кнопка)
+    if (not (isinstance(trig_id, dict) and trig_id.get('type') == 'view-btn')
+            or all((c or 0) <= 0 for c in (clicks or []))):
+        return (no_update,) * 6 + ([no_update] * len(valid), no_update, no_update, no_update)
 
-    trig_props = {p['prop_id'] for p in ctx.triggered}
-    slider_fired = 'time-slider.value' in trig_props
-    btn_fired = any(p.startswith('{') for p in trig_props)
+    view_id = _resolve_view(trig_id['index'], store)
+    view = _payload(view_id, store)
+    kind = view['kind'] if view else None
+    slider_off = kind in (None, 'series') or store.meta['n_times'] <= 1
+    # переключение на вид без ползунка глушит и автопрокрутку, иначе play-interval
+    # продолжал бы тикать в фоне вхолостую; между картой и φ(r) автовоспроизведение не трогаем
+    stop_play = True if slider_off else no_update
+    overlays = ['Temperature'] if view_id == 'sattemp' else no_update   # готовый набор «Sat and Temp»
+    return (view, slider_off, slider_off, stop_play, _container_style(kind), _column_style(kind),
+            [_BTN_ACTIVE if vid == view_id else _BTN_INACTIVE for vid in valid],
+            overlays, _shown(kind == 'map'), _shown(kind == 'series'))
 
-    # --- отпускание ползунка (в т.ч. автопрокрутка): единственный запрос, обновляем только z/y ---
-    if slider_fired and not btn_fired:
-        if not isinstance(prev, dict) or prev['kind'] == 'series':
-            return no_update, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
-        patch = Patch()
-        if prev['kind'] == 'map':
-            for k, name in enumerate(prev['sources']):
-                patch['data'][k]['z'] = store.get_field(name, t).tolist()
-        else:  # fi
-            data = store.get_plot_data()
-            for k, name in enumerate(prev['sources']):
-                patch['data'][k]['y'] = data[name][t].tolist()
-        return patch, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
 
-    # --- кнопка вида ---
-    if btn_fired:
-        trig_id = ctx.triggered_id
-        # защита от холостого срабатывания при создании кнопок (n_clicks == 0 / не кнопка)
-        if not (isinstance(trig_id, dict) and trig_id.get('type') == 'view-btn'):
-            return no_update, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
-        if all((c or 0) <= 0 for c in (clicks or [])):
-            return no_update, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
+@app.callback(
+    Output('ov-rows', 'children'),
+    Input('overlays', 'value'),
+    State('map-settings', 'data'),
+    prevent_initial_call=True,
+)
+def _ov_rows(overlays, st):
+    """Строки стиля изолиний; у оставшихся в списке полей стиль сохраняется (берется из map-settings)."""
+    st = st | {'overlays': overlays or []}
+    return [_ov_row(n, st) for n in st['overlays']]
 
-        valid = _valid_view_ids(store.meta)
-        view_id = _resolve_view(trig_id['index'], store)
-        if view_id is None:
-            return (_empty_figure('Нет данных для отображения'), None, True, True, True,
-                    _container_style(None), _column_style(None), [_BTN_INACTIVE] * len(valid))
 
-        v = _view_def(view_id, store)
-        slider_off = v['kind'] == 'series' or store.meta['n_times'] <= 1
-        # переключение на вид без ползунка глушит и автопрокрутку, иначе play-interval
-        # продолжал бы тикать в фоне вхолостую; между картой и φ(r) автовоспроизведение не трогаем
-        stop_play = True if slider_off else no_update
-        return (_figure_for(view_id, t, store),
-                _payload(view_id, store),
-                slider_off, slider_off, stop_play,
-                _container_style(v['kind']), _column_style(v['kind']),
-                [_BTN_ACTIVE if vid == view_id else _BTN_INACTIVE for vid in valid])
-
-    return no_update, no_update, no_update, no_update, no_update, no_update, no_update, noop_btns
+@app.callback(
+    Output('map-settings', 'data'),
+    Input('overlays', 'value'),
+    Input('set-mode', 'value'),
+    Input('set-cmap', 'value'),
+    Input('set-log', 'value'),
+    Input('set-ncont', 'value'),
+    Input('set-labels', 'value'),
+    Input('set-range', 'value'),
+    Input('set-zmin', 'value'),
+    Input('set-zmax', 'value'),
+    Input({'type': 'ov-color', 'index': ALL}, 'value'),
+    Input({'type': 'ov-n', 'index': ALL}, 'value'),
+    Input({'type': 'ov-width', 'index': ALL}, 'value'),
+    Input({'type': 'ov-labels', 'index': ALL}, 'value'),
+    Input('aux-mode', 'value'),
+    Input('line-idx', 'value'),
+    Input('main-graph', 'clickData'),
+    Input('series-log', 'value'),
+    Input('series-norm', 'value'),
+    State({'type': 'ov-color', 'index': ALL}, 'id'),
+    State('map-settings', 'data'),
+    prevent_initial_call=True,
+)
+def _collect(overlays, mode, cmap, log, ncont, labels, rng, zmin, zmax, ov_c, ov_n, ov_w, ov_l,
+             aux, line_idx, click, s_log, s_norm, ov_ids, prev):
+    """Все элементы управления -> один словарь настроек (map-settings)."""
+    cell = prev['cell']
+    if ctx.triggered_id == 'main-graph':
+        if aux != 'cell' or not click:   # щелчок по карте нужен только графику ячейки
+            return no_update
+        p = click['points'][0]
+        cell = [int(np.abs(x_mesh - p['x']).argmin()), int(np.abs(y_mesh - p['y']).argmin())]
+    ov = dict(prev['ov'])
+    for cid, c, n, w, lb in zip(ov_ids, ov_c, ov_n, ov_w, ov_l):
+        ov[cid['index']] = {'color': c, 'n': int(n) if n else None, 'width': w, 'labels': bool(lb)}
+    return {
+        'overlays': overlays or [], 'mode': mode, 'cmap': cmap, 'log': bool(log),
+        'ncont': int(min(max(ncont or DEFAULT_SETTINGS['ncont'], 1), 100)), 'labels': bool(labels),
+        'range': rng, 'zmin': zmin, 'zmax': zmax, 'ov': ov,
+        'aux': aux, 'cell': cell, 'line_idx': int(line_idx or 0),
+        'series_log': bool(s_log), 'series_norm': bool(s_norm),
+    }
 
 
 @app.callback(
     Output('main-graph', 'figure', allow_duplicate=True),
-    Output('btn-contour', 'children'),
-    Input('btn-contour', 'n_clicks'),
-    State('view-state', 'data'),
+    Output('aux-graph', 'figure', allow_duplicate=True),
+    Output('aux-container', 'style'),
+    Input('view-state', 'data'),
+    Input('map-settings', 'data'),
     State('time-slider', 'value'),
     prevent_initial_call=True,
 )
-def _toggle_contour(_n, payload, t):
-    """Contour (заливка с изолиниями) <-> Heatmap для карт — тот же CONTOUR_PLOT,
-    что и в constants.py, просто переключаемый в рантайме без перезапуска."""
-    global CONTOUR_PLOT
-    CONTOUR_PLOT = not CONTOUR_PLOT
-    label = f"Contour: {'вкл' if CONTOUR_PLOT else 'выкл'}"
-    if not isinstance(payload, dict) or payload['kind'] != 'map':
-        return no_update, label
-    return _figure_for(payload['id'], int(t or 0), get_store()), label
+def _redraw(view, st, t):
+    """Смена вида или настроек - фигура заново (карта ~75x75 собирается за миллисекунды)."""
+    if not isinstance(view, dict):
+        return _empty_figure('Нет данных для отображения'), no_update, _shown(False)
+    store, t = get_store(), int(t or 0)
+    fig = _figure_for(view['id'], t, store, st)
+    aux_on = view['kind'] == 'map' and st['aux'] != 'none'
+    aux = _aux_figure(view['base'], t, store, st) if aux_on else no_update
+    return fig, aux, _aux_style(view, st)
+
+
+@app.callback(
+    Output('main-graph', 'figure', allow_duplicate=True),
+    Output('aux-graph', 'figure', allow_duplicate=True),
+    Input('time-slider', 'value'),
+    State('view-state', 'data'),
+    State('map-settings', 'data'),
+    prevent_initial_call=True,
+)
+def _on_slider(t, view, st):
+    """Отпускание ползунка (в т.ч. автопрокрутка): единственный запрос, Patch только с данными слоя."""
+    if not isinstance(view, dict) or view['kind'] == 'series':
+        return no_update, no_update
+    store, t = get_store(), int(t or 0)
+    patch = Patch()
+    if view['kind'] == 'fi':
+        data = store.get_plot_data()
+        for k, name in enumerate(view['sources']):
+            patch['data'][k]['y'] = data[name][t].tolist()
+        return patch, no_update
+
+    base = view['base']
+    overlays = _overlays(st, base, store)
+    for k, d in enumerate(_trace_data(store, base, overlays, t, st)):
+        for key, v in d.items():
+            if key == 'contours':   # поштучно: целиком contours затер бы coloring и подписи
+                for kk, vv in v.items():
+                    patch['data'][k]['contours'][kk] = vv
+            else:
+                patch['data'][k][key] = v.tolist() if key == 'z' else v
+
+    aux = no_update
+    if st['aux'] in PROFILES:
+        aux = Patch()
+        ii, jj, _ = _line_cells(st)
+        for k, name in enumerate([base] + overlays):
+            aux['data'][k]['y'] = store.get_profile(name, t, ii, jj).tolist()
+    elif st['aux'] == 'cell' and st['cell']:
+        aux = Patch()
+        aux['layout']['shapes'][0]['x0'] = aux['layout']['shapes'][0]['x1'] = float(store.time[t])
+    return patch, aux
 
 
 @app.callback(
@@ -782,7 +1103,7 @@ def _toggle_contour(_n, payload, t):
 )
 def _play(_n_clicks, _n_intervals, is_paused, value, max_value, slider_off):
     """Кнопка ▶/⏸ — просто крутит time-slider.value через dcc.Interval; сам сдвиг
-    подхватывает существующий колбэк _update (у него уже есть Input на time-slider.value)."""
+    подхватывает существующий колбэк _on_slider (у него уже есть Input на time-slider.value)."""
     if ctx.triggered_id == 'btn-play':
         if slider_off:
             return no_update, no_update, no_update
@@ -799,17 +1120,18 @@ def _play(_n_clicks, _n_intervals, is_paused, value, max_value, slider_off):
     Input('btn-save', 'n_clicks'),
     State('view-state', 'data'),
     State('time-slider', 'value'),
+    State('map-settings', 'data'),
     prevent_initial_call=True,
 )
-def _save_html(n, payload, t):
-    """Сохранение в HTML: всегда полная анимация текущего вида
+def _save_html(n, payload, t, st):
+    """Сохранение в HTML: всегда полная анимация текущего вида с текущими настройками
     (Results.html / fi_func.html; для временных рядов — статичный график)."""
     if not n or not isinstance(payload, dict):
         return no_update
     store = get_store()
     t = int(t or 0)
     animate = payload['kind'] in ('map', 'fi')
-    fig = _figure_for(payload['id'], t, store, animate=animate)
+    fig = _figure_for(payload['id'], t, store, st, animate=animate)
 
     if payload['kind'] == 'fi':
         fname = 'fi_func.html'
@@ -822,12 +1144,15 @@ def _save_html(n, payload, t):
     return dcc.send_bytes(html_str.encode('utf-8'), filename=fname)
 
 
-def visualize_solution(port: int = 8050, debug: bool = False):
-    """Запуск интерактивной визуализации.
+def visualize_solution(port: int = 8050, debug: bool = False, open_browser: bool = True):
+    """Запуск интерактивной визуализации; страница открывается в браузере, когда сервер уже слушает порт.
 
     Чтобы открыть с другого устройства, запустите с host='0.0.0.0', и на другом устройстве откройте http://<IP>:<порт>.
     Разрешите порт в брандмауэре. 0.0.0.0 открывает доступ всем в локальной сети.
     """
+    # С debug перезагрузчик запускает модуль второй раз (WERKZEUG_RUN_MAIN) - вкладка открывается один раз
+    if open_browser and os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        threading.Timer(1.0, webbrowser.open, args=(f'http://127.0.0.1:{port}/',)).start()
     try:
         runner = getattr(app, 'run', None) or app.run_server
         runner(host='127.0.0.1', port=port, debug=debug)

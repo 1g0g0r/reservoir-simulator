@@ -1,9 +1,19 @@
 """Обработка и чтение файлов с данными расчета в формате .pkl"""
+from pathlib import Path
 from pickle import dump, load, UnpicklingError
 
 import numpy as np
 
-from paraphin.constants import layers_file, data_path, case_name
+from paraphin.constants import init_Wp, heat_losses, wax_characterization
+
+# Пути и имена выгрузки: корень - каталог над пакетом (в копии пакета - `outputs/.flags_on/<имя>`)
+outputs_path = Path(__file__).parents[2] / 'outputs'
+_heat_tag = {0: '_noheat', 1: '_lauwerier'}.get(heat_losses, '')
+_comp_tag = '' if wax_characterization == 'single' else '_comp'
+case_name = f'Wp={init_Wp}{_heat_tag}{_comp_tag}'
+results_path = outputs_path / f'results_{case_name}'
+layers_file = results_path / 'layers.pkl'  # промежуточные слои расчета, один файл на весь расчет
+data_path = outputs_path / 'data'
 
 
 def read_solution_data(name: str) -> (int, dict):

@@ -6,7 +6,7 @@ import numpy as np
 import plotly.graph_objects as go
 from matplotlib.colors import to_hex, Colormap, LinearSegmentedColormap
 
-from paraphin.constants import pictures_path
+from .graphs import pictures_path
 
 
 def plotly_to_eps(fig_plotly: go.Figure, filename: str, dpi: int = 1000, **kwargs) -> None:

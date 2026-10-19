@@ -19,9 +19,10 @@
 import numpy as np
 from numba import njit, prange
 
-from paraphin.constants import Nx, Ny, p_guess_m
+from paraphin.constants import Nx, Ny
 from paraphin.utils.math_utils.mg_solver import ST_HEAD
 
+p_guess_m = 6  # начальное приближение PCG - проекция на столько разностей прошлых решений
 _M = p_guess_m
 _K = _M * (_M + 1) // 2 + _M  # верхний треугольник Грама и правая часть
 _PX = Nx + 2                  # векторы - с рамкой (`layout`)
