@@ -1,0 +1,56 @@
+/* Стили визуализации (`visualisation.py`); Dash подключает папку assets сам. Шрифт и цвета - как в plotly. */
+:root { --font: 'Open Sans', Verdana, Arial, sans-serif; --ink: #2a3f5f; }
+
+/* Кнопки столбца видов */
+.plt-btn { width: 100%; text-align: left; padding: 5px 11px; background: #fff; border: 1px solid #e2e6ec;
+           border-radius: 3px; color: var(--ink); font-family: var(--font); font-size: 13px; font-weight: 400;
+           cursor: pointer; box-shadow: none; }
+.plt-btn:hover { background: #f3f6fb; border-color: #d5dbe5; }
+.plt-btn:focus, .plt-btn:focus-visible { outline: none; box-shadow: none; }
+.plt-btn:active { background: #eef2f9; }
+.plt-btn.active { background: #e5ecf6; }
+
+/* Сохранение: HTML-анимация и картинки (SVG, EPS) */
+.plt-save { width: 100%; margin-top: 10px; padding: 7px 11px; background: #2196F3; color: white; font-weight: bold;
+            border: 1px solid #1d84c9; border-radius: 3px; cursor: pointer; font-family: var(--font); font-size: 13px; }
+.plt-export { display: flex; gap: 6px; }
+.plt-export .plt-save { flex: 1; margin-top: 6px; }
+/* У доп. графика кнопки картинок - в полосе над ним (отступ контейнера сверху), справа */
+#aux-container { position: relative; }
+#aux-container .plt-export { position: absolute; top: 6px; right: 0; width: 130px; }
+#aux-container .plt-export .plt-save { margin-top: 0; padding: 3px 6px; font-size: 12px; }
+
+.plt-section { font-family: var(--font); font-size: 12px; font-weight: bold; color: #7f8c9d; padding: 8px 2px 2px; }
+.plt-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-family: var(--font); font-size: 13px;
+           color: var(--ink); }
+.plt-lbl { width: 120px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plt-num { width: 64px; }
+.plt-time-label { font-family: var(--font); font-size: 13px; font-weight: bold; color: var(--ink); height: 22px;
+                  padding-left: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Раскладка по виду - классом корня `view-map` / `view-series` (`_select_view`). Размеры - фигуры + 10 px:
+   карта GRAPH_W x MAP_H (720 x 660), временные ряды WIDE_W x GRAPH_H (950 x 800). Колонка той же ширины, что и
+   график: иначе при переходе к более широкому виду график наезжал бы на кнопки справа. */
+#graph-column { width: 730px; flex-shrink: 0; }
+#graph-container { height: 670px; overflow: hidden; }
+.view-series #graph-column { width: 960px; }
+.view-series #graph-container { height: 810px; }
+.view-series #map-panel, .view-map #series-panel { display: none; }
+
+/* Слайдер в стиле plotly: тонкая серая рельса, светлый круглый бегунок, без фиолетового.
+   dash>=3 рендерит dcc.Slider поверх @radix-ui/react-slider (классы dash-slider-*, не rc-slider-*) и не поставляет
+   для него CSS - Radix-примитивы безликие ("headless"), цвет, размер и форму задает потребитель; положение по
+   значению Radix считает сам инлайн-стилями, поэтому здесь только цвет, размер и форма, без position. */
+.plt-slider { min-height: 52px; }
+.plt-slider .dash-slider-track { background-color: #d8d8d8 !important; height: 3px; border-radius: 2px; }
+.plt-slider .dash-slider-range { background-color: #9a9a9a !important; border-radius: 2px; }
+.plt-slider .dash-slider-thumb { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #9a9a9a !important;
+                                 background-color: #f6f6f6 !important; box-shadow: none !important; cursor: pointer; }
+.plt-slider .dash-slider-thumb:hover,
+.plt-slider .dash-slider-thumb:focus,
+.plt-slider .dash-slider-thumb:active,
+.plt-slider .dash-slider-thumb:focus-visible { border-color: #8a8a8a !important; background-color: #efefef !important;
+                                               box-shadow: none !important; outline: none !important; }
+.plt-slider .dash-slider-dot { display: none; }        /* точек меток, как в plotly, нет */
+.plt-slider .dash-slider-mark { font-size: 11px; color: var(--ink); font-family: var(--font); }
+.plt-slider .dash-slider-tooltip { display: none !important; }   /* счетчик шагов у бегунка */
