@@ -2,7 +2,7 @@
 import numpy as np
 import plotly.graph_objects as go
 
-from ..read_data_files import read_solution_data, outputs_path
+from ..read_data_files import read_solution_data, outputs_path, FI_CELL, fi_curve
 from paraphin.constants import bar_to_pa, day_to_sec, S_min, init_T, geological_reserves, init_Wp
 from paraphin.geometry import r, fi_0
 
@@ -187,7 +187,7 @@ def _plots_params(fig, x_axis_title, y_axis_title):
 def _plot_fi(data):
     plots = []
     plots += [go.Scatter(x=r, y=fi_0, mode='lines', line=dict(width=4, color='blue'))]
-    plots += [go.Scatter(x=r, y=data['plots']['fi'][-1], mode='lines',  line=dict(width=4, color='red'))]
+    plots += [go.Scatter(x=r, y=fi_curve(data['plots'], *FI_CELL)[-1], mode='lines',  line=dict(width=4, color='red'))]
 
     fig = go.Figure(data=plots)
 

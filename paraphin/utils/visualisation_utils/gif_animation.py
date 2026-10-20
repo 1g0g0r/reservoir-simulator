@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from PIL import Image
 from joblib import Parallel, delayed
 
-from ..read_data_files import read_solution_data, outputs_path
+from ..read_data_files import read_solution_data, outputs_path, FI_CELL, fi_curve
 from paraphin.geometry import r
 from paraphin.constants import bar_to_pa, day_to_sec, S_min, init_T, Twater, init_Wp
 
@@ -165,9 +165,8 @@ def _process_iter_picture(_ii, _fig, _name, _data, _data_wp, _steps, _times):
 
     _fig.data = []
     if _name == 'fi':
-        for _name, _val in _data_wp['plots'].items():
-            _fig.add_trace(go.Scatter(x=r, y=_val[_ii], mode='lines', name=names_converter[_name],  # 'markers+lines'
-                                     hovertemplate="x: %{x}<br>y: %{y}<br>", line=dict(width=4)))
+        _fig.add_trace(go.Scatter(x=r, y=fi_curve(_data_wp['plots'], *FI_CELL)[_ii], mode='lines',
+                                  name=names_converter['fi'], hovertemplate="x: %{x}<br>y: %{y}<br>", line=dict(width=4)))
     elif _name in ['Wps dep', 'k', 'm']:
         if _name == 'Wps dep':
             z_min = 0.0

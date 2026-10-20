@@ -2,17 +2,15 @@
 from pickle import dump, HIGHEST_PROTOCOL
 
 import numpy as np
+from numba import njit
 
-from paraphin.constants import (init_k, init_m, Nx, Ny, gelation, ro_o, ro_p,
+from paraphin.constants import (init_k, init_m, gelation, ro_o, ro_p,
                                 ro_asph_dep, volume, _re, deposition_kinetics, adsorption, deposit_aging,
                                 asph_aggregation, wax_kinetics, thermal_nonequilibrium, wax_eos, wax_pressure,
                                 asphaltenes, wettability)
+from paraphin.geometry import fi_0
 from paraphin.layout import N_W, NC_T, named
 from paraphin.utils.read_data_files import layers_file
-
-# Точка, в которой снимается кривая fi(r) для графиков: `visualisation_dash._fi_figure` и `graphs._plot_fi`.
-# Прижата к сетке: на одномерном керне (Nx = 1) точки (3, 3) нет.
-FI_PROBE = (min(3, Nx - 1), min(3, Ny - 1))
 
 
 def save_fields(solver, t: float) -> None:
@@ -47,16 +45,15 @@ def save_fields(solver, t: float) -> None:
 
     if solver._paraphin:
         m_mult = solver.m / init_m
-        x_idx, y_idx = FI_PROBE
         layer.update({
-            'm': solver.m / init_m,
+            'm': m_mult,
             'k': solver.k / init_k,
             'Wo': solver.Wo,
             'Wp': solver.Wp,
             'Wps': solver.Wps,
             # Осевший парафин - это ровно потерянный поровый объем (m_0 - m), отдельного поля нет: q_p1 + q_p2 = -dm/dt по построению
             'Wps dep': 1.0 - m_mult,
-            'plots': {'fi': solver.fi[x_idx, y_idx]},
+            'plots': _fi_changed(solver.fi),
         })
         if N_W > 1 or NC_T > N_W or deposition_kinetics:  # однокомпонентной модели хватает полей выше
             layer.update(_composition_fields(solver))
@@ -72,17 +69,50 @@ def save_fields(solver, t: float) -> None:
         'Wells_accumulated': wells_accumulated
     })
 
-    # layer['Other params'] = {
-    #     'KIN': solver.KIN,
-    #     'S [0,0]': solver.S[0, 0], 'S [-1,-1]': solver.S[-1, -1],
-    #     'P [0,0]': solver.p[0, 0], 'p [-1,-1]': solver.p[-1, -1],
-    # }
-
     if solver._results_file is None:
         solver._results_file = open(layers_file, 'wb')
 
-    dump(layer, solver._results_file, protocol=HIGHEST_PROTOCOL)
+    dump(_compact(layer), solver._results_file, protocol=HIGHEST_PROTOCOL)
     solver.logger.info("Данные записаны в файл.")
+
+
+def _fi_changed(fi) -> dict:
+    """fi только в ячейках, где он отошел от fi_0: 'cells' - номера ячеек в fi.reshape(-1, Nr), 'fi' - их кривые.
+
+    fi меняется лишь в ячейках с кольматацией (к 60 сут на 75x75 - 43 из 5625), а полем занимал 75 % слоя: 698 КБ
+    против 6 КБ, и запись быстрее (0.1 мс против 0.6). Сравнение точное: начальное fi = 1.0*fi_0, вне кольматации его никто не пишет.
+    Слои склеивает `read_data_files._glue_fi`, кривую в ячейке дает `read_data_files.fi_curve`."""
+    cells = _changed_cells(fi, fi_0)
+    return {'cells': cells, 'fi': fi.reshape(-1, fi.shape[-1])[cells]}
+
+
+@njit(cache=True)
+def _changed_cells(fi, fi_0):
+    """Номера ячеек в fi.reshape(-1, Nr), где fi отошел от fi_0, по возрастанию.
+
+    Отличие по радиусам накапливается без ветвления - цикл векторизуется: 33 мкс на 75x75x31 против 213 у
+    np.flatnonzero((fi != fi_0).any(axis=-1)) и 135 у выхода на первом отличии (в неизменных ячейках, а их
+    большинство, сравнивать все радиусы приходится все равно)."""
+    nx, ny, nr = fi.shape
+    cells = np.empty(nx * ny, np.int64)
+    n = 0
+    for i in range(nx):
+        for j in range(ny):
+            changed = False
+            for r in range(nr):
+                changed |= fi[i, j, r] != fi_0[r]
+            if changed:
+                cells[n] = i * ny + j
+                n += 1
+    return cells[:n]
+
+
+def _compact(d: dict) -> dict:
+    """Поля (ndim >= 2) - во float32: относительной точности 6e-8 графикам и сравнениям хватает, слой вдвое легче,
+    а запись не медленнее (приведение fi 75x75x31 - 80 мкс, байт в pickle и на диск вдвое меньше). Скаляры (время,
+    шаг, скважины, массы) остаются float64. Разности вроде 1 - m/m0 посчитаны до приведения - потерь на вычитании нет."""
+    return {k: _compact(v) if isinstance(v, dict) else
+            v.astype(np.float32) if isinstance(v, np.ndarray) and v.ndim >= 2 else v for k, v in d.items()}
 
 
 def _composition_fields(solver) -> dict:
@@ -119,8 +149,9 @@ def _composition_fields(solver) -> dict:
         comp[f'Wax {k + 1} dep'] = dep['wax'][..., k] / ro_p / init_m
     if wax_eos and wax_pressure:
         # Диагностика: объем газа, который выделился бы ниже P_b, на объем нефти (`thermo.pvt`); в уравнения не входит
-        from paraphin.thermo.tables import GASV, eos_interp
-        comp['Free gas'] = np.vectorize(lambda t, p: eos_interp(GASV, t, p))(solver.T, solver.p)
+        from paraphin.thermo.tables import GASV, eos_interp_field
+        comp['Free gas'] = gas = np.empty_like(solver.T)
+        eos_interp_field(GASV, solver.T, solver.p, gas)
 
     # Массы компонентов в пласте, [кг]: в нефтяной фазе и в отложениях
     oil = solver.m * (1.0 - solver.S) * ro_o * volume
@@ -146,7 +177,7 @@ def _kinetics_fields(solver) -> dict:
     'm conductive' - пористость проводящих каналов m0*int r^2*fi/int r^2*fi0, в долях m0: ее, а не m, видит
     томография (гель в тупиковых порах и захваченная нефть для нее - отложение, Sandyga et al. 2020)."""
     from paraphin.geometry import w2_cv
-    from paraphin.equations.Deposition import floc_diameter
+    from paraphin.equations.Deposition import floc_diameter_field
 
     kx = solver.kx
     # Скорости потери порового объема этого шага по механизмам, [1/с]: контракт ядра (`equations/Deposition.py`)
@@ -171,11 +202,8 @@ def _kinetics_fields(solver) -> dict:
     if asph_aggregation:
         wc = named(solver.Wc)
         out['Floc number'] = wc['nflocs']
-        d = np.zeros(solver.kx.shape)
-        for i in range(d.shape[0]):
-            for j in range(d.shape[1]):
-                d[i, j] = floc_diameter(wc['asph_f'][i, j], wc['nflocs'][i, j], solver.kin)
-        out['Floc diameter'] = d
+        out['Floc diameter'] = d = np.empty(solver.kx.shape)
+        floc_diameter_field(wc['asph_f'], wc['nflocs'], solver.kin, d)
     if thermal_nonequilibrium:
         out['T rock'] = solver.kx['ts']
     return out

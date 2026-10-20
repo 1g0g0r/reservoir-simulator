@@ -284,6 +284,14 @@ def eos_interp(tab, T, p):
             + a * ((1.0 - b) * tab[i + 1, j] + b * tab[i + 1, j + 1]))
 
 
+@njit(cache=True)
+def eos_interp_field(tab, T, p, out) -> None:
+    """`eos_interp` по полям T, p - для выгрузки (`save_fields`): np.vectorize по ячейкам стоил 2.6 мс на 75x75."""
+    for i in range(out.shape[0]):
+        for j in range(out.shape[1]):
+            out[i, j] = eos_interp(tab, T[i, j], p[i, j])
+
+
 if __name__ == '__main__':
     from .characterization import fraction_tb, nalkane_sg, nalkane_tb
     from .eos import bubble_pressure

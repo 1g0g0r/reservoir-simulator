@@ -5,18 +5,22 @@
 
 Отсутствие мерцания и минимум запросов:
 1. НЕТ автообновления (никаких dcc.Interval, polling и dcc.Loading вокруг графика).
-2. Слайдер в режиме mouseup: при перетаскивании — 0 запросов к серверу,
-   при отпускании — ровно 1 запрос, и в нём только массив z/y текущего поля (Patch).
+2. Слайдер: данные слоя обновляются и при перетаскивании, но через клиентскую заслонку (`t-live`):
+   в работе не больше одного запроса, новейшее положение ползунка перекрывает старые, частота кадров сама
+   подстраивается под скорость сервера. В запросе только массив z/y текущего поля (Patch).
+   Простой updatemode='drag' слал бы запрос на каждый шаг: dash отбрасывает устаревшие ответы, но сервер считает все.
 3. Подпись времени обновляется на клиенте (clientside callback) — без сервера.
 4. Все контейнеры фиксированного размера — интерфейс не "вздрагивает".
 5. Сетка в пределах расчётной области: явные range осей + constrain='domain'.
 6. Wildcard-выход (кнопки) всегда получает СПИСОК значений — иначе Dash падает
    с InvalidCallbackReturnValue (что ломало обновление по слайдеру).
 
-Карта - одно поле заливкой (кнопка справа) и любые поля изолиниями поверх (список под ползунком);
-«Sat and Temp» - готовый набор из них. Настройки отображения - в `map-settings`, от них пересобирается
+Карта - одно поле заливкой (кнопка справа) и любые поля изолиниями поверх (список под ползунком).
+Настройки отображения - в `map-settings`, от них пересобирается
 фигура (`_redraw`); ползунок шлет только данные слоя (`_on_slider`). Справа от кнопок - дополнительный график:
-величины в выбранной щелчком ячейке во времени или профиль вдоль линии.
+величины в выбранной щелчком ячейке во времени, профиль вдоль линии или φ(r) в ячейке на текущем слое.
+φ(r) приходит в склейке `read_data_files._glue_fi` (только ячейки, где fi отошел от fi_0) или полным полем
+(n, Nx, Ny, Nr) - кэш приводит его к тому же виду.
 
 Данные: кэш pkl -> npy (float32, memory-mapped). Сохранение в HTML — полная анимация.
 """
@@ -44,7 +48,7 @@ assert hasattr(dash, 'Patch'), 'Требуется dash>=2.9: pip install -U das
 from paraphin.geometry import r, fi_0
 from paraphin.constants import Nx, Ny, X_min, X_max, hx, hy, Y_max, Y_min, bar_to_pa, day_to_sec, CONTOUR_PLOT, S_max
 from paraphin.utils.read_data_files import (read_solution_data, convert_pkl_files, results_path, layers_file,
-                                           case_name)
+                                           case_name, FI_CELL, fi_curve)
 
 js_path = Path(__file__).parent / 'plotly_script.js'
 
@@ -59,7 +63,7 @@ GRAPH_W, GRAPH_H = 720, 800             # размер фигуры карты (
 # Высота карты: квадратная область уже GRAPH_H, и под ней оставалась пустая полоса до ползунка
 MAP_H = 660
 CTRL_SHIFT = 50                         # сдвиг подписи времени, ползунка и настроек вправо от края фигуры, px
-WIDE_W = 950                            # 1D-графики (временные ряды, φ(r)) шире карты — слайдер уже них не растягивается
+WIDE_W = 950                            # временные ряды шире карты
 SKIP_FIELDS = {}
 SERIES_GROUPS = ('Wells', 'Wells_accumulated', 'Totals', 'Other params')
 SERIES_TITLES = {'Wells': 'Скважины', 'Wells_accumulated': 'Накопленная добыча', 'Totals': 'Массы компонентов',
@@ -88,13 +92,15 @@ PALETTES = ('Jet', 'Turbo', 'Viridis', 'Plasma', 'RdBu', 'Greys')
 LINE_COLORS = ('black', 'white', 'red', 'magenta', 'cyan', 'lime', 'blue', 'green', 'orange', 'gray')
 OV_COLORS = LINE_COLORS[:6]             # цвета изолиний по умолчанию - по очереди
 AUX_H = 330                             # высота дополнительного графика под картой
+AUX_FI_H = MAP_H - 40                   # φ(r) - во всю высоту карты (колонка начинается на 40 px ниже, вровень с кнопками)
+AUX_MAX_W = 1100                        # доп. график растягивается по свободному месту справа, но не шире
 PROFILES = ('diag', 'x', 'y')           # значения `aux` для профиля: диагональ, вдоль X при j, вдоль Y при i
 
 # Настройки отображения (`map-settings`); `ov` - стиль изолиний по имени поля, `cell` - (i, j) выбранной ячейки
 DEFAULT_SETTINGS = {
     'overlays': [], 'mode': 'fill' if CONTOUR_PLOT else 'heatmap', 'cmap': 'Jet', 'ncont': 10, 'labels': True,
     'range': 'all', 'zmin': None, 'zmax': None, 'log': False, 'ov': {},
-    'aux': 'none', 'cell': None, 'line_idx': 0,
+    'aux': 'none', 'cell': None,
     'series_log': False, 'series_norm': False,
 }
 
@@ -189,6 +195,7 @@ class SolutionStore:
         self._mmaps: dict[str, np.ndarray] = {}
         self._series_cache: dict[str, np.ndarray] = {}
         self._plots_cache: OrderedDict | None = None
+        self._plots_cell: tuple | None = None    # ячейка, по которой собран `_plots_cache`
 
         # Создание кеша кривых
         _n, raw = _load_raw()
@@ -304,10 +311,18 @@ class SolutionStore:
                 print(f'  {g}: {len(names)} кривых')
         meta['series'] = series
 
-        # --- графики phi(r) ---
+        # --- графики phi(r): fi только в ячейках, где он отошел от fi_0 (`read_data_files._glue_fi`) ---
+        raw_plots = dict(raw.get('plots') or {})
+        if 'fi' in raw_plots and 'cells' not in raw_plots:
+            # Полное поле (n, Nx, Ny, Nr) - к тому же виду: только ячейки, где fi хоть раз отошел от fi_0
+            fi = np.asarray(raw_plots['fi'])
+            fi = fi.reshape(fi.shape[0], -1, fi.shape[-1])
+            cells = np.flatnonzero((fi != fi_0.astype(fi.dtype)).any(axis=(0, 2)))
+            raw_plots = {'cells': cells, 'fi': fi[:, cells]}
+            del fi
         plots = {}
-        for k, v in (raw.get('plots') or {}).items():
-            v = np.asarray(v, dtype=DTYPE)
+        for k, v in raw_plots.items():
+            v = np.asarray(v, dtype=DTYPE if k == 'fi' else None)  # 'cells' - номера ячеек, целые
             fname = f'plots__{_sanitize(k)}.npy'
             np.save(CACHE_DIR / fname, v)
             plots[k] = {'file': fname, 'shape': list(v.shape)}
@@ -351,15 +366,16 @@ class SolutionStore:
                 self._series_cache[group] = M
             return M
 
-    def get_plot_data(self) -> 'OrderedDict[str, np.ndarray]':
+    def get_plot_data(self, cell=None) -> 'OrderedDict[str, np.ndarray]':
+        """Кривые по радиусам во все моменты в ячейке `cell` (i, j), без нее - в `FI_CELL`: из memmap читается только
+        ячейка (`fi_curve`)."""
+        ci, cj = cell or FI_CELL
         with self._lock:
-            if self._plots_cache is None:
-                data = OrderedDict()
-                for k, info in self.meta['plots'].items():
-                    data[k] = np.asarray(np.load(CACHE_DIR / info['file']), dtype=np.float64)
-                if 'fi_o' not in data and 'fi' in data:
-                    data['fi_o'] = np.repeat(fi_0[np.newaxis, :], data['fi'].shape[0], axis=0)
-                self._plots_cache = data
+            if self._plots_cache is None or self._plots_cell != (ci, cj):
+                plots = {k: self._mmap(info['file']) for k, info in self.meta['plots'].items()}
+                fi = np.asarray(fi_curve(plots, ci, cj), dtype=np.float64)
+                data = OrderedDict(fi=fi, fi_o=np.repeat(fi_0[np.newaxis, :], fi.shape[0], axis=0))
+                self._plots_cache, self._plots_cell = data, (ci, cj)
             return self._plots_cache
 
 
@@ -455,18 +471,27 @@ def _trace_data(store: SolutionStore, base: str, overlays: list[str], t: int, st
 
 
 def _line_cells(st: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Ячейки профиля (ii, jj) и расстояние вдоль линии, м."""
+    """Ячейки профиля (ii, jj) и расстояние вдоль линии, м. Вдоль X - строка, вдоль Y - столбец ячейки, выбранной
+    щелчком по карте (до щелчка - нулевые)."""
+    ci, cj = st['cell'] or (0, 0)
     if st['aux'] == 'x':
-        jj = int(min(max(st['line_idx'] or 0, 0), Ny - 1))
+        jj = int(min(max(cj, 0), Ny - 1))
         ii = np.arange(Nx)
         return ii, np.full(Nx, jj), x_mesh - x_mesh[0]
     if st['aux'] == 'y':
-        ii = int(min(max(st['line_idx'] or 0, 0), Nx - 1))
+        ii = int(min(max(ci, 0), Nx - 1))
         jj = np.arange(Ny)
         return np.full(Ny, ii), jj, y_mesh - y_mesh[0]
     f = np.linspace(0.0, 1.0, max(Nx, Ny))   # диагональ (0, 0) -> (Nx-1, Ny-1)
     ii, jj = np.rint(f * (Nx - 1)).astype(int), np.rint(f * (Ny - 1)).astype(int)
     return ii, jj, np.hypot(x_mesh[ii] - x_mesh[0], y_mesh[jj] - y_mesh[0])
+
+
+def _field_bounds(c: np.ndarray, mode: str):
+    """Прижатие координаты к области поля по оси с узлами `c`: у Heatmap - края крайних ячеек, у Contour - их центры."""
+    h = (c[1] - c[0]) / 2 if mode == 'heatmap' and len(c) > 1 else 0.0
+    lo, hi = float(c[0] - h), float(c[-1] + h)
+    return lambda v: min(max(float(v), lo), hi)
 
 
 def _map_figure(base: str, i: int, store: SolutionStore, st: dict, animate: bool = False) -> go.Figure:
@@ -493,15 +518,27 @@ def _map_figure(base: str, i: int, store: SolutionStore, st: dict, animate: bool
             showscale=False, showlegend=True, hovertemplate=_hover(name)))
 
     fig = go.Figure(data=traces)
-    # Отметка ячейки и линия профиля идут после трасс полей: Patch по ползунку правит data[k] по номеру поля
-    if st['aux'] == 'cell' and st['cell']:
+    # Отметка ячейки и линия профиля идут после трасс полей: Patch по ползунку правит data[k] по номеру поля.
+    # К маркерам и shape plotly добавляет в autorange запас (5 % и размер маркера, у shape - толщину линии), и после
+    # щелчка по крайней ячейке карта съезжала на ~12 м из 200. Поэтому обе - Scatter из одних линий по замкнутому
+    # пути с прозрачной заливкой 'tozerox': без маркеров снимается запас по x, а замкнутый путь с x-заливкой снимает
+    # его и по y, не притягивая ось к нулю (`calcAxisExpansion` в plotly.js). Концы прижаты к границам поля:
+    # у Heatmap - края крайних ячеек, у Contour - центры.
+    mark = dict(mode='lines', fill='tozerox', fillcolor='rgba(0,0,0,0)', showlegend=False, hoverinfo='skip',
+                cliponaxis=False)
+    if st['aux'] in ('cell', 'fi') and st['cell']:
         ci, cj = st['cell']
-        fig.add_trace(go.Scatter(x=[x_mesh[ci]], y=[y_mesh[cj]], mode='markers', showlegend=False, hoverinfo='skip',
-                                 marker=dict(symbol='x', size=13, color='black', line=dict(width=1, color='white'))))
+        cx, cy, d = x_mesh[ci], y_mesh[cj], 1.5 * max(hx, hy)
+        xc, yc = _field_bounds(store.x, st['mode']), _field_bounds(store.y, st['mode'])
+        xs = [xc(cx - d), xc(cx + d), None, cx, cx, None, xc(cx - d)]   # последняя точка замыкает путь
+        ys = [cy, cy, None, yc(cy - d), yc(cy + d), None, cy]
+        for width, color in ((5, 'white'), (2.5, 'black')):   # черный крест с белой окантовкой
+            fig.add_trace(go.Scatter(x=xs, y=ys, line=dict(color=color, width=width), **mark))
     elif st['aux'] in PROFILES:
         ii, jj, _ = _line_cells(st)
-        fig.add_shape(type='line', x0=x_mesh[ii[0]], y0=y_mesh[jj[0]], x1=x_mesh[ii[-1]], y1=y_mesh[jj[-1]],
-                      line=dict(color='black', width=2, dash='dash'))
+        x0, y0, x1, y1 = x_mesh[ii[0]], y_mesh[jj[0]], x_mesh[ii[-1]], y_mesh[jj[-1]]
+        fig.add_trace(go.Scatter(x=[x0, x1, x0], y=[y0, y1, y0],   # туда и обратно - замкнутый путь
+                                 line=dict(color='black', width=2, dash='dash'), **mark))
 
     xax, yax = _map_axes()
     # uirevision меняется вместе с режимом: у Contour и Heatmap разные диапазоны, и масштаб пользователя
@@ -526,10 +563,61 @@ def _map_figure(base: str, i: int, store: SolutionStore, st: dict, animate: bool
     return fig
 
 
+def _full_range(store: SolutionStore, names: list[str], log: bool) -> list[float]:
+    """Диапазон оси по всему расчету для полей `names` с запасом 3 %; при log - в lg, как ждет plotly."""
+    infos = [store.meta['fields'][n] for n in names]
+    lo, hi = min(f['zmin'] for f in infos), max(f['zmax'] for f in infos)
+    if log:
+        pos = min(f['zpos'] for f in infos)
+        lo, hi = math.log10(max(lo, pos)), math.log10(max(hi, pos))
+    pad = 0.03 * (hi - lo) or 0.03 * abs(hi) or 1.0
+    return [lo - pad, hi + pad]
+
+
+# Знаков после запятой в координатах ячейки: столько, чтобы соседние центры различались (2.7 м - целые, керн - мм)
+_XY_DEC = max(0, -math.floor(math.log10(min(hx, hy))))
+
+
+def _cell_label(ci: int, cj: int) -> str:
+    """Подпись ячейки на доп. графике - координаты ее центра в метрах, а не индексы."""
+    return f'x = {x_mesh[ci]:.{_XY_DEC}f} м, y = {y_mesh[cj]:.{_XY_DEC}f} м'
+
+
+def _fi_range(data: dict) -> list[float]:
+    """Шкала φ(r) ячейки по всему расчету (все слои и φ₀) с запасом 3 %: иначе кривая «прыгала» бы по слоям."""
+    lo = min(0.0, min(float(v.min()) for v in data.values()))
+    hi = max(float(v.max()) for v in data.values())
+    pad = 0.03 * (hi - lo) or 1.0
+    return [lo - pad, hi + pad]
+
+
+def _fi_traces(data: dict, i: int) -> list:
+    """Кривые φ(r) ячейки на слое i: φ первой (ее правит Patch по ползунку), φ₀ - неподвижная."""
+    return [go.Scatter(x=r, y=vals[i], mode='lines', name=names_converter.get(nm, nm),
+                       hovertemplate='x: %{x}<br>y: %{y}<br>', line=dict(width=4 if nm == 'fi' else 3))
+            for nm, vals in data.items()]
+
+
 def _aux_figure(base: str, i: int, store: SolutionStore, st: dict) -> go.Figure:
-    """Дополнительный график под картой: поля карты в выбранной ячейке во времени или профиль вдоль линии."""
+    """Дополнительный график под картой: поля карты в выбранной ячейке во времени, профиль вдоль линии или φ(r)
+    в выбранной ячейке на текущем слое."""
     names = [base] + _overlays(st, base, store)
     fig = go.Figure()
+    if st['aux'] == 'fi':
+        yax = _axis_dict()
+        if not st['cell']:
+            fig.add_annotation(text='Щелкните по карте, чтобы выбрать ячейку', showarrow=False, font=dict(size=15))
+        else:
+            ci, cj = st['cell']
+            data = store.get_plot_data(st['cell'])
+            fig.add_traces(_fi_traces(data, i))
+            yax['range'] = _fi_range(data)
+            fig.update_layout(title=dict(text=f'φ(r), {_cell_label(ci, cj)}', font=dict(size=16)),
+                              xaxis_title='r, м', yaxis_title=names_converter['fi'])
+        fig.update_layout(plot_bgcolor='white', uirevision='aux-fi', xaxis=_axis_dict(), yaxis=yax,
+                          legend=dict(x=1.0, y=1.0, xanchor='right', font=dict(size=16)),
+                          margin=dict(t=40, b=50))
+        return fig
     if st['aux'] == 'cell':
         if not st['cell']:
             fig.add_annotation(text='Щелкните по карте, чтобы выбрать ячейку', showarrow=False, font=dict(size=15))
@@ -540,19 +628,24 @@ def _aux_figure(base: str, i: int, store: SolutionStore, st: dict) -> go.Figure:
                                          yaxis='y2' if k else 'y', hovertemplate='x: %{x} день<br>y: %{y}<br>'))
             fig.add_shape(type='line', xref='x', yref='paper', x0=store.time[i], x1=store.time[i], y0=0, y1=1,
                           line=dict(color='gray', width=1, dash='dot'))
-            fig.update_layout(title=dict(text=f'Ячейка ({ci}, {cj})', font=dict(size=14)), xaxis_title='t, день')
-    else:
+            fig.update_layout(title=dict(text=_cell_label(ci, cj), font=dict(size=14)), xaxis_title='t, день')
+    yax, yax2 = _axis_dict(), dict(side='right', overlaying='y')
+    if st['log']:
+        yax['type'] = 'log'
+    if st['aux'] != 'cell':
         ii, jj, s = _line_cells(st)
         for k, nm in enumerate(names):
             fig.add_trace(go.Scatter(x=s, y=store.get_profile(nm, i, ii, jj), mode='lines', name=nm,
                                      yaxis='y2' if k else 'y', hovertemplate='x: %{x} м<br>y: %{y}<br>'))
         fig.update_layout(xaxis_title='Расстояние вдоль линии, м')
-    yax = _axis_dict()
-    if st['log']:
-        yax['type'] = 'log'
+    # Шкалы - по всему расчету (по всем ячейкам и слоям): у профиля autorange подстраивался бы под каждый слой и
+    # кривые «прыгали», у ячейки - под ее собственный размах, и разные ячейки было бы не сравнить
+    yax['range'] = _full_range(store, names[:1], st['log'])
+    if len(names) > 1:
+        yax2['range'] = _full_range(store, names[1:], False)
     fig.update_layout(plot_bgcolor='white', uirevision=f"aux-{st['aux']}", xaxis=_axis_dict(), yaxis=yax,
-                      yaxis2=dict(side='right', overlaying='y'), legend=dict(orientation='h', x=0, y=-0.25),
-                      margin=dict(t=40, b=10), width=GRAPH_W, height=AUX_H)
+                      yaxis2=yax2, legend=dict(orientation='h', x=0, y=-0.25),
+                      margin=dict(t=40, b=10))
     return fig
 
 
@@ -595,51 +688,12 @@ def _series_figure(view: dict, store: SolutionStore, st: dict) -> go.Figure:
     return fig
 
 
-def _fi_figure(view: dict, i: int, store: SolutionStore, animate: bool = False) -> go.Figure:
-    """Графики phi(r) — оформление как в _visualize_plots_fi оригинала."""
-    data = store.get_plot_data()
-    traces = []
-    for nm, vals in data.items():
-        if nm in ('Ur', 'Ub'):
-            traces.append(go.Scatter(x=r, y=vals[i], mode='lines', name=nm, yaxis='y2',
-                                     hovertemplate='x: %{x}<br>y: %{y}<br>', line=dict(width=3)))
-        else:
-            traces.append(go.Scatter(x=r, y=vals[i], mode='lines', name=names_converter.get(nm, nm),
-                                     hovertemplate='x: %{x}<br>y: %{y}<br>', line=dict(width=4)))
-
-    fig = go.Figure(data=traces)
-    fig.update_layout(
-        xaxis_title='r, м', yaxis_title=names_converter['fi'],
-        plot_bgcolor='white', uirevision='fi', margin=dict(t=0, b=0),
-        xaxis=_axis_dict(), yaxis=_axis_dict(),
-        yaxis2=dict(side='right', overlaying='y'),
-        legend=dict(x=1.01, y=0.8, font=dict(size=18)),
-        width=WIDE_W, height=600,
-    )
-    fig.add_shape(type='rect', xref='paper', yref='paper',
-                  x0=0, y0=0, x1=1, y1=1, line=dict(color='black', width=1))
-    fig.add_hline(y=0, line=dict(color='black', width=1))
-    fig.update_traces(marker=dict(size=8, line=dict(width=1)))
-
-    if animate:
-        steps = [dict(method='update', args=[{'y': [v[j] for v in data.values()]}],
-                      label=_day_fmt(store.time[j]))
-                 for j in range(store.meta['n_times'])]
-        fig.update_layout(sliders=[dict(active=min(i, len(steps) - 1),
-                                        currentvalue={'prefix': 'Время: '}, steps=steps)])
-    return fig
-
-
 def _view_def(view_id: str, store: SolutionStore) -> dict:
-    """Вид по id кнопки. У карты `base` - поле заливкой; «Sat and Temp» - насыщенность с изолиниями температуры."""
-    if view_id == 'sattemp':
-        return {'kind': 'map', 'id': view_id, 'base': 'Saturation'}
+    """Вид по id кнопки. У карты `base` - поле заливкой."""
     if view_id.startswith('field:'):
         return {'kind': 'map', 'id': view_id, 'base': view_id.split(':', 1)[1]}
     if view_id.startswith('series:'):
         return {'kind': 'series', 'id': view_id, 'group': view_id.split(':', 1)[1]}
-    if view_id == 'fi':
-        return {'kind': 'fi', 'id': view_id, 'sources': list(store.get_plot_data().keys())}
     raise ValueError(view_id)
 
 
@@ -647,8 +701,6 @@ def _figure_for(view_id: str, i: int, store: SolutionStore, st: dict, animate: b
     v = _view_def(view_id, store)
     if v['kind'] == 'map':
         return _map_figure(v['base'], i, store, st, animate)
-    if v['kind'] == 'fi':
-        return _fi_figure(v, i, store, animate)
     return _series_figure(v, store, st)
 
 
@@ -662,10 +714,6 @@ def _view_entries(meta: dict) -> list[tuple[str, str, str]]:
         out += [(title, f'field:{n}', n) for n in names if fits(n)]
         names = [n for n in names if not fits(n)]
     out += [('Графики', f'series:{g}', SERIES_TITLES[g]) for g in SERIES_GROUPS if g in meta['series']]
-    if {'Saturation', 'Temperature'} <= set(meta['fields']):
-        out.append(('Графики', 'sattemp', 'Sat and Temp'))
-    if meta.get('has_plots'):
-        out.append(('Графики', 'fi', 'Графики φ(r)'))
     return out
 
 
@@ -694,8 +742,7 @@ def _payload(view_id: str | None, store: SolutionStore) -> dict | None:
     if view_id is None:
         return None
     v = _view_def(view_id, store)
-    return {'id': v['id'], 'kind': v['kind'], 'base': v.get('base'), 'sources': v.get('sources', []),
-            'group': v.get('group')}
+    return {'id': v['id'], 'kind': v['kind'], 'base': v.get('base'), 'group': v.get('group')}
 
 
 def _marks(store: SolutionStore) -> dict:
@@ -714,8 +761,8 @@ def _empty_figure(msg: str) -> go.Figure:
 
 
 def _graph_width(kind: str | None) -> int:
-    """Карта — квадратная (GRAPH_W), временные ряды и φ(r) — шире (WIDE_W), слайдер под ними уже."""
-    return WIDE_W if kind in ('series', 'fi') else GRAPH_W
+    """Карта — квадратная (GRAPH_W), временные ряды — шире (WIDE_W)."""
+    return WIDE_W if kind == 'series' else GRAPH_W
 
 
 def _container_style(kind: str | None) -> dict:
@@ -787,9 +834,8 @@ def _map_panel(store: SolutionStore, st: dict, kind: str | None) -> html.Details
         _row('Доп. график', dcc.RadioItems(id='aux-mode', value=st['aux'], **radio, options=[
             {'label': 'нет', 'value': 'none'}, {'label': 'ячейка', 'value': 'cell'},
             {'label': 'диагональ', 'value': 'diag'}, {'label': 'вдоль\u00a0X', 'value': 'x'},
-            {'label': 'вдоль\u00a0Y', 'value': 'y'}])),
-        _row('Номер j / i', _num('line-idx', st['line_idx'], min=0, step=1),
-             html.Span('ячейка - щелчок по карте; профиль вдоль X - строка j, вдоль Y - столбец i')),
+            {'label': 'вдоль\u00a0Y', 'value': 'y'}]
+            + ([{'label': 'φ(r)', 'value': 'fi'}] if store.meta.get('has_plots') else []))),
     ], open=True, id='map-panel', style=_shown(kind == 'map'))
 
 
@@ -800,9 +846,14 @@ def _series_panel(st: dict, kind: str | None) -> html.Div:
 
 
 def _aux_style(view: dict | None, st: dict) -> dict:
-    """Дополнительный график - третьей колонкой, вровень с кнопками (paddingTop как у их столбца)."""
+    """Дополнительный график - третьей колонкой, вровень с кнопками (paddingTop как у их столбца).
+
+    Ширина - по свободному месту справа от кнопок (`aux-graph` responsive), от GRAPH_W до AUX_MAX_W, с отступом
+    от правого края окна; высота - по режиму: φ(r) во всю высоту карты."""
     on = isinstance(view, dict) and view['kind'] == 'map' and st['aux'] != 'none'
-    return {'paddingTop': '40px', 'flexShrink': 0} | _shown(on)
+    h = AUX_FI_H if st['aux'] == 'fi' else AUX_H
+    return {'paddingTop': '40px', 'flex': f'1 1 {GRAPH_W}px', 'minWidth': f'{GRAPH_W}px',
+            'maxWidth': f'{AUX_MAX_W}px', 'marginRight': '30px', 'height': f'{h}px'} | _shown(on)
 
 
 app = Dash(__name__)
@@ -878,7 +929,8 @@ def _init(_n):
                     [html.Div(dcc.Slider(id='time-slider', min=0, max=max(0, n_times - 1), step=1, value=0,
                                          marks=_marks(store), updatemode='mouseup', allow_direct_input=False,
                                          disabled=slider_disabled),
-                              className='plt-slider', style={'width': f'{GRAPH_W}px'}),
+                              # во всю колонку до кнопки ▶: у карты и у φ(r) ползунок заканчивается у правого края фигуры
+                              className='plt-slider', style={'flex': 1, 'minWidth': 0}),
                      html.Button( '▶', id='btn-play', n_clicks=0, disabled=slider_disabled, className='plt-btn',
                                   style={'width': '28px', 'padding': '5px 0', 'textAlign': 'center', 'flexShrink': 0,
                                          'marginLeft': 'auto', 'transform': 'translateX(30px)'}),
@@ -901,7 +953,8 @@ def _init(_n):
                        'maxHeight': f'{GRAPH_H}px', 'overflowY': 'auto'}),
 
             # ------- справа от кнопок, сверху: ячейка во времени или профиль -------
-            html.Div(dcc.Graph(id='aux-graph', figure=go.Figure(), responsive=False,
+            # responsive: ширину и высоту фигуре задает контейнер (`_aux_style`)
+            html.Div(dcc.Graph(id='aux-graph', figure=go.Figure(), responsive=True, style={'height': '100%'},
                                config={'displaylogo': False}),
                      id='aux-container', style=_aux_style(view, st)),
         ], style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '30px', 'alignItems': 'flex-start'}),
@@ -909,6 +962,8 @@ def _init(_n):
         dcc.Store(id='view-state', data=view),
         dcc.Store(id='map-settings', data=st),
         dcc.Store(id='times-store', data=store.meta['time']),
+        dcc.Store(id='t-live'),                    # слой, который показать: {'t', 'seq'} (seq - чтобы повтор t сработал)
+        dcc.Store(id='live-busy', data=False),     # запрос слоя в работе (running у `_on_slider`)
     ], style={'padding': '0 10px'})
 
 
@@ -928,6 +983,34 @@ app.clientside_callback(
     prevent_initial_call=True,
 )
 
+# --- клиентская заслонка ползунка: не больше одного запроса слоя в работе, новейшее положение перекрывает старые ---
+# Флаг снимает `running` у `_on_slider` (и при ошибке); сторожевой таймер - на случай, если ответ потерялся
+app.clientside_callback(
+    """function(dv, v, busy) {
+        const S = window._live || (window._live = {want: null, busy: false, last: null, seq: 0, timer: null});
+        const trig = dash_clientside.callback_context.triggered.map(t => t.prop_id);
+        if (trig.includes('live-busy.data')) {
+            S.busy = !!busy;
+            if (!S.busy) clearTimeout(S.timer);
+        }
+        if (trig.includes('time-slider.value')) S.want = v;
+        else if (trig.includes('time-slider.drag_value')) S.want = dv;
+        if (S.busy || S.want === null || S.want === undefined || S.want === S.last) {
+            return dash_clientside.no_update;
+        }
+        const t = S.want;
+        S.want = null; S.last = t; S.busy = true;
+        clearTimeout(S.timer);
+        S.timer = setTimeout(() => dash_clientside.set_props('live-busy', {data: false}), 2000);
+        return {t: t, seq: ++S.seq};
+    }""",
+    Output('t-live', 'data'),
+    Input('time-slider', 'drag_value'),
+    Input('time-slider', 'value'),
+    Input('live-busy', 'data'),
+    prevent_initial_call=True,
+)
+
 
 @app.callback(
     Output('view-state', 'data'),
@@ -937,7 +1020,6 @@ app.clientside_callback(
     Output('graph-container', 'style'),
     Output('graph-column', 'style'),
     Output({'type': 'view-btn', 'index': ALL}, 'style'),
-    Output('overlays', 'value'),
     Output('map-panel', 'style'),
     Output('series-panel', 'style'),
     Input({'type': 'view-btn', 'index': ALL}, 'n_clicks'),
@@ -955,7 +1037,7 @@ def _select_view(clicks):
     # защита от холостого срабатывания при создании кнопок (n_clicks == 0 / не кнопка)
     if (not (isinstance(trig_id, dict) and trig_id.get('type') == 'view-btn')
             or all((c or 0) <= 0 for c in (clicks or []))):
-        return (no_update,) * 6 + ([no_update] * len(valid), no_update, no_update, no_update)
+        return (no_update,) * 6 + ([no_update] * len(valid), no_update, no_update)
 
     view_id = _resolve_view(trig_id['index'], store)
     view = _payload(view_id, store)
@@ -964,10 +1046,9 @@ def _select_view(clicks):
     # переключение на вид без ползунка глушит и автопрокрутку, иначе play-interval
     # продолжал бы тикать в фоне вхолостую; между картой и φ(r) автовоспроизведение не трогаем
     stop_play = True if slider_off else no_update
-    overlays = ['Temperature'] if view_id == 'sattemp' else no_update   # готовый набор «Sat and Temp»
     return (view, slider_off, slider_off, stop_play, _container_style(kind), _column_style(kind),
             [_BTN_ACTIVE if vid == view_id else _BTN_INACTIVE for vid in valid],
-            overlays, _shown(kind == 'map'), _shown(kind == 'series'))
+            _shown(kind == 'map'), _shown(kind == 'series'))
 
 
 @app.callback(
@@ -998,7 +1079,6 @@ def _ov_rows(overlays, st):
     Input({'type': 'ov-width', 'index': ALL}, 'value'),
     Input({'type': 'ov-labels', 'index': ALL}, 'value'),
     Input('aux-mode', 'value'),
-    Input('line-idx', 'value'),
     Input('main-graph', 'clickData'),
     Input('series-log', 'value'),
     Input('series-norm', 'value'),
@@ -1007,11 +1087,12 @@ def _ov_rows(overlays, st):
     prevent_initial_call=True,
 )
 def _collect(overlays, mode, cmap, log, ncont, labels, rng, zmin, zmax, ov_c, ov_n, ov_w, ov_l,
-             aux, line_idx, click, s_log, s_norm, ov_ids, prev):
+             aux, click, s_log, s_norm, ov_ids, prev):
     """Все элементы управления -> один словарь настроек (map-settings)."""
     cell = prev['cell']
     if ctx.triggered_id == 'main-graph':
-        if aux != 'cell' or not click:   # щелчок по карте нужен только графику ячейки
+        # Щелчок по карте выбирает ячейку графика ячейки и φ(r), а у профиля вдоль X / Y - ее строку / столбец
+        if aux not in ('cell', 'fi', 'x', 'y') or not click:
             return no_update
         p = click['points'][0]
         cell = [int(np.abs(x_mesh - p['x']).argmin()), int(np.abs(y_mesh - p['y']).argmin())]
@@ -1022,7 +1103,7 @@ def _collect(overlays, mode, cmap, log, ncont, labels, rng, zmin, zmax, ov_c, ov
         'overlays': overlays or [], 'mode': mode, 'cmap': cmap, 'log': bool(log),
         'ncont': int(min(max(ncont or DEFAULT_SETTINGS['ncont'], 1), 100)), 'labels': bool(labels),
         'range': rng, 'zmin': zmin, 'zmax': zmax, 'ov': ov,
-        'aux': aux, 'cell': cell, 'line_idx': int(line_idx or 0),
+        'aux': aux, 'cell': cell,
         'series_log': bool(s_log), 'series_norm': bool(s_norm),
     }
 
@@ -1050,23 +1131,18 @@ def _redraw(view, st, t):
 @app.callback(
     Output('main-graph', 'figure', allow_duplicate=True),
     Output('aux-graph', 'figure', allow_duplicate=True),
-    Input('time-slider', 'value'),
+    Input('t-live', 'data'),
     State('view-state', 'data'),
     State('map-settings', 'data'),
+    running=[(Output('live-busy', 'data'), True, False)],
     prevent_initial_call=True,
 )
-def _on_slider(t, view, st):
-    """Отпускание ползунка (в т.ч. автопрокрутка): единственный запрос, Patch только с данными слоя."""
-    if not isinstance(view, dict) or view['kind'] == 'series':
+def _on_slider(live, view, st):
+    """Слой по положению ползунка (перетаскивание, отпускание, автопрокрутка) из заслонки: Patch только с данными слоя."""
+    if not isinstance(view, dict) or view['kind'] == 'series' or not live:
         return no_update, no_update
-    store, t = get_store(), int(t or 0)
+    store, t = get_store(), int(live['t'])
     patch = Patch()
-    if view['kind'] == 'fi':
-        data = store.get_plot_data()
-        for k, name in enumerate(view['sources']):
-            patch['data'][k]['y'] = data[name][t].tolist()
-        return patch, no_update
-
     base = view['base']
     overlays = _overlays(st, base, store)
     for k, d in enumerate(_trace_data(store, base, overlays, t, st)):
@@ -1086,6 +1162,9 @@ def _on_slider(t, view, st):
     elif st['aux'] == 'cell' and st['cell']:
         aux = Patch()
         aux['layout']['shapes'][0]['x0'] = aux['layout']['shapes'][0]['x1'] = float(store.time[t])
+    elif st['aux'] == 'fi' and st['cell']:
+        aux = Patch()
+        aux['data'][0]['y'] = store.get_plot_data(st['cell'])['fi'][t].tolist()
     return patch, aux
 
 
@@ -1103,7 +1182,7 @@ def _on_slider(t, view, st):
 )
 def _play(_n_clicks, _n_intervals, is_paused, value, max_value, slider_off):
     """Кнопка ▶/⏸ — просто крутит time-slider.value через dcc.Interval; сам сдвиг
-    подхватывает существующий колбэк _on_slider (у него уже есть Input на time-slider.value)."""
+    подхватывает заслонка ползунка и передает в _on_slider через t-live."""
     if ctx.triggered_id == 'btn-play':
         if slider_off:
             return no_update, no_update, no_update
@@ -1125,17 +1204,15 @@ def _play(_n_clicks, _n_intervals, is_paused, value, max_value, slider_off):
 )
 def _save_html(n, payload, t, st):
     """Сохранение в HTML: всегда полная анимация текущего вида с текущими настройками
-    (Results.html / fi_func.html; для временных рядов — статичный график)."""
+    (Results.html; для временных рядов — статичный график)."""
     if not n or not isinstance(payload, dict):
         return no_update
     store = get_store()
     t = int(t or 0)
-    animate = payload['kind'] in ('map', 'fi')
+    animate = payload['kind'] == 'map'
     fig = _figure_for(payload['id'], t, store, st, animate=animate)
 
-    if payload['kind'] == 'fi':
-        fname = 'fi_func.html'
-    elif payload['kind'] == 'map':
+    if payload['kind'] == 'map':
         fname = f'{fig.data[0].name}.html'
     else:
         fname = f'{_sanitize(payload["group"])}.html'

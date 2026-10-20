@@ -52,8 +52,8 @@ from .Thermo_wax import sle_split
 from .Gel import yield_stress
 from .Pore_bundle import moments, int_r_u_fi, weighted, update_fi_rows
 from .Kinetics_math import (brownian_diffusivity, shear_diffusivity, stokes_velocity, leveque_velocity, floc_size,
-                            wall_fraction, langmuir_constant, langmuir_ldf_step, langmuir_film_step, perm_kozeny_carman,
-                            perm_power, perm_damage, perm_surface, ema_conductance)
+                            wall_share_of_rest, langmuir_constant, langmuir_ldf_step, langmuir_film_step,
+                            perm_kozeny_carman, perm_power, perm_damage, perm_surface, ema_conductance)
 
 _SO_MAX = 1.0 - S_max
 _RO_P_O = ro_p / ro_o
@@ -110,6 +110,14 @@ def floc_diameter(w_af, n_f, kin):
     if n_f <= 0.0 or w_af <= 0.0:
         return kin[AGG_D0]
     return floc_size(w_af / n_f, kin[AGG_D0], kin[AGG_DF], ro_asph)
+
+
+@njit(cache=True)
+def floc_diameter_field(w_af, n_f, kin, out) -> None:
+    """`floc_diameter` по полю - для выгрузки (`save_fields`)."""
+    for i in range(out.shape[0]):
+        for j in range(out.shape[1]):
+            out[i, j] = floc_diameter(w_af[i, j], n_f[i, j], kin)
 
 
 @njit(cache=True)
@@ -434,7 +442,9 @@ def _wall_crystallization(i, j, T, p, Wc, Ws, Dep, kx, kin, m, S, mso_dt, dt, tm
         tmp[kk] = 0.0
     mso = m[i, j] * (1.0 - S[i, j])
     if wax_kinetics:
-        frac = wall_fraction(kin[K_WALL], kin[K_CRYST], dt)
+        # остаток пересыщения после объема прошлого шага; шаг dt - этого, а не прошлого: при k*dt >> 1 доля -> 1,
+        # при малых k*dt - k_wall*dt, разница шагов сказывается только между этими пределами
+        frac = wall_share_of_rest(kin[K_WALL], kin[K_CRYST], dt)
         for kk in range(N_W):
             delta = kx[i, j].weq[kk] - Ws[i, j, kk]
             if delta > 0.0:
